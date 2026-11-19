@@ -165,6 +165,7 @@ func TestLoadObservationsRejectsBadRows(t *testing.T) {
 		{name: "unsorted", rows: "project/a\tschema\txerces\tschema-valid\t\nproject/a\tschema\tdotnet\tschema-valid\t\n", want: "line 2 is not sorted"},
 		{name: "duplicate", rows: strings.Repeat("project/a\tschema\txerces\tschema-valid\t\n", 2), want: "line 2 is not sorted after line 1, or repeats"},
 		{name: "other shard", rows: "project/area/a\tschema\txerces\tschema-valid\t\n", want: `case "project/area/a" belongs in "oracles/area.tsv"`},
+		{name: "non-project case", rows: "xerces-j/a\tschema\txerces\tschema-valid\t\n", want: `case "xerces-j/a" has no observation file: case "xerces-j/a" is not a project case`},
 		{name: "unknown verdict", rows: "project/a\tschema\txerces\taccepted\t\n", want: `unknown verdict "accepted"`},
 		{name: "unknown provider", rows: "project/a\tschema\tsaxon\tvalid\t\n", want: `unknown provider "saxon"`},
 		{name: "field count", rows: "project/a\tschema\txerces\tvalid\n", want: "row has 4 fields, want 5"},

@@ -267,7 +267,11 @@ func parseShardRow(name, line string) (Row, error) {
 	if err != nil {
 		return Row{}, err
 	}
-	if owner, err := ObservationPath(r.CaseID); err != nil || owner != name {
+	owner, err := ObservationPath(r.CaseID)
+	if err != nil {
+		return Row{}, fmt.Errorf("case %q has no observation file: %w", r.CaseID, err)
+	}
+	if owner != name {
 		return Row{}, fmt.Errorf("case %q belongs in %q", r.CaseID, owner)
 	}
 	return r, nil
