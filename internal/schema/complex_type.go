@@ -340,7 +340,7 @@ func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexT
 	if base.Mixed() && !derived.Mixed() {
 		return errors.New("complex extension drops mixed base content")
 	}
-	if !complexContentExtendsBase(rt, base.Content, derived.Content) {
+	if !complexContentExtendsBase(rt, base, derived) {
 		return errors.New("complex extension content does not preserve base content")
 	}
 	return nil

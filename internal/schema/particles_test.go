@@ -120,39 +120,6 @@ func TestParticleModelEmptiability(t *testing.T) {
 	}
 }
 
-func TestParticleModelHasNoParticles(t *testing.T) {
-	t.Parallel()
-
-	one := occurrence{Min: 1, Max: 1}
-	rt := particleFixture{
-		models: []contentModelNode{
-			{Kind: modelEmpty},
-			{Kind: modelSequence, Occurs: one},
-			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
-		},
-	}
-	tests := []struct {
-		name  string
-		model contentModelID
-		want  bool
-	}{
-		{name: "absent", model: noContentModel, want: true},
-		{name: "empty", model: 0, want: true},
-		{name: "empty sequence", model: 1, want: true},
-		{name: "non-empty sequence", model: 2, want: false},
-		{name: "invalid", model: 99, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := modelHasNoParticles(rt.build(), tt.model); got != tt.want {
-				t.Fatalf("ModelHasNoParticles() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestParticleCountRange(t *testing.T) {
 	t.Parallel()
 

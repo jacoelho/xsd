@@ -1397,6 +1397,15 @@ xs:anyType's particle and the added particles, which fails Unique Particle
 Attribution against the lax `##any` wildcard. All four providers agree
 (`project/content-models/type-derivation/urtype-content/anytype-extension-sequence-*`).
 
+A mixed extension with empty explicit content has an ·effective content· of a
+synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not
+empty, so its {content type} is the sequence of the base particle and that
+sequence (clause 3.2.3), not the base {content type}. When the base particle is
+an `all` group, the sequence violates
+[All Group Limited](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited)
+clause 1.2. Xerces-J and libxml2 reject it; .NET and xmlschema accept it
+(`project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`).
+
 NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
 definitions} is a subset of B's declaration's {identity-constraint
 definitions}, if any". The text decides it as written: a local declaration in a
@@ -1470,6 +1479,7 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/properties-wildcard-*`,
 `project/content-models/substitution-normalize-blocked-concrete-head-member-invalid`,
 `project/content-models/substitution-normalize-both-ranges-b-literal-member`,
+`project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`,
 `project/content-models/type-derivation/simple-base-mixed-extension-*`,
 `project/content-models/type-derivation/urtype-content/*`,
 `project/content-models/wildcard-restriction-*`,
@@ -2117,10 +2127,18 @@ should accept no instances", accepted 2015-06-02, no version restriction) expect
 both instances invalid. An empty choice with `minOccurs="0"` remains satisfiable
 by absence.
 
-Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 accept empty content
-and a child for a required empty choice. libxml2 2.9.13 rejects both.
+A required empty choice is not empty content: §3.4.2 complex content clause
+2.1.3 treats a choice with no members as empty only with `minOccurs="0"`. An
+extension of a type whose content is a required empty choice therefore has the
+sequence of that choice and the added particles (clause 3.2.3) as its {content
+type}, and admits no instance.
 
-Cases: `project/content-models/nested-empty-choice-required`.
+Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 accept empty content
+and a child for a required empty choice, and accept the added particles in an
+extension of it. libxml2 2.9.13 rejects all of them.
+
+Cases: `project/content-models/nested-empty-choice-required` and
+`project/content-models/type-derivation/extension-content/required-empty-choice-base`.
 
 ## I-043 — libxml2 continues after well-formedness errors
 

@@ -408,16 +408,24 @@ func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner,
 	}
 	ct.Derivation = derivationKindExtension
 	ct.ExplicitDerivation = true
-	ct.Content = base.Content
 	ct.TextType = base.TextType
-	ct.ContentKind = complexExtensionContentKind(base, contentKind)
+	effective := effectiveContent{model: noContentModel, variety: contentKind}
+	at := child
 	if modelNode := firstModelChild(child); modelNode != nil {
-		content, err := c.compileComplexExtensionModel(ctx, modelNode, baseID, base, contentKind)
+		model, err := c.compileModel(ctx, modelNode)
 		if err != nil {
 			return complexTypeMetadata{}, err
 		}
-		ct.Content = content
+		if contentKind != contentEmpty {
+			effective.model = model
+		}
+		at = modelNode
 	}
+	content, err := c.extensionContentType(base, effective, at)
+	if err != nil {
+		return complexTypeMetadata{}, err
+	}
+	ct.Content, ct.ContentKind = content.model, content.variety
 	baseUses, baseWildcard := c.rt.attributeUsesAndWildcardForCompilation(base.Attrs)
 	attrs, err := c.compileAttributeUses(ctx, child, baseUses, baseWildcard, attributeMergeExtension)
 	if err != nil {
@@ -434,36 +442,58 @@ func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner,
 	return ct, nil
 }
 
-func complexExtensionContentKind(base complexTypeMetadata, contentKind complexContentVariety) complexContentVariety {
-	if contentKind == contentEmpty || base.SimpleContent() {
-		return base.ContentKind
-	}
-	return contentKind
+// effectiveContent is a {content type} under construction: its variety and,
+// unless the content is empty or the synthetic empty sequence of mixed empty
+// content, the model of its particle. For an extension's explicit content it
+// is the ·effective content· with its ·effective mixed· (Structures §3.4.2
+// complex content clauses 1 and 2), which effectiveComplexContentKind decides
+// from the source.
+type effectiveContent struct {
+	model   contentModelID
+	variety complexContentVariety
 }
 
-func (c *compiler) compileComplexExtensionModel(ctx *schemaSetDocument, modelNode *schemaNode, baseID ComplexTypeID, base complexTypeMetadata, contentKind complexContentVariety) (contentModelID, error) {
-	content, err := c.compileModel(ctx, modelNode)
+// extensionContentType returns the {content type} of a complex-content
+// extension (Structures §3.4.2 complex content clause 3.2). Empty effective
+// content keeps the base content type (3.2.1), an empty base content type
+// takes the effective content (3.2.2), and otherwise the content is a 1..1
+// sequence of the base particle followed by the effective content (3.2.3).
+// at locates the diagnostics of clause 3.2.3.
+func (c *compiler) extensionContentType(base complexTypeMetadata, effective effectiveContent, at *schemaNode) (effectiveContent, error) {
+	switch {
+	case effective.variety == contentEmpty:
+		return effectiveContent{model: base.Content, variety: base.ContentKind}, nil
+	case base.SimpleContent():
+		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to simple content"))
+	case base.ContentKind == contentEmpty:
+		return effective, nil
+	}
+	if base.Mixed() && !effective.variety.Mixed() {
+		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content"))
+	}
+	if err := validateExtensionSequenceTerms(&c.rt, base.Content, effective.model); err != nil {
+		return effectiveContent{}, withSchemaCompileLocation(at, err)
+	}
+	add := func(model contentModelNode) (contentModelID, error) {
+		return c.addModel(model, at)
+	}
+	baseParticle, err := contentTypeParticle(&c.rt, add, base.Content)
 	if err != nil {
-		return noContentModel, err
+		return effectiveContent{}, err
 	}
-	if content == noContentModel || contentKind == contentEmpty {
-		// Absent or empty effective content inherits the base after source
-		// admission; an absent particle has no term to resolve.
-		return base.Content, nil
+	explicitParticle, err := contentTypeParticle(&c.rt, add, effective.model)
+	if err != nil {
+		return effectiveContent{}, err
 	}
-	if err := validateComplexExtensionContentAdmission(complexExtensionContentAdmission{
-		BaseSimpleContent: base.SimpleContent(),
-		HasModelChild:     true,
-	}); err != nil {
-		return noContentModel, withSchemaCompileLocation(modelNode, err)
+	sequence := contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Mixed: effective.variety.Mixed()}
+	if err := appendModelParticles(&c.dependencyWork, &sequence, baseParticle, explicitParticle); err != nil {
+		return effectiveContent{}, err
 	}
-	if err := c.validateComplexExtensionModelAdmission(base, content, contentKind); err != nil {
-		return noContentModel, withSchemaCompileLocation(modelNode, err)
+	id, err := add(sequence)
+	if err != nil {
+		return effectiveContent{}, err
 	}
-	addAtModelNode := func(model contentModelNode) (contentModelID, error) {
-		return c.addModel(model, modelNode)
-	}
-	return extendSequenceModel(&c.rt, addAtModelNode, base.Content, content)
+	return effectiveContent{model: id, variety: effective.variety}, nil
 }
 
 func validateMixedDerivationAt(child *schemaNode, base complexTypeMetadata, derivation contentDerivationKind, content complexContentVariety) error {

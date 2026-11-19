@@ -318,15 +318,6 @@ func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, erro
 	return modelParticle(modelID, occurs), true, nil
 }
 
-func (c *compiler) validateComplexExtensionModelAdmission(base complexTypeMetadata, ext contentModelID, contentKind complexContentVariety) error {
-	return validateComplexExtensionModelAdmission(&c.rt, complexExtensionModelAdmission{
-		Extension:   ext,
-		BaseContent: base.Content,
-		BaseMixed:   base.Mixed(),
-		Mixed:       contentKind.Mixed(),
-	})
-}
-
 // particleOccurrence returns the occurrence the start tag of the particle n
 // admitted.
 func particleOccurrence(n *schemaNode) (occurrence, error) {

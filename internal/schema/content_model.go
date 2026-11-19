@@ -279,32 +279,32 @@ func nextNestedContentModel(particles []contentParticle, next *int) (contentMode
 	return child, true
 }
 
-// complexContentExtendsBase reports whether derived preserves base as the
-// leading content of a complex-type extension.
-func complexContentExtendsBase(rt *schemaBuild, baseID, derivedID contentModelID) bool {
-	if baseID == derivedID || modelHasNoParticles(rt, baseID) {
+// complexContentExtendsBase reports whether derived's {content type} is the
+// one Structures §3.4.2 complex content clause 3.2 gives an extension of base:
+// the base content type itself (3.2.1), any content over an empty base (3.2.2),
+// or a 1..1 sequence whose first particle is the base particle (3.2.3).
+func complexContentExtendsBase(rt *schemaBuild, base, derived complexTypeMetadata) bool {
+	if derived.Content == base.Content || base.ContentKind == contentEmpty {
 		return true
 	}
-	base, ok := contentModelByID(rt.Models, baseID)
+	model, ok := contentModelByID(rt.Models, derived.Content)
+	if !ok || model.Kind != modelSequence || !model.Occurs.IsExactlyOne() || len(model.Particles) != 2 {
+		return false
+	}
+	first := model.Particles[0]
+	baseModel, ok := contentModelByID(rt.Models, base.Content)
 	if !ok {
 		return false
 	}
-	derived, ok := contentModelByID(rt.Models, derivedID)
-	if !ok {
-		return false
+	if baseModel.Kind == modelEmpty {
+		return first.Kind == particleModel && first.Occurs.IsExactlyOne() &&
+			validContentModelID(first.Model, len(rt.Models)) && emptySequence(rt.Models[first.Model])
 	}
-	if derived.Kind != modelSequence {
-		return false
-	}
-	if !derived.Occurs.IsExactlyOne() {
-		return false
-	}
-	if base.Kind == modelSequence && base.Occurs.IsExactlyOne() {
-		return len(derived.Particles) >= len(base.Particles) &&
-			slices.Equal(derived.Particles[:len(base.Particles)], base.Particles)
-	}
-	return len(derived.Particles) != 0 &&
-		modelParticlePreservesBase(rt.Models, derived.Particles[0], baseID, base)
+	return modelParticlePreservesBase(rt.Models, first, base.Content, baseModel)
+}
+
+func emptySequence(model contentModelNode) bool {
+	return model.Kind == modelSequence && model.Occurs.IsExactlyOne() && len(model.Particles) == 0
 }
 
 func modelParticlePreservesBase(models []contentModelNode, particle contentParticle, baseID contentModelID, base contentModelNode) bool {

@@ -28229,6 +28229,117 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/required-empty-choice-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "A required empty choice is not empty content (§3.4.2 clause 2.1.3 needs minOccurs 0), so extending it gives sequence(choice(), sequence(a)) (clause 3.2.3), which no sequence satisfies (I-042)."
+        ],
+        "description": "An extension of a type whose content is a required empty choice admits no instance."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base-empty.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base-a.xml",
+          "expected": "invalid",
+          "differences": {
+            "dotnet": {
+              "record": "I-042"
+            },
+            "xerces": {
+              "record": "I-042"
+            },
+            "xmlschema": {
+              "record": "I-042"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base-empty.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/required-empty-choice-base-a.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "A mixed extension with empty explicit content has content type sequence(base particle, empty sequence) (§3.4.2 clause 3.2.3). The base particle is an all group, which All Group Limited allows only as the whole {content type} particle."
+        ],
+        "description": "A mixed empty extension of a mixed all-group type is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited",
+          "clause": "1.2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

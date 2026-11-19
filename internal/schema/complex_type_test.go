@@ -699,12 +699,12 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 			{
 				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []contentParticle{elementParticle(elemA, one), elementParticle(elemB, one)},
+				Particles: []contentParticle{modelParticle(baseSeqID, one), elementParticle(elemB, one)},
 			},
 			{
 				Kind:      modelSequence,
 				Occurs:    one,
-				Particles: []contentParticle{elementParticle(elemB, one), elementParticle(elemA, one)},
+				Particles: []contentParticle{elementParticle(elemB, one), modelParticle(baseSeqID, one)},
 			},
 		},
 	}

@@ -6,22 +6,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// complexExtensionModelAdmission is the compile-time projection needed to
-// validate an extension model before it is appended to its base content.
-type complexExtensionModelAdmission struct {
-	Extension   contentModelID
-	BaseContent contentModelID
-	BaseMixed   bool
-	Mixed       bool
-}
-
-// complexExtensionContentAdmission is the compile-time projection needed before
-// an extension model is lowered.
-type complexExtensionContentAdmission struct {
-	BaseSimpleContent bool
-	HasModelChild     bool
-}
-
 // modelChildKind is the compile-time projection of the child term being
 // admitted into a model group.
 type modelChildKind uint8
@@ -45,14 +29,6 @@ type modelChildAdmission struct {
 // addContentModelFunc appends a generated content model to the compiler's
 // mutable runtime model table.
 type addContentModelFunc func(contentModelNode) (contentModelID, error)
-
-type modelTextKind uint8
-
-const (
-	modelTextInvalid modelTextKind = iota
-	modelTextElementOnly
-	modelTextMixed
-)
 
 // modelKindForLocal classifies an XSD model-group element local name.
 func modelKindForLocal(local string) (modelKind, error) {
@@ -123,115 +99,39 @@ func modelParticleChildKind(p contentParticle) modelChildKind {
 	return modelChildModel
 }
 
-// validateComplexExtensionModelAdmission validates compile-time complex-content
-// extension model admission rules.
-func validateComplexExtensionModelAdmission(rt *schemaBuild, admission complexExtensionModelAdmission) error {
-	if admission.BaseMixed && !admission.Mixed {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content")
+// contentTypeParticle returns the particle of the {content type} whose model
+// is id, as Structures §3.4.2 complex content clause 3.2.3 composes it. Mixed
+// empty content is stored as an empty model with the mixed flag, and
+// noContentModel is the effective content of mixed empty explicit content;
+// both stand for the synthetic 1..1 empty sequence of clause 2.1.4.
+func contentTypeParticle(rt *schemaBuild, add addContentModelFunc, id contentModelID) (contentParticle, error) {
+	one := occurrence{Min: 1, Max: 1}
+	if id == noContentModel || rt.Models[id].Kind == modelEmpty {
+		sequence, err := add(contentModelNode{Kind: modelSequence, Occurs: one})
+		return modelParticle(sequence, one), err
 	}
-	extension, ok := contentModelByID(rt.Models, admission.Extension)
+	p, ok, err := compileModelParticle(rt, add, id)
+	if err != nil {
+		return contentParticle{}, err
+	}
 	if !ok {
-		return xsderrors.InternalInvariant("complex extension references missing extension content model")
+		return contentParticle{}, xsderrors.InternalInvariant("content type particle has no occurrence")
 	}
-	if extension.Kind == modelAll && !modelHasNoParticles(rt, admission.BaseContent) {
+	return p, nil
+}
+
+// validateExtensionSequenceTerms rejects an all group in the sequence clause
+// 3.2.3 builds from the base content model and the explicit content model:
+// All Group Limited admits an all group only as the whole {content type}
+// particle.
+func validateExtensionSequenceTerms(rt *schemaBuild, base, explicit contentModelID) error {
+	if explicit != noContentModel && rt.Models[explicit].Kind == modelAll {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot use xs:all")
 	}
-	if admission.BaseContent == noContentModel {
-		return nil
-	}
-	base, ok := contentModelByID(rt.Models, admission.BaseContent)
-	if !ok {
-		return xsderrors.InternalInvariant("complex extension references missing base content model")
-	}
-	if base.Kind == modelAll && len(base.Particles) != 0 {
+	if rt.Models[base].Kind == modelAll {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base")
 	}
 	return nil
-}
-
-// validateComplexExtensionContentAdmission validates compile-time complex-content
-// extension admission rules that are knowable before model lowering.
-func validateComplexExtensionContentAdmission(admission complexExtensionContentAdmission) error {
-	if admission.BaseSimpleContent && admission.HasModelChild {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to simple content")
-	}
-	return nil
-}
-
-// extendSequenceModel lowers a complex-content extension by combining base and
-// extension content into a sequence model when both sides contribute particles.
-func extendSequenceModel(rt *schemaBuild, add addContentModelFunc, baseID, extID contentModelID) (contentModelID, error) {
-	if baseID == noContentModel {
-		return extID, nil
-	}
-	base, ok := contentModelByID(rt.Models, baseID)
-	if !ok {
-		return noContentModel, xsderrors.InternalInvariant("sequence extension references missing base content model")
-	}
-	ext, ok := contentModelByID(rt.Models, extID)
-	if !ok {
-		return noContentModel, xsderrors.InternalInvariant("sequence extension references missing extension content model")
-	}
-	textKind := modelTextElementOnly
-	if base.Mixed || ext.Mixed {
-		textKind = modelTextMixed
-	}
-	if modelHasNoParticles(rt, baseID) {
-		return modelWithTextKind(rt, add, extID, textKind)
-	}
-	if modelHasNoParticles(rt, extID) {
-		return modelWithTextKind(rt, add, baseID, textKind)
-	}
-	m := contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Mixed: textKind == modelTextMixed}
-	if err := appendSequenceExtensionOperand(rt, add, &m, baseID, base); err != nil {
-		return noContentModel, err
-	}
-	if err := appendSequenceExtensionOperand(rt, add, &m, extID, ext); err != nil {
-		return noContentModel, err
-	}
-	return add(m)
-}
-
-func appendSequenceExtensionOperand(rt *schemaBuild, add addContentModelFunc, target *contentModelNode, id contentModelID, model contentModelNode) error {
-	if model.Kind == modelSequence && model.Occurs.IsExactlyOne() {
-		return appendModelParticles(rt.typeWork, target, model.Particles...)
-	}
-	return appendModelParticle(rt, add, target, id)
-}
-
-func modelWithTextKind(rt *schemaBuild, add addContentModelFunc, id contentModelID, textKind modelTextKind) (contentModelID, error) {
-	var mixed bool
-	switch textKind {
-	case modelTextElementOnly:
-	case modelTextMixed:
-		mixed = true
-	case modelTextInvalid:
-		return noContentModel, xsderrors.InternalInvariant("invalid model text kind")
-	default:
-		return noContentModel, xsderrors.InternalInvariant("unknown model text kind")
-	}
-	if id == noContentModel {
-		return id, nil
-	}
-	model, ok := contentModelByID(rt.Models, id)
-	if !ok {
-		return noContentModel, xsderrors.InternalInvariant("model mixed update references missing content model")
-	}
-	if model.Mixed == mixed {
-		return id, nil
-	}
-	model.Mixed = mixed
-	return add(model)
-}
-
-// appendModelParticle appends a model particle for id when the referenced
-// model can contribute content.
-func appendModelParticle(rt *schemaBuild, add addContentModelFunc, model *contentModelNode, id contentModelID) error {
-	p, ok, err := compileModelParticle(rt, add, id)
-	if err != nil || !ok {
-		return err
-	}
-	return appendModelParticles(rt.typeWork, model, p)
 }
 
 // compileModelParticle lowers a referenced content model into a particle. Repeated

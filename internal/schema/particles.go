@@ -1,24 +1,5 @@
 package schema
 
-// modelHasNoParticles reports whether modelID is structurally empty.
-func modelHasNoParticles(rt *schemaBuild, modelID contentModelID) bool {
-	if modelID == noContentModel {
-		return true
-	}
-	model, ok := contentModelByID(rt.Models, modelID)
-	if !ok {
-		return false
-	}
-	switch model.Kind {
-	case modelEmpty:
-		return true
-	case modelSequence, modelChoice, modelAll:
-		return len(model.Particles) == 0
-	default:
-	}
-	return false
-}
-
 // sequenceChoiceRange reports the range for a sequence that restricts a choice.
 func sequenceChoiceRange(model contentModelNode) occurrence {
 	particleCount := saturatingUint32(len(model.Particles))
