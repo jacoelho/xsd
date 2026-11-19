@@ -31020,6 +31020,88 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-repchoiceofempty",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-repchoiceofempty.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left.",
+          "A choice left with no members that ignored a member matching only the empty sequence still admits the empty sequence when it stays a group, as Particle Emptiable reads the declared group (I-028)."
+        ],
+        "description": "The base sequence holds a choice with maxOccurs 2 of two empty sequences, which stays an emptiable group; a restriction that drops it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-repchoiceofempty.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-repchoiceofempty.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups, decided on the group as declared (I-028). A 1..1 group holding no element or wildcard is ignored when it matches the empty sequence; a choice left with no members matches the empty sequence only when one of its members did, and otherwise matches nothing (I-042), so it is ignored only inside a choice. A group that is not 1..1 and declared with members stays a group with whatever members are left.",
+          "A choice left with no members that ignored a member matching only the empty sequence still admits the empty sequence when it stays a group, as Particle Emptiable reads the declared group (I-028)."
+        ],
+        "description": "The derived sequence adds a choice with maxOccurs 2 of two empty sequences between a and b; the group stays, maps to no base particle, and the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

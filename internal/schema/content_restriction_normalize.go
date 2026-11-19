@@ -218,9 +218,11 @@ func (c normalizedRestrictionChild) unchanged(original contentParticle) bool {
 type normalizedRestrictionChildren struct {
 	particles []contentParticle
 	order     restrictionChoiceOrder
-	changed   bool
-	// ignoredEmpty records that a child matching only the empty sequence was
-	// ignored, so a choice it belonged to admits the empty sequence.
+	// emptyMember is the first ignored child, which matches only the empty
+	// sequence; ignoredEmpty records that there was one, so a choice it
+	// belonged to admits the empty sequence.
+	emptyMember  contentParticle
+	changed      bool
 	ignoredEmpty bool
 }
 
@@ -251,7 +253,9 @@ func (n *restrictionNormalizer) replaceChild(result *normalizedRestrictionChildr
 		result.changed = true
 	}
 	if child.disposition == childIgnored {
-		result.ignoredEmpty = true
+		if !result.ignoredEmpty {
+			result.emptyMember, result.ignoredEmpty = child.particle, true
+		}
 	}
 	if parent.Kind == modelChoice && child.disposition == childSpliced {
 		if err = n.appendChildChoiceSpans(result, child); err != nil {
@@ -339,6 +343,15 @@ func (n *restrictionNormalizer) appendChild(particles []contentParticle, child n
 func (n *restrictionNormalizer) declaredGroup(m contentModelNode, occurs occurrence, children normalizedRestrictionChildren) (contentParticle, error) {
 	if len(children.particles) == 0 && emptyGroup(m, occurs, children.ignoredEmpty) {
 		return n.addGroup(contentModelNode{Kind: modelEmpty}, occurrence{Min: 1, Max: 1}, children.order)
+	}
+	if len(children.particles) == 0 && m.Kind == modelChoice && children.ignoredEmpty {
+		// A choice that stays a group still admits the empty sequence through
+		// the member clause 2.2 ignored, as Particle Emptiable reads the
+		// declared group (I-028); without it the choice would match nothing.
+		if err := n.validator.charge(); err != nil {
+			return contentParticle{}, err
+		}
+		children.particles = []contentParticle{children.emptyMember}
 	}
 	return n.addGroup(contentModelNode{Kind: m.Kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: children.particles}, occurs, children.order)
 }

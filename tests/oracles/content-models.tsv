@@ -4241,6 +4241,10 @@ project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoice
 project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	xerces	schema-valid	
 project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	dotnet	schema-valid	warning: base-seq-repchoiceofempty.xsd:3:81: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	dotnet	schema-valid	warning: derived-cho-ab-choiceofemptychoices.xsd:4:134: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	xerces	schema-valid	
@@ -4313,6 +4317,10 @@ project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	s
 project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	xerces	schema-invalid	derived-seq-a-optseqofempty-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
 project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence minOccurs="0"><xs:sequence /></xs:sequence><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-optseqofempty-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	dotnet	schema-valid	warning: derived-seq-a-repchoiceofempty-b.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	xerces	schema-invalid	derived-seq-a-repchoiceofempty-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice maxOccurs="2"><xs:sequence /><xs:sequence /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-repchoiceofempty-b.xsd
 project/content-models/pointless-groups/declared/derived-seq-both-any	schema	dotnet	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-both-any	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-both-any	schema	xerces	schema-valid	

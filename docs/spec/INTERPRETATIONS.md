@@ -1391,7 +1391,11 @@ empty sequence, such as a choice of required empty choices
 ([I-042](#i-042--empty-choice)); it is then ignored only inside a choice. A
 group that is not 1..1 and is declared with members stays a group whatever
 members are left, as Xerces-J keeps it, so an optional group of empty groups
-in a derived sequence maps to no base particle. The choice that clause 2.1
+in a derived sequence maps to no base particle. Such a group still admits the
+empty sequence when its declared members did, since Xerces-J reads Particle
+Emptiable on the declared group: a base choice with `maxOccurs="2"` of empty
+sequences may be left out of a restriction, while the same choice added to a
+derived sequence maps to no base particle. The choice that clause 2.1
 generates for a substitution group is not declared and still reduces to its
 only member
 ([I-027](#i-027--derivation-control-and-actual-substitution-groups)). Cases:
@@ -2187,10 +2191,12 @@ empty group except inside a choice, where it adds nothing
 restriction compares it like any other member: dropping it from a base
 sequence admits content the base does not, and keeping it in a derived
 sequence the base lacks leaves it unmapped. Xerces-J ignores it as empty
-everywhere and accepts both restrictions; .NET and libxml2 accept the derived
-one, and all four accept the base one. A choice of two required empty choices
-behaves the same, and execution rejects every instance of a sequence that must
-hold it, which Xerces-J, .NET and xmlschema accept. Inside a choice it adds
+everywhere and accepts both restrictions, and so do .NET, xmlschema and
+libxml2. A choice of two required empty choices matches nothing in the same
+way: all four accept a base sequence that holds it being restricted without
+it, Xerces-J, .NET and libxml2 accept a derived sequence that adds it while
+xmlschema rejects that, and execution rejects every instance of a sequence
+that must hold it, which Xerces-J, .NET and xmlschema accept. Inside a choice it adds
 nothing, so a choice of `a` and a required empty choice restricts a choice of
 `a` and `b`, as all four agree.
 
