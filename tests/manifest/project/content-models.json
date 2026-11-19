@@ -5415,7 +5415,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-identity"
         ],
         "conditions": [
-          "Section 3.4.2 content mapping 3.2.1 gives an empty extension its base entire content type. This preserves the actual ur-type content wildcard by construction; it does not construct an equivalent ordinary wildcard.",
+          "The fixture is a mixed empty extension, so section 3.4.2 content mapping clause 3.2.3 applies: its content type is a sequence of the base's ur-type particle and an empty sequence. This preserves the actual ur-type content wildcard by construction; it does not construct an equivalent ordinary wildcard.",
           "NSSubset 3 exempts that wildcard component from processing-strength restrictions. The operand differs from attribute restriction 4.3, whose exception names the immediate base type. Neither arbitrary anyType ancestry nor equal wildcard shape qualifies.",
           "The existing direct-anyType strength control and independently declared lax-clone skip opponent distinguish this source qualification. Both instances under this schema are valid: skip ignores even invalid text in a declared integer child."
         ]

@@ -66698,7 +66698,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minExclusive",
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-maxInclusive"
         ],
-        "description": "Derived minExclusive=10 relative to parent maxInclusive=10: equal. Numbered clause permits=True; parent endpoint admission=True. Equality is rejected by effective minExclusive<maxInclusive, independently of numbered clause2."
+        "description": "Derived minExclusive=10 relative to parent maxInclusive=10: equal. The selected minExclusive correction (minExclusive valid restriction clause 3 of XSD 1.1, I-038) repairs the garbled 1.0 clause 2 and rejects equality."
       },
       "schema": {
         "expected": "invalid",

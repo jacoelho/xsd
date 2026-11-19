@@ -2137,7 +2137,7 @@
           "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1890"
         ],
         "conditions": [
-          "WG 1890 correction applied to XSD 1.0: XSD and XSI namespaces are exempt from imports across all component kinds. Lookup must still find an existing component of the requested kind; no schemas are fetched."
+          "The locationless import of the XML Schema namespace is satisfied by the explicit auxiliary root that supplies its components, whatever the root order (I-019). The name needs no import (WG 1890, I-006), and lookup must still find an existing component of the requested kind; no schemas are fetched."
         ]
       },
       "schema": {
@@ -2153,8 +2153,8 @@
           }
         ],
         "rule": {
-          "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-          "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
         },
         "differences": {
           "xerces": {
@@ -2168,8 +2168,8 @@
           "file": "corpus/project/composition/xsd-component-imports/attribute-group-imported-valid.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
@@ -2177,8 +2177,8 @@
           "file": "corpus/project/composition/xsd-component-imports/attribute-group-imported-absent-required.xml",
           "expected": "invalid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
@@ -2186,8 +2186,8 @@
           "file": "corpus/project/composition/xsd-component-imports/attribute-group-imported-facet-opponent.xml",
           "expected": "invalid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         }
       ],
@@ -4334,7 +4334,7 @@
           "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1890"
         ],
         "conditions": [
-          "WG 1890 correction applied to XSD 1.0: XSD and XSI namespaces are exempt from imports across all component kinds. Lookup must still find an existing component of the requested kind; no schemas are fetched."
+          "The locationless import of the XML Schema namespace is satisfied by the explicit auxiliary root that supplies its components, whatever the root order (I-019). The name needs no import (WG 1890, I-006), and lookup must still find an existing component of the requested kind; no schemas are fetched."
         ]
       },
       "schema": {
@@ -4350,8 +4350,8 @@
           }
         ],
         "rule": {
-          "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-          "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
         },
         "differences": {
           "xerces": {
@@ -4365,8 +4365,8 @@
           "file": "corpus/project/composition/xsd-component-imports/type-imported-valid.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
@@ -4374,8 +4374,8 @@
           "file": "corpus/project/composition/xsd-component-imports/type-imported-facet-opponent.xml",
           "expected": "invalid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         }
       ],
@@ -4495,7 +4495,7 @@
           "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1890"
         ],
         "conditions": [
-          "WG 1890 correction applied to XSD 1.0: XSD and XSI namespaces are exempt from imports across all component kinds. Lookup must still find an existing component of the requested kind; no schemas are fetched."
+          "The locationless import of the XML Schema namespace is satisfied by the explicit auxiliary root that supplies its components, whatever the root order (I-019). The name needs no import (WG 1890, I-006), and lookup must still find an existing component of the requested kind; no schemas are fetched."
         ]
       },
       "schema": {
@@ -4511,8 +4511,8 @@
           }
         ],
         "rule": {
-          "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-          "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
         },
         "differences": {
           "xerces": {
@@ -4526,8 +4526,8 @@
           "file": "corpus/project/composition/xsd-component-imports/attribute-imported-valid.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
@@ -4535,8 +4535,8 @@
           "file": "corpus/project/composition/xsd-component-imports/attribute-imported-facet-opponent.xml",
           "expected": "invalid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         }
       ],
@@ -4656,7 +4656,7 @@
           "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1890"
         ],
         "conditions": [
-          "WG 1890 correction applied to XSD 1.0: XSD and XSI namespaces are exempt from imports across all component kinds. Lookup must still find an existing component of the requested kind; no schemas are fetched."
+          "The locationless import of the XML Schema namespace is satisfied by the explicit auxiliary root that supplies its components, whatever the root order (I-019). The name needs no import (WG 1890, I-006), and lookup must still find an existing component of the requested kind; no schemas are fetched."
         ]
       },
       "schema": {
@@ -4672,8 +4672,8 @@
           }
         ],
         "rule": {
-          "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-          "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
         },
         "differences": {
           "xerces": {
@@ -4687,8 +4687,8 @@
           "file": "corpus/project/composition/xsd-component-imports/element-imported-valid.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
@@ -4696,8 +4696,8 @@
           "file": "corpus/project/composition/xsd-component-imports/element-imported-missing.xml",
           "expected": "invalid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         }
       ],
@@ -4817,7 +4817,7 @@
           "https://www.w3.org/Bugs/Public/show_bug.cgi?id=1890"
         ],
         "conditions": [
-          "WG 1890 correction applied to XSD 1.0: XSD and XSI namespaces are exempt from imports across all component kinds. Lookup must still find an existing component of the requested kind; no schemas are fetched."
+          "The locationless import of the XML Schema namespace is satisfied by the explicit auxiliary root that supplies its components, whatever the root order (I-019). The name needs no import (WG 1890, I-006), and lookup must still find an existing component of the requested kind; no schemas are fetched."
         ]
       },
       "schema": {
@@ -4833,8 +4833,8 @@
           }
         ],
         "rule": {
-          "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-          "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+          "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
         },
         "differences": {
           "xerces": {
@@ -4848,8 +4848,8 @@
           "file": "corpus/project/composition/xsd-component-imports/group-imported-valid.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         },
         {
@@ -4857,8 +4857,8 @@
           "file": "corpus/project/composition/xsd-component-imports/group-imported-missing.xml",
           "expected": "invalid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-006--xsdxsi-schema-references",
-            "clause": "I-006 in docs/spec/INTERPRETATIONS.md"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-019--schema-document-identity-is-the-resolved-location",
+            "clause": "Locationless imports in I-019 of docs/spec/INTERPRETATIONS.md"
           }
         }
       ],
@@ -14688,7 +14688,9 @@
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import"
         ],
-        "conditions": "CMP-Q001: selected library admission policy for an empty import namespace, including an unused import. Published anyURI representation and namespace-name integration leave this boundary qualified; effective rejection is not a settled processor-conformance judgment."
+        "conditions": [
+          "Accepted W3C msMeta/Schema_w3c.xml schZ014_a, the same document, expects invalid: a present import namespace whose collapsed value is empty is a schema error, including an unused import (CMP-Q001 and I-041)."
+        ]
       },
       "schema": {
         "expected": "invalid",
@@ -25942,11 +25944,12 @@
         "package": "schema",
         "sourceFile": "tests/corpus/project/attributes/typed-fixed-value",
         "specification": [
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-au",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct",
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default",
           "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-au"
         ],
         "conditions": [
-          "Adopted actual-value fixed-use equality retains independent datatype and facet admission. QName prefix bindings and list item values supply distinct lexical aliases."
+          "A local attribute use's fixed value 1 on a boolean restricted by pattern 1 is type-valid: the selected Simple Default Valid correction checks the constraint's lexical form, not its canonical representation true (DCS-Q001). The instance value true equals the fixed value but fails the pattern, so datatype and facet admission still apply."
         ]
       },
       "schema": {
@@ -25958,7 +25961,8 @@
           }
         ],
         "rule": {
-          "specRef": "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-au"
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
         },
         "differences": {
           "xerces": {

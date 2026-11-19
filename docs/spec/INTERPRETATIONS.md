@@ -857,10 +857,11 @@ result depends on load order and hides genuine conflicts.
 The library therefore applies resolved-location identity to includes, imports
 and explicit roots alike. Imports of one namespace from distinct locations are
 distinct documents; when they declare the same global component they conflict
-under sch-props-correct clause 2. This is a deliberate departure from the
-[processor tie-break](#processor-tie-break): the sources permit keeping only the
-first import, and Xerces-J, libxml2 and xmlschema do so, but that reading is
-rejected for the reasons above. Fixtures: the `project/namespace-duplicate-*`
+under sch-props-correct clause 2. The sources permit keeping only the first
+import, and Xerces-J, libxml2 and xmlschema do so; processing every import is
+the other choice that latitude permits, not a doubtful reading, so the
+[processor tie-break](#processor-tie-break) is not reached, and the
+first-import choice is rejected for the reasons above. Fixtures: the `project/namespace-duplicate-*`
 and `namespace-shared-include-*`/`namespace-repeated-import-*` cases in
 `tests/corpus/project/namespaces/`. Observed with Xerces-J 2.12.2, .NET 10.0.14,
 xmlschema 4.3.2 and libxml2 2.9.13:
@@ -1823,7 +1824,7 @@ clause 4,
 [maxExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction)
 clauses 3 and 4,
 [minInclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction)
-clause 3,
+clause 4,
 [minExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction)
 clause 2 as repaired below); a derived `length` against the inherited `length`
 ([length valid restriction](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#length-valid-restriction));

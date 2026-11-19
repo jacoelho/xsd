@@ -1469,7 +1469,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
         ],
         "conditions": [
-          "A type QName in the XML Schema namespace names a built-in that does not exist; the built-in components are fixed, so the reference is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+          "An element type QName in the XML Schema namespace names a component that neither a built-in nor an explicit source supplies. No accepted W3C expectation has such a type as its only defect, so the processor tie-break settles it by Xerces-J: the reference is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
         ]
       },
       "schema": {
@@ -1504,7 +1504,7 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing"
         ],
         "conditions": [
-          "A union member QName in the XML Schema namespace names a built-in that does not exist, so the reference is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+          "A union member QName in the XML Schema namespace names a component that neither a built-in nor an explicit source supplies. Accepted W3C msMeta/SimpleType_w3c.xml stK002 decides that it is rejected rather than tolerated as missing. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
         ]
       },
       "schema": {
