@@ -184,7 +184,7 @@ func (n *restrictionNormalizer) modelBody(original contentParticle, m contentMod
 		return contentParticle{}, err
 	}
 
-	if !children.changed && len(children.particles) != 0 && (m.Kind != modelAll || len(children.particles) != 1) {
+	if !children.changed && len(children.particles) != 0 {
 		// Borrow both original occurrence layers; moving model bounds onto the
 		// particle as well would count them twice during comparison.
 		return original, nil
@@ -314,11 +314,6 @@ func (n *restrictionNormalizer) group(kind modelKind, occurs occurrence, particl
 	if len(particles) == 1 {
 		if occurs.IsExactlyOne() {
 			return particles[0], nil
-		}
-		if kind == modelAll {
-			p := particles[0]
-			p.Occurs = multiplyOccurrence(p.Occurs, occurs)
-			return p, nil
 		}
 	}
 	body := contentModelNode{Kind: kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: particles}

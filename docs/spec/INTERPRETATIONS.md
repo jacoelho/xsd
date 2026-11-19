@@ -1248,7 +1248,7 @@ Cases: `project/elements/chains-block-owners-*`, `project/elements/chains-depth3
 ## I-028 — content-model checks
 
 **Status:** published XSD 1.0 rules with no interpretive question, except the
-one case the [processor tie-break](#processor-tie-break) settles below.
+cases the [processor tie-break](#processor-tie-break) settles below.
 
 The library applies
 [Unique Particle Attribution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig),
@@ -1267,12 +1267,29 @@ as [I-004](#i-004--published-member-minimum-rule) repairs it), the empty-content
 clause 5.3 of
 [Derivation Valid (Restriction, Complex)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction)
 and the content-type clause 1.4 of
-[Derivation Valid (Extension)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends)
-as written. A particle with `minOccurs` and `maxOccurs` 0 maps to no component
+[Derivation Valid (Extension)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends).
+A particle with `minOccurs` and `maxOccurs` 0 maps to no component
 (§3.3.2), so it admits no element, and a named model group needs a model group
 (§3.7.2). Where a particle shared through two group references makes Unique
 Particle Attribution doubtful (`project/structures-group-two-ref-choice`), the
 processor tie-break settles it by Xerces-J, which agrees with the project.
+
+**Single-member all groups (rule P).** Clause 2.2 of Particle Valid
+(Restriction) calls a group with one member pointless, and its prose names the
+particle's range for `sequence` and `choice` but not for `all`, so whether an
+`all` with one member and `minOccurs="0"` is pointless is doubtful. The
+processor tie-break settles it by Xerces-J, with which .NET agrees on every
+control: a single-member `all` is pointless only where the particle containing
+it has {min occurs} and {max occurs} 1, as for `sequence` and `choice`. An
+`all` with `minOccurs="0"` keeps its group and range and goes through the case
+table; its range is not folded into its member. So a sequence of one optional
+element does not restrict an optional single-member `all`
+(`project/content-models/pointless-groups/singleton-all-outer-optional`,
+invalid), while an optional sequence restricts it through RecurseUnordered, and
+a required `all`, sequence or choice of one member reduces to that member.
+Cases: `project/content-models/pointless-groups/optional-singleton-all-occurrence`
+and `project/content-models/pointless-groups/singleton-all-occurrence/*`.
+libxml2 accepts every one of these schemas.
 
 NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
 definitions} is a subset of B's declaration's {identity-constraint
@@ -1330,6 +1347,9 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/pointless-groups/nonempty-restriction-epsilon-base`,
 `project/content-models/pointless-groups/singleton-all-choice-required`,
 `project/content-models/pointless-groups/singleton-all-excess-maximum`,
+`project/content-models/pointless-groups/singleton-all-outer-optional`,
+`project/content-models/pointless-groups/optional-singleton-all-occurrence`,
+`project/content-models/pointless-groups/singleton-all-occurrence/*`,
 `project/content-models/properties-all-wildcard-*`,
 `project/content-models/properties-child-chain-er`,
 `project/content-models/properties-child-simple-bridge-opponent`,

@@ -5914,59 +5914,103 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
         ],
         "conditions": [
-          "cos-particle-restrict 2.2 makes a singleton all pointless without requiring its containing particle to have minimum 1. OuterOptional combines all 0..1 with required a, yielding the effective a range 0..1.",
-          "The derived unit singleton sequence is also pointless. Its optional a preserves the effective base range 0..1 under range-ok and NameAndTypeOK; ignoring the all cannot discard its outer optionality.",
-          "The all occurs at a legal complex-type root with maximum 1 under cos-all-limited, and all a declarations explicitly use xs:string. Base and derived roots independently admit empty and one a, and reject two."
+          "A single-member all is pointless only where the particle containing it has minOccurs and maxOccurs 1. OuterOptional's all 0..1 therefore stays an all group, while the derived sequence 1..1 is pointless and leaves an optional a. Compared as if grouped (Elt:All RecurseAsIfGroup), that a 0..1 widens the base member a 1..1, so the schema is invalid.",
+          "The all occurs at a legal complex-type root with maximum 1 under cos-all-limited, and all a declarations explicitly use xs:string."
         ],
-        "description": "A singleton all with an optional outer particle restricts to a sequence containing an optional element."
+        "description": "A sequence of one optional element cannot restrict an optional single-member all."
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/content-models/pointless-groups/singleton-all-outer-optional.xsd",
             "role": "principal"
           }
         ],
+        "oracle": {
+          "project": {
+            "expected": "valid",
+            "reason": "The previous expectation dropped a single-member all as pointless whatever its range and folded its minOccurs 0 into the member. Under the selected reading a single-member all is pointless only inside a 1..1 particle, so the base all 0..1 stays a group; cos-particle-restrict 2.2 is doubtful here and the processor tie-break settles it by Xerces-J.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+          }
+        },
         "rule": {
-          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-outer-optional.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/optional-singleton-all-occurrence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/optional-singleton-all-occurrence.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An all 0..1 with one required member admits empty content and one a, and rejects two."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/optional-singleton-all-occurrence.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
         }
       },
       "instances": [
         {
           "testName": "outerOptional-empty",
           "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-outerOptional-empty.xml",
-          "expected": "valid"
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+            "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+          }
         },
         {
           "testName": "outerOptional-one",
           "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-outerOptional-one.xml",
-          "expected": "valid"
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+            "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+          }
         },
         {
           "testName": "outerOptional-two",
           "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-outerOptional-two.xml",
-          "expected": "invalid"
-        },
-        {
-          "testName": "sequenceOuterOptional-empty",
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-sequenceOuterOptional-empty.xml",
-          "expected": "valid"
-        },
-        {
-          "testName": "sequenceOuterOptional-one",
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-sequenceOuterOptional-one.xml",
-          "expected": "valid"
-        },
-        {
-          "testName": "sequenceOuterOptional-two",
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-sequenceOuterOptional-two.xml",
-          "expected": "invalid"
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+            "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+          }
         }
       ],
       "files": [
         {
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-outer-optional.xsd",
+          "file": "corpus/project/content-models/pointless-groups/optional-singleton-all-occurrence.xsd",
           "role": "principal"
         },
         {
@@ -5979,18 +6023,6 @@
         },
         {
           "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-outerOptional-two.xml",
-          "role": "instance"
-        },
-        {
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-sequenceOuterOptional-empty.xml",
-          "role": "instance"
-        },
-        {
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-sequenceOuterOptional-one.xml",
-          "role": "instance"
-        },
-        {
-          "file": "corpus/project/content-models/pointless-groups/singleton-all-mixed-compositors-sequenceOuterOptional-two.xml",
           "role": "instance"
         }
       ]
@@ -6242,6 +6274,410 @@
       "files": [
         {
           "file": "corpus/project/content-models/pointless-groups/singleton-all-excess-maximum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/empty-restricts-optional-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/empty-restricts-optional-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "An empty restriction of an emptiable all 0..1 is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/empty-restricts-optional-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/empty-restricts-optional-all.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-required-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-required-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The base all 1..1 is pointless and leaves element a; the derived all 0..1 is not pointless, and an all group cannot restrict an element."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-required-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-required-all.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-same-optional-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-same-optional-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "An identical all 0..1 restricts itself."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-same-optional-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-all-restricts-same-optional-all.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-choice-restricts-required-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-choice-restricts-required-choice.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The base choice 1..1 is pointless and leaves element a; the derived choice 0..1 is not pointless, and a choice group cannot restrict an element."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-choice-restricts-required-choice.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-choice-restricts-required-choice.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-element-in-optional-all-restricts-optional-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-in-optional-all-restricts-optional-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "Neither all 0..1 is pointless; the derived member a 0..1 widens the base member a 1..1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-in-optional-all-restricts-optional-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-in-optional-all-restricts-optional-all.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-choice.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The derived choice 1..1 is pointless and leaves an optional a; compared as if grouped against the base choice 0..1, it widens the base member a 1..1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-choice.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-choice.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-sequence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-sequence.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The derived sequence 1..1 is pointless and leaves an optional a; compared as if grouped against the base sequence 0..1, it widens the base member a 1..1."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-sequence.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-element-restricts-optional-sequence.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-optional-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-optional-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "Neither group is pointless; a sequence 0..1 restricts an all 0..1 with the same member through RecurseUnordered."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-optional-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-optional-all.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-required-sequence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-required-sequence.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The base sequence 1..1 is pointless and leaves element a; the derived sequence 0..1 is not pointless, and a sequence group cannot restrict an element."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-required-sequence.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/optional-sequence-restricts-required-sequence.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/required-all-restricts-optional-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/required-all-restricts-optional-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The derived all 1..1 is pointless and leaves element a, which restricts the base all 0..1 as if grouped."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/required-all-restricts-optional-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/required-all-restricts-optional-all.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/singleton-all-occurrence/required-element-restricts-optional-all",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/singleton-all-occurrence/required-element-restricts-optional-all.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The derived sequence 1..1 is pointless and leaves element a, which restricts the base all 0..1 as if grouped."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/required-element-restricts-optional-all.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Single-member all groups (rule P) in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/singleton-all-occurrence/required-element-restricts-optional-all.xsd",
           "role": "principal"
         }
       ]
