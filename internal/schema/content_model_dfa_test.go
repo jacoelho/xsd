@@ -64,7 +64,7 @@ func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
 			nestedID contentModelID = 3
 		)
 		rt.models[innerID] = contentModelNode{Kind: kind, Occurs: one, Particles: flat[:3]}
-		rt.models[emptyID] = contentModelNode{Kind: modelEmpty, Occurs: one}
+		rt.models[emptyID] = contentModelNode{Kind: modelSequence, Occurs: one}
 		nested := []contentParticle{modelParticle(innerID, one)}
 		if kind == modelSequence {
 			nested = append(nested, modelParticle(emptyID, one))

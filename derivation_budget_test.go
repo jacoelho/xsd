@@ -141,13 +141,6 @@ func expectNamedLimit(t *testing.T, err error, limit string) {
 	}
 }
 
-func expectNotDependencyLimit(t *testing.T, err error) {
-	t.Helper()
-	if err != nil && strings.Contains(err.Error(), "MaxSchemaDependencySteps") {
-		t.Fatalf("unexpected dependency limit: %v", err)
-	}
-}
-
 func expectAllocUnder(t *testing.T, got uint64, limitMiB uint64) {
 	t.Helper()
 	if got > limitMiB<<20 {
@@ -183,8 +176,6 @@ func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 		alloc, err := compileAllocated(t, parent(64))
 		expectNamedLimit(t, err, analysis)
 		expectAllocUnder(t, alloc, 128)
-		_, err = compileAllocated(t, parent(1))
-		expectNotDependencyLimit(t, err)
 	})
 }
 

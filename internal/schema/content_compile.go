@@ -765,7 +765,6 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 	if err != nil {
 		return compiledModel{}, err
 	}
-	model = normalizeSingleParticleModel(model)
 	if c.laxAnyContent(model) {
 		return compiledModel{Kind: compiledModelAny, Empty: true}, nil
 	}
@@ -784,7 +783,7 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 			states: make(map[string]uint32),
 			limit:  c.maxContentModelStates,
 		}
-		return b.compile(id)
+		return b.compile(model)
 	default:
 		return compiledModel{}, xsderrors.InternalInvariant("content model has unknown kind")
 	}
@@ -822,10 +821,12 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 	return model
 }
 
-// executionModel projects the top level of a declared sequence or choice for
-// execution: a 1..1 child group of the same compositor is spliced into it and,
-// in a sequence, a 1..1 child group with no particles is dropped. Both preserve
-// the accepted language; the declared model keeps its groups for Particle Valid
+// executionModel projects a declared model for execution and is the only
+// input to automaton construction. At its top level, a 1..1 child group of the
+// same compositor is spliced into a sequence or choice, and a sequence or
+// choice left with one particle becomes a sequence of that particle with the
+// product of both occurrences when the product is exact. Both preserve the
+// accepted language; the declared model keeps its groups for Particle Valid
 // (Restriction) clause 2.2.
 func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
 	if model.Kind != modelSequence && model.Kind != modelChoice {
@@ -843,10 +844,13 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 		}
 	}
 	if !reduces {
-		return model, nil
+		return normalizeSingleParticleModel(model), nil
 	}
 	projected := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed}
-	return projected, c.appendExecutionParticles(&projected, model.Particles)
+	if err := c.appendExecutionParticles(&projected, model.Particles); err != nil {
+		return contentModelNode{}, err
+	}
+	return normalizeSingleParticleModel(projected), nil
 }
 
 func (c *contentModelCompiler) appendExecutionParticles(out *contentModelNode, particles []contentParticle) error {
@@ -883,9 +887,7 @@ func (c *contentModelCompiler) executionGroup(parent modelKind, p contentParticl
 	if !ok {
 		return contentModelNode{}, false, xsderrors.InternalInvariant("execution particle references missing content model")
 	}
-	reduces := child.Occurs.IsExactlyOne() &&
-		(child.Kind == parent || (parent == modelSequence && child.Kind == modelEmpty))
-	return child, reduces, nil
+	return child, child.Occurs.IsExactlyOne() && child.Kind == parent, nil
 }
 
 // executionParticle collapses representable singleton repetitions only in the
@@ -1315,8 +1317,11 @@ func (c *contentModelCompiler) upaError(msg string, name QName) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, msg)
 }
 
-func (b *dfaBuilder) compile(id contentModelID) (compiledModel, error) {
-	root, err := b.modelNode(id)
+func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {
+	if err := b.c.work.spend(1); err != nil {
+		return compiledModel{}, err
+	}
+	root, err := b.groupNode(model)
 	if err != nil {
 		return compiledModel{}, err
 	}
@@ -1340,7 +1345,7 @@ func (b *dfaBuilder) compile(id contentModelID) (compiledModel, error) {
 	if err := b.checkUPA(); err != nil {
 		return compiledModel{}, err
 	}
-	return b.compileDeterministicModel(id, startID)
+	return b.compileDeterministicModel(startID)
 }
 
 func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
@@ -1476,6 +1481,10 @@ func (b *dfaBuilder) modelNode(id contentModelID) (dfaNode, error) {
 	if !ok {
 		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
+	return b.groupNode(model)
+}
+
+func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 	var (
 		node dfaNode
 		err  error

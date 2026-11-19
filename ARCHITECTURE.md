@@ -211,17 +211,20 @@ clauses 2.1.1 to 2.1.3); `compileExplicitContent` then gives no model, which
 mixed content stores as the synthetic empty sequence of clause 2.1.4, for the
 direct, restriction and extension paths alike. `extensionContentType` alone
 builds an extension's {content type} (clause 3.2), and the publication audit
-`complexContentExtendsBase` checks the same three forms. Each reader
-that reduces a model owns one rule: the restriction normalizer
+`complexContentExtendsBase` checks the same three forms. Each reader that
+reduces a model owns one rule: the restriction normalizer
 (`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
 and decides pointlessness on the declared group, and `emptyGroup` decides
 whether a group left with no members matches only the empty sequence or
 nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
 [I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)); the execution
-projection (`executionModel`, `executionParticle`) owns
-language-preserving reduction before automaton construction and recognizes
-lax-any content by its shape. The count analysis (`countRange`) represents a
-term that matches nothing, so such a member adds no alternative to a choice. `restrictsUrType` alone decides the ur-type
+projection (`executionModel`) owns language-preserving reduction of the top
+level and supplies the root both direct compilation and automaton
+construction compile, which walk nested groups as declared;
+`executionParticle` reduces singleton particles for direct compilation, and
+the projection recognizes lax-any content by its shape. The count analysis
+(`countRange`) represents a term that matches nothing, so such a member adds
+no alternative to a choice. `restrictsUrType` alone decides the ur-type
 exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
 the restriction's base type.
 

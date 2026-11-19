@@ -28,7 +28,7 @@ type particleTermKey struct {
 	Kind     particleKind
 }
 
-func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) (compiledModel, error) {
+func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, error) {
 	caps, capsErr := b.counterCaps()
 	if capsErr != nil {
 		return compiledModel{}, capsErr
@@ -45,10 +45,6 @@ func (b *dfaBuilder) compileDeterministicModel(id contentModelID, start uint32) 
 	}
 	if err := b.c.checkCompiledRowsUPA(compilation.rows); err != nil {
 		return compiledModel{}, err
-	}
-	_, ok := contentModelByID(b.c.rt.Models, id)
-	if !ok {
-		return compiledModel{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
