@@ -13,10 +13,10 @@
 // It builds the oracle image once and runs every phase against that image ID,
 // so a concurrent rebuild of the tag cannot change providers mid-run. A
 // rebuild yields a new image ID even from unchanged inputs, so the image is
-// identified by the digest of its inputs, every file under tools/oracles
-// outside this command. Each run's output is cached under a key covering that
-// digest, the run arguments and the bytes of every case file, so an
-// interrupted measurement resumes where it stopped. Runs that report an error
+// identified by the digest of its inputs, every file git tracks under
+// tools/oracles outside this command. Each run's output is cached under a key
+// covering that digest, the run arguments and the bytes of every case file, so
+// an interrupted measurement resumes where it stopped. Runs that report an error
 // verdict are not cached and are retried once, serially, after the parallel
 // pass.
 package main
@@ -80,7 +80,7 @@ func run(argv []string) error {
 	if err != nil {
 		return err
 	}
-	digest, err := imageDigest("tools/oracles")
+	digest, err := imageDigest(ctx, "tools/oracles")
 	if err != nil {
 		return err
 	}
@@ -115,28 +115,25 @@ func record(inv *corpus.Inventory, results map[string]caseResult, all bool, dige
 }
 
 // imageDigest returns the SHA-256 digest of the image's inputs: the path and
-// bytes of every file under dir except this command's own directory.
-func imageDigest(dir string) (string, error) {
-	h := sha256.New()
-	err := filepath.WalkDir(dir, func(name string, entry os.DirEntry, err error) error {
-		switch {
-		case err != nil:
-			return err
-		case entry.IsDir() && name == filepath.Join(dir, "measure"):
-			return filepath.SkipDir
-		case entry.IsDir():
-			return nil
-		}
-		data, err := os.ReadFile(name) //nolint:gosec // The walk stays under tools/oracles.
-		if err != nil {
-			return err
-		}
-		writeField(h, filepath.ToSlash(name))
-		writeField(h, string(data))
-		return nil
-	})
+// bytes of every file git tracks under dir except this command's own
+// directory, so untracked scratch files cannot change it.
+func imageDigest(ctx context.Context, dir string) (string, error) {
+	out, err := exec.CommandContext(ctx, "git", "ls-files", "-z", "--", dir).Output() //nolint:gosec // dir is the fixed tools/oracles path.
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("git ls-files %s: %w", dir, err)
+	}
+	h := sha256.New()
+	own := dir + "/measure/"
+	for name := range strings.SplitSeq(strings.TrimSuffix(string(out), "\x00"), "\x00") {
+		if name == "" || strings.HasPrefix(name, own) {
+			continue
+		}
+		data, err := os.ReadFile(filepath.FromSlash(name)) //nolint:gosec // git lists only paths under tools/oracles.
+		if err != nil {
+			return "", err
+		}
+		writeField(h, name)
+		writeField(h, string(data))
 	}
 	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
 }
