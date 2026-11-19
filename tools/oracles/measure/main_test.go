@@ -1,8 +1,13 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/corpus"
@@ -61,5 +66,41 @@ func TestRecordMeasuresACaseOfAShardWithNoObservationFile(t *testing.T) {
 	}
 	if got := readTestTree(t, "oracles/top-level.tsv"); got != keptRow {
 		t.Fatalf("oracles/top-level.tsv = %q, want %q", got, keptRow)
+	}
+}
+
+func TestBuildContextHoldsExactlyTheInputsRelativeToTheContextRoot(t *testing.T) {
+	inputs := []imageInput{
+		{path: "tools/oracles/Dockerfile", data: []byte("FROM scratch\n"), mode: 0o644},
+		{path: "tools/oracles/libxml2/oracle.sh", data: []byte("#!/bin/sh\n"), mode: 0o755},
+	}
+	data, err := buildContext("tools/oracles", inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	type entry struct {
+		name string
+		mode int64
+		data string
+	}
+	var got []entry
+	tr := tar.NewReader(bytes.NewReader(data))
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, entry{hdr.Name, hdr.Mode, string(body)})
+	}
+	want := []entry{{"Dockerfile", 0o644, "FROM scratch\n"}, {"libxml2/oracle.sh", 0o755, "#!/bin/sh\n"}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("build context = %+v, want %+v", got, want)
 	}
 }

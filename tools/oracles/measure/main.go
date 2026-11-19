@@ -15,14 +15,16 @@
 // cannot change providers mid-run and an interrupted run's container can be
 // found and removed. A rebuild yields a new image ID even from unchanged
 // inputs, so the image is identified by the digest of its inputs, every file
-// git tracks under tools/oracles outside this command. Each run's output is
-// cached under a key covering that digest, the run arguments and the bytes of
-// every argument and case file, so an interrupted measurement resumes where it
-// stopped. Runs that report an error verdict are not cached and are retried
-// once, serially, after the parallel pass.
+// git tracks under tools/oracles outside this command, and is built from a
+// context holding exactly those files. Each run's output is cached under a
+// key covering that digest, the run arguments and the bytes of every argument
+// and case file, so an interrupted measurement resumes where it stopped. Runs
+// that report an error verdict are not cached and are retried once, serially,
+// after the parallel pass.
 package main
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -87,11 +89,13 @@ func run(argv []string) error {
 	if err != nil {
 		return err
 	}
-	digest, err := imageDigest(ctx, "tools/oracles")
+	const imageDir = "tools/oracles"
+	inputs, err := readImageInputs(ctx, imageDir)
 	if err != nil {
 		return err
 	}
-	imageID, err := buildImage(ctx)
+	digest := imageDigest(inputs)
+	imageID, err := buildImage(ctx, imageDir, inputs)
 	if err != nil {
 		return err
 	}
@@ -130,28 +134,79 @@ func record(inv *corpus.Inventory, results map[string]caseResult, all bool, dige
 	return write(inv, results, kept, nil)
 }
 
-// imageDigest returns the SHA-256 digest of the image's inputs: the path and
-// bytes of every file git tracks under dir except this command's own
-// directory, so untracked scratch files cannot change it.
-func imageDigest(ctx context.Context, dir string) (string, error) {
+// imageInput is one file of the oracle image's build context: its path as git
+// lists it, its bytes and its permission bits.
+type imageInput struct {
+	path string
+	data []byte
+	mode fs.FileMode
+}
+
+// readImageInputs reads every file git tracks under dir except this command's
+// own directory, so untracked scratch files can neither change the digest nor
+// enter the image.
+func readImageInputs(ctx context.Context, dir string) ([]imageInput, error) {
 	out, err := exec.CommandContext(ctx, "git", "ls-files", "-z", "--", dir).Output() //nolint:gosec // dir is the fixed tools/oracles path.
 	if err != nil {
-		return "", fmt.Errorf("git ls-files %s: %w", dir, err)
+		return nil, fmt.Errorf("git ls-files %s: %w", dir, err)
 	}
-	h := sha256.New()
 	own := dir + "/measure/"
+	var inputs []imageInput
 	for name := range strings.SplitSeq(strings.TrimSuffix(string(out), "\x00"), "\x00") {
 		if name == "" || strings.HasPrefix(name, own) {
 			continue
 		}
+		info, err := os.Lstat(filepath.FromSlash(name))
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("image input %s is not a regular file", name)
+		}
 		data, err := os.ReadFile(filepath.FromSlash(name))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		writeField(h, name)
-		writeField(h, string(data))
+		inputs = append(inputs, imageInput{path: name, data: data, mode: info.Mode().Perm()})
 	}
-	return "sha256:" + hex.EncodeToString(h.Sum(nil)), nil
+	return inputs, nil
+}
+
+// imageDigest returns the SHA-256 digest of the path and bytes of every input.
+func imageDigest(inputs []imageInput) string {
+	h := sha256.New()
+	for _, in := range inputs {
+		writeField(h, in.path)
+		writeField(h, string(in.data))
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
+}
+
+// buildContext returns a tar archive of inputs with paths relative to dir, the
+// build context docker reads from standard input.
+func buildContext(dir string, inputs []imageInput) ([]byte, error) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for _, in := range inputs {
+		name, ok := strings.CutPrefix(in.path, dir+"/")
+		if !ok {
+			return nil, fmt.Errorf("image input %s is outside %s", in.path, dir)
+		}
+		mode := int64(0o644)
+		if in.mode&0o111 != 0 {
+			mode = 0o755
+		}
+		if err := tw.WriteHeader(&tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: mode, Size: int64(len(in.data))}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write(in.data); err != nil {
+			return nil, err
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func cachePath(dir string) (string, error) {
@@ -191,15 +246,25 @@ func selectCases(inv *corpus.Inventory, ids []string) ([]*corpus.Case, bool, err
 	return selected, len(selected) == len(project), nil
 }
 
-func buildImage(ctx context.Context) (string, error) {
+// buildImage builds the image from exactly inputs, sent as the build context
+// on standard input, and returns its ID.
+func buildImage(ctx context.Context, dir string, inputs []imageInput) (string, error) {
 	tag := os.Getenv("XSD_ORACLES_IMAGE")
 	if tag == "" {
 		tag = "xsd-oracles:local"
 	}
-	//nolint:gosec // The tag is the caller's own image name, passed as one argument without a shell.
-	out, err := exec.CommandContext(ctx, "docker", "build", "--quiet", "--tag", tag, "tools/oracles").Output()
+	buildCtx, err := buildContext(dir, inputs)
 	if err != nil {
-		return "", fmt.Errorf("docker build: %w", err)
+		return "", err
+	}
+	//nolint:gosec // The tag is the caller's own image name, passed as one argument without a shell.
+	cmd := exec.CommandContext(ctx, "docker", "build", "--quiet", "--tag", tag, "-")
+	cmd.Stdin = bytes.NewReader(buildCtx)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("docker build: %w: %s", err, stderr.String())
 	}
 	return strings.TrimSuffix(string(out), "\n"), nil
 }
