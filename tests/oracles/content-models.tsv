@@ -5383,6 +5383,30 @@ project/content-models/type-derivation/prohibited-ancestor-fresh-name	schema	dot
 project/content-models/type-derivation/prohibited-ancestor-fresh-name	schema	libxml2	schema-valid	
 project/content-models/type-derivation/prohibited-ancestor-fresh-name	schema	xerces	schema-valid	
 project/content-models/type-derivation/prohibited-ancestor-fresh-name	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-adds-fixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-adds-fixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-adds-fixed	schema	xerces	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-adds-fixed	schema	xmlschema	schema-invalid	Attribute 'a': unmatched attribute use in restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:int" fixed="8" /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: readd-adds-fixed.xsd
+project/content-models/type-derivation/prohibited-ancestor-readd-changes-default	schema	dotnet	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-changes-default	schema	libxml2	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-changes-default	schema	xerces	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-changes-default	schema	xmlschema	schema-invalid	Attribute 'a': unmatched attribute use in restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:int" default="8" /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: readd-changes-default.xsd
+project/content-models/type-derivation/prohibited-ancestor-readd-derived-type	schema	dotnet	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-derived-type	schema	libxml2	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-derived-type	schema	xerces	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-derived-type	schema	xmlschema	schema-invalid	Attribute 'a': unmatched attribute use in restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:short" /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: readd-derived-type.xsd
+project/content-models/type-derivation/prohibited-ancestor-readd-fixed-equal-value-other-spelling	schema	dotnet	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-fixed-equal-value-other-spelling	schema	libxml2	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-fixed-equal-value-other-spelling	schema	xerces	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-fixed-equal-value-other-spelling	schema	xmlschema	schema-invalid	Attribute 'a': derived attribute has a different fixed value:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="A"><xs:attribute name="a" use="prohibited" /></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: readd-fixed-equal-value-other-spelling.xsd
+project/content-models/type-derivation/prohibited-ancestor-readd-required	schema	dotnet	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-required	schema	libxml2	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-required	schema	xerces	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-required	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-wider-type	schema	dotnet	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-wider-type	schema	libxml2	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-wider-type	schema	xerces	schema-valid	
+project/content-models/type-derivation/prohibited-ancestor-readd-wider-type	schema	xmlschema	schema-invalid	Attribute 'a': unmatched attribute use in restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="R"><xs:attribute name="a" type="xs:int" /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: readd-wider-type.xsd
 project/content-models/type-derivation/prohibited-ancestor-restored-type	bad	dotnet	invalid	prohibited-ancestor-restored-type-bad.xml:1:7: The 'a' attribute is invalid - The value 'bad' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:int' - The string 'bad' is not a valid Int32 value.
 project/content-models/type-derivation/prohibited-ancestor-restored-type	bad	libxml2	invalid	prohibited-ancestor-restored-type-bad.xml:1: element root: Schemas validity error : Element 'root', attribute 'a': 'bad' is not a valid value of the atomic type 'xs:int'.
 project/content-models/type-derivation/prohibited-ancestor-restored-type	bad	xerces	invalid	prohibited-ancestor-restored-type-bad.xml:1:16: cvc-datatype-valid.1.2.1: 'bad' is not a valid value for 'integer'.

@@ -4319,6 +4319,241 @@
       ]
     },
     {
+      "id": "project/content-models/type-derivation/prohibited-ancestor-readd-adds-fixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-adds-fixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "A restriction prohibits the ancestor's attribute, and a later extension adds it back with the ancestor's type and a fixed value the ancestor lacks; a restriction of the ancestor's extension may add a fixed value."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-adds-fixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-029--extension-after-restriction",
+          "clause": "I-029 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-029"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-adds-fixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/prohibited-ancestor-readd-changes-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-changes-default.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "The later extension adds the attribute back with the ancestor's type and a different default; derivation-ok-restriction 2.1 constrains no default."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-changes-default.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-029--extension-after-restriction",
+          "clause": "I-029 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-029"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-changes-default.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/prohibited-ancestor-readd-derived-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-derived-type.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "The later extension adds the attribute back with xs:short, derived from the ancestor's xs:int."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-derived-type.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-029--extension-after-restriction",
+          "clause": "I-029 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-029"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-derived-type.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/prohibited-ancestor-readd-fixed-equal-value-other-spelling",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-fixed-equal-value-other-spelling.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "The later extension adds the attribute back with fixed +7, the value of the ancestor's fixed 7."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-fixed-equal-value-other-spelling.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-029--extension-after-restriction",
+          "clause": "I-029 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-029"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-fixed-equal-value-other-spelling.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/prohibited-ancestor-readd-required",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-required.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "The later extension adds the attribute back with the ancestor's type and use required, as W3C attZ007 does."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-required.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-029--extension-after-restriction",
+          "clause": "I-029 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-required.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/prohibited-ancestor-readd-wider-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-wider-type.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "The later extension adds the attribute back with xs:int, which is not derived from the ancestor's xs:short, so cos-ct-extends clause 1.5 fails."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-wider-type.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-029--extension-after-restriction",
+          "clause": "I-029 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-029"
+          },
+          "dotnet": {
+            "record": "I-029"
+          },
+          "libxml2": {
+            "record": "I-029"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/prohibited-ancestor-readd/readd-wider-type.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/wildcard-overlap/other-finite-disjoint",
       "expectedSource": "project",
       "source": {

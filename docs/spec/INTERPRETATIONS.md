@@ -1444,8 +1444,12 @@ Cases: `project/content-models/type-derivation/prohibited-ancestor-fixed-changed
 `project/content-models/type-derivation/prohibited-ancestor-fixed-equal`,
 `project/content-models/type-derivation/prohibited-ancestor-fixed-lost`,
 `project/content-models/type-derivation/prohibited-ancestor-restored-type`,
-`project/content-models/type-derivation/prohibited-ancestor-unrelated-type` and
-`project/content-models/type-derivation/prohibited-intermediate-narrowing-discarded`.
+`project/content-models/type-derivation/prohibited-ancestor-unrelated-type`,
+`project/content-models/type-derivation/prohibited-intermediate-narrowing-discarded`
+and `project/content-models/type-derivation/prohibited-ancestor-readd-*` (an
+attribute added back with a fixed value the ancestor lacks, another default, a
+derived type, `use="required"` or an equal fixed value spelled differently is
+valid; with a type not derived from the ancestor's type it is invalid).
 
 ## I-030 — value constraints compare values
 
