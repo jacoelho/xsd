@@ -230,7 +230,8 @@ func loadShard(fsys fs.FS, name string) ([]Case, error) {
 
 // ValidateCases checks the case invariants the tests/README.md Corpus Contract
 // states: unique case IDs prefixed by their expected source, known expected
-// values, unique schema roots and instance names, and well-formed provenance,
+// values, a schema phase with at least one root, unique schema roots and
+// instance names, an instance file per instance, and well-formed provenance,
 // rules and differences.
 func ValidateCases(cases []Case) error {
 	ids := make(map[string]bool, len(cases))
@@ -261,7 +262,7 @@ func validateCase(c *Case) error {
 			return err
 		}
 	}
-	if err := validateInstanceNames(c); err != nil {
+	if err := validateInstances(c); err != nil {
 		return err
 	}
 	for _, p := range c.Phases() {
@@ -272,9 +273,9 @@ func validateCase(c *Case) error {
 	return nil
 }
 
-// validateInstanceNames requires every instance a unique test name other
-// than the schema phase's, since the name keys the instance phase.
-func validateInstanceNames(c *Case) error {
+// validateInstances requires every instance a file and a unique test name
+// other than the schema phase's, since the name keys the instance phase.
+func validateInstances(c *Case) error {
 	names := make(map[string]bool, len(c.Instances))
 	for _, inst := range c.Instances {
 		switch {
@@ -282,6 +283,8 @@ func validateInstanceNames(c *Case) error {
 			return fmt.Errorf("case %q has instance test name %q", c.ID, inst.TestName)
 		case names[inst.TestName]:
 			return fmt.Errorf("case %q duplicates instance %q", c.ID, inst.TestName)
+		case inst.File == "":
+			return fmt.Errorf("case %q instance %q has no file", c.ID, inst.TestName)
 		}
 		names[inst.TestName] = true
 	}
@@ -289,9 +292,15 @@ func validateInstanceNames(c *Case) error {
 }
 
 func validateDocuments(id string, docs []Document) error {
+	if len(docs) == 0 {
+		return fmt.Errorf("case %q has a schema phase without documents", id)
+	}
 	files := make(map[string]bool, len(docs))
 	for _, doc := range docs {
-		if files[doc.File] {
+		switch {
+		case doc.File == "":
+			return fmt.Errorf("case %q has a schema document without a file", id)
+		case files[doc.File]:
 			return fmt.Errorf("case %q duplicates schema document %q", id, doc.File)
 		}
 		files[doc.File] = true
