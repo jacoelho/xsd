@@ -27,7 +27,7 @@ the violated contract, not preserve incidental control flow.
 - `harness_manifest_test.go`: verifies the manifest closure: every referenced file exists and every corpus file is referenced.
 - `oracle_observations_test.go`: verifies the oracle rules of the [Corpus Contract](#corpus-contract) against the observations.
 - `oracle-backlog.txt`: sorted, unique IDs of measured project cases with a provider difference that no record owns yet.
-- `oracle-notes.txt`: sorted `case<TAB>phase<TAB>provider` lines of the differences whose only diagnosis is a note carried over from before interpretation records owned every difference. It only shrinks.
+- `oracle-notes.txt`: sorted `case<TAB>phase<TAB>provider` lines of the differences whose diagnosis is a `note` instead of a record; a `note` is accepted only for a listed line. It only shrinks.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
 - `corpus/xerces-j`: selected Xerces-J XSD/XML validation fixtures.
@@ -266,7 +266,9 @@ Failures about a whole explicit document (it cannot be opened or read, or
 exceeds a size limit), about the source set, a nil reader and option errors
 have no document position and do not occur in the harness.
 
-Every entry in `schema.documents` is a compilation root, in manifest order.
+Every entry in `schema.documents` is a compilation root, in manifest order. A
+present `schema` has at least one document, and every document and instance
+names a file.
 Entries listed only in `files` with role `dependency` are copied dependencies
 used through relative schema locations and are never promoted to roots.
 Instance file paths are independent validation inputs.
