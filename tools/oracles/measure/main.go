@@ -188,7 +188,6 @@ func readImageInput(name string) (imageInput, error) {
 	return imageInput{path: name, data: data, mode: info.Mode().Perm()}, nil
 }
 
-// imageDigest returns the SHA-256 digest of the path and bytes of every input.
 func imageDigest(inputs []imageInput) string {
 	h := sha256.New()
 	for _, in := range inputs {
