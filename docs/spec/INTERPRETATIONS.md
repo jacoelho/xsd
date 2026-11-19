@@ -382,7 +382,8 @@ numbers and QName namespace differences remain observable negatives. XSI's
 separate intrinsic assessment and no-synthesis policy remain in I-007.
 
 This does not transfer declaration-only ID-default prohibitions to attribute
-uses or solve every canonical-projection question in DCS-Q001.
+uses, which [DCS-Q001](#dcs-q001) keeps qualified. Type validity of the
+constraint's literal belongs to DCS-Q001's Simple Default Valid correction.
 
 Observed: xmlschema 4.3.2 compares a fixed QName by spelling, so an instance
 value whose prefix binds the same namespace fails; Xerces-J 2.12.2 gives the
@@ -467,9 +468,9 @@ Fixture outcomes remain in the corpus manifest.
 | <a id="ids-q001"></a>IDS-Q001 — identity-component resolution | The later `src-resolve` list repairs the omitted identity-component kind. Adopt that clarification, already implemented: keyrefs resolve to supplied key/unique definitions; wrong category, missing target, arity and tuple checks remain. Existing `idH035` protects keyref-to-keyref rejection. No new indexing algorithm follows. |
 | Selector/field XPath spelling | [Selector](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath)/[field](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths) components allow whitespace/expanded axes more broadly than normative Appendix A patterns. Distinct component and XML-representation phases must both be reconciled; component permission alone does not prove XML spelling admission. |
 | Empty `xml:lang` in documentation | Dated [documentation mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-documentation) and XML Second Edition support nonempty xml:lang; Appendix A imports an XML declaration. The 2009 revision of xml.xsd allows empty but does not establish the 2004 imported body. Preserve source selection, not generic XML rejection or automatic later-version acceptance. |
-| CMP-Q001 — empty import namespace | An unused [import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import) with present-empty namespace has anyURI syntax but unresolved semantic-domain scope relative to the empty targetNamespace prohibition. Empty is not absent; lexical admission and existing corpus expectations do not settle acceptance. Ordinary obtained-referent matching still applies. |
+| CMP-Q001 — empty import namespace | An [import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import) with present-empty namespace has anyURI syntax, and no Structures constraint names it, so the text alone is doubtful. Accepted W3C `msMeta/Schema_w3c.xml` schZ014_a, a schema without targetNamespace whose only child is `<xsd:import namespace=""/>`, expects invalid (accepted 2006-07-16), and that expectation decides it, as its sibling schZ014_b decides the empty targetNamespace in [I-041](#i-041--empty-target-namespace): a present `namespace` whose collapsed value is empty is a schema error, used or not. Empty is not absent; ordinary obtained-referent matching still applies. Observed on the same document (`project/namespace-schema-import-namespace-cannot-be-empty`): Xerces-J 2.12.2 and libxml2 2.9.13 accept, .NET 10.0.14 rejects the empty value and xmlschema 4.3.2 rejects it under its absent-namespace rule. With a targetNamespace present, Xerces-J, xmlschema and libxml2 accept and only .NET rejects. |
 | Attribute-group redefine contributions | Attribute-group [redefine clause 7.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-agrere) uses ordinary mapping, including nonself group contributions; its note describes explicit-only children. No inheritance from the original group is settled. The note alone does not justify rejecting otherwise matching nonself references. |
-| <a id="dcs-q001"></a>DCS-Q001 | Local [attribute mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute) puts a constraint on the use, while declaration [canonical/ID rules](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct) name a different property. [Use correctness](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct) does not expressly transfer both rules. Preserve the ID-default and boolean-pattern/canonical-literal probes as source-qualified, not universal acceptance/rejection. Literal/type admission still applies; present fixed values use the selected typed equality in I-009. DTD ID-default rules and E1-56 do not bridge these properties. |
+| <a id="dcs-q001"></a>DCS-Q001 — value-constraint type validity | Local [attribute mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute) puts a constraint on the use, while declaration rules ([a-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct) and [e-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct) clause 2) require "the canonical lexical representation of its value" to be valid, and [Use correctness](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#au-props-correct) has no type-validity clause. The 1.0 canonical rule is undefined for types without a canonical representation (duration, the g* types, anyURI, QName, NOTATION, the string family). **Type validity:** the selected [Simple Default Valid](SOURCES.md#selected-corrections) correction decides it at element declarations, attribute declarations and attribute uses alike: "V.{lexical form} is ·valid· with respect to T" and "V.{lexical form} maps to V.{value}"; the canonical form is not checked. This is an adopted correction, so the processor tie-break is not reached. Present fixed values use the selected typed equality in I-009. Case: `project/corrections-fixed-pattern-type-validity` (local attribute `fixed="1"` on a boolean restricted by pattern `1`: valid). Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13 on 56 controls covering local, global and referenced attributes, global and local elements, default and fixed, and boolean, decimal, float, integer, dateTime, hexBinary, duration, gYear, list and union types: Xerces-J checks its canonical string, so it rejects every control whose literal satisfies the pattern while that string does not, including duration (`PT60S` as `P0Y0M0DT0H0M60S`) and gYear (`2000+00:00` as `2000Z`), which have no 1.0 canonical representation; .NET, xmlschema and libxml2 accept them. When the literal fails the pattern and the canonical form satisfies it, every provider rejects, except libxml2, which does not check a use-level `fixed` on an attribute reference. **ID defaults:** whether declaration-only ID-default prohibitions transfer to attribute uses remains source-qualified; preserve the ID-default probes as qualified, not universal acceptance or rejection. DTD ID-default rules and E1-56 do not bridge these properties. |
 | PSVI-Q001 — union-member PSVI scope | E1-56 full/lightweight union-member scope; owned by [corrected reading](corrected-reading.md#e1-56-applied-reading). |
 | Same-type affiliation under head exclusions | Under both head exclusions, formal [element/type derivation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct) admits type identity while §3.3.1 nomination prose forbids any affiliation. Same-type affiliation remains source-qualified; a prohibited nonempty derivation is a separate negative. |
 | Anonymous identity / wildcard algebra | The [component identity note](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-identity) leaves some anonymous identity choices incomplete. [Multi-value wildcard algebra](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-aw-union) requires expressible pairwise intermediates without a complete operand order; a mathematically expressible final set does not prove a chosen fold valid. |
@@ -493,7 +494,7 @@ does not mean arbitrary processor choice.
 | Bounds | Repeated equal exclusive endpoints have explicit allowance; do not substitute generic instance validity. A `minExclusive` or `maxExclusive` equal to the effective same facet of the base is admitted without base value-space membership, so the base's digit and enumeration facets and its bounds of that same facet do not apply to it. The valid-restriction clauses still compare it with the base's other bounds (`project/datatypes/bounds/exclusive-equal-maxExclusive-empty-base`), and the base pattern still applies to its spelling, as for every facet literal (`project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern`). Restatement equality is value equality: for `time` the equality of the Time midnight boundary above, and for `duration` value identity (Duration equality and order above). A `time` literal with the value of the base facet restates it on whatever day its spelling places it, so the base's enumeration does not apply to it (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day-outside-base-enumeration`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day-outside-base-enumeration` valid, as Xerces-J and .NET find; xmlschema and libxml2 reject them). The same-side clause of the Time midnight boundary still orders the restatement against the base bound by un-wrapped time: one spelled on the day that does not loosen the base is admitted (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling`, `project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day`), and one spelled on the day that loosens it is rejected (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day`, `project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day-negative-offset`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-earlier-day`), where Xerces-J accepts it. Incomparable restriction endpoints need their actual prohibited-comparison wording. Inherited opposite lower-bound kinds retain the same-datatype versus same-step scope question; no blanket rewrite/rejection follows. |
 | URI / language / precision | No implicit percent decoding, case folding, normalization or absolutization establishes anyURI equality. No modern language registry rejection follows from its historical pattern. [Double extrema, overflow and documented precision](SOURCES.md#floating-point-source-versions) remain separately qualified. |
 | <a id="entity-member-selection"></a>ENTITY member selection / [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) | Full later ENTITY-context assessment is not adopted. In an `ENTITY|string` union a lexical NCName such as `missing` cannot prove normative string fallback: the later [Datatype Valid](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#cvc-datatype-valid) and [String Valid](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-simple-type) rules separate datatype-valid member selection from ENTITY assessment against document declarations. The current unsupported ENTITY result occurs before facets, so making it immediately terminal could suppress legitimate fallback after an enclosing list or restricted union fails its datatype rules. A complete phase change would need nested value propagation and explicit facet-literal construction semantics; it is not selected under the DTD-unsupported contract. Conformance fallback witnesses use a non-NCName; NCName observations remain qualified evidence without conformance credit. |
-| <a id="observation-product-modality"></a>Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. A finite `minOccurs` or `maxOccurs` above 4294967295 is a library resource limit, the runtime `uint32` cap of [resource limits](../RESOURCE_LIMITS.md), not a validity rule: nonNegativeInteger admits it. .NET 10.0.14 and xmlschema 4.3.2 accept such schemas, Xerces-J 2.12.2 rejects them at its own `int` limit, and libxml2 2.9.13 rejects `maxOccurs` but accepts `minOccurs` (`project/architecture-maxoccurs-above-uint32-is-schema-limit`, `project/architecture-minoccurs-above-uint32-is-schema-limit`). |
+| <a id="observation-product-modality"></a>Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. A finite `minOccurs` or `maxOccurs` above 4294967295 is a library resource limit, the runtime `uint32` cap of [resource limits](../RESOURCE_LIMITS.md), not a validity rule: nonNegativeInteger admits it. `project/architecture-maxoccurs-above-uint32-is-schema-limit` (`maxOccurs="4294967296"`) is accepted by .NET 10.0.14 and xmlschema 4.3.2; `project/architecture-minoccurs-above-uint32-is-schema-limit` (`minOccurs="4294967296"`) is accepted by .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13. Xerces-J 2.12.2 rejects both at its own `int` limit, and libxml2 rejects the `maxOccurs` case. |
 
 Required XSD 1.0 result, WG interpretation, XSD 1.1 change, processor choice,
 unspecified behavior and unavailable observation remain distinct evidence
@@ -645,8 +646,10 @@ Cases: `project/datatypes/bounds/conformance-minexclusive-maxinclusive-equal`,
 ## I-016 — recursive ID-ness
 
 **Status:** selected reading from [W3C bug 10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662)
-and the XSD 1.1 [ID-related types](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#sec-id-related)
-clarification; the XSD 1.0 ID prohibitions are retained.
+and the XSD 1.1 [ID-related types](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#ch_id)
+clarification (§G.1.7; [§3.17.5.2](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#sic-id));
+the XSD 1.0 ID prohibitions are retained, and attribute defaults add no ID/IDREF
+binding (below).
 
 XSD 1.0 states its ID rules for types "derived from ID", which literally
 excludes lists and unions while [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
@@ -682,10 +685,27 @@ schema checks and the cvc-id table. Fixtures:
 `w3c/msMeta/SimpleType_w3c.xml/stE072`.
 
 [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
-clauses 1 and 2 leave no reading in doubt: every IDREF value assessed under an
-IDREF-carrying type names an ID in the document, and an ID value occurs once,
-whether it comes from an attribute, element simple content, a type selected by
-`xsi:type`, a lax wildcard's declaration or a default or fixed value. libxml2
+clauses 1 and 2 require every IDREF value assessed under an IDREF-carrying type
+to name an ID in the document, and an ID value to occur once, whether it comes
+from an attribute, element simple content, a type selected by `xsi:type` or a
+lax wildcard's declaration. An element's default or fixed value counts: under
+[cvc-elt](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt)
+clause 5.1.2 the element is validated with that value as its content. An
+attribute's default is doubtful: the
+[ID/IDREF table](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
+takes its eligible item set from items "successfully validated with respect to
+an attribute declaration as per Attribute Locally Valid", which an attribute
+supplied by an attribute use's default or fixed value never undergoes, and XSD
+1.1 §G.1.7 presents "The validation rules for values of type xs:IDREF,
+xs:ENTITY, or xs:ENTITIES are now enforced on default values" as a change. The
+processor tie-break settles it by Xerces-J: an attribute absent from the
+instance and supplied by a default or fixed value contributes to
+identity-constraint key-sequences but adds no ID/IDREF binding, so its IDREF
+need name no ID. Observed: .NET 10.0.14 and xmlschema 4.3.2 count attribute
+defaults, and .NET throws `InvalidCastException` on a `union(int, IDREF)`
+attribute default; libxml2 2.9.13 never resolves IDREFs. Case:
+`project/corrections-default-list-union-idref` (instance
+`attribute-missing-target` is valid; `element-missing-target` is invalid). libxml2
 2.9.13 never resolves IDREF values in schema validation (a single `xs:IDREF`
 attribute naming no ID is accepted), tracks only attribute IDs (two `xs:ID`
 elements with equal content are accepted), and treats only `xs:ID` itself, not
@@ -726,10 +746,18 @@ dangling IDREF under an enumeration of `xs:IDREF`. Cases:
 
 ## I-017 — list identity and equality
 
-**Status:** selected reading of XSD 1.0 identity-constraint
-[value equality](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint),
-using the XSD 1.1 [list equality](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#value-equality)
-definition without its length-one identification.
+**Status:** adopted [selected correction](SOURCES.md#selected-corrections):
+XSD 1.0 identity-constraint
+[value equality](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint)
+of lists uses the XSD 1.1 [list identity](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#identity)
+of Datatypes §2.2.1 and the list rule of
+[§2.2.2](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#equality),
+without its length-one identification.
+
+XSD 1.0 Datatypes §2.5.1.2 and §4.2.1 and cvc-identity-constraint do not say
+whether lists of different item types are equal. XSD 1.1 states the rule: two
+lists are the same "if they are the same sequence of atomic values", and "there
+is only one empty list".
 
 Two lists are equal when they have the same length and their items are
 pairwise equal. Empty lists are therefore equal whatever their item types. A
@@ -741,9 +769,28 @@ is atomic or a list.
 
 Value equality and the comparable identity key are one contract: lists carry a
 reserved tag outside the primitive-kind range, and each item carries its own
-primitive kind. Xerces-J and .NET keep empty lists of different item types
-distinct; xmlschema equates them. Fixture:
-`tests/corpus/project/identity/list-identity-keys`.
+primitive kind. The correction is adopted rather than the processor tie-break
+because Xerces-J's observed rule makes keys depend on item-type shape, which
+the paragraph above rejects: it keeps lists unequal when their item types have
+different primitive categories, and when one has a union item type and the
+other an atomic one, even with equal items.
+
+Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2
+2.9.13:
+
+- Xerces-J and .NET keep empty lists of `xs:int` and `xs:string` items
+  distinct, and one-item and empty lists of a `union(int, string)` item type
+  distinct from lists of `xs:int` or `xs:string` items; both equate empty
+  `xs:int` and `xs:integer` lists, two lists of `xs:string` items under
+  different list types, and union-item lists whose members are reordered.
+  Xerces-J rejects an atomic `xs:int` keyref to a one-item `xs:int` list key.
+- .NET, xmlschema and libxml2 equate a one-item list with an atomic value.
+- xmlschema equates empty lists whatever their item types, and lists with
+  equal items whatever their item types.
+- libxml2 fails on every empty-list attribute ("No precomputed value
+  available").
+
+Case: `project/identity/list-identity-keys`.
 
 ## I-018 — nilled requires a governing declaration
 
@@ -801,27 +848,58 @@ distinct documents; when they declare the same global component they conflict
 under sch-props-correct clause 2. This is a deliberate departure from the
 [processor tie-break](#processor-tie-break): the sources permit keeping only the
 first import, and Xerces-J, libxml2 and xmlschema do so, but that reading is
-rejected for the reasons above. Fixtures: the `namespace-duplicate-*` and
-`namespace-shared-include-*`/`namespace-repeated-import-*` cases in
-`tests/corpus/project/namespaces/`.
+rejected for the reasons above. Fixtures: the `project/namespace-duplicate-*`
+and `namespace-shared-include-*`/`namespace-repeated-import-*` cases in
+`tests/corpus/project/namespaces/`. Observed with Xerces-J 2.12.2, .NET 10.0.14,
+xmlschema 4.3.2 and libxml2 2.9.13:
+
+- `project/namespace-duplicate-include-locations-conflict` (invalid): all four
+  reject.
+- `project/namespace-duplicate-identical-target-namespace-sources-conflict`
+  (invalid; byte-identical documents as two explicit roots): Xerces-J accepts,
+  keeping one grammar per target namespace; .NET and xmlschema reject; libxml2
+  takes one root and reports blocked.
+- `project/namespace-duplicate-import-locations-conflict` (invalid; one
+  namespace imported from two locations): Xerces-J, xmlschema and libxml2
+  accept, libxml2 warning that it skips the second import; .NET rejects.
+- `project/schema-id-document-local` (valid; two no-namespace explicit roots):
+  Xerces-J keeps only the first root, in either order and whether or not their
+  `schema/@id` values collide, so it rejects the instance of the second root's
+  element (`second`); .NET and xmlschema accept; libxml2 takes one root and
+  reports blocked.
 
 The explicit roots of one compilation supply one component set, independent of
 their order. An `<import>` without `schemaLocation` is satisfied by any root
 that supplies the namespace: [§4.2.3](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#composition-schemaImport)
 says that without it "the schema author is leaving the identification of that
 schema to the instance, application or user", and the explicit sources are the
-caller's identification. The text delegates the choice to the application
-rather than deciding it, so following Xerces-J here would make the verdict
-depend on root order. As with document identity above, this is a deliberate
-departure from the [processor tie-break](#processor-tie-break). Xerces-J 2.12.2
-(`XMLSchemaFactory.newSchema(Source[])`) loads roots in order and reports
-`src-resolve` when the referencing root precedes the supplier. With the roots
-reversed it accepts each case. .NET 10.0.14 and xmlschema 4.3.2 accept in
-either order, and libxml2 2.9.13 takes one root and reports blocked. Cases:
+caller's identification. The text delegates identification rather than
+leaving a reading doubtful, so the [processor tie-break](#processor-tie-break)
+is not reached. The library's identification is the whole root set, so the
+verdict does not depend on root order; `TestNamespaceAttributeSourceResolution`
+in `schema_namespace_attributes_test.go` compiles the same sources through a
+resolver, as explicit roots and as reversed roots, and load-order dependence is
+a rejected alternative in [ARCHITECTURE.md](../../ARCHITECTURE.md). Xerces-J
+2.12.2 (`XMLSchemaFactory.newSchema(Source[])`) loads roots in order and
+reports `src-resolve` when the referencing root precedes the supplier, so it
+gives both verdicts for one source set: it rejects importer-then-supplier and
+accepts supplier-then-importer, and it accepts when the import names an
+explicit `schemaLocation`. .NET 10.0.14 and xmlschema 4.3.2 accept in either
+order, and libxml2 2.9.13 takes one root and reports blocked. Cases:
 `project/attribute-group-wildcard-expressible`,
 `project/local-attribute-wildcard-expressible`,
-`project/namespace-declarations-xlink-locationless-roots` and
-`project/namespace-declarations-xml-locationless-roots`.
+`project/namespace-declarations-xlink-locationless-roots`,
+`project/namespace-declarations-xml-locationless-roots`,
+`project/xsd-components-attribute-group-imported`,
+`project/xsd-components-attribute-imported`,
+`project/xsd-components-element-imported`,
+`project/xsd-components-group-imported` and
+`project/xsd-components-type-imported`. In the five `xsd-components-*-imported`
+cases the supplier of the XML Schema namespace components is the second root:
+Xerces-J reports `src-resolve` in manifest order and accepts with the supplier
+first, so the cause is root order, not the namespace
+([I-006](#i-006--xsdxsi-schema-references) owns the import exemption); .NET and
+xmlschema accept and libxml2 reports blocked.
 
 ## I-020 — XML name characters follow the Fifth Edition
 
@@ -977,7 +1055,7 @@ behaviour, so their results are manifest `oracle` metadata on those cases.
 | `base` | Rejected | W3C `missing004`, `missing005` |
 | `ref` of an `xs:element`, `xs:group`, `xs:attribute` (use other than prohibited) or `xs:attributeGroup` that maps to a component; keyref `refer` | Rejected (`project/composition/unresolved-references/element-ref-missing`, `group-ref-missing`, `attribute-ref-missing`, `attribute-group-ref-missing`, `keyref-refer-missing`) | W3C `elemL002`, `groupB008`, `attE002`, `attgC008`, `idC038`; Xerces-J, .NET, xmlschema and libxml2 reject each project case |
 | `xs:group ref` with `minOccurs` and `maxOccurs` 0; `xs:attribute ref` with `use="prohibited"` | Not resolved and not import-authorized, and a group that refers to itself only through such a reference is not circular (`project/composition/unresolved-references/group-ref-zero-unimported`, `project/group-zero-occurrence-absent-content`, `project/group-zero-occurrence-choice`, `project/group-zero-occurrence-mutual`, `project/group-zero-occurrence-self`, `project/prohibited-no-component-missing-imported-attribute-prohibited`) | §3.7.2: such a group reference "corresponds to no component at all", and [I-008](#i-008--prohibited-attribute-use-with-fixed), so there is no reference to resolve and no particle for Model Group Correct clause 2 to follow. The text decides it, so processor results do not; .NET accepts the group reference, Xerces-J, xmlschema and libxml2 reject it, and Xerces-J and xmlschema report a circular group through it |
-| A name in the XML Schema namespace | Rejected (`project/composition/unresolved-references/xsd-namespace-type-missing`, `xsd-namespace-member-missing`) | The built-in components of that namespace are fixed, so no schema can supply the name (`typeQNameMayBeUnavailable`) |
+| A name in the XML Schema namespace | Rejected (`project/composition/unresolved-references/xsd-namespace-type-missing`, `xsd-namespace-member-missing`) | The name needs no import ([I-006](#i-006--xsdxsi-schema-references)), and an explicit source may supply further components in the namespace (W3C addB182), but here neither a builtin nor an explicit source supplies it. §5.3 does not distinguish namespaces, so the text alone leaves the tolerance doubtful; an accepted W3C expectation decides it for a union member: `msMeta/SimpleType_w3c.xml` stK002 (member `xsd:timeDuration`) is invalid, and with that name replaced by a builtin the library compiles the schema, so the name is its only defect. No accepted witness has an element or attribute `type` as its only defect, so for `xsd-namespace-type-missing` the processor tie-break settles it by Xerces-J, which rejects, although it reports the missing import (`src-resolve.4.2`) that I-006 removes; .NET, xmlschema and libxml2 also reject both project cases. Library owner: `typeQNameMayBeUnavailable` |
 | A name in a namespace the document does not import | Rejected (`project/composition/unresolved-references/type-unimported-namespace`) | `src-resolve` clause 4 applies before any of the tolerances above |
 | `ref`, `type`, `default` and `fixed` of an `xs:element` with `minOccurs` and `maxOccurs` 0 | Not resolved, not import-authorized and not checked. The rules decided at its start tag and at every start tag inside it still apply: its QName syntax and prefix bindings, the occurrence relation and the `xs:all` range, XPath, pattern, a repeated facet, size and `xs:whiteSpace` values, and namespace declaration names. The definitions nested in it keep their own mapping and checks: its inline type definition, as for a prohibited attribute, and its identity constraints, which map to identity-constraint definitions and take part in name uniqueness, are evaluated for no instance element, and resolve a keyref `refer` that names them as any other identity constraint does; a keyref value never matches one. As no particle, it takes part in no Element Declarations Consistent, Unique Particle Attribution or particle restriction check (`project/content-models/element-zero-occurrence/*`) | §3.3.2 maps the item to “no component at all”, as §3.7.2 does for the group reference above, and §3.11.2 maps every `xs:key`, `xs:unique` and `xs:keyref` to an identity-constraint definition. The text decides it, so processor results do not. Of the schemas that a skipped `ref`, `type`, `default` or `fixed` would otherwise make invalid, Xerces-J rejects every one, .NET accepts all, xmlschema only the NOTATION type, and libxml2 only the missing reference and the NOTATION type. All four agree on the identity-constraint schemas; on the keyref instances .NET rejects the absent value and xmlschema fails with an internal error. On the particle checks Xerces-J rejects the zero-count restriction particle, xmlschema the Element Declarations Consistent case and libxml2 the wildcard case, and libxml2 accepts the base whose only particle is zero-count |
 | `xs:all`, `xs:choice` or `xs:sequence` with `minOccurs` and `maxOccurs` 0 | Maps to no particle, so its enclosing model group has none there. Element Declarations Consistent, Unique Particle Attribution and the circular-group rule of Model Group Correct clause 2 do not reach its children, so a group reference inside it creates no circularity. Its children still map by their own occurrence and keep their own checks: value constraints, facets, `src-resolve`, and identity constraints, which a keyref may still name (`project/compositor-zero-*`) | §3.8.2 maps each compositor to a particle “unless minOccurs=maxOccurs=0, in which case the item corresponds to no component at all”, and Model Group Correct clause 2 forbids “within the {particles} of a group” a particle at any depth “whose {term} is the group itself”. The text decides it, so processor results do not. Xerces-J 2.12.2 and xmlschema 4.3.2 report circularity through the compositor, and xmlschema applies Element Declarations Consistent and Unique Particle Attribution across it. .NET 10.0.14 skips every check below it and cannot resolve a keyref to a key declared there. libxml2 2.9.13 skips a repeated facet. Xerces-J agrees with the project on every descendant check |
@@ -1184,6 +1262,23 @@ as written. A particle with `minOccurs` and `maxOccurs` 0 maps to no component
 Particle Attribution doubtful (`project/structures-group-two-ref-choice`), the
 processor tie-break settles it by Xerces-J, which agrees with the project.
 
+NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
+definitions} is a subset of B's declaration's {identity-constraint
+definitions}, if any". The text decides it as written: a local declaration in a
+restriction may not add an identity constraint, and "if any" does not waive the
+subset when the base declaration has none, since the empty set has no nonempty
+subset. [SOURCES.md](SOURCES.md#xsd-11-change-list-dispositions) keeps the 1.0
+structural algorithm for G.1.5, and the 1.1
+[G.1.5](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#changes) note
+"The rules for complex type restriction now allow identity constraints on
+local elements" records the 1.0 rule as a prohibition. The text decides, so
+the processor tie-break is not applicable. Xerces-J 2.12.2, .NET 10.0.14 and
+libxml2 2.9.13 never enforce clause 3.2.3: they accept a derived declaration
+that adds a key or unique to a base with none, adds two, or replaces the
+base's unique with a different unique or with a key, and enforce an added
+unique at run time. xmlschema 4.3.2 rejects each such addition. Case:
+`project/structures-local-idc-addition` (invalid).
+
 Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 
 - libxml2 checks no particle restriction. It accepts a reversed sequence, a
@@ -1206,7 +1301,8 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   non-emptiable base and a mixed complex-content extension of a simple-content
   base.
 - .NET and xmlschema miss ambiguity reached through group references.
-- Xerces-J gives the project result in every case listed.
+- Xerces-J gives the project result in every case listed except
+  `project/structures-local-idc-addition` (above).
 
 Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/dispatch-all-sequence-forbidden`, `project/content-models/dispatch-choice-normalize-optional`, `project/content-models/dispatch-choice-normalize-repeated`, `project/content-models/dispatch-lax-missing-map`, `project/content-models/dispatch-lax-reverse`, `project/content-models/dispatch-mapandsum-count-three-minimum`, `project/content-models/dispatch-range-finite-unbounded`, `project/content-models/dispatch-sequence-required-gap`, `project/content-models/dispatch-sequence-reverse`, `project/content-models/dispatch-source-zero-elimination`, `project/content-models/dispatch-wrapper-all-required`, `project/content-models/dispatch-wrapper-choice-member-range`, `project/content-models/dispatch-wrapper-sequence-required`, `project/content-models/occurrence-boundaries/*`,
@@ -1266,6 +1362,18 @@ ancestor's type or a type derived from it and with the ancestor's fixed value.
 A later extension that changes the fixed value, drops it or gives the attribute
 an unrelated type fails clause 1.5. The intermediate restriction's own narrowing
 is not part of the obligation.
+
+The clause's 1.0 Note reads "This requirement ensures that nothing removed by a
+restriction is subsequently added back by an extension". XSD 1.1 keeps the
+clause
+([cos-ct-extends](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-ct-extends)
+clause 1.5) and qualifies the Note as this record reads it: "nothing removed by
+a restriction is subsequently added back by an extension in an incompatible way
+(for example, with a conflicting type assignment or value constraint)". The 1.1
+Note is corroboration, not an adopted correction. Accepted W3C `msMeta/Attribute_w3c.xml` attZ007i and attZ007v
+witness the admitted side: an attribute that a restriction prohibits returns
+through a later extension with the ancestor's type and `use="required"`, and
+the schema is valid.
 
 Observed: Xerces-J 2.12.2, .NET 10.0.14 and libxml2 2.9.13 do not apply clause
 1.5 and accept every reintroduction. xmlschema 4.3.2 checks the extension's new
@@ -1559,7 +1667,19 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   attributes, keeps `0` and `-0` distinct, and rejects a decimal that differs
   from its fixed value only in spelling.
 - xmlschema admits `1 2` as a decimal and Arabic-Indic digits as an integer.
-- Xerces-J gives the project result in every case listed.
+- Xerces-J, .NET and libxml2 reject a 30-digit year in `date`, `gYear` and
+  `gYearMonth`, and xmlschema fails with `OverflowError` (year overflow). The
+  [dateTime lexical representation](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-lexical-representation)
+  admits a "four-or-more digit optionally negative-signed numeral", and
+  Appendix D.3.3 allows "more than four digits". The
+  [§3.2.6](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#duration)
+  note, to which §3.2.7 refers, lets minimally conforming processors "set an
+  application-defined limit on the maximum number of digits", which "must be
+  clearly documented"; the library sets no year-digit limit beyond its token
+  limits in [resource limits](../RESOURCE_LIMITS.md) and admits the years, so
+  the text decides and the processor tie-break is not reached.
+- Xerces-J gives the project result in every case listed except the wide years
+  of `project/temporal-year-boundaries`.
 
 Cases: `project/datatypes/lexical/conformance-*`,
 `project/datatypes/temporal/conformance-time-lexical`, `project/time-midnight-fraction`,
@@ -1571,7 +1691,9 @@ Cases: `project/datatypes/lexical/conformance-*`,
 `project/architecture-fixed-decimal-canonical-value`,
 `project/runtime-decimal-negative-canonical-fixed`,
 `project/float-fixed-zero-value-space`, `project/identity-float-double-zero-value-space`,
-`project/negative-zero-max-occurrence` and `project/negative-zero-occurrence`.
+`project/negative-zero-max-occurrence`, `project/negative-zero-occurrence` and
+the `wide-date`, `wide-year` and `wide-month` phases of
+`project/temporal-year-boundaries`.
 
 ## I-037 — enumeration compares values
 
@@ -1628,8 +1750,9 @@ Cases: `project/datatypes/enumeration/large-group-decimal-list-value-space`,
 
 ## I-038 — restriction steps read the base's effective facets
 
-**Status:** published XSD 1.0 rules, with one doubtful clause settled by the
-[processor tie-break](#processor-tie-break).
+**Status:** published XSD 1.0 rules, with one garbled clause repaired by the
+selected [minExclusive correction](SOURCES.md#selected-corrections) and one
+doubtful clause settled by the [processor tie-break](#processor-tie-break).
 
 Each `*-valid-restriction` constraint compares a facet of a derivation step with
 the facets in {facets} of its {base type definition}, which include every facet
@@ -1640,7 +1763,9 @@ clause 4,
 [maxExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxExclusive-valid-restriction)
 clauses 3 and 4,
 [minInclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-valid-restriction)
-clause 3); a derived `length` against the inherited `length`
+clause 3,
+[minExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-valid-restriction)
+clause 2 as repaired below); a derived `length` against the inherited `length`
 ([length valid restriction](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#length-valid-restriction));
 `length` with a `minLength` or `maxLength` that an earlier length-free step
 supplies, and the inequalities between them
@@ -1652,6 +1777,18 @@ the members of {facets} of {base type definition} and {value} is less than or
 equal to the {value} of the parent minInclusive", so a derived `maxExclusive`
 10 under an inherited `minInclusive` 10 is rejected although 10 is in the base
 value space.
+
+Its mirror, minExclusive clause 2, reads "{value} is greater the {value} of the
+parent maxInclusive", with the relation's operator garbled. Every other 1.0
+clause comparing a derived bound with an opposite parent bound where either is
+exclusive makes equality an error, and the later
+[minExclusive valid restriction](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/#minExclusive-valid-restriction)
+clause 3 reads "greater than or equal to the {value} of that maxInclusive". The
+library adopts that clause as a
+[selected correction](SOURCES.md#selected-corrections), so a derived
+`minExclusive` 10 under an inherited `maxInclusive` 10 is rejected, directly or
+through a facet-only middle step, and the processor tie-break is not reached.
+Equal inclusive opposite bounds remain allowed.
 
 The facet {fixed} rule
 ([maxLength](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#maxLength-fixed)
@@ -1669,9 +1806,13 @@ is fixed, no later restriction in the chain may specify another value, whatever
 Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 
 - .NET skips the inherited-bound and inherited-length comparisons.
-- Xerces-J skips maxExclusive clause 3 when the literal is in the base value
-  space (`project/datatypes/bounds/continuation-b23-equal`). The clause decides
-  against it.
+- Xerces-J skips maxExclusive clause 3 and the repaired minExclusive clause 2
+  when the literal is in the base value space
+  (`project/datatypes/bounds/continuation-b23-equal`,
+  `project/datatypes/bounds/continuation-b26-equal`), the b26 shape also
+  through a facet-only middle step, while it rejects the same pairs within one
+  step. The clause and the correction decide against it.
+- libxml2 rejects the b23 shape and accepts the b26 shape.
 - xmlschema skips the `length`, `minLength` and `maxLength` coexistence rule.
 - libxml2 admits `whiteSpace` replace under a builtin non-string type.
 - .NET, xmlschema and libxml2 apply the immediate-base reading of {fixed}.
@@ -1679,6 +1820,7 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 Cases: `project/datatypes/bounds/continuation-b20-equal`,
 `project/datatypes/bounds/continuation-b23-equal`,
 `project/datatypes/bounds/continuation-b24-equal`,
+`project/datatypes/bounds/continuation-b26-equal`,
 `project/datatypes/bounds/continuation-b31-equal`,
 `project/datatypes/bounds/inherited-opposing-exclusive-equality`,
 `project/datatypes/facets/conformance-inherit-length-less`,
@@ -1782,6 +1924,12 @@ the question. `targetNamespace` is an anyURI, whose whitespace is collapse, so
 
 Observed: Xerces-J 2.12.2 warns `EmptyTargetNamespace` and accepts, libxml2
 2.9.13 accepts, and .NET 10.0.14 and xmlschema 4.3.2 reject.
+
+Its sibling schZ014_a, an `<xsd:import namespace=""/>` in a schema without
+targetNamespace, expects invalid under the same acceptance and decides the
+empty import namespace in [CMP-Q001](#remaining-source-integration-boundaries):
+Xerces-J and libxml2 accept that document, .NET and xmlschema reject it
+(`project/namespace-schema-import-namespace-cannot-be-empty`).
 
 Cases: `project/composition/conformance-schema-header-target-empty`,
 `project/composition/conformance-schema-header-target-whitespace` and
