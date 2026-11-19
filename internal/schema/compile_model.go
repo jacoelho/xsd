@@ -215,33 +215,22 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 
 // compileNestedModelChild compiles child, a model group or group reference
 // inside a model group of kind parent, after admitting its kind there.
-func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind) (contentModelID, contentModelNode, error) {
-	var id contentModelID
-	var err error
+func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind) (contentModelID, error) {
 	if source := semanticSource[*schemaGroupSource](&child.semantic); source != nil && source.Ref.Lexical.Present {
-		id, err = c.compileModelGroupRef(ctx, child, source.Ref.Name, &parent)
-	} else {
-		var kind modelKind
-		if kind, err = modelKindForNode(child); err != nil {
-			return noContentModel, contentModelNode{}, err
-		}
-		if err = validateModelGroupChildAtNode(child, parent, modelChildAdmissionForModelKind(kind)); err != nil {
-			return noContentModel, contentModelNode{}, err
-		}
-		id, err = c.compileModel(ctx, child)
+		return c.compileModelGroupRef(ctx, child, source.Ref.Name, &parent)
 	}
-	if err != nil || id == noContentModel {
-		return id, contentModelNode{}, err
-	}
-	model, err := c.contentModel(id, "nested model child references missing content model")
+	kind, err := modelKindForNode(child)
 	if err != nil {
-		return noContentModel, contentModelNode{}, err
+		return noContentModel, err
 	}
-	return id, model, nil
+	if err := validateModelGroupChildAtNode(child, parent, modelChildAdmissionForModelKind(kind)); err != nil {
+		return noContentModel, err
+	}
+	return c.compileModel(ctx, child)
 }
 
 func (c *compiler) appendNestedModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode) error {
-	childModelID, _, err := c.compileNestedModelChild(ctx, child, m.Kind)
+	childModelID, err := c.compileNestedModelChild(ctx, child, m.Kind)
 	if err != nil || childModelID == noContentModel {
 		return err
 	}
@@ -274,7 +263,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemAny:
 			_, err = c.compileWildcardParticle(source.ctx, child)
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
-			_, _, err = c.compileNestedModelChild(source.ctx, child, kind)
+			_, err = c.compileNestedModelChild(source.ctx, child, kind)
 		default:
 			return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model group child order admitted xs:"+diagnostictext.Quote(child.local)))
 		}

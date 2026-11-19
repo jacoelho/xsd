@@ -409,17 +409,9 @@ func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner,
 	ct.Derivation = derivationKindExtension
 	ct.ExplicitDerivation = true
 	ct.TextType = base.TextType
-	effective := effectiveContent{model: noContentModel, variety: contentKind}
-	at := child
-	if modelNode := firstModelChild(child); modelNode != nil {
-		model, err := c.compileModel(ctx, modelNode)
-		if err != nil {
-			return complexTypeMetadata{}, err
-		}
-		if contentKind != contentEmpty {
-			effective.model = model
-		}
-		at = modelNode
+	effective, at, err := c.compileExplicitContent(ctx, child, contentKind)
+	if err != nil {
+		return complexTypeMetadata{}, err
 	}
 	content, err := c.extensionContentType(base, effective, at)
 	if err != nil {
@@ -451,6 +443,25 @@ func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner,
 type effectiveContent struct {
 	model   contentModelID
 	variety complexContentVariety
+}
+
+// compileExplicitContent compiles the model group child of a complex-content
+// derivation, if any, and returns its effective content with the node that
+// locates its diagnostics.
+func (c *compiler) compileExplicitContent(ctx *schemaSetDocument, child *schemaNode, contentKind complexContentVariety) (effectiveContent, *schemaNode, error) {
+	effective := effectiveContent{model: noContentModel, variety: contentKind}
+	modelNode := firstModelChild(child)
+	if modelNode == nil {
+		return effective, child, nil
+	}
+	model, err := c.compileModel(ctx, modelNode)
+	if err != nil {
+		return effectiveContent{}, nil, err
+	}
+	if contentKind != contentEmpty {
+		effective.model = model
+	}
+	return effective, modelNode, nil
 }
 
 // extensionContentType returns the {content type} of a complex-content
@@ -486,7 +497,7 @@ func (c *compiler) extensionContentType(base complexTypeMetadata, effective effe
 		return effectiveContent{}, err
 	}
 	sequence := contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Mixed: effective.variety.Mixed()}
-	if err := appendModelParticles(&c.dependencyWork, &sequence, baseParticle, explicitParticle); err != nil {
+	if err = appendModelParticles(&c.dependencyWork, &sequence, baseParticle, explicitParticle); err != nil {
 		return effectiveContent{}, err
 	}
 	id, err := add(sequence)

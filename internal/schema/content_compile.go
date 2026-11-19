@@ -851,21 +851,25 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 
 func (c *contentModelCompiler) appendExecutionParticles(out *contentModelNode, particles []contentParticle) error {
 	for _, p := range particles {
-		if err := c.work.spend(1); err != nil {
+		if err := c.appendExecutionParticle(out, p); err != nil {
 			return err
 		}
-		child, ok, err := c.executionGroup(out.Kind, p)
-		if err != nil {
-			return err
-		}
-		if ok {
-			if err := c.appendExecutionParticles(out, child.Particles); err != nil {
-				return err
-			}
-			continue
-		}
-		out.Particles = append(out.Particles, p)
 	}
+	return nil
+}
+
+func (c *contentModelCompiler) appendExecutionParticle(out *contentModelNode, p contentParticle) error {
+	if err := c.work.spend(1); err != nil {
+		return err
+	}
+	child, ok, err := c.executionGroup(out.Kind, p)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return c.appendExecutionParticles(out, child.Particles)
+	}
+	out.Particles = append(out.Particles, p)
 	return nil
 }
 

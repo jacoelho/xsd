@@ -206,8 +206,8 @@ const (
 )
 
 type normalizedRestrictionChild struct {
-	particle    contentParticle
 	members     []contentParticle
+	particle    contentParticle
 	disposition childDisposition
 }
 
