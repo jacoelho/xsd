@@ -218,9 +218,12 @@ and decides pointlessness on the declared group, and `emptyGroup` decides
 whether a group left with no members matches only the empty sequence or
 nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
 [I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)); the execution
-projection (`executionModel`) owns language-preserving reduction of the top
-level and supplies the root both direct compilation and automaton
-construction compile, which walk nested groups as declared;
+projection owns language-preserving reduction without copying: direct
+compilation walks the execution particles (`executionParticles`), which splice
+every 1..1 child group of the same compositor in place, charging one step per
+particle visited and stopping when compilation stops, and `executionModel`
+lifts a model whose walk yields one particle and otherwise hands the declared
+model to automaton construction, which walks nested groups as declared;
 `executionParticle` reduces singleton particles for direct compilation, and
 the projection recognizes lax-any content by its shape. The count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
@@ -1195,8 +1198,13 @@ graph preserves these ownership rules:
   copying a shared group's particles into every referring group grows the model
   table exponentially in reference depth. A lowered model holds one particle
   per declared child, so a group referenced N times is stored once; only the
-  analysis walks and the execution projection (`executionModel`) expand it,
-  each charged to `MaxContentModelAnalysisSteps` before it appends.
+  analysis walks and the execution projection expand it, each charged to
+  `MaxContentModelAnalysisSteps` per particle visited. Materializing the
+  execution projection as a flat particle list was rejected for the same
+  reason: one step per particle bought 32 bytes or more of a list that direct
+  compilation and automaton construction can read in place, so a fan-out of
+  references to a large group reached hundreds of MiB within the default
+  analysis budget.
   Charging `len(Particles)` at `addModel` was rejected because the main path
   installs particles through `completeModel`, and shared variants would be
   charged for copies that do not happen. Cloning content models on read was

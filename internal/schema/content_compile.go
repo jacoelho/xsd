@@ -821,60 +821,57 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 	return model
 }
 
-// executionModel projects a declared model for execution and is the only
-// input to automaton construction. At its top level, a 1..1 child group of the
-// same compositor is spliced into a sequence or choice, and a sequence or
-// choice left with one particle becomes a sequence of that particle with the
-// product of both occurrences when the product is exact. Both preserve the
-// accepted language; the declared model keeps its groups for Particle Valid
-// (Restriction) clause 2.2.
+// executionModel is the root that direct compilation and automaton
+// construction compile for a declared model. The declared model keeps its
+// groups for Particle Valid (Restriction) clause 2.2, and a shared group is
+// never copied into the models that refer to it: execution reads the
+// language-preserving splice of same-compositor 1..1 groups through
+// executionParticles.
 func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
 	if model.Kind != modelSequence && model.Kind != modelChoice {
 		return model, nil
 	}
-	reduces := false
+	var first contentParticle
+	count := 0
+	err := c.executionParticles(model, func(p contentParticle) (bool, error) {
+		first = p
+		count++
+		return count < 2, nil
+	})
+	if err != nil || count != 1 {
+		return model, err
+	}
+	single := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed, Particles: []contentParticle{first}}
+	return normalizeSingleParticleModel(single), nil
+}
+
+func (c *contentModelCompiler) executionParticles(model contentModelNode, yield func(contentParticle) (bool, error)) error {
+	_, err := c.yieldExecutionParticles(model, yield)
+	return err
+}
+
+func (c *contentModelCompiler) yieldExecutionParticles(model contentModelNode, yield func(contentParticle) (bool, error)) (bool, error) {
 	for _, p := range model.Particles {
-		_, ok, err := c.executionGroup(model.Kind, p)
-		if err != nil {
-			return contentModelNode{}, err
-		}
-		if ok {
-			reduces = true
-			break
+		next, err := c.yieldExecutionParticle(model.Kind, p, yield)
+		if err != nil || !next {
+			return false, err
 		}
 	}
-	if !reduces {
-		return normalizeSingleParticleModel(model), nil
-	}
-	projected := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed}
-	if err := c.appendExecutionParticles(&projected, model.Particles); err != nil {
-		return contentModelNode{}, err
-	}
-	return normalizeSingleParticleModel(projected), nil
+	return true, nil
 }
 
-func (c *contentModelCompiler) appendExecutionParticles(out *contentModelNode, particles []contentParticle) error {
-	for _, p := range particles {
-		if err := c.appendExecutionParticle(out, p); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *contentModelCompiler) appendExecutionParticle(out *contentModelNode, p contentParticle) error {
+func (c *contentModelCompiler) yieldExecutionParticle(parent modelKind, p contentParticle, yield func(contentParticle) (bool, error)) (bool, error) {
 	if err := c.work.spend(1); err != nil {
-		return err
+		return false, err
 	}
-	child, ok, err := c.executionGroup(out.Kind, p)
+	child, ok, err := c.executionGroup(parent, p)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if ok {
-		return c.appendExecutionParticles(out, child.Particles)
+		return c.yieldExecutionParticles(child, yield)
 	}
-	out.Particles = append(out.Particles, p)
-	return nil
+	return yield(p)
 }
 
 // executionGroup returns the group p contributes to a parent of kind parent
@@ -944,11 +941,14 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 
 func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode) (compiledModel, bool, error) {
 	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, active: []uint32{0}}
-	for _, particle := range model.Particles {
-		supported, err := compilation.addParticle(particle)
-		if err != nil || !supported {
-			return compiledModel{}, supported, err
-		}
+	supported := true
+	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
+		var err error
+		supported, err = compilation.addParticle(particle)
+		return supported, err
+	})
+	if err != nil || !supported {
+		return compiledModel{}, supported, err
 	}
 	for _, state := range compilation.active {
 		compilation.rows[state].Accept = true
@@ -1050,11 +1050,14 @@ func (b *directSequenceCompilation) appendActiveEdges(edge compiledModelEdge) er
 
 func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode) (compiledModel, bool, error) {
 	compilation := directChoiceCompilation{compiler: c, rows: []compiledModelRow{{}}}
-	for _, particle := range model.Particles {
-		supported, err := compilation.addParticle(particle)
-		if err != nil || !supported {
-			return compiledModel{}, supported, err
-		}
+	supported := true
+	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
+		var err error
+		supported, err = compilation.addParticle(particle)
+		return supported, err
+	})
+	if err != nil || !supported {
+		return compiledModel{}, supported, err
 	}
 	if err := c.checkCompiledRowsUPA(compilation.rows); err != nil {
 		return compiledModel{}, false, err
