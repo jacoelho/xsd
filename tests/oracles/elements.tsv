@@ -18880,6 +18880,13 @@ project/elements/substitution-union-member/block-restriction-member-is-union-mem
 project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	libxml2	error	timed out after 120s
 project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	xerces	schema-valid	
 project/elements/substitution-union-member/block-restriction-member-is-union-member	schema	xmlschema	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	member	xerces	valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	schema	dotnet	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	schema	libxml2	error	timed out after 120s
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	schema	xerces	schema-valid	
+project/elements/substitution-union-member/block-restriction-member-is-union-member-restricting-another-member	schema	xmlschema	schema-valid	
 project/elements/substitution-union-member/block-restriction-member-restricts-union-member	member	dotnet	invalid	member.xml:1:19: Member element urn:t:m's type cannot be derived by restriction or extension from head element urn:t:h's type, because it has block='restriction' or 'extension'.
 project/elements/substitution-union-member/block-restriction-member-restricts-union-member	member	xerces	invalid	member.xml:1:21: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:t":m}'. One of '{"urn:t":h}' is expected.
 project/elements/substitution-union-member/block-restriction-member-restricts-union-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, 1]) is blocked (path /r/m)
