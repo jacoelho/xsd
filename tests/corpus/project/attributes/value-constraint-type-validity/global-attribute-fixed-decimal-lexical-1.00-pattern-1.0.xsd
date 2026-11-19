@@ -1,0 +1,1 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:decimal"><xs:pattern value="1\.0"/></xs:restriction></xs:simpleType><xs:attribute name="a" type="T" fixed="1.00"/><xs:element name="root"><xs:complexType><xs:attribute ref="a"/></xs:complexType></xs:element></xs:schema>

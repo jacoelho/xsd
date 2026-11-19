@@ -15572,6 +15572,2140 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-datetime-offset-canonical-utc",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-datetime-offset-canonical-utc.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-datetime-offset-canonical-utc.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-datetime-offset-canonical-utc.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-pattern-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-duration-pt60s-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-duration-pt60s-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-duration-pt60s-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-duration-pt60s-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-float-lexical-1E0-canonical-1.0E0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-gyear-zero-offset-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-gyear-zero-offset-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-gyear-zero-offset-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-gyear-zero-offset-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-hexbinary-lowercase-canonical-upper",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-hexbinary-lowercase-canonical-upper.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-hexbinary-lowercase-canonical-upper.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-hexbinary-lowercase-canonical-upper.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-integer-lexical-plus1-canonical-1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-integer-lexical-plus1-canonical-1.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-integer-lexical-plus1-canonical-1.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/attribute-ref-use-fixed-integer-lexical-plus1-canonical-1.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-default-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-datetime-offset-canonical-utc",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-datetime-offset-canonical-utc.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-datetime-offset-canonical-utc.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-datetime-offset-canonical-utc.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-pattern-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-duration-pt60s-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-duration-pt60s-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-duration-pt60s-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-duration-pt60s-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-float-lexical-1E0-canonical-1.0E0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-gyear-zero-offset-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-gyear-zero-offset-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-gyear-zero-offset-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-gyear-zero-offset-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-hexbinary-lowercase-canonical-upper",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-hexbinary-lowercase-canonical-upper.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-hexbinary-lowercase-canonical-upper.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-hexbinary-lowercase-canonical-upper.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-attribute-fixed-integer-lexical-plus1-canonical-1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-integer-lexical-plus1-canonical-1.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-integer-lexical-plus1-canonical-1.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-attribute-fixed-integer-lexical-plus1-canonical-1.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-datetime-offset-canonical-utc",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-datetime-offset-canonical-utc.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-datetime-offset-canonical-utc.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-datetime-offset-canonical-utc.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-pattern-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-pattern-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-pattern-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-decimal-lexical-1.00-pattern-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-duration-pt60s-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-duration-pt60s-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-duration-pt60s-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-duration-pt60s-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-float-lexical-1E0-canonical-1.0E0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-float-lexical-1E0-canonical-1.0E0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-float-lexical-1E0-canonical-1.0E0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-float-lexical-1E0-canonical-1.0E0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-gyear-zero-offset-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-gyear-zero-offset-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-gyear-zero-offset-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-gyear-zero-offset-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-hexbinary-lowercase-canonical-upper",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-hexbinary-lowercase-canonical-upper.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-hexbinary-lowercase-canonical-upper.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-hexbinary-lowercase-canonical-upper.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-integer-lexical-plus1-canonical-1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-integer-lexical-plus1-canonical-1.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-integer-lexical-plus1-canonical-1.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-integer-lexical-plus1-canonical-1.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-list-boolean-items-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-list-boolean-items-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-list-boolean-items-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-list-boolean-items-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-default-union-boolean-member-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-default-union-boolean-member-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-union-boolean-member-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-default-union-boolean-member-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/global-element-fixed-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-default-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-datetime-offset-canonical-utc",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-datetime-offset-canonical-utc.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-datetime-offset-canonical-utc.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-datetime-offset-canonical-utc.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-canonical-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-canonical-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-pattern-1.0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-decimal-lexical-1.00-pattern-1.0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-duration-pt60s-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-duration-pt60s-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-duration-pt60s-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-duration-pt60s-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-float-lexical-1E0-canonical-1.0E0",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-float-lexical-1E0-canonical-1.0E0.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-gyear-zero-offset-no-canonical",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-gyear-zero-offset-no-canonical.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern; the type has no 1.0 canonical representation, and the lexical form is what is checked."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-gyear-zero-offset-no-canonical.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-gyear-zero-offset-no-canonical.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-hexbinary-lowercase-canonical-upper",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-hexbinary-lowercase-canonical-upper.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-hexbinary-lowercase-canonical-upper.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-hexbinary-lowercase-canonical-upper.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-integer-lexical-plus1-canonical-1",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-integer-lexical-plus1-canonical-1.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-integer-lexical-plus1-canonical-1.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-integer-lexical-plus1-canonical-1.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-list-boolean-items-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-list-boolean-items-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-list-boolean-items-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-list-boolean-items-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-attribute-fixed-union-boolean-member-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-union-boolean-member-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-union-boolean-member-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-attribute-fixed-union-boolean-member-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-canonical-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-canonical-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form satisfies the pattern while its canonical representation does not; the lexical form is checked, so the schema is valid."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-canonical-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "dcs-q001"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-canonical-true.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-pattern-true",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-pattern-true.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cos-valid-simple-default"
+        ],
+        "conditions": [
+          "The value constraint's lexical form fails the pattern, which its canonical representation satisfies; the lexical form is checked, so the schema is invalid."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-pattern-true.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#dcs-q001",
+          "clause": "Type validity in DCS-Q001 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/attributes/value-constraint-type-validity/local-element-default-boolean-lexical-1-pattern-true.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }
