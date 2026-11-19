@@ -417,7 +417,7 @@ func (c *compiler) validateComplexRestrictionModels() error {
 
 func (c *compiler) validateComplexRestrictionModel(id ComplexTypeID) (err error) {
 	ct := c.rt.complexType(id)
-	if id == c.rt.AnyType || ct.Derivation != derivationKindRestriction || restrictsUrType(&c.rt, ct) {
+	if ct.Derivation != derivationKindRestriction || baseIsUrType(&c.rt, ct) {
 		return nil
 	}
 	baseID, ok := ct.Base.Complex()

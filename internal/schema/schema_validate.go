@@ -730,7 +730,7 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct complexTypeMetad
 	if err := validateComplexRestrictionAttributeWildcard(rt.build, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if !restrictsUrType(rt.build, ct) {
+	if !baseIsUrType(rt.build, ct) {
 		if err := validateContentRestriction(
 			rt.build,
 			base.Content,

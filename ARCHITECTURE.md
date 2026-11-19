@@ -236,7 +236,7 @@ Particle Attribution check (`checkContentModelUPA`) also reads nested groups as
 declared, and `sequenceTail` alone decides which particles of a nested
 sequence can match its last element. The count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
-no alternative to a choice. `restrictsUrType` alone decides the ur-type
+no alternative to a choice. `baseIsUrType` alone decides the ur-type
 exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
 the restriction's base type.
 

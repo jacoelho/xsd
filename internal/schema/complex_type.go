@@ -476,17 +476,16 @@ func validateSimpleContentRestrictionTextType(
 	return nil
 }
 
-// restrictsUrType reports whether ct is a restriction whose {base type
-// definition} is the ur-type itself, which satisfies Derivation Valid
-// (Restriction, Complex) clause 5.1 and is the only base clause 4.3 exempts.
-// Type identity decides it: a type that shares xs:anyType's content or
-// wildcard, or derives from it, is not the ur-type.
-func restrictsUrType(rt *schemaBuild, ct complexTypeMetadata) bool {
-	return ct.Derivation == derivationKindRestriction && ct.Base == ComplexRef(rt.AnyType)
+// baseIsUrType reports whether the {base type definition} of ct is the
+// ur-type itself (Derivation Valid (Restriction, Complex) clauses 5.1 and
+// 4.3). A type that shares xs:anyType's content or wildcard, or derives from
+// it, is not the ur-type.
+func baseIsUrType(rt *schemaBuild, ct complexTypeMetadata) bool {
+	return ct.Base == ComplexRef(rt.AnyType)
 }
 
 func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct complexTypeMetadata) error {
-	if ct.Derivation != derivationKindRestriction || restrictsUrType(rt, ct) {
+	if ct.Derivation != derivationKindRestriction || baseIsUrType(rt, ct) {
 		return nil
 	}
 	derivedID := rt.AttributeUseSets[ct.Attrs].Wildcard
