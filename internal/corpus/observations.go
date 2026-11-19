@@ -165,7 +165,7 @@ func ObservationPath(caseID string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("case %q is not a project case", caseID)
 	}
-	return "oracles/" + area + ".tsv", nil
+	return areaObservationPath(area), nil
 }
 
 // ObservationPaths returns the observation file of every project shard of
@@ -174,10 +174,14 @@ func (inv *Inventory) ObservationPaths() []string {
 	var paths []string
 	for _, name := range inv.Shards {
 		if area, ok := strings.CutPrefix(name, SourceProject+"/"); ok {
-			paths = append(paths, "oracles/"+area+".tsv")
+			paths = append(paths, areaObservationPath(area))
 		}
 	}
 	return paths
+}
+
+func areaObservationPath(area string) string {
+	return "oracles/" + area + ".tsv"
 }
 
 // Profile identifies the measurement every observation row comes from. Image
