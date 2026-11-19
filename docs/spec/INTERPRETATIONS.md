@@ -727,7 +727,13 @@ rules. On the wildcard rule of cvc-complex-type clause 5.2 it reports
 that are present, while the rule counts every ID-carrying use in {attribute
 uses}. Xerces-J 2.12.2 reports each. .NET 10.0.14 and xmlschema report the
 unresolved IDREF and the element ID duplicates. Their list and union
-differences are the carriage differences described above. Cases:
+differences are the carriage differences described above. .NET adds no ID for
+an item of a list of `union(int, ID)`, so it accepts a repeated item and
+rejects an IDREF naming one, and it resolves no item of a list of
+`union(int, IDREF)`, so it accepts an attribute or element default of that type
+naming no ID. xmlschema reports distinct ID items of a list of `union(int, ID)`
+as duplicated, and counts each item of an `xs:ID` list attribute as an ID
+attribute, so it rejects a two-item value as more than one ID attribute. Cases:
 `project/identity/conformance-idrefs-repeated-builtin`,
 `project/identity/conformance-idrefs-repeated-two`,
 `project/identity/isolated-activation/dynamic`,
@@ -825,7 +831,9 @@ root selected by `xsi:type`) is never nilled: `xsi:nil` is still checked as an
 
 Xerces-J agrees on every fixture. .NET and libxml2 do not check `xsi:nil` as
 `xs:boolean` without a declaration; xmlschema treats such an element as a
-non-nillable declaration. libxml2 2.9.13 also does not assess an undeclared
+non-nillable declaration, except that it treats an element under a lax
+wildcard with `xsi:type` as nillable, accepting it empty and rejecting it with
+content. libxml2 2.9.13 also does not assess an undeclared
 validation root through `xsi:type` and rejects it. Cases:
 `project/elements/xsi-nil-without-declaration`.
 
@@ -1589,9 +1597,13 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   reports no key in scope even with no rows. It ignores a keyref transformed by
   a chameleon include. The same schema in its own namespace makes .NET reject.
 - libxml2 counts a local and an inherited entry as two matches, so conflicting
-  child entries defeat a local entry.
+  child entries defeat a local entry. When two conflicting descendant entries
+  precede another child's equal entry, it keeps them and reports more than one
+  match for a keyref; in the reverse order it accepts.
 - xmlschema misses table conflicts, checks incomplete keyref rows and fails with
-  `KeyError` on an element without a binding.
+  `KeyError` on an element without a binding. It accepts a keyref value that
+  matches no entry on an element with no complete row of its own whose table
+  takes entries from a descendant.
 - .NET, xmlschema and libxml2 do not apply clause 4.2.3.
 
 Cases: `project/identity/joins-key-tables`, `project/identity/joins-unique-tables`,
