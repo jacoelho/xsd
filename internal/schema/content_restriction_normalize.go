@@ -311,10 +311,8 @@ func (n *restrictionNormalizer) appendChild(particles []contentParticle, child n
 }
 
 func (n *restrictionNormalizer) group(kind modelKind, occurs occurrence, particles []contentParticle, order restrictionChoiceOrder) (contentParticle, error) {
-	if len(particles) == 1 {
-		if occurs.IsExactlyOne() {
-			return particles[0], nil
-		}
+	if len(particles) == 1 && occurs.IsExactlyOne() {
+		return particles[0], nil
 	}
 	body := contentModelNode{Kind: kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: particles}
 	if len(particles) == 0 && (kind != modelChoice || occurs.Min == 0) {
