@@ -81,7 +81,7 @@ func (n *restrictionNormalizer) element(p contentParticle) (contentParticle, err
 	}
 	// These are literal members of the actual group, not new head references.
 	// Expanding them again could regenerate their enclosing choice forever.
-	return n.group(modelChoice, p.Occurs, members, restrictionChoiceOrder{unordered: true})
+	return n.substitutionChoice(p.Occurs, members)
 }
 
 func (n *restrictionNormalizer) appendActualMember(members *[]contentParticle, head, id ElementID) error {
@@ -166,7 +166,7 @@ func (n *restrictionNormalizer) model(p contentParticle, depth int) (contentPart
 		if err := n.validator.charge(); err != nil {
 			return contentParticle{}, err
 		}
-		return n.group(modelSequence, p.Occurs, []contentParticle{inner}, restrictionChoiceOrder{})
+		return n.addGroup(contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Particles: []contentParticle{inner}}, p.Occurs, restrictionChoiceOrder{})
 	}
 	if pointlessSingleton(m, occurs) {
 		return n.particle(m.Particles[0], depth+1)
@@ -189,17 +189,30 @@ func (n *restrictionNormalizer) modelBody(original contentParticle, m contentMod
 		// particle as well would count them twice during comparison.
 		return original, nil
 	}
-	return n.group(m.Kind, occurs, children.particles, children.order)
+	return n.declaredGroup(m, occurs, children)
 }
 
+// childDisposition is what clause 2.2 does with a normalized child in its
+// parent group.
+type childDisposition uint8
+
+const (
+	childKept childDisposition = iota
+	// childIgnored drops an empty group.
+	childIgnored
+	// childSpliced replaces a 1..1 group of the parent's compositor by its
+	// members.
+	childSpliced
+)
+
 type normalizedRestrictionChild struct {
-	flattened []contentParticle
-	particle  contentParticle
-	omitted   bool
+	particle    contentParticle
+	members     []contentParticle
+	disposition childDisposition
 }
 
 func (c normalizedRestrictionChild) unchanged(original contentParticle) bool {
-	return c.particle == original && c.flattened == nil && !c.omitted
+	return c.particle == original && c.disposition == childKept
 }
 
 type normalizedRestrictionChildren struct {
@@ -234,7 +247,7 @@ func (n *restrictionNormalizer) replaceChild(result *normalizedRestrictionChildr
 		}
 		result.changed = true
 	}
-	if parent.Kind == modelChoice && child.flattened != nil {
+	if parent.Kind == modelChoice && child.disposition == childSpliced {
 		if err = n.appendChildChoiceSpans(result, child); err != nil {
 			return err
 		}
@@ -246,7 +259,7 @@ func (n *restrictionNormalizer) replaceChild(result *normalizedRestrictionChildr
 func (n *restrictionNormalizer) appendChildChoiceSpans(result *normalizedRestrictionChildren, child normalizedRestrictionChild) error {
 	order := n.models.choiceOrder(child.particle.Model)
 	if order.unordered {
-		return n.appendChildChoiceSpan(result, restrictionChoiceSpan{end: len(child.flattened)})
+		return n.appendChildChoiceSpan(result, restrictionChoiceSpan{end: len(child.members)})
 	}
 	for _, span := range order.spans {
 		if err := n.appendChildChoiceSpan(result, span); err != nil {
@@ -285,24 +298,26 @@ func (n *restrictionNormalizer) child(original contentParticle, parent modelKind
 		return normalizedRestrictionChild{}, contentRestrictionInvariant("normalized content model is missing")
 	}
 	if body.Kind == modelEmpty {
-		child.omitted = true
+		child.disposition = childIgnored
 		return child, nil
 	}
 	if p.Occurs.IsExactlyOne() && body.Occurs.IsExactlyOne() && body.Kind == parent && (parent == modelSequence || parent == modelChoice) {
-		child.flattened = body.Particles
+		child.members = body.Particles
+		child.disposition = childSpliced
 	}
 	return child, nil
 }
 
 func (n *restrictionNormalizer) appendChild(particles []contentParticle, child normalizedRestrictionChild) ([]contentParticle, error) {
-	if child.omitted {
+	switch child.disposition {
+	case childIgnored:
 		return particles, nil
-	}
-	if child.flattened != nil {
-		if err := n.validator.spend(len(child.flattened)); err != nil {
+	case childSpliced:
+		if err := n.validator.spend(len(child.members)); err != nil {
 			return nil, err
 		}
-		return append(particles, child.flattened...), nil
+		return append(particles, child.members...), nil
+	case childKept:
 	}
 	if err := n.validator.charge(); err != nil {
 		return nil, err
@@ -310,15 +325,30 @@ func (n *restrictionNormalizer) appendChild(particles []contentParticle, child n
 	return append(particles, child.particle), nil
 }
 
-func (n *restrictionNormalizer) group(kind modelKind, occurs occurrence, particles []contentParticle, order restrictionChoiceOrder) (contentParticle, error) {
-	if len(particles) == 1 && occurs.IsExactlyOne() {
-		return particles[0], nil
+// declaredGroup is the normalized form of the declared group m once its
+// pointless children are ignored (Particle Valid (Restriction) clause 2.2). m
+// was not a pointless singleton as declared, so it stays a group whatever the
+// number of children left (I-028 in docs/spec/INTERPRETATIONS.md). It is empty
+// when no child is left, unless m is a required choice declared with no
+// members, which matches nothing (I-042).
+func (n *restrictionNormalizer) declaredGroup(m contentModelNode, occurs occurrence, children normalizedRestrictionChildren) (contentParticle, error) {
+	if len(children.particles) == 0 && (m.Kind != modelChoice || occurs.Min == 0 || len(m.Particles) != 0) {
+		return n.addGroup(contentModelNode{Kind: modelEmpty}, occurrence{Min: 1, Max: 1}, children.order)
 	}
-	body := contentModelNode{Kind: kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: particles}
-	if len(particles) == 0 && (kind != modelChoice || occurs.Min == 0) {
-		body = contentModelNode{Kind: modelEmpty}
-		occurs = occurrence{Min: 1, Max: 1}
+	return n.addGroup(contentModelNode{Kind: m.Kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: children.particles}, occurs, children.order)
+}
+
+// substitutionChoice is the choice clause 2.1 generates for a head with an
+// actual substitution group. It is not declared, so clause 2.2 finds it
+// pointless when it has one member (I-027 in docs/spec/INTERPRETATIONS.md).
+func (n *restrictionNormalizer) substitutionChoice(occurs occurrence, members []contentParticle) (contentParticle, error) {
+	if len(members) == 1 && occurs.IsExactlyOne() {
+		return members[0], nil
 	}
+	return n.addGroup(contentModelNode{Kind: modelChoice, Occurs: occurrence{Min: 1, Max: 1}, Particles: members}, occurs, restrictionChoiceOrder{unordered: true})
+}
+
+func (n *restrictionNormalizer) addGroup(body contentModelNode, occurs occurrence, order restrictionChoiceOrder) (contentParticle, error) {
 	if err := n.validator.charge(); err != nil {
 		return contentParticle{}, err
 	}

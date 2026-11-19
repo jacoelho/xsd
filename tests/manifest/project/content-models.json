@@ -28431,6 +28431,2035 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-both-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-both-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-both-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-both-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-both-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-both-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-both-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-both-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-both-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-both-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-empty-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-empty-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-empty-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-empty-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-empty-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-empty-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-empty-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-empty-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-empty-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-empty-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-emptyseq-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-emptyseq-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-emptyseq-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyseq-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyseq-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-emptyseq-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-emptyseq-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-emptyseq-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyseq-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyseq-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-nested-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-nested-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-nested-any and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-nested-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-nested-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-nested-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-nested-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-nested-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-nested-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-nested-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-both-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-both-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-both-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-both-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-both-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-both-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-both-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-both-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-both-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-both-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-empty-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-empty-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-empty-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-empty-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-empty-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-empty-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-empty-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-empty-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-empty-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-empty-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-emptychoice0-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice0-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-emptychoice0-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice0-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice0-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-emptychoice0-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-emptychoice1-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice1-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent.",
+          "A required empty choice in a sequence is not pointless, and no sequence is valid against it (I-042)."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-emptychoice1-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice1-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice1-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent.",
+          "A required empty choice in a sequence is not pointless, and no sequence is valid against it (I-042)."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-emptychoice1-elt and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-042"
+          },
+          "libxml2": {
+            "record": "I-042"
+          },
+          "xerces": {
+            "record": "I-042"
+          },
+          "xmlschema": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-nested-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-nested-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-nested-any and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nested-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nested-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-nested-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-nested-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-nested-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nested-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nested-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-both-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-both-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-both-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-both-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-both-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-both-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-both-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-both-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-both-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-both-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-empty-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-empty-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-empty-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-empty-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-empty-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-empty-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-empty-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-empty-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-empty-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-empty-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyseq-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-emptyseq-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-emptyseq-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-nested-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-nested-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-nested-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-nested-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-nested-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-nested-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-nested-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-nested-elt and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-nested-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-nested-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-both-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-both-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-both-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-both-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-both-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-both-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-both-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-both-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-both-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-both-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-empty-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-empty-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-empty-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-empty-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-empty-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-empty-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-empty-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-empty-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-empty-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-empty-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-emptychoice0-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-emptychoice0-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent.",
+          "A required empty choice in a sequence is not pointless, and no sequence is valid against it (I-042)."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-emptychoice1-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent.",
+          "A required empty choice in a sequence is not pointless, and no sequence is valid against it (I-042)."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-emptychoice1-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-nested-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-nested-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-nested-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nested-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nested-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-nested-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-nested-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-nested-elt and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nested-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nested-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-nestedempty-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-nestedempty-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-nestedempty-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nestedempty-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nestedempty-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-nestedempty-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-nestedempty-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-nestedempty-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nestedempty-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-nestedempty-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-nestedempty-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-nestedempty-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-nestedempty-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-nestedempty-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nestedempty-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-nestedempty-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-emptyreq-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-emptyreq-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-emptyreq-elt and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyreq-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyreq-elt.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyreq-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyreq-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-emptyreq-any and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyreq-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyreq-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-choicesingleton",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-choicesingleton.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-choicesingleton and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choicesingleton.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choicesingleton.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-choicesingleton",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-choicesingleton.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-choicesingleton and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-choicesingleton.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-choicesingleton.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-choiceofempties",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-choiceofempties.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape seq-choiceofempties and the derived type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choiceofempties.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-choiceofempties.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-choiceofempties",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-choiceofempties.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-choiceofempties and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-choiceofempties.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-choiceofempties.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-empty-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-empty-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-a-empty-b and the base type a plain sequence of the same term; the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-empty-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-empty-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent.",
+          "A required empty choice in a sequence is not pointless, and no sequence is valid against it (I-042)."
+        ],
+        "description": "The derived type of B/R holds the residue shape seq-a-emptychoice1-b and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-042"
+          },
+          "libxml2": {
+            "record": "I-042"
+          },
+          "xerces": {
+            "record": "I-042"
+          },
+          "xmlschema": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "Wildcard Subset clause 3 waives the processing strength only for the ur-type wildcard where the restriction's {base type definition} is xs:anyType itself. B extends xs:anyType, so R's base content is compared as an ordinary lax ##any wildcard, as the processor tie-break settles by Xerces-J.",
+          "A mixed extension with empty explicit content has the content type sequence(base particle, empty sequence) (§3.4.2 clause 3.2.3); that sequence is declared with two members, so it is not a pointless singleton and a wildcard cannot restrict it."
+        ],
+        "description": "A restriction of a mixed empty extension of xs:anyType declares a lax ##any wildcard; Any:Sequence is forbidden."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "Wildcard Subset clause 3 waives the processing strength only for the ur-type wildcard where the restriction's {base type definition} is xs:anyType itself. B extends xs:anyType, so R's base content is compared as an ordinary lax ##any wildcard, as the processor tie-break settles by Xerces-J.",
+          "A mixed extension with empty explicit content has the content type sequence(base particle, empty sequence) (§3.4.2 clause 3.2.3); that sequence is declared with two members, so it is not a pointless singleton and a wildcard cannot restrict it."
+        ],
+        "description": "A restriction of a mixed empty extension of xs:anyType declares a strict ##any wildcard; Any:Sequence is forbidden."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

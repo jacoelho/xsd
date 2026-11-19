@@ -2159,8 +2159,18 @@ Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 accept empty content
 and a child for a required empty choice, and accept the added particles in an
 extension of it. libxml2 2.9.13 rejects all of them.
 
-Cases: `project/content-models/nested-empty-choice-required` and
-`project/content-models/type-derivation/extension-content/required-empty-choice-base`.
+Under Particle Valid (Restriction) clause 2.2 a required empty choice is
+therefore not an ignorable empty group except inside a choice, where it adds
+nothing ([I-028](#i-028--content-model-checks)). A sequence keeps it, so a
+restriction compares it like any other member: dropping it from a base
+sequence admits content the base does not, and keeping it in a derived
+sequence the base lacks leaves it unmapped. Xerces-J ignores it as empty
+everywhere and accepts both restrictions.
+
+Cases: `project/content-models/nested-empty-choice-required`,
+`project/content-models/type-derivation/extension-content/required-empty-choice-base`,
+`project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt` and
+`project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b`.
 
 ## I-043 — libxml2 continues after well-formedness errors
 

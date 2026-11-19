@@ -4121,14 +4121,206 @@ project/content-models/particle-restriction/mapandsum-maximum-product-only	schem
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	libxml2	schema-valid	
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	xerces	schema-invalid	mapandsum-maximum-product-only.xsd:4:37: rcase-MapAndSum.2: Group's occurrence range, (2,4), is not a valid restriction of base group's occurrence range, (0,2).
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	xerces	schema-invalid	base-cho-both-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	xerces	schema-invalid	base-cho-empty-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	dotnet	schema-valid	warning: base-cho-emptyreq-any.xsd:3:107: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	xerces	schema-invalid	base-cho-emptyreq-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
 project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	dotnet	schema-valid	warning: base-cho-emptyreq-elt.xsd:3:79: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	xerces	schema-invalid	base-cho-emptyseq-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	xerces	schema-invalid	base-seq-both-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	dotnet	schema-valid	warning: base-seq-choiceofempties.xsd:3:81: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	xerces	schema-invalid	base-seq-empty-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	xerces	schema-invalid	base-seq-emptychoice0-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	dotnet	schema-valid	warning: base-seq-emptychoice1-any.xsd:3:109: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	xerces	schema-invalid	base-seq-emptychoice1-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	dotnet	schema-valid	warning: base-seq-emptychoice1-elt.xsd:3:81: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	xerces	schema-invalid	base-seq-nestedempty-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	xerces	schema-invalid	derived-cho-both-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:choice><xs:element name="a" type="xs:string" /></xs:choice><xs:choice minOccurs="0" /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-both-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	xerces	schema-invalid	derived-cho-empty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:choice minOccurs="0" /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-empty-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	dotnet	schema-valid	warning: derived-cho-emptyreq-any.xsd:4:151: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	dotnet	schema-valid	warning: derived-cho-emptyreq-elt.xsd:4:123: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	xerces	schema-invalid	derived-cho-emptyreq-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
 project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:choice /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-emptyreq-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	xerces	schema-invalid	derived-cho-emptyseq-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:sequence /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-emptyseq-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:choice><xs:element name="a" type="xs:string" /></xs:choice></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-nested-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	dotnet	schema-valid	warning: derived-seq-a-emptychoice1-b.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	xerces	schema-invalid	derived-seq-both-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-both-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	dotnet	schema-valid	warning: derived-seq-choiceofempties.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	xerces	schema-invalid	derived-seq-choiceofempties.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice><xs:sequence /><xs:sequence /></xs:choice></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-choiceofempties.xsd
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	xerces	schema-invalid	derived-seq-empty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-empty-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	xerces	schema-invalid	derived-seq-emptychoice0-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice minOccurs="0" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-emptychoice0-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	dotnet	schema-valid	warning: derived-seq-emptychoice1-any.xsd:4:153: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	dotnet	schema-valid	warning: derived-seq-emptychoice1-elt.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	xerces	schema-invalid	derived-seq-emptychoice1-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-emptychoice1-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-nested-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	xerces	schema-invalid	derived-seq-nestedempty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence><xs:sequence /></xs:sequence></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-nestedempty-elt.xsd
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	libxml2	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xerces	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xmlschema	valid	
@@ -5529,10 +5721,18 @@ project/content-models/type-derivation/urtype-content/anytype-extension-sequence
 project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	libxml2	schema-invalid	anytype-extension-sequence-unmixed.xsd:3: element complexType: Schemas parser error : complex type 'E': The content type of both, the type and its base type, must either 'mixed' or 'element-only'.␊WXS schema anytype-extension-sequence-unmixed.xsd failed to compile
 project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	xerces	schema-invalid	anytype-extension-sequence-unmixed.xsd:3:92: cos-ct-extends.1.4.3.2.2.1.a: The content type of a derived type and that of its base must both be mixed or both be element-only. Type 'E' is element only, but its base type is not.
 project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	xmlschema	schema-invalid	base has a different content type (mixed=True) and the extension group is not empty:␊␊Schema component:␊␊  <xs:extension xmlns:xs="http://www.w3.org/2001/XMLSchema" base="xs:anyType"><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence></xs:extension>␊␊Path: /xs:schema/xs:complexType/xs:complexContent/xs:extension␊␊Schema URL: anytype-extension-sequence-unmixed.xsd
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	dotnet	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	xerces	schema-invalid	inherited-anytype-content-wildcard-lax.xsd:4:41: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	xmlschema	schema-valid	
 project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	dotnet	schema-invalid	inherited-anytype-content-wildcard-skip.xsd:4:4: Invalid particle derivation by restriction - 'The derived wildcard's 'processContents' must be identical to or stronger than the base wildcard's 'processContents', where 'strict' is stronger than 'lax' and 'lax' is stronger than 'skip', Any:Any -- NSSubset Rule 3.'.
 project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	libxml2	schema-valid	
 project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	xerces	schema-invalid	inherited-anytype-content-wildcard-skip.xsd:4:41: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
 project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R" mixed="true"><xs:complexContent mixed="true"><xs:restriction base="B"><xs:sequence><xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" /></xs:sequence><xs:anyAttribute processContents="lax" /></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: inherited-anytype-content-wildcard-skip.xsd
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	dotnet	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	xerces	schema-invalid	inherited-anytype-content-wildcard-strict.xsd:4:41: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	xmlschema	schema-valid	
 project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	dotnet	schema-valid	
 project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	libxml2	schema-valid	
 project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	xerces	schema-valid	
