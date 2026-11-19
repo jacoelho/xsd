@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/defaultFixed.testSet/s2_7_2v01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/defaultFixed.testSet",
+        "testGroup": "s2_7_2v01"
+      },
+      "title": "Structures introduces a mechanism for signaling that an element \n\t\tmust be accepted as 'valid'  when it has no content despite a content type which \n\t\tdoes not require or even necessarily allow empty content. An element can be 'valid'  \n\t\twithout content if it has the attribute xsi:nil  with the value true. An element \n\t\tso labeled must  be empty, but can carry attributes if permitted by the corresponding \n\t\tcomplex type.",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Misc-XSIDefault",
+        "http://www.w3.org/TR/xmlschema11-1/#xsi_nil"
+      ],
+      "schema": {
+        "testName": "s2_7_2v01s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/valid/S2_7_2/s2_7_2v01.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s2_7_2v01i",
+          "file": "corpus/w3c/ibmData/valid/S2_7_2/s2_7_2v01.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/valid/S2_7_2/s2_7_2v01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/valid/S2_7_2/s2_7_2v01.xsd"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,468 @@
+{
+  "cases": [
+    {
+      "id": "w3c/sunMeta/Notation.testSet/annotation00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "annotation00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "annotation00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/annotation00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "annotation00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "annotation00101m2",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m2.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m2.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/annotation00101m3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "annotation00101m3"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "annotation00101m3",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m3.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m3_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m3.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m3_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/annotation00101m4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "annotation00101m4"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "annotation00101m4",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m4.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/annotation/annotation00101m/annotation00101m4.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/name00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "name00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "name00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/name/name00101m/name00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/name/name00101m/name00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/name/name00101m/name00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/name/name00101m/name00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/name00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "name00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "name00101m2",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/name/name00101m/name00101m2.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/name/name00101m/name00101m2.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/name00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "name00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "name00201m1",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/name/name00201m/name00201m1.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/name/name00201m/name00201m1.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/publicid00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "publicid00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "publicId00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/publicId/publicId00101m/publicId00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/publicId/publicId00101m/publicId00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/publicId/publicId00101m/publicId00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/publicId/publicId00101m/publicId00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/publicid00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "publicid00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "publicId00201m1",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/publicId/publicId00201m/publicId00201m1.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/publicId/publicId00201m/publicId00201m1.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/systemid00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "systemid00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "systemId00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/systemId/systemId00101m/systemId00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/systemId/systemId00101m/systemId00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/systemId/systemId00101m/systemId00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/systemId/systemId00101m/systemId00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/systemid00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "systemid00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "systemId00201m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/systemId/systemId00201m/systemId00201m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/systemId/systemId00201m/systemId00201m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/systemId/systemId00201m/systemId00201m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/systemId/systemId00201m/systemId00201m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/targetns00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "targetns00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "targetNS00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Notation.testSet/targetns00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Notation.testSet",
+        "testGroup": "targetns00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "targetNS00101m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m2_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m1.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Notation/targetNS/targetNS00101m/targetNS00101m2_p.xml",
+          "role": "instance"
+        }
+      ]
+    }
+  ]
+}

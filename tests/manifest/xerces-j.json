@@ -1,0 +1,679 @@
+{
+  "cases": [
+    {
+      "id": "xerces-j/idc/idc_1",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "idc_1",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "idc_1",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/idc_1.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint1",
+          "file": "corpus/xerces-j/tests/idc/idc_1_valid_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint2",
+          "file": "corpus/xerces-j/tests/idc/idc_1_invalid_1.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "testIDConstraint3",
+          "file": "corpus/xerces-j/tests/idc/idc_1_invalid_2.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "testIDConstraint4",
+          "file": "corpus/xerces-j/tests/idc/idc_1_invalid_3.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_1.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_1_invalid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_1_invalid_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_1_invalid_3.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_1_valid_1.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/idc_2",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "idc_2",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "idc_2",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/idc_2.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint5",
+          "file": "corpus/xerces-j/tests/idc/idc_2_valid_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint6",
+          "file": "corpus/xerces-j/tests/idc/idc_2_valid_2.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint7",
+          "file": "corpus/xerces-j/tests/idc/idc_2_invalid_1.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "testIDConstraint8",
+          "file": "corpus/xerces-j/tests/idc/idc_2_invalid_2.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_2.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_2_invalid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_2_invalid_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_2_valid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_2_valid_2.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/idc_3",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "idc_3",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "idc_3",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/idc_3.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint9",
+          "file": "corpus/xerces-j/tests/idc/idc_3_valid_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint10",
+          "file": "corpus/xerces-j/tests/idc/idc_3_invalid_1.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "testIDConstraint11",
+          "file": "corpus/xerces-j/tests/idc/idc_3_invalid_2.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_3.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_3_invalid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_3_invalid_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_3_valid_1.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/idc_4",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "idc_4",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "idc_4",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/idc_4.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint12",
+          "file": "corpus/xerces-j/tests/idc/idc_4_valid_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint13",
+          "file": "corpus/xerces-j/tests/idc/idc_4_valid_2.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint14",
+          "file": "corpus/xerces-j/tests/idc/idc_4_invalid_1.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "testIDConstraint15",
+          "file": "corpus/xerces-j/tests/idc/idc_4_invalid_2.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_4.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_4_invalid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_4_invalid_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_4_valid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_4_valid_2.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/idc_5",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "idc_5",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "idc_5",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/idc_5.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint16",
+          "file": "corpus/xerces-j/tests/idc/idc_5_valid_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint17",
+          "file": "corpus/xerces-j/tests/idc/idc_5_invalid_1.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "testIDConstraint18",
+          "file": "corpus/xerces-j/tests/idc/idc_5_invalid_2.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_5.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_5_invalid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_5_invalid_2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_5_valid_1.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/idc_6",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "idc_6",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "idc_6",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/idc_6.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint19",
+          "file": "corpus/xerces-j/tests/idc/idc_6_valid_1.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint20",
+          "file": "corpus/xerces-j/tests/idc/idc_6_invalid_1.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_6.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_6_invalid_1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/idc_6_valid_1.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/jira_1515",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "jira_1515",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "jira_1515",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/jira_1515.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint21",
+          "file": "corpus/xerces-j/tests/idc/valid_1_1515.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint22",
+          "file": "corpus/xerces-j/tests/idc/valid_2_1515.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint23",
+          "file": "corpus/xerces-j/tests/idc/invalid_1_1515.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/invalid_1_1515.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1515.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/valid_1_1515.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/valid_2_1515.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/jira_1585",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "jira_1585",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "jira_1585",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/jira_1585.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint24",
+          "file": "corpus/xerces-j/tests/idc/jira_1585.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1585.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1585.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/jira_1594",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "jira_1594",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "jira_1594",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/jira_1594.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint25",
+          "file": "corpus/xerces-j/tests/idc/jira_1594.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1594.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1594.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/idc/jira_1714",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/idc",
+        "testGroup": "jira_1714",
+        "sourceFile": "tests/idc/IDConstraintTests.java"
+      },
+      "schema": {
+        "testName": "jira_1714",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/idc/jira_1714.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "testIDConstraint26",
+          "file": "corpus/xerces-j/tests/idc/jira_1714_valid.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "testIDConstraint27",
+          "file": "corpus/xerces-j/tests/idc/jira_1714_invalid.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1714.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1714_invalid.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/idc/jira_1714_valid.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/schema-config/base",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/schema/config",
+        "testGroup": "base"
+      },
+      "schema": {
+        "testName": "base",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/schema/config/base.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "BasicTest",
+          "file": "corpus/xerces-j/tests/schema/config/base.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "FixedAttrTest",
+          "file": "corpus/xerces-j/tests/schema/config/fixedAttr.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "RootSimpleTypeDefinitionTest",
+          "file": "corpus/xerces-j/tests/schema/config/simpleType.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "IdIdrefCheckingTest",
+          "file": "corpus/xerces-j/tests/schema/config/idIdref.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/schema/config/base.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/fixedAttr.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/idIdref.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/simpleType.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/schema-config/idc",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/schema/config",
+        "testGroup": "idc"
+      },
+      "schema": {
+        "testName": "idc",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/schema/config/idc.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "IdentityConstraintCheckingTest",
+          "file": "corpus/xerces-j/tests/schema/config/idc.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/schema/config/idc.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/idc.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "xerces-j/schema-config/otherNamespace",
+      "expectedSource": "xerces-j",
+      "source": {
+        "kind": "xerces-j",
+        "origin": "Apache Xerces-J",
+        "testSet": "tests/schema/config",
+        "testGroup": "otherNamespace"
+      },
+      "schema": {
+        "testName": "otherNamespace",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/xerces-j/tests/schema/config/otherNamespace.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "UseGrammarPoolOnly_False_Test",
+          "file": "corpus/xerces-j/tests/schema/config/otherNamespace.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/xerces-j/tests/schema/config/base.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/otherNamespace.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/xerces-j/tests/schema/config/otherNamespace.xsd",
+          "role": "principal"
+        }
+      ]
+    }
+  ]
+}

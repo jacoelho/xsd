@@ -1,0 +1,2328 @@
+{
+  "cases": [
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA001"
+      },
+      "title": "TEST :Annotation Tests : Empty annotation in schema element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA002"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in schema, all, complexType, element element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA003"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in any, sequence Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA004"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in anyAttribute, simpleContent, extension element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA005"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in appinfo element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA006"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in attribute element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA007"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in attributeGroup element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA007",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA008"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in choice element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA009"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in complexContent element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA009",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA010"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in documentation element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA010",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA011"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in field element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA011",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA012"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in group element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA012",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA013"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in import element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA013",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA014"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in include element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA014",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA015"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in key element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA015",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA016"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in keyref element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA016",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA016.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA017",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA017"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in list element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA017",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA017.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA017.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA018",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA018"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in notation element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA018",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA018.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA018.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA019",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA019"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in redefine element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA019",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA019.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA019.red",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/w3c/msData/annotations/annotA019.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA020",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA020"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in restriction, simpleType element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA020",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA020.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA020.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA021"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in selector element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA021",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA021.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA021.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA022"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in union element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA022",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA022.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA022.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotA023",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotA023"
+      },
+      "title": "TEST :Annotation Tests : Basic annotation in unique element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotA023",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotA023.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotA023.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB001"
+      },
+      "title": "TEST :Annotation Tests : Annotation within Annotation",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB001",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB002"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation with appinfo's source=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB003"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation with documentation's source=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB004"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the all Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB004",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB005"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the annotation Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB005",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB006"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the any Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB007"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the anyAttribute Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB007",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB008"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the appInfo Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB009"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the attribute Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB010"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the attributeGroup Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB010",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB011"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the choice Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB011",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB012"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the complexContent Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB012",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB013"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the complexType Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB013",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB014"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the documentation Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB014",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB015"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the element Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB015",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB016"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the extension Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB016",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB016.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB017",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB017"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the field Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB017",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB017.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB017.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB018",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB018"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the group Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB018",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB018.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB018.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB019",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB019"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the import Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB019",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB019.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB019.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB020",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB020"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the include Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB020",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB020.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB020.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB021"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the key Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB021",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB021.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB021.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB022"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the keyRef Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB022",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB022.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB022.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB023",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB023"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the list Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB023",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB023.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB023.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB024",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB024"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the Notation Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB024",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB024.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB024.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB025",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB025"
+      },
+      "title": "TSTF and author agree this is valid",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB025",
+        "expected": "valid",
+        "status": "stable",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB025.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB025.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB026",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB026"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the restriction Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB026",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB026.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB026.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB027",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB027"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the schema Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB027",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB027.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB027.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB028",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB028"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the selector Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB028",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB028.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB028.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB029",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB029"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the sequence Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB029",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB029.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB029.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB030",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB030"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the simpleContent Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB030",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB030.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB030.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB031",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB031"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the simpleType Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB031",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB031.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB031.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB032",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB032"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the union Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB032",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB032.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB032.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotB033",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotB033"
+      },
+      "title": "TEST :Annotation Tests : Declare annotation twice under the unique Element",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotB033",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotB033.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotB033.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotC001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotC001"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with appinfo with well-formed XML Content <b/> tags",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotC001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotC001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotC001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotC002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotC002"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with appinfo with well-formed XML content a:b tags",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotC002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotC002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotC002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotC003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotC003"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with appinfo with source=http://www.w3.org/TR/Schema-0/",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotC003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotC003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotC003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotC004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotC004"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with appinfo with source=http://www.w3.org/TR/Schema-0/ and text content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotC004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotC004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotC004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotC005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotC005"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with two appinfos with text",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotC005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotC005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotC005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotD001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotD001"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with documentation with well-formed XML Content <b/> tags",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotD001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotD001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotD001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotD002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotD002"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with documentation with well-formed XML content a:b tags",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotD002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotD002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotD002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotD003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotD003"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with documentation with source=http://www.w3.org/TR/Schema-0/",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotD003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotD003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotD003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotD004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotD004"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with documentation with source=http://www.w3.org/TR/Schema-0/ and text content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotD004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotD004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotD004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotD005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotD005"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with two documentations with text",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotD005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotD005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotD005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotE001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotE001"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with two appinfos and two documentations with text",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotE001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotE001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotE001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotE002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotE002"
+      },
+      "title": "TEST :Annotation Tests : Declare Annotation with two appinfos and two documentations with well-formed XML",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotE002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotE002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotE002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF001"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF001",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF002"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\"english\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF003"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\" \"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF004"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\"en\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF005"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\"jp\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF006"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\"ar\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF007"
+      },
+      "title": "TEST :Annotation Tests : Annotation with documentation source=\"http://foo.com\" xml:lang=\"d\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF007",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF008"
+      },
+      "title": "TEST :Annotation Tests : If required test documentation element with xml:lang= list of codes listed under HKEY_CLASSES_ROOT\\MIME\\Database\\Rfc1766",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF008",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotF009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotF009"
+      },
+      "title": "TEST :Annotation Tests : Annotation with an arbit attribute foo=\"bar\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotF009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotF009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotF009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotZ001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotZ001"
+      },
+      "title": "TEST :Annotation Tests : ID attribute in annotation",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotZ001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotZ001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotZ001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotZ002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotZ002"
+      },
+      "title": "TEST :Annotation Tests : large number of annotation elements",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotZ002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotZ002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotZ002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Annotations_w3c.xml/annotZ004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Annotations_w3c.xml",
+        "testGroup": "annotZ004"
+      },
+      "title": "TEST :Annotation Tests : test default namespace declared on xs:documentation should not overwrite the schema's default namespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cAnnotations"
+      ],
+      "schema": {
+        "testName": "annotZ004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/annotations/annotZ004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/annotations/annotZ004.xsd"
+        }
+      ]
+    }
+  ]
+}

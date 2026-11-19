@@ -1,0 +1,154 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/identityConstraint.testSet/s2_2_4si02",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/identityConstraint.testSet",
+        "testGroup": "s2_2_4si02"
+      },
+      "title": "3.11.3.5 - If ref is present, then the {identity-constraint category} of the identity-constraint definition resolved to by the actual value of the ref [attribute] matches the name of the element information item.",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-NewLocalDecl-NamedIdContraintsOnElemDecl",
+        "http://www.w3.org/TR/xmlschema11-1/#Constraint_Summary"
+      ],
+      "schema": {
+        "testName": "s2_2_4si02s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si02.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si02.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/identityConstraint.testSet/s2_2_4si04",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/identityConstraint.testSet",
+        "testGroup": "s2_2_4si04"
+      },
+      "title": "identity constraints contains no name and no ref attribute",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-NewLocalDecl-NamedIdContraintsOnElemDecl",
+        "http://www.w3.org/TR/xmlschema11-1/#Constraint_Summary"
+      ],
+      "schema": {
+        "testName": "s2_2_4si04s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si04.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si04.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/identityConstraint.testSet/s2_2_4si05",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/identityConstraint.testSet",
+        "testGroup": "s2_2_4si05"
+      },
+      "title": "key refers to nonexisting key",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-NewLocalDecl-NamedIdContraintsOnElemDecl",
+        "http://www.w3.org/TR/xmlschema11-1/#Constraint_Summary"
+      ],
+      "schema": {
+        "testName": "s2_2_4si05s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si05.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si05.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/identityConstraint.testSet/s2_2_4si06",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/identityConstraint.testSet",
+        "testGroup": "s2_2_4si06"
+      },
+      "title": "[key] cannot have both ref and name attributes",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-NewLocalDecl-NamedIdContraintsOnElemDecl",
+        "http://www.w3.org/TR/xmlschema11-1/#Constraint_Summary"
+      ],
+      "schema": {
+        "testName": "s2_2_4si06s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si06.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si06.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/identityConstraint.testSet/s2_2_4si07",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/identityConstraint.testSet",
+        "testGroup": "s2_2_4si07"
+      },
+      "title": "[key] cannot have both ref and name attributes",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-NewLocalDecl-NamedIdContraintsOnElemDecl",
+        "http://www.w3.org/TR/xmlschema11-1/#Constraint_Summary"
+      ],
+      "schema": {
+        "testName": "s2_2_4si07s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si07.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S2_2_4/s2_2_4si07.xsd"
+        }
+      ]
+    }
+  ]
+}

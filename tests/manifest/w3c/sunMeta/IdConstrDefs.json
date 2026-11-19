@@ -1,0 +1,1020 @@
+{
+  "cases": [
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/annotation00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "annotation00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "annotation00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/annotation00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "annotation00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "annotation00101m2",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m2.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m2.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/annotation00101m3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "annotation00101m3"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "annotation00101m3",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m3.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m3.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/annotation00101m4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "annotation00101m4"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "annotation00101m4",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m4.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m4_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m4.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m4_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/annotation00101m5",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "annotation00101m5"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "annotation00101m5",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m5.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m5.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/annotation00101m6",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "annotation00101m6"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "annotation00101m6",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m6.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/annotation/annotation00101m/annotation00101m6.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00101m/fields00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00101m/fields00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00101m/fields00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00101m/fields00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00201m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00201m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00201m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00201m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m2_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00201m3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00201m3"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00201m3",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m3.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m3_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m3.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m3_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00201m4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00201m4"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00201m4",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m4.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m4_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m4.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m4_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00201m5",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00201m5"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00201m5",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m5.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m5_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m5.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00201m/fields00201m5_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00202m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00202m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00202m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00202m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00202m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00202m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m2_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m2_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00202m3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00202m3"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00202m3",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m3.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m3_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m3.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m3_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00202m4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00202m4"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00202m4",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m4.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m4_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m4.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m4_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00202m5",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00202m5"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00202m5",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m5.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m5_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m5.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00202m/fields00202m5_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00203m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00203m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00203m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00203m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00203m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00203m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m2_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00203m3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00203m3"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00203m3",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m3.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m3_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m3.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m3_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00203m4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00203m4"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00203m4",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m4.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m4_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m4.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m4_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/fields00203m5",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "fields00203m5"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "fields00203m5",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m5.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m5_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m5.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/fields/fields00203m/fields00203m5_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/name00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "name00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "name00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/name/name00101m/name00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00101m/name00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00101m/name00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00101m/name00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/name00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "name00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "name00101m2",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/name/name00101m/name00101m2.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00101m/name00101m2.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/name00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "name00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "name00201m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/name/name00201m/name00201m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00201m/name00201m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00201m/name00201m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/name/name00201m/name00201m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/targetns00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "targetns00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "targetNS00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m1_p.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m1a.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/IdConstrDefs.testSet/targetns00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/IdConstrDefs.testSet",
+        "testGroup": "targetns00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cIdentity-constraint_Definitions"
+      ],
+      "schema": {
+        "testName": "targetNS00101m2",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m2.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/IdConstrDefs/targetNS/targetNS00101m/targetNS00101m2a.xsd",
+          "role": "dependency"
+        }
+      ]
+    }
+  ]
+}

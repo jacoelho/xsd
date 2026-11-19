@@ -63,7 +63,8 @@ func TestLoadInventoryRejectsInvalidCases(t *testing.T) {
 		{name: "rule without specRef", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","rule":{"clause":"c"}}}`, want: "rule has no specRef"},
 		{name: "difference for unknown provider", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","differences":{"dotNet":{"record":"I-001"}}}}`, want: `difference for unknown provider "dotNet"`},
 		{name: "difference with record and note", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","differences":{"dotnet":{"record":"I-001","note":"n"}}}}`, want: "has both record and note"},
-		{name: "malformed record", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","differences":{"dotnet":{"record":"I-1"}}}}`, want: `names record "I-1", want I-NNN`},
+		{name: "malformed record", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","differences":{"dotnet":{"record":"I-1"}}}}`, want: `names record "I-1", want I-NNN or a row anchor`},
+		{name: "malformed row anchor", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","differences":{"dotnet":{"record":"Temporal boundaries"}}}}`, want: `names record "Temporal boundaries"`},
 		{name: "empty difference", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","differences":{"dotnet":{}}}}`, want: "has neither record nor note"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

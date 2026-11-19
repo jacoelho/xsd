@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/constraintsOnAttribute.testSet/s3_2_3si05",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/constraintsOnAttribute.testSet",
+        "testGroup": "s3_2_3si05"
+      },
+      "title": "The actual value of the base [attribute] of [restriction] matches the name of xs:anyType when the ancestor [schema] does not have a targetNamespace [attribute] or its actual value is different from the actual value of targetNamespace of [attribute]",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-NewLocalDecl-TargNSOnAttrDecl",
+        "http://www.w3.org/TR/xmlschema11-1/#sec-src-attdecl"
+      ],
+      "schema": {
+        "testName": "s3_2_3si05s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S3_2_3/s3_2_3si05.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S3_2_3/s3_2_3si05.xsd"
+        }
+      ]
+    }
+  ]
+}

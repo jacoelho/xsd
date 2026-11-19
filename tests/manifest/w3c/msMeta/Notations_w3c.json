@@ -1,0 +1,3410 @@
+{
+  "cases": [
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA001"
+      },
+      "title": "TEST :Notations : Basic Case on Notation",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA002"
+      },
+      "title": "TEST :Notations : Empty notation under schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA003"
+      },
+      "title": "TEST :Notations : Notation with ID=\"foo25\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA004"
+      },
+      "title": "TEST :Notations : Notation with ID=\"_foo-2.5\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA005"
+      },
+      "title": "TEST :Notations : Notation with ID=\"25\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA005",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA006"
+      },
+      "title": "TEST :Notations : Notation with ID=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatA007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatA007"
+      },
+      "title": "TEST :Notations : Duplicate ID=\"foo25\" where foo25 is already exists",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatA007",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatA007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatA007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB001"
+      },
+      "title": "TEST :Notations : Notation with name=\"foo\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB001",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB002"
+      },
+      "title": "TEST :Notations : Notation with name=\"_foo\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB002",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB003"
+      },
+      "title": "TEST :Notations : Notation with name=\"name\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB004"
+      },
+      "title": "TEST :Notations : Notation with name=\"_foo-2.5??\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB005"
+      },
+      "title": "TEST :Notations : Declare a dupe Notation with the same name",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB005",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB006"
+      },
+      "title": "TEST :Notations : Name the Notation with an existing non-Notation name",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB008"
+      },
+      "title": "TEST :Notations : Notation with name=\"foo:bar\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB008",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB009"
+      },
+      "title": "TEST :Notations : Notation with name=\":bar\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB009",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB010"
+      },
+      "title": "TEST :Notations : Notation with name=\"foo:\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB010",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB011"
+      },
+      "title": "TEST :Notations : Notation with name=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB011",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB012"
+      },
+      "title": "TEST :Notations : Notation with name=\" \"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB012",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB013"
+      },
+      "title": "TEST :Notations : Notation with name=\"-2.5foo\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB013",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB014"
+      },
+      "title": "TEST :Notations : Notation with name=\"xml\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB014",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB015"
+      },
+      "title": "TEST :Notations : Notation with name=\"xmlns\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB015",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatB016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatB016"
+      },
+      "title": "TEST :Notations : Notation with name=\"xsd\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatB016",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatB016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatB016.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatC001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatC001"
+      },
+      "title": "TEST :Notations : Notation with system=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatC001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatC001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatC001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatC003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatC003"
+      },
+      "title": "TEST :Notations : Notation with system=\"http://www.w3.org/TR/Schema-0/\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatC003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatC003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatC003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatC004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatC004"
+      },
+      "title": "TEST :Notations : Notation with system = file://c/foo",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatC004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatC004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatC004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatC005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatC005"
+      },
+      "title": "TEST :Notations : Notation with system = mailto:someone@microsoft.com",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatC005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatC005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatC005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatC006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatC006"
+      },
+      "title": "TEST :Notations : Notation with system = foo?123",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatC006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatC006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatC006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatD001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatD001"
+      },
+      "title": "TEST :Notations : Notation with public=\"\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatD001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatD001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatD001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatD004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatD004"
+      },
+      "title": "TEST :Notations : Notation with public=\"~`^&{}[]|\\<>\"",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatD004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatD004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatD004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatD005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatD005"
+      },
+      "title": "TEST :Notations : Notation with name=jpeg public=image/jpeg and system=viewer.exe",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatD005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatD005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatD005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatD006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatD006"
+      },
+      "title": "TEST :Notations : Notation with name=gif public=image/gif and sytem=foobar.exe",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatD006",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatD006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatD006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatD007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatD007"
+      },
+      "title": "TEST :Notations : Notation with name=xml public=text/xml and system=iexplorer.exe",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatD007",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatD007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatD007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatE001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatE001"
+      },
+      "title": "TEST :Notations : Notation with an attribute that has a non-schema namespace, a:b=\"c\" where xmlns:a=\"foo\" in xsd:schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatE001",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatE001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatE001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatE002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatE002"
+      },
+      "title": "TEST :Notations : Notation with an attribute a:b=\"c\" where a doesn't have a non-schema namespace",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatE002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatE002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatE002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatE003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatE003"
+      },
+      "title": "TEST :Notations : Notation with an attribute foo=\"bar\" where foo is a random attribute",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatE003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatE003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatE003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatE004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatE004"
+      },
+      "title": "TEST :Notations : Notation appearing more than once under schema",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatE004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatE004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatE004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF001"
+      },
+      "title": "TEST :Notations : Notation with all as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF001",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF002"
+      },
+      "title": "TEST :Notations : Notation with all as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF003"
+      },
+      "title": "TEST :Notations : Notation with annotation as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF004",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF004"
+      },
+      "title": "TEST :Notations : Notation with annotation as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF004",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF004.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF004.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF005"
+      },
+      "title": "TEST :Notations : Notation with any as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF005",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF006"
+      },
+      "title": "TEST :Notations : Notation with any as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF007",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF007"
+      },
+      "title": "TEST :Notations : Notation with anyAttribute as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF007",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF007.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF007.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF008",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF008"
+      },
+      "title": "TEST :Notations : Notation with anyAttribute as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF008",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF008.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF008.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF009",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF009"
+      },
+      "title": "TEST :Notations : Notation with appInfo as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF009",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF009.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF009.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF010",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF010"
+      },
+      "title": "TEST :Notations : Notation with appInfo as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF010",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF010.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF010.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF011",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF011"
+      },
+      "title": "TEST :Notations : Notation with attribute as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF011",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF011.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF011.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF012",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF012"
+      },
+      "title": "TEST :Notations : Notation with attribute as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF012",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF012.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF012.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF013",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF013"
+      },
+      "title": "TEST :Notations : Notation with attributeGroup as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF013",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF013.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF013.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF014",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF014"
+      },
+      "title": "TEST :Notations : Notation with attributeGroup as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF014",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF014.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF014.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF015",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF015"
+      },
+      "title": "TEST :Notations : Notation with choice as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF015",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF015.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF015.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF016",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF016"
+      },
+      "title": "TEST :Notations : Notation with choice as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF016",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF016.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF016.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF017",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF017"
+      },
+      "title": "TEST :Notations : Notation with complexContent as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF017",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF017.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF017.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF018",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF018"
+      },
+      "title": "TEST :Notations : Notation with complexContent as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF018",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF018.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF018.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF019",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF019"
+      },
+      "title": "TEST :Notations : Notation with complexType as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF019",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF019.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF019.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF020",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF020"
+      },
+      "title": "TEST :Notations : Notation with complexType as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF020",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF020.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF020.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF021",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF021"
+      },
+      "title": "TEST :Notations : Notation with documentation as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF021",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF021.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF021.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF022",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF022"
+      },
+      "title": "TEST :Notations : Notation with documentation as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF022",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF022.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF022.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF023",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF023"
+      },
+      "title": "TEST :Notations : Notation with element as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF023",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF023.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF023.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF024",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF024"
+      },
+      "title": "TEST :Notations : Notation with element as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF024",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF024.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF024.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF025",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF025"
+      },
+      "title": "TEST :Notations : Notation with enumeration as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF025",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF025.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF025.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF026",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF026"
+      },
+      "title": "TEST :Notations : Notation with enumeration as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF026",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF026.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF026.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF027",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF027"
+      },
+      "title": "TEST :Notations : Notation with extension as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF027",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF027.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF027.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF028",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF028"
+      },
+      "title": "TEST :Notations : Notation with extension as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF028",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF028.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF028.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF029",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF029"
+      },
+      "title": "TEST :Notations : Notation with field as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF029",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF029.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF029.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF030",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF030"
+      },
+      "title": "TEST :Notations : Notation with field as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF030",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF030.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF030.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF031",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF031"
+      },
+      "title": "TEST :Notations : Notation with group as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF031",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF031.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF031.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF032",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF032"
+      },
+      "title": "TEST :Notations : Notation with group as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF032",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF032.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF032.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF033",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF033"
+      },
+      "title": "TEST :Notations : Notation with import as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF033",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF033.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF033.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF034",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF034"
+      },
+      "title": "TEST :Notations : Notation with import as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF034",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF034.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF034.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF035",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF035"
+      },
+      "title": "TEST :Notations : Notation with include as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF035",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF035.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF035.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF036",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF036"
+      },
+      "title": "TEST :Notations : Notation with include as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF036",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF036.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF036.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF037",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF037"
+      },
+      "title": "TEST :Notations : Notation with key as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF037",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF037.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF037.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF038",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF038"
+      },
+      "title": "TEST :Notations : Notation with key as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF038",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF038.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF038.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF039",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF039"
+      },
+      "title": "TEST :Notations : Notation with keyRef as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF039",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF039.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF039.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF040",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF040"
+      },
+      "title": "TEST :Notations : Notation with keyRef as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF040",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF040.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF040.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF041",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF041"
+      },
+      "title": "TEST :Notations : Notation with length as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF041",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF041.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF041.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF042",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF042"
+      },
+      "title": "TEST :Notations : Notation with length as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF042",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF042.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF042.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF043",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF043"
+      },
+      "title": "TEST :Notations : Notation with list as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF043",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF043.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF043.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF044",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF044"
+      },
+      "title": "TEST :Notations : Notation with list as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF044",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF044.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF044.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF045",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF045"
+      },
+      "title": "TEST :Notations : Notation with maxInclusive as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF045",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF045.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF045.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF046",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF046"
+      },
+      "title": "TEST :Notations : Notation with maxInclusive as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF046",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF046.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF046.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF047",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF047"
+      },
+      "title": "TEST :Notations : Notation with maxLength as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF047",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF047.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF047.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF048",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF048"
+      },
+      "title": "TEST :Notations : Notation with maxLength as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF048",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF048.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF048.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF049",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF049"
+      },
+      "title": "TEST :Notations : Notation with minInclusive as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF049",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF049.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF049.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF050",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF050"
+      },
+      "title": "TEST :Notations : Notation with minInclusive as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF050",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF050.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF050.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF051",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF051"
+      },
+      "title": "TEST :Notations : Notation with minLength as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF051",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF051.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF051.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF052",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF052"
+      },
+      "title": "TEST :Notations : Notation with minLength as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF052",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF052.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF052.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF053",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF053"
+      },
+      "title": "TEST :Notations : Notation with pattern as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF053",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF053.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF053.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF054",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF054"
+      },
+      "title": "TEST :Notations : Notation with pattern as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF054",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF054.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF054.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF055",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF055"
+      },
+      "title": "TEST :Notations : Notation with redefine as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF055",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF055.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF055.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF056",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF056"
+      },
+      "title": "TEST :Notations : Notation with redefine as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF056",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF056.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF056.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF057",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF057"
+      },
+      "title": "TEST :Notations : Notation with restriction as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF057",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF057.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF057.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF058",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF058"
+      },
+      "title": "TEST :Notations : Notation with restriction as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF058",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF058.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF058.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF059",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF059"
+      },
+      "title": "TEST :Notations : Notation with schema as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF059",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF059.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF059.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF060",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF060"
+      },
+      "title": "TEST :Notations : Notation with schema as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF060",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF060.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF060.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF061",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF061"
+      },
+      "title": "TEST :Notations : Notation with selector as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF061",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF061.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF061.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF062",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF062"
+      },
+      "title": "TEST :Notations : Notation with selector as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF062",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF062.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF062.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF063",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF063"
+      },
+      "title": "TEST :Notations : Notation with sequence as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF063",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF063.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF063.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF064",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF064"
+      },
+      "title": "TEST :Notations : Notation with sequence as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF064",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF064.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF064.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF065",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF065"
+      },
+      "title": "TEST :Notations : Notation with simpleContent as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF065",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF065.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF065.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF066",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF066"
+      },
+      "title": "TEST :Notations : Notation with simpleContent as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF066",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF066.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF066.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF067",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF067"
+      },
+      "title": "TEST :Notations : Notation with simpleType as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF067",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF067.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF067.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF068",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF068"
+      },
+      "title": "TEST :Notations : Notation with simpleType as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF068",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF068.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF068.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF069",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF069"
+      },
+      "title": "TEST :Notations : Notation with union as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF069",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF069.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF069.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF070",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF070"
+      },
+      "title": "TEST :Notations : Notation with union as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF070",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF070.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF070.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF071",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF071"
+      },
+      "title": "TEST :Notations : Notation with unique as its parent",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF071",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF071.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF071.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatF072",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatF072"
+      },
+      "title": "TEST :Notations : Notation with unique as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatF072",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatF072.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatF072.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatG001",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatG001"
+      },
+      "title": "TEST :Notations : Notation with some text as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatG001",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatG001.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatG001.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatG002",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatG002"
+      },
+      "title": "TEST :Notations : Notation with some well formed XML",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatG002",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatG002.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatG002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatG003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatG003"
+      },
+      "title": "TEST :Notations : Notation with known entities & \" '",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatG003",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatG003.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatG003.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatG005",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatG005"
+      },
+      "title": "TEST :Notations : Notation with comment nodes as its content",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatG005",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatG005.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatG005.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatG006",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatG006"
+      },
+      "title": "TEST :Notations : Schema with 3 three Notations and an attribute with type=NOTATION",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatG006",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatG006.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatG006.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatH001v",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatH001v"
+      },
+      "title": "TEST :Notations : Instance document declares a notation type",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatH001v",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatH001.xsd"
+          },
+          {
+            "file": "corpus/w3c/msData/notations/notatH001a.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "notatH001v.v",
+          "file": "corpus/w3c/msData/notations/notatH001.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatH001.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/notations/notatH001.xsd"
+        },
+        {
+          "file": "corpus/w3c/msData/notations/notatH001a.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatH002v",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatH002v"
+      },
+      "title": "TEST :Notations : Instance document doesn't declare a notation type",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatH002v",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatH002.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "notatH002v.i",
+          "file": "corpus/w3c/msData/notations/notatH002.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatH002.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/notations/notatH002.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/msMeta/Notations_w3c.xml/notatH003",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "Microsoft",
+        "testSet": "msMeta/Notations_w3c.xml",
+        "testGroup": "notatH003"
+      },
+      "title": "TEST :Notations : Instance document with (Schema with 3 Notations and an attribute with type=NOTATION) and attribute contains two notation names",
+      "docRefs": [
+        "http://www.w3.org/TR/2004/REC-xmlschema-1-20041028/#cNotation_Declarations"
+      ],
+      "schema": {
+        "testName": "notatH003",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/msData/notations/notatH003.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "notatH003.i",
+          "file": "corpus/w3c/msData/notations/notatH003.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/msData/notations/notatH003.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msData/notations/notatH003.xsd"
+        }
+      ]
+    }
+  ]
+}

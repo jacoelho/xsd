@@ -1,0 +1,340 @@
+project/xml/lexical-end-name	alias-closing	dotnet	invalid	The 'p:root' start tag on line 1 position 2 does not match the end tag of 'q:root'. Line 1, position 57.
+project/xml/lexical-end-name	alias-closing	libxml2	invalid	alias-closing.xml:1: parser error : Opening and ending tag mismatch: root line 1 and root␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</q:root>␊                                                               ^
+project/xml/lexical-end-name	alias-closing	xerces	invalid	alias-closing.xml:1:57: The element type "p:root" must be terminated by the matching end-tag "</p:root>".
+project/xml/lexical-end-name	alias-closing	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	default-namespace	dotnet	valid	
+project/xml/lexical-end-name	default-namespace	libxml2	valid	
+project/xml/lexical-end-name	default-namespace	xerces	valid	
+project/xml/lexical-end-name	default-namespace	xmlschema	valid	
+project/xml/lexical-end-name	end-extra-colon	dotnet	invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 1, position 63.
+project/xml/lexical-end-name	end-extra-colon	libxml2	invalid	end-extra-colon.xml:1: namespace error : Failed to parse QName 'p:root:'␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</p:root:>␊                                                              ^
+project/xml/lexical-end-name	end-extra-colon	xerces	invalid	end-extra-colon.xml:1:63: The end-tag for element type "p:root" must end with a '>' delimiter.
+project/xml/lexical-end-name	end-extra-colon	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	end-longer	dotnet	invalid	The 'p:root' start tag on line 1 position 2 does not match the end tag of 'p:roots'. Line 1, position 57.
+project/xml/lexical-end-name	end-longer	libxml2	invalid	end-longer.xml:1: parser error : Opening and ending tag mismatch: root line 1 and roots␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</p:roots>␊                                                                ^
+project/xml/lexical-end-name	end-longer	xerces	invalid	end-longer.xml:1:63: The end-tag for element type "p:root" must end with a '>' delimiter.
+project/xml/lexical-end-name	end-longer	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	end-prefix-only	dotnet	invalid	The 'p:root' start tag on line 1 position 2 does not match the end tag of 'p'. Line 1, position 57.
+project/xml/lexical-end-name	end-prefix-only	libxml2	invalid	end-prefix-only.xml:1: parser error : Opening and ending tag mismatch: root line 1 and p␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</p>␊                                                          ^
+project/xml/lexical-end-name	end-prefix-only	xerces	invalid	end-prefix-only.xml:1:57: The element type "p:root" must be terminated by the matching end-tag "</p:root>".
+project/xml/lexical-end-name	end-prefix-only	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	end-same-length	dotnet	invalid	The 'p:root' start tag on line 1 position 2 does not match the end tag of 'p:rooT'. Line 1, position 57.
+project/xml/lexical-end-name	end-same-length	libxml2	invalid	end-same-length.xml:1: parser error : Opening and ending tag mismatch: root line 1 and rooT␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</p:rooT>␊                                                               ^
+project/xml/lexical-end-name	end-same-length	xerces	invalid	end-same-length.xml:1:57: The element type "p:root" must be terminated by the matching end-tag "</p:root>".
+project/xml/lexical-end-name	end-same-length	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	end-shorter	dotnet	invalid	The 'p:root' start tag on line 1 position 2 does not match the end tag of 'p:roo'. Line 1, position 57.
+project/xml/lexical-end-name	end-shorter	libxml2	invalid	end-shorter.xml:1: parser error : Opening and ending tag mismatch: root line 1 and roo␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</p:roo>␊                                                              ^
+project/xml/lexical-end-name	end-shorter	xerces	invalid	end-shorter.xml:1:57: The element type "p:root" must be terminated by the matching end-tag "</p:root>".
+project/xml/lexical-end-name	end-shorter	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	end-trailing-space	dotnet	valid	
+project/xml/lexical-end-name	end-trailing-space	libxml2	valid	
+project/xml/lexical-end-name	end-trailing-space	xerces	valid	
+project/xml/lexical-end-name	end-trailing-space	xmlschema	valid	
+project/xml/lexical-end-name	end-unprefixed	dotnet	invalid	The 'p:root' start tag on line 1 position 2 does not match the end tag of 'root'. Line 1, position 57.
+project/xml/lexical-end-name	end-unprefixed	libxml2	invalid	end-unprefixed.xml:1: parser error : Opening and ending tag mismatch: root line 1 and root␊<p:root xmlns:p="urn:closing" xmlns:q="urn:closing">ok</root>␊                                                             ^
+project/xml/lexical-end-name	end-unprefixed	xerces	invalid	end-unprefixed.xml:1:57: The element type "p:root" must be terminated by the matching end-tag "</p:root>".
+project/xml/lexical-end-name	end-unprefixed	xmlschema	invalid	not well-formed: invalid XML syntax: mismatched tag: line 1, column 56
+project/xml/lexical-end-name	prefix-p	dotnet	valid	
+project/xml/lexical-end-name	prefix-p	libxml2	valid	
+project/xml/lexical-end-name	prefix-p	xerces	valid	
+project/xml/lexical-end-name	prefix-p	xmlschema	valid	
+project/xml/lexical-end-name	prefix-q	dotnet	valid	
+project/xml/lexical-end-name	prefix-q	libxml2	valid	
+project/xml/lexical-end-name	prefix-q	xerces	valid	
+project/xml/lexical-end-name	prefix-q	xmlschema	valid	
+project/xml/lexical-end-name	schema	dotnet	schema-valid	
+project/xml/lexical-end-name	schema	libxml2	schema-valid	
+project/xml/lexical-end-name	schema	xerces	schema-valid	
+project/xml/lexical-end-name	schema	xmlschema	schema-valid	
+project/xml/opt-out-instance-forms	doctype	dotnet	valid	
+project/xml/opt-out-instance-forms	doctype	libxml2	valid	
+project/xml/opt-out-instance-forms	doctype	xerces	valid	
+project/xml/opt-out-instance-forms	doctype	xmlschema	valid	
+project/xml/opt-out-instance-forms	doctype-external-subset	dotnet	blocked	acquisition blocked: absent.dtd
+project/xml/opt-out-instance-forms	doctype-external-subset	libxml2	valid	
+project/xml/opt-out-instance-forms	doctype-external-subset	xerces	blocked	acquisition blocked: absent.dtd (base doctype-external-subset.xml)
+project/xml/opt-out-instance-forms	doctype-external-subset	xmlschema	valid	
+project/xml/opt-out-instance-forms	doctype-internal-entity	dotnet	valid	
+project/xml/opt-out-instance-forms	doctype-internal-entity	libxml2	error	doctype-internal-entity.xml:1: element r: Schemas validity error : Internal error: xmlSchemaVDocWalk, there is at least one entity reference in the node-tree currently being validated. Processing of entities with this XML Schema processor is not supported (yet). Please substitute entities before validation..
+project/xml/opt-out-instance-forms	doctype-internal-entity	xerces	valid	
+project/xml/opt-out-instance-forms	doctype-internal-entity	xmlschema	valid	
+project/xml/opt-out-instance-forms	latin1-declaration	dotnet	valid	
+project/xml/opt-out-instance-forms	latin1-declaration	libxml2	valid	
+project/xml/opt-out-instance-forms	latin1-declaration	xerces	valid	
+project/xml/opt-out-instance-forms	latin1-declaration	xmlschema	valid	
+project/xml/opt-out-instance-forms	schema	dotnet	schema-valid	
+project/xml/opt-out-instance-forms	schema	libxml2	schema-valid	
+project/xml/opt-out-instance-forms	schema	xerces	schema-valid	
+project/xml/opt-out-instance-forms	schema	xmlschema	schema-valid	
+project/xml/opt-out-instance-forms	undeclared-entity	dotnet	invalid	Reference to undeclared entity 'e'. Line 1, position 5.
+project/xml/opt-out-instance-forms	undeclared-entity	libxml2	invalid	undeclared-entity.xml:1: parser error : Entity 'e' not defined␊<r>&e;</r>␊      ^
+project/xml/opt-out-instance-forms	undeclared-entity	xerces	invalid	undeclared-entity.xml:1:7: The entity "e" was referenced, but not declared.
+project/xml/opt-out-instance-forms	undeclared-entity	xmlschema	invalid	not well-formed: invalid XML syntax: undefined entity: line 1, column 3
+project/xml/opt-out-instance-forms	utf8-declaration	dotnet	valid	
+project/xml/opt-out-instance-forms	utf8-declaration	libxml2	valid	
+project/xml/opt-out-instance-forms	utf8-declaration	xerces	valid	
+project/xml/opt-out-instance-forms	utf8-declaration	xmlschema	valid	
+project/xml/opt-out-instance-forms	xml-1-1	dotnet	invalid	Version number '1.1' is invalid. Line 1, position 16.
+project/xml/opt-out-instance-forms	xml-1-1	libxml2	valid	warning: xml-1-1.xml:1: parser warning : Unsupported version '1.1'␊<?xml version="1.1"?><r/>␊                   ^
+project/xml/opt-out-instance-forms	xml-1-1	xerces	valid	
+project/xml/opt-out-instance-forms	xml-1-1	xmlschema	valid	
+project/xml/opt-out-schema-doctype	schema	dotnet	schema-valid	
+project/xml/opt-out-schema-doctype	schema	libxml2	schema-valid	
+project/xml/opt-out-schema-doctype	schema	xerces	schema-valid	
+project/xml/opt-out-schema-doctype	schema	xmlschema	schema-valid	
+project/xml/opt-out-schema-undeclared-entity	schema	dotnet	schema-invalid	Reference to undeclared entity 'e'. Line 2, position 35.
+project/xml/opt-out-schema-undeclared-entity	schema	libxml2	schema-invalid	schema.xsd:2: parser error : Entity 'e' not defined␊<xs:annotation><xs:documentation>&e;</xs:documentation></xs:annotation>␊                                    ^␊Schemas parser error : Failed to parse the XML resource 'schema.xsd'.␊WXS schema schema.xsd failed to compile
+project/xml/opt-out-schema-undeclared-entity	schema	xerces	schema-invalid	schema.xsd:2:37: The entity "e" was referenced, but not declared.
+project/xml/opt-out-schema-undeclared-entity	schema	xmlschema	schema-invalid	invalid XML syntax: undefined entity: line 2, column 33
+project/xml/pi-target-colon-in-schema	schema	dotnet	schema-invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 2, position 33.
+project/xml/pi-target-colon-in-schema	schema	libxml2	schema-valid	warning: schema.xsd:2: namespace error : colons are forbidden from PI names 'a:b'␊  <xs:annotation><xs:appinfo><?a:b data?></xs:appinfo></xs:annotation>␊                                  ^
+project/xml/pi-target-colon-in-schema	schema	xerces	schema-invalid	schema.xsd:2:35: A colon is not allowed in the name 'a:b' when namespaces are enabled.
+project/xml/pi-target-colon-in-schema	schema	xmlschema	schema-invalid	invalid XML syntax: not well-formed (invalid token): line 2, column 32
+project/xml/pi-target-ncname	colon-target-in-content	dotnet	invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 1, position 10.
+project/xml/pi-target-ncname	colon-target-in-content	libxml2	valid	warning: colon-target-in-content.xml:1: namespace error : colons are forbidden from PI names 'a:b'␊<root><?a:b data?></root>␊           ^
+project/xml/pi-target-ncname	colon-target-in-content	xerces	invalid	colon-target-in-content.xml:1:12: A colon is not allowed in the name 'a:b' when namespaces are enabled.
+project/xml/pi-target-ncname	colon-target-in-content	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 9
+project/xml/pi-target-ncname	colon-target-in-prolog	dotnet	invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 1, position 4.
+project/xml/pi-target-ncname	colon-target-in-prolog	libxml2	valid	warning: colon-target-in-prolog.xml:1: namespace error : colons are forbidden from PI names 'a:b'␊<?a:b?>␊     ^
+project/xml/pi-target-ncname	colon-target-in-prolog	xerces	invalid	colon-target-in-prolog.xml:1:6: A colon is not allowed in the name 'a:b' when namespaces are enabled.
+project/xml/pi-target-ncname	colon-target-in-prolog	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 3
+project/xml/pi-target-ncname	leading-colon-target-in-epilog	dotnet	invalid	Name cannot begin with the ':' character, hexadecimal value 0x3A. Line 2, position 3.
+project/xml/pi-target-ncname	leading-colon-target-in-epilog	libxml2	valid	warning: leading-colon-target-in-epilog.xml:2: namespace error : colons are forbidden from PI names ':a'␊<?:a?>␊    ^
+project/xml/pi-target-ncname	leading-colon-target-in-epilog	xerces	invalid	leading-colon-target-in-epilog.xml:2:3: The processing instruction must begin with the name of the target.
+project/xml/pi-target-ncname	leading-colon-target-in-epilog	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 2, column 2
+project/xml/pi-target-ncname	ncname-targets	dotnet	valid	
+project/xml/pi-target-ncname	ncname-targets	libxml2	valid	
+project/xml/pi-target-ncname	ncname-targets	xerces	valid	
+project/xml/pi-target-ncname	ncname-targets	xmlschema	valid	
+project/xml/pi-target-ncname	schema	dotnet	schema-valid	
+project/xml/pi-target-ncname	schema	libxml2	schema-valid	
+project/xml/pi-target-ncname	schema	xerces	schema-valid	
+project/xml/pi-target-ncname	schema	xmlschema	schema-valid	
+project/xml/qname-admission-ascii-name-classes	i-at-before-non-ascii	dotnet	invalid	The '@' character, hexadecimal value 0x40, cannot be included in a name. Line 1, position 9.
+project/xml/qname-admission-ascii-name-classes	i-at-before-non-ascii	libxml2	invalid	i-at-before-non-ascii.xml:1: parser error : error parsing attribute name␊<root><a@é/></root>␊        ^
+project/xml/qname-admission-ascii-name-classes	i-at-before-non-ascii	xerces	invalid	i-at-before-non-ascii.xml:1:9: Element type "a" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-ascii-name-classes	i-at-before-non-ascii	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 8
+project/xml/qname-admission-ascii-name-classes	i-at-in-element	dotnet	invalid	The '@' character, hexadecimal value 0x40, cannot be included in a name. Line 1, position 9.
+project/xml/qname-admission-ascii-name-classes	i-at-in-element	libxml2	invalid	i-at-in-element.xml:1: parser error : error parsing attribute name␊<root><a@b/></root>␊        ^
+project/xml/qname-admission-ascii-name-classes	i-at-in-element	xerces	invalid	i-at-in-element.xml:1:9: Element type "a" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-ascii-name-classes	i-at-in-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 8
+project/xml/qname-admission-ascii-name-classes	i-bang-in-attribute	dotnet	invalid	'!' is an unexpected token. The expected token is '='. Line 1, position 8.
+project/xml/qname-admission-ascii-name-classes	i-bang-in-attribute	libxml2	invalid	i-bang-in-attribute.xml:1: parser error : Specification mandates value for attribute a␊<root a!b="1"/>␊       ^
+project/xml/qname-admission-ascii-name-classes	i-bang-in-attribute	xerces	invalid	i-bang-in-attribute.xml:1:8: Attribute name "a" associated with an element type "root" must be followed by the ' = ' character.
+project/xml/qname-admission-ascii-name-classes	i-bang-in-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-ascii-name-classes	i-bare-colon-element	dotnet	invalid	Name cannot begin with the ':' character, hexadecimal value 0x3A. Line 1, position 8.
+project/xml/qname-admission-ascii-name-classes	i-bare-colon-element	libxml2	valid	warning: i-bare-colon-element.xml:1: namespace error : Failed to parse QName ':'␊<root><:/></root>␊        ^
+project/xml/qname-admission-ascii-name-classes	i-bare-colon-element	xerces	invalid	i-bare-colon-element.xml:1:8: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-ascii-name-classes	i-bare-colon-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-ascii-name-classes	i-dash-after-colon	dotnet	invalid	Name cannot begin with the '-' character, hexadecimal value 0x2D. Line 1, position 26.
+project/xml/qname-admission-ascii-name-classes	i-dash-after-colon	libxml2	valid	warning: i-dash-after-colon.xml:1: namespace error : Failed to parse QName 'p:'␊<root xmlns:p="urn:x"><p:-a/></root>␊                         ^
+project/xml/qname-admission-ascii-name-classes	i-dash-after-colon	xerces	invalid	i-dash-after-colon.xml:1:28: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-ascii-name-classes	i-dash-after-colon	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-ascii-name-classes	i-dash-start-attribute	dotnet	invalid	Name cannot begin with the '-' character, hexadecimal value 0x2D. Line 1, position 7.
+project/xml/qname-admission-ascii-name-classes	i-dash-start-attribute	libxml2	invalid	i-dash-start-attribute.xml:1: parser error : error parsing attribute name␊<root -a="1"/>␊      ^
+project/xml/qname-admission-ascii-name-classes	i-dash-start-attribute	xerces	invalid	i-dash-start-attribute.xml:1:7: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-ascii-name-classes	i-dash-start-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 6
+project/xml/qname-admission-ascii-name-classes	i-dash-start-element	dotnet	invalid	Name cannot begin with the '-' character, hexadecimal value 0x2D. Line 1, position 8.
+project/xml/qname-admission-ascii-name-classes	i-dash-start-element	libxml2	invalid	i-dash-start-element.xml:1: parser error : StartTag: invalid element name␊<root><-a/></root>␊       ^
+project/xml/qname-admission-ascii-name-classes	i-dash-start-element	xerces	invalid	i-dash-start-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-ascii-name-classes	i-dash-start-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-ascii-name-classes	i-digit-prefix	dotnet	invalid	Name cannot begin with the '1' character, hexadecimal value 0x31. Line 1, position 8.
+project/xml/qname-admission-ascii-name-classes	i-digit-prefix	libxml2	invalid	i-digit-prefix.xml:1: parser error : StartTag: invalid element name␊<root><1p:a/></root>␊       ^
+project/xml/qname-admission-ascii-name-classes	i-digit-prefix	xerces	invalid	i-digit-prefix.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-ascii-name-classes	i-digit-prefix	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-ascii-name-classes	i-dot-after-colon	dotnet	invalid	Name cannot begin with the '.' character, hexadecimal value 0x2E. Line 1, position 26.
+project/xml/qname-admission-ascii-name-classes	i-dot-after-colon	libxml2	valid	warning: i-dot-after-colon.xml:1: namespace error : Failed to parse QName 'p:'␊<root xmlns:p="urn:x"><p:.a/></root>␊                         ^
+project/xml/qname-admission-ascii-name-classes	i-dot-after-colon	xerces	invalid	i-dot-after-colon.xml:1:28: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-ascii-name-classes	i-dot-after-colon	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-ascii-name-classes	i-dot-start-attribute	dotnet	invalid	Name cannot begin with the '.' character, hexadecimal value 0x2E. Line 1, position 7.
+project/xml/qname-admission-ascii-name-classes	i-dot-start-attribute	libxml2	invalid	i-dot-start-attribute.xml:1: parser error : error parsing attribute name␊<root .a="1"/>␊      ^
+project/xml/qname-admission-ascii-name-classes	i-dot-start-attribute	xerces	invalid	i-dot-start-attribute.xml:1:7: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-ascii-name-classes	i-dot-start-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 6
+project/xml/qname-admission-ascii-name-classes	i-dot-start-element	dotnet	invalid	Name cannot begin with the '.' character, hexadecimal value 0x2E. Line 1, position 8.
+project/xml/qname-admission-ascii-name-classes	i-dot-start-element	libxml2	invalid	i-dot-start-element.xml:1: parser error : StartTag: invalid element name␊<root><.a/></root>␊       ^
+project/xml/qname-admission-ascii-name-classes	i-dot-start-element	xerces	invalid	i-dot-start-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-ascii-name-classes	i-dot-start-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-ascii-name-classes	schema	dotnet	schema-valid	
+project/xml/qname-admission-ascii-name-classes	schema	libxml2	schema-valid	
+project/xml/qname-admission-ascii-name-classes	schema	xerces	schema-valid	
+project/xml/qname-admission-ascii-name-classes	schema	xmlschema	schema-valid	
+project/xml/qname-admission-ascii-name-classes	v-prefix-name-chars	dotnet	valid	
+project/xml/qname-admission-ascii-name-classes	v-prefix-name-chars	libxml2	valid	
+project/xml/qname-admission-ascii-name-classes	v-prefix-name-chars	xerces	valid	
+project/xml/qname-admission-ascii-name-classes	v-prefix-name-chars	xmlschema	valid	
+project/xml/qname-admission-colon-forms	i-adjacent-colons-element	dotnet	invalid	Name cannot begin with the ':' character, hexadecimal value 0x3A. Line 1, position 26.
+project/xml/qname-admission-colon-forms	i-adjacent-colons-element	libxml2	valid	warning: i-adjacent-colons-element.xml:1: namespace error : Failed to parse QName 'a:'␊<root xmlns:a="urn:x"><a::b/></root>␊                         ^
+project/xml/qname-admission-colon-forms	i-adjacent-colons-element	xerces	invalid	i-adjacent-colons-element.xml:1:26: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-colon-forms	i-adjacent-colons-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-colon-forms	i-digit-after-colon	dotnet	invalid	Name cannot begin with the '1' character, hexadecimal value 0x31. Line 1, position 26.
+project/xml/qname-admission-colon-forms	i-digit-after-colon	libxml2	valid	warning: i-digit-after-colon.xml:1: namespace error : Failed to parse QName 'p:'␊<root xmlns:p="urn:x"><p:1a/></root>␊                         ^
+project/xml/qname-admission-colon-forms	i-digit-after-colon	xerces	invalid	i-digit-after-colon.xml:1:28: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-colon-forms	i-digit-after-colon	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-colon-forms	i-leading-colon-attribute	dotnet	invalid	Name cannot begin with the ':' character, hexadecimal value 0x3A. Line 1, position 7.
+project/xml/qname-admission-colon-forms	i-leading-colon-attribute	libxml2	valid	warning: i-leading-colon-attribute.xml:1: namespace error : Failed to parse QName ':a'␊<root :a="1"/>␊        ^
+project/xml/qname-admission-colon-forms	i-leading-colon-attribute	xerces	invalid	i-leading-colon-attribute.xml:1:7: Attribute name "null" associated with an element type "root" must be followed by the ' = ' character.
+project/xml/qname-admission-colon-forms	i-leading-colon-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 6
+project/xml/qname-admission-colon-forms	i-leading-colon-element	dotnet	invalid	Name cannot begin with the ':' character, hexadecimal value 0x3A. Line 1, position 8.
+project/xml/qname-admission-colon-forms	i-leading-colon-element	libxml2	valid	warning: i-leading-colon-element.xml:1: namespace error : Failed to parse QName ':a'␊<root><:a/></root>␊         ^
+project/xml/qname-admission-colon-forms	i-leading-colon-element	xerces	invalid	i-leading-colon-element.xml:1:8: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-colon-forms	i-leading-colon-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-colon-forms	i-multi-colon-attribute	dotnet	invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 1, position 26.
+project/xml/qname-admission-colon-forms	i-multi-colon-attribute	libxml2	valid	warning: i-multi-colon-attribute.xml:1: namespace error : Failed to parse QName 'a:b:'␊<root xmlns:a="urn:x" a:b:c="1"/>␊                         ^
+project/xml/qname-admission-colon-forms	i-multi-colon-attribute	xerces	invalid	i-multi-colon-attribute.xml:1:26: Attribute name "a:b" associated with an element type "root" must be followed by the ' = ' character.
+project/xml/qname-admission-colon-forms	i-multi-colon-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-colon-forms	i-multi-colon-element	dotnet	invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 1, position 27.
+project/xml/qname-admission-colon-forms	i-multi-colon-element	libxml2	valid	warning: i-multi-colon-element.xml:1: namespace error : Failed to parse QName 'a:b:'␊<root xmlns:a="urn:x"><a:b:c/></root>␊                          ^
+project/xml/qname-admission-colon-forms	i-multi-colon-element	xerces	invalid	i-multi-colon-element.xml:1:27: Element type "a:b" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-colon-forms	i-multi-colon-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 26
+project/xml/qname-admission-colon-forms	i-non-ascii-multi-colon	dotnet	invalid	The ':' character, hexadecimal value 0x3A, cannot be included in a name. Line 1, position 27.
+project/xml/qname-admission-colon-forms	i-non-ascii-multi-colon	libxml2	valid	warning: i-non-ascii-multi-colon.xml:1: namespace error : Failed to parse QName 'a:é:'␊<root xmlns:a="urn:x"><a:é:c/></root>␊                           ^
+project/xml/qname-admission-colon-forms	i-non-ascii-multi-colon	xerces	invalid	i-non-ascii-multi-colon.xml:1:27: Element type "a:é" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-colon-forms	i-non-ascii-multi-colon	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 26
+project/xml/qname-admission-colon-forms	i-trailing-colon-attribute	dotnet	invalid	Name cannot begin with the '=' character, hexadecimal value 0x3D. Line 1, position 25.
+project/xml/qname-admission-colon-forms	i-trailing-colon-attribute	libxml2	valid	warning: i-trailing-colon-attribute.xml:1: namespace error : Failed to parse QName 'a:'␊<root xmlns:a="urn:x" a:="1"/>␊                        ^
+project/xml/qname-admission-colon-forms	i-trailing-colon-attribute	xerces	invalid	i-trailing-colon-attribute.xml:1:25: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-colon-forms	i-trailing-colon-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 24
+project/xml/qname-admission-colon-forms	i-trailing-colon-element	dotnet	invalid	Name cannot begin with the '/' character, hexadecimal value 0x2F. Line 1, position 26.
+project/xml/qname-admission-colon-forms	i-trailing-colon-element	libxml2	valid	warning: i-trailing-colon-element.xml:1: namespace error : Failed to parse QName 'a:'␊<root xmlns:a="urn:x"><a:/></root>␊                         ^
+project/xml/qname-admission-colon-forms	i-trailing-colon-element	xerces	invalid	i-trailing-colon-element.xml:1:26: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-colon-forms	i-trailing-colon-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-colon-forms	schema	dotnet	schema-valid	
+project/xml/qname-admission-colon-forms	schema	libxml2	schema-valid	
+project/xml/qname-admission-colon-forms	schema	xerces	schema-valid	
+project/xml/qname-admission-colon-forms	schema	xmlschema	schema-valid	
+project/xml/qname-admission-colon-forms	v-prefixed	dotnet	valid	
+project/xml/qname-admission-colon-forms	v-prefixed	libxml2	valid	
+project/xml/qname-admission-colon-forms	v-prefixed	xerces	valid	
+project/xml/qname-admission-colon-forms	v-prefixed	xmlschema	valid	
+project/xml/qname-admission-fifth-edition-ranges	i-U+0300-element	dotnet	invalid	Name cannot begin with the '̀' character, hexadecimal value 0x300. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	i-U+0300-element	libxml2	invalid	i-U+0300-element.xml:1: parser error : StartTag: invalid element name␊<root><̀/></root>␊       ^
+project/xml/qname-admission-fifth-edition-ranges	i-U+0300-element	xerces	invalid	i-U+0300-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	i-U+0300-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	i-U+037E-element	dotnet	invalid	Name cannot begin with the ';' character, hexadecimal value 0x37E. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	i-U+037E-element	libxml2	invalid	i-U+037E-element.xml:1: parser error : StartTag: invalid element name␊<root><;/></root>␊       ^
+project/xml/qname-admission-fifth-edition-ranges	i-U+037E-element	xerces	invalid	i-U+037E-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	i-U+037E-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	i-U+E000-element	dotnet	invalid	Name cannot begin with the '' character, hexadecimal value 0xE000. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	i-U+E000-element	libxml2	invalid	i-U+E000-element.xml:1: parser error : StartTag: invalid element name␊<root></></root>␊       ^
+project/xml/qname-admission-fifth-edition-ranges	i-U+E000-element	xerces	invalid	i-U+E000-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	i-U+E000-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-attribute	dotnet	invalid	Name cannot begin with the '󰀀' character, hexadecimal value 0xF0000. Line 1, position 7.
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-attribute	libxml2	invalid	i-U+F0000-attribute.xml:1: parser error : error parsing attribute name␊<root 󰀀="1"/>␊      ^
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-attribute	xerces	invalid	i-U+F0000-attribute.xml:1:7: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 6
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-element	dotnet	invalid	Name cannot begin with the '󰀀' character, hexadecimal value 0xF0000. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-element	libxml2	invalid	i-U+F0000-element.xml:1: parser error : StartTag: invalid element name␊<root><󰀀/></root>␊       ^
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-element	xerces	invalid	i-U+F0000-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	i-U+F0000-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	schema	dotnet	schema-valid	
+project/xml/qname-admission-fifth-edition-ranges	schema	libxml2	schema-valid	
+project/xml/qname-admission-fifth-edition-ranges	schema	xerces	schema-valid	
+project/xml/qname-admission-fifth-edition-ranges	schema	xmlschema	schema-valid	
+project/xml/qname-admission-fifth-edition-ranges	v-U+02FF-element	dotnet	invalid	Name cannot begin with the '˿' character, hexadecimal value 0x2FF. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	v-U+02FF-element	libxml2	valid	
+project/xml/qname-admission-fifth-edition-ranges	v-U+02FF-element	xerces	invalid	v-U+02FF-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	v-U+02FF-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	v-U+037F-element	dotnet	invalid	Name cannot begin with the 'Ϳ' character, hexadecimal value 0x37F. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	v-U+037F-element	libxml2	valid	
+project/xml/qname-admission-fifth-edition-ranges	v-U+037F-element	xerces	invalid	v-U+037F-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	v-U+037F-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-attribute	dotnet	invalid	Name cannot begin with the '𐀀' character, hexadecimal value 0x10000. Line 1, position 7.
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-attribute	libxml2	valid	
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-attribute	xerces	invalid	v-U+10000-attribute.xml:1:7: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 6
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-element	dotnet	invalid	Name cannot begin with the '𐀀' character, hexadecimal value 0x10000. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-element	libxml2	valid	
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-element	xerces	invalid	v-U+10000-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	v-U+10000-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-fifth-edition-ranges	v-U+EFFF0-element	dotnet	invalid	Name cannot begin with the '󯿰' character, hexadecimal value 0xEFFF0. Line 1, position 8.
+project/xml/qname-admission-fifth-edition-ranges	v-U+EFFF0-element	libxml2	valid	
+project/xml/qname-admission-fifth-edition-ranges	v-U+EFFF0-element	xerces	invalid	v-U+EFFF0-element.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-fifth-edition-ranges	v-U+EFFF0-element	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-non-ascii	i-after-colon-middle-dot	dotnet	invalid	Name cannot begin with the '·' character, hexadecimal value 0xB7. Line 1, position 26.
+project/xml/qname-admission-non-ascii	i-after-colon-middle-dot	libxml2	valid	warning: i-after-colon-middle-dot.xml:1: namespace error : Failed to parse QName 'p:'␊<root xmlns:p="urn:x"><p:·a/></root>␊                         ^
+project/xml/qname-admission-non-ascii	i-after-colon-middle-dot	xerces	invalid	i-after-colon-middle-dot.xml:1:28: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/qname-admission-non-ascii	i-after-colon-middle-dot	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 25
+project/xml/qname-admission-non-ascii	i-combining-start	dotnet	invalid	Name cannot begin with the '̀' character, hexadecimal value 0x300. Line 1, position 8.
+project/xml/qname-admission-non-ascii	i-combining-start	libxml2	invalid	i-combining-start.xml:1: parser error : StartTag: invalid element name␊<root><̀a/></root>␊       ^
+project/xml/qname-admission-non-ascii	i-combining-start	xerces	invalid	i-combining-start.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-non-ascii	i-combining-start	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-non-ascii	i-middle-dot-start	dotnet	invalid	Name cannot begin with the '·' character, hexadecimal value 0xB7. Line 1, position 8.
+project/xml/qname-admission-non-ascii	i-middle-dot-start	libxml2	invalid	i-middle-dot-start.xml:1: parser error : StartTag: invalid element name␊<root><·a/></root>␊       ^
+project/xml/qname-admission-non-ascii	i-middle-dot-start	xerces	invalid	i-middle-dot-start.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-non-ascii	i-middle-dot-start	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-non-ascii	i-middle-dot-start-attribute	dotnet	invalid	Name cannot begin with the '·' character, hexadecimal value 0xB7. Line 1, position 7.
+project/xml/qname-admission-non-ascii	i-middle-dot-start-attribute	libxml2	invalid	i-middle-dot-start-attribute.xml:1: parser error : error parsing attribute name␊<root ·a="1"/>␊      ^
+project/xml/qname-admission-non-ascii	i-middle-dot-start-attribute	xerces	invalid	i-middle-dot-start-attribute.xml:1:7: Element type "root" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-non-ascii	i-middle-dot-start-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 6
+project/xml/qname-admission-non-ascii	i-multiplication-sign-attribute	dotnet	invalid	'×' is an unexpected token. The expected token is '='. Line 1, position 8.
+project/xml/qname-admission-non-ascii	i-multiplication-sign-attribute	libxml2	invalid	i-multiplication-sign-attribute.xml:1: parser error : Specification mandates value for attribute a␊<root a×="1"/>␊       ^
+project/xml/qname-admission-non-ascii	i-multiplication-sign-attribute	xerces	invalid	i-multiplication-sign-attribute.xml:1:8: Attribute name "a" associated with an element type "root" must be followed by the ' = ' character.
+project/xml/qname-admission-non-ascii	i-multiplication-sign-attribute	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-non-ascii	i-multiplication-sign-mid	dotnet	invalid	The '×' character, hexadecimal value 0xD7, cannot be included in a name. Line 1, position 9.
+project/xml/qname-admission-non-ascii	i-multiplication-sign-mid	libxml2	invalid	i-multiplication-sign-mid.xml:1: parser error : error parsing attribute name␊<root><a×/></root>␊        ^
+project/xml/qname-admission-non-ascii	i-multiplication-sign-mid	xerces	invalid	i-multiplication-sign-mid.xml:1:9: Element type "a" must be followed by either attribute specifications, ">" or "/>".
+project/xml/qname-admission-non-ascii	i-multiplication-sign-mid	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 8
+project/xml/qname-admission-non-ascii	i-multiplication-sign-start	dotnet	invalid	Name cannot begin with the '×' character, hexadecimal value 0xD7. Line 1, position 8.
+project/xml/qname-admission-non-ascii	i-multiplication-sign-start	libxml2	invalid	i-multiplication-sign-start.xml:1: parser error : StartTag: invalid element name␊<root><×a/></root>␊       ^
+project/xml/qname-admission-non-ascii	i-multiplication-sign-start	xerces	invalid	i-multiplication-sign-start.xml:1:8: The content of elements must consist of well-formed character data or markup.
+project/xml/qname-admission-non-ascii	i-multiplication-sign-start	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 7
+project/xml/qname-admission-non-ascii	i-prefix-multiplication	dotnet	invalid	'×' is an unexpected token. The expected token is '='. Line 1, position 14.
+project/xml/qname-admission-non-ascii	i-prefix-multiplication	libxml2	invalid	i-prefix-multiplication.xml:1: parser error : Specification mandates value for attribute a␊<root xmlns:a×="urn:x"/>␊             ^
+project/xml/qname-admission-non-ascii	i-prefix-multiplication	xerces	invalid	i-prefix-multiplication.xml:1:14: Attribute name "xmlns:a" associated with an element type "root" must be followed by the ' = ' character.
+project/xml/qname-admission-non-ascii	i-prefix-multiplication	xmlschema	invalid	not well-formed: invalid XML syntax: not well-formed (invalid token): line 1, column 13
+project/xml/qname-admission-non-ascii	schema	dotnet	schema-valid	
+project/xml/qname-admission-non-ascii	schema	libxml2	schema-valid	
+project/xml/qname-admission-non-ascii	schema	xerces	schema-valid	
+project/xml/qname-admission-non-ascii	schema	xmlschema	schema-valid	
+project/xml/qname-admission-non-ascii	v-after-colon	dotnet	valid	
+project/xml/qname-admission-non-ascii	v-after-colon	libxml2	valid	
+project/xml/qname-admission-non-ascii	v-after-colon	xerces	valid	
+project/xml/qname-admission-non-ascii	v-after-colon	xmlschema	valid	
+project/xml/qname-admission-non-ascii	v-attribute	dotnet	valid	
+project/xml/qname-admission-non-ascii	v-attribute	libxml2	valid	
+project/xml/qname-admission-non-ascii	v-attribute	xerces	valid	
+project/xml/qname-admission-non-ascii	v-attribute	xmlschema	valid	
+project/xml/qname-admission-non-ascii	v-local	dotnet	valid	
+project/xml/qname-admission-non-ascii	v-local	libxml2	valid	
+project/xml/qname-admission-non-ascii	v-local	xerces	valid	
+project/xml/qname-admission-non-ascii	v-local	xmlschema	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars	dotnet	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars	libxml2	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars	xerces	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars	xmlschema	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars-attribute	dotnet	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars-attribute	libxml2	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars-attribute	xerces	valid	
+project/xml/qname-admission-non-ascii	v-mid-name-chars-attribute	xmlschema	valid	
+project/xml/qname-admission-non-ascii	v-prefix	dotnet	valid	
+project/xml/qname-admission-non-ascii	v-prefix	libxml2	valid	
+project/xml/qname-admission-non-ascii	v-prefix	xerces	valid	
+project/xml/qname-admission-non-ascii	v-prefix	xmlschema	valid	
+project/xml/reference-eol-order	literal-cr-reference-lf	dotnet	valid	
+project/xml/reference-eol-order	literal-cr-reference-lf	libxml2	valid	
+project/xml/reference-eol-order	literal-cr-reference-lf	xerces	valid	
+project/xml/reference-eol-order	literal-cr-reference-lf	xmlschema	valid	
+project/xml/reference-eol-order	literal-crlf-not-crlf	dotnet	invalid	literal-crlf-not-crlf.xml:2:4: The 'crlf' element is invalid - The value 'a␊b' is invalid according to its datatype 'String' - The Enumeration constraint failed.
+project/xml/reference-eol-order	literal-crlf-not-crlf	libxml2	invalid	literal-crlf-not-crlf.xml:1: element crlf: Schemas validity error : Element 'crlf': [facet 'enumeration'] The value 'a␊b' is not an element of the set {'a␍␊b'}.
+project/xml/reference-eol-order	literal-crlf-not-crlf	xerces	invalid	literal-crlf-not-crlf.xml:2:9: cvc-enumeration-valid: Value 'a␊b' is not facet-valid with respect to enumeration '[a␍␊b]'. It must be a value from the enumeration.
+project/xml/reference-eol-order	literal-crlf-not-crlf	xmlschema	invalid	line None: value must be one of ['a\r\nb'] (path /crlf)
+project/xml/reference-eol-order	literal-crlf-not-lflf	dotnet	invalid	literal-crlf-not-lflf.xml:2:4: The 'lflf' element is invalid - The value 'a␊b' is invalid according to its datatype 'String' - The Enumeration constraint failed.
+project/xml/reference-eol-order	literal-crlf-not-lflf	libxml2	invalid	literal-crlf-not-lflf.xml:1: element lflf: Schemas validity error : Element 'lflf': [facet 'enumeration'] The value 'a␊b' is not an element of the set {'a␊␊b'}.
+project/xml/reference-eol-order	literal-crlf-not-lflf	xerces	invalid	literal-crlf-not-lflf.xml:2:9: cvc-enumeration-valid: Value 'a␊b' is not facet-valid with respect to enumeration '[a␊␊b]'. It must be a value from the enumeration.
+project/xml/reference-eol-order	literal-crlf-not-lflf	xmlschema	invalid	line None: value must be one of ['a\n\nb'] (path /lflf)
+project/xml/reference-eol-order	reference-cr-literal-lf	dotnet	valid	
+project/xml/reference-eol-order	reference-cr-literal-lf	libxml2	valid	
+project/xml/reference-eol-order	reference-cr-literal-lf	xerces	valid	
+project/xml/reference-eol-order	reference-cr-literal-lf	xmlschema	valid	
+project/xml/reference-eol-order	references-crlf	dotnet	valid	
+project/xml/reference-eol-order	references-crlf	libxml2	valid	
+project/xml/reference-eol-order	references-crlf	xerces	valid	
+project/xml/reference-eol-order	references-crlf	xmlschema	valid	
+project/xml/reference-eol-order	schema	dotnet	schema-valid	
+project/xml/reference-eol-order	schema	libxml2	schema-valid	
+project/xml/reference-eol-order	schema	xerces	schema-valid	
+project/xml/reference-eol-order	schema	xmlschema	schema-valid	
+project/xml/schema-document-invalid-non-ascii-qname	schema	dotnet	schema-invalid	Name cannot begin with the '·' character, hexadecimal value 0xB7. Line 3, position 7.
+project/xml/schema-document-invalid-non-ascii-qname	schema	libxml2	schema-invalid	schema.xsd:3: namespace error : Failed to parse QName 'xs:'␊  <xs:·bad/>␊      ^
+project/xml/schema-document-invalid-non-ascii-qname	schema	xerces	schema-invalid	schema.xsd:3:11: Element or attribute do not match QName production: QName::=(NCName':')?NCName.
+project/xml/schema-document-invalid-non-ascii-qname	schema	xmlschema	schema-invalid	invalid XML syntax: not well-formed (invalid token): line 3, column 6

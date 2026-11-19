@@ -1,0 +1,112 @@
+project/namespaces/exact-uri-identity/attributes	host-case	dotnet	valid	
+project/namespaces/exact-uri-identity/attributes	host-case	libxml2	valid	
+project/namespaces/exact-uri-identity/attributes	host-case	xerces	valid	
+project/namespaces/exact-uri-identity/attributes	host-case	xmlschema	valid	
+project/namespaces/exact-uri-identity/attributes	identical-alias-duplicate	dotnet	invalid	'q:a' is a duplicate attribute name. Line 1, position 83.
+project/namespaces/exact-uri-identity/attributes	identical-alias-duplicate	libxml2	valid	warning: attributes-identical-alias-duplicate.xml:1: namespace error : Namespaced Attribute a in 'http://EXAMPLE.test/%7E' redefined␊ns:p="http://EXAMPLE.test/%7E" xmlns:q="http://EXAMPLE.test/%7E" p:a="x" q:a="y"␊                                                                               ^
+project/namespaces/exact-uri-identity/attributes	identical-alias-duplicate	xerces	invalid	attributes-identical-alias-duplicate.xml:1:92: Attribute "a" bound to namespace "http://EXAMPLE.test/%7E" was already specified for element "root".
+project/namespaces/exact-uri-identity/attributes	identical-alias-duplicate	xmlschema	invalid	not well-formed: invalid XML syntax: duplicate attribute: line 1, column 0
+project/namespaces/exact-uri-identity/attributes	percent-case	dotnet	valid	
+project/namespaces/exact-uri-identity/attributes	percent-case	libxml2	valid	
+project/namespaces/exact-uri-identity/attributes	percent-case	xerces	valid	
+project/namespaces/exact-uri-identity/attributes	percent-case	xmlschema	valid	
+project/namespaces/exact-uri-identity/attributes	percent-decoded	dotnet	valid	
+project/namespaces/exact-uri-identity/attributes	percent-decoded	libxml2	valid	
+project/namespaces/exact-uri-identity/attributes	percent-decoded	xerces	valid	
+project/namespaces/exact-uri-identity/attributes	percent-decoded	xmlschema	valid	
+project/namespaces/exact-uri-identity/attributes	schema	dotnet	schema-valid	
+project/namespaces/exact-uri-identity/attributes	schema	libxml2	schema-valid	
+project/namespaces/exact-uri-identity/attributes	schema	xerces	schema-valid	
+project/namespaces/exact-uri-identity/attributes	schema	xmlschema	schema-valid	
+project/namespaces/exact-uri-identity/attributes	trailing-slash	dotnet	valid	
+project/namespaces/exact-uri-identity/attributes	trailing-slash	libxml2	valid	
+project/namespaces/exact-uri-identity/attributes	trailing-slash	xerces	valid	
+project/namespaces/exact-uri-identity/attributes	trailing-slash	xmlschema	valid	
+project/namespaces/exact-uri-identity/child-declaration	exact	dotnet	valid	
+project/namespaces/exact-uri-identity/child-declaration	exact	libxml2	valid	
+project/namespaces/exact-uri-identity/child-declaration	exact	xerces	valid	
+project/namespaces/exact-uri-identity/child-declaration	exact	xmlschema	valid	
+project/namespaces/exact-uri-identity/child-declaration	host-case	dotnet	invalid	child-declaration-host-case.xml:1:44: The element 'root' in namespace 'http://EXAMPLE.test/%7E' has invalid child element 'child' in namespace 'http://example.test/%7E'. List of possible elements expected: 'child' in namespace 'http://EXAMPLE.test/%7E'.
+project/namespaces/exact-uri-identity/child-declaration	host-case	libxml2	invalid	child-declaration-host-case.xml:1: element child: Schemas validity error : Element '{http://example.test/%7E}child': This element is not expected. Expected is ( {http://EXAMPLE.test/%7E}child ).
+project/namespaces/exact-uri-identity/child-declaration	host-case	xerces	invalid	child-declaration-host-case.xml:1:86: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"http://example.test/%7E":child}'. One of '{"http://EXAMPLE.test/%7E":child}' is expected.
+project/namespaces/exact-uri-identity/child-declaration	host-case	xmlschema	invalid	line None: Unexpected child with tag 'q:child' at position 1. Tag 't:child' expected. (path /p:root)
+project/namespaces/exact-uri-identity/child-declaration	no-namespace	dotnet	invalid	child-declaration-no-namespace.xml:1:44: The element 'root' in namespace 'http://EXAMPLE.test/%7E' has invalid child element 'child'. List of possible elements expected: 'child' in namespace 'http://EXAMPLE.test/%7E'.
+project/namespaces/exact-uri-identity/child-declaration	no-namespace	libxml2	invalid	child-declaration-no-namespace.xml:1: element child: Schemas validity error : Element 'child': This element is not expected. Expected is ( {http://EXAMPLE.test/%7E}child ).
+project/namespaces/exact-uri-identity/child-declaration	no-namespace	xerces	invalid	child-declaration-no-namespace.xml:1:59: cvc-complex-type.2.4.a: Invalid content was found starting with element 'child'. One of '{"http://EXAMPLE.test/%7E":child}' is expected.
+project/namespaces/exact-uri-identity/child-declaration	no-namespace	xmlschema	invalid	line None: Unexpected child with tag 'child' at position 1. Tag 't:child' expected. (path /p:root)
+project/namespaces/exact-uri-identity/child-declaration	percent-case	dotnet	invalid	child-declaration-percent-case.xml:1:44: The element 'root' in namespace 'http://EXAMPLE.test/%7E' has invalid child element 'child' in namespace 'http://EXAMPLE.test/%7e'. List of possible elements expected: 'child' in namespace 'http://EXAMPLE.test/%7E'.
+project/namespaces/exact-uri-identity/child-declaration	percent-case	libxml2	invalid	child-declaration-percent-case.xml:1: element child: Schemas validity error : Element '{http://EXAMPLE.test/%7e}child': This element is not expected. Expected is ( {http://EXAMPLE.test/%7E}child ).
+project/namespaces/exact-uri-identity/child-declaration	percent-case	xerces	invalid	child-declaration-percent-case.xml:1:86: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"http://EXAMPLE.test/%7e":child}'. One of '{"http://EXAMPLE.test/%7E":child}' is expected.
+project/namespaces/exact-uri-identity/child-declaration	percent-case	xmlschema	invalid	line None: Unexpected child with tag 'q:child' at position 1. Tag 't:child' expected. (path /p:root)
+project/namespaces/exact-uri-identity/child-declaration	percent-decoded	dotnet	invalid	child-declaration-percent-decoded.xml:1:44: The element 'root' in namespace 'http://EXAMPLE.test/%7E' has invalid child element 'child' in namespace 'http://EXAMPLE.test/~'. List of possible elements expected: 'child' in namespace 'http://EXAMPLE.test/%7E'.
+project/namespaces/exact-uri-identity/child-declaration	percent-decoded	libxml2	invalid	child-declaration-percent-decoded.xml:1: element child: Schemas validity error : Element '{http://EXAMPLE.test/~}child': This element is not expected. Expected is ( {http://EXAMPLE.test/%7E}child ).
+project/namespaces/exact-uri-identity/child-declaration	percent-decoded	xerces	invalid	child-declaration-percent-decoded.xml:1:84: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"http://EXAMPLE.test/~":child}'. One of '{"http://EXAMPLE.test/%7E":child}' is expected.
+project/namespaces/exact-uri-identity/child-declaration	percent-decoded	xmlschema	invalid	line None: Unexpected child with tag 'q:child' at position 1. Tag 't:child' expected. (path /p:root)
+project/namespaces/exact-uri-identity/child-declaration	prefix-alias	dotnet	valid	
+project/namespaces/exact-uri-identity/child-declaration	prefix-alias	libxml2	valid	
+project/namespaces/exact-uri-identity/child-declaration	prefix-alias	xerces	valid	
+project/namespaces/exact-uri-identity/child-declaration	prefix-alias	xmlschema	valid	
+project/namespaces/exact-uri-identity/child-declaration	schema	dotnet	schema-valid	
+project/namespaces/exact-uri-identity/child-declaration	schema	libxml2	schema-valid	
+project/namespaces/exact-uri-identity/child-declaration	schema	xerces	schema-valid	
+project/namespaces/exact-uri-identity/child-declaration	schema	xmlschema	schema-valid	
+project/namespaces/exact-uri-identity/child-declaration	trailing-slash	dotnet	invalid	child-declaration-trailing-slash.xml:1:44: The element 'root' in namespace 'http://EXAMPLE.test/%7E' has invalid child element 'child' in namespace 'http://EXAMPLE.test/%7E/'. List of possible elements expected: 'child' in namespace 'http://EXAMPLE.test/%7E'.
+project/namespaces/exact-uri-identity/child-declaration	trailing-slash	libxml2	invalid	child-declaration-trailing-slash.xml:1: element child: Schemas validity error : Element '{http://EXAMPLE.test/%7E/}child': This element is not expected. Expected is ( {http://EXAMPLE.test/%7E}child ).
+project/namespaces/exact-uri-identity/child-declaration	trailing-slash	xerces	invalid	child-declaration-trailing-slash.xml:1:87: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"http://EXAMPLE.test/%7E/":child}'. One of '{"http://EXAMPLE.test/%7E":child}' is expected.
+project/namespaces/exact-uri-identity/child-declaration	trailing-slash	xmlschema	invalid	line None: Unexpected child with tag 'q:child' at position 1. Tag 't:child' expected. (path /p:root)
+project/namespaces/exact-uri-identity/declaration	exact	dotnet	valid	
+project/namespaces/exact-uri-identity/declaration	exact	libxml2	valid	
+project/namespaces/exact-uri-identity/declaration	exact	xerces	valid	
+project/namespaces/exact-uri-identity/declaration	exact	xmlschema	valid	
+project/namespaces/exact-uri-identity/declaration	host-case	dotnet	unassessed	warning: declaration-host-case.xml:1:2: Could not find schema information for the element 'http://example.test/%7E:root'.
+project/namespaces/exact-uri-identity/declaration	host-case	libxml2	invalid	declaration-host-case.xml:1: element root: Schemas validity error : Element '{http://example.test/%7E}root': No matching global declaration available for the validation root.
+project/namespaces/exact-uri-identity/declaration	host-case	xerces	invalid	declaration-host-case.xml:1:43: cvc-elt.1.a: Cannot find the declaration of element 'p:root'.
+project/namespaces/exact-uri-identity/declaration	host-case	xmlschema	invalid	line None: '{http://example.test/%7E}root' is not an element of the schema (path /p:root)
+project/namespaces/exact-uri-identity/declaration	percent-case	dotnet	unassessed	warning: declaration-percent-case.xml:1:2: Could not find schema information for the element 'http://EXAMPLE.test/%7e:root'.
+project/namespaces/exact-uri-identity/declaration	percent-case	libxml2	invalid	declaration-percent-case.xml:1: element root: Schemas validity error : Element '{http://EXAMPLE.test/%7e}root': No matching global declaration available for the validation root.
+project/namespaces/exact-uri-identity/declaration	percent-case	xerces	invalid	declaration-percent-case.xml:1:43: cvc-elt.1.a: Cannot find the declaration of element 'p:root'.
+project/namespaces/exact-uri-identity/declaration	percent-case	xmlschema	invalid	line None: '{http://EXAMPLE.test/%7e}root' is not an element of the schema (path /p:root)
+project/namespaces/exact-uri-identity/declaration	percent-decoded	dotnet	unassessed	warning: declaration-percent-decoded.xml:1:2: Could not find schema information for the element 'http://EXAMPLE.test/~:root'.
+project/namespaces/exact-uri-identity/declaration	percent-decoded	libxml2	invalid	declaration-percent-decoded.xml:1: element root: Schemas validity error : Element '{http://EXAMPLE.test/~}root': No matching global declaration available for the validation root.
+project/namespaces/exact-uri-identity/declaration	percent-decoded	xerces	invalid	declaration-percent-decoded.xml:1:41: cvc-elt.1.a: Cannot find the declaration of element 'p:root'.
+project/namespaces/exact-uri-identity/declaration	percent-decoded	xmlschema	invalid	line None: '{http://EXAMPLE.test/~}root' is not an element of the schema (path /p:root)
+project/namespaces/exact-uri-identity/declaration	prefix-alias	dotnet	valid	
+project/namespaces/exact-uri-identity/declaration	prefix-alias	libxml2	valid	
+project/namespaces/exact-uri-identity/declaration	prefix-alias	xerces	valid	
+project/namespaces/exact-uri-identity/declaration	prefix-alias	xmlschema	valid	
+project/namespaces/exact-uri-identity/declaration	schema	dotnet	schema-valid	
+project/namespaces/exact-uri-identity/declaration	schema	libxml2	schema-valid	
+project/namespaces/exact-uri-identity/declaration	schema	xerces	schema-valid	
+project/namespaces/exact-uri-identity/declaration	schema	xmlschema	schema-valid	
+project/namespaces/exact-uri-identity/declaration	trailing-slash	dotnet	unassessed	warning: declaration-trailing-slash.xml:1:2: Could not find schema information for the element 'http://EXAMPLE.test/%7E/:root'.
+project/namespaces/exact-uri-identity/declaration	trailing-slash	libxml2	invalid	declaration-trailing-slash.xml:1: element root: Schemas validity error : Element '{http://EXAMPLE.test/%7E/}root': No matching global declaration available for the validation root.
+project/namespaces/exact-uri-identity/declaration	trailing-slash	xerces	invalid	declaration-trailing-slash.xml:1:44: cvc-elt.1.a: Cannot find the declaration of element 'p:root'.
+project/namespaces/exact-uri-identity/declaration	trailing-slash	xmlschema	invalid	line None: '{http://EXAMPLE.test/%7E/}root' is not an element of the schema (path /p:root)
+project/namespaces/prefix-restoration/schema	restored-descendant	dotnet	valid	
+project/namespaces/prefix-restoration/schema	restored-descendant	libxml2	valid	
+project/namespaces/prefix-restoration/schema	restored-descendant	xerces	valid	
+project/namespaces/prefix-restoration/schema	restored-descendant	xmlschema	valid	
+project/namespaces/prefix-restoration/schema	restored-sibling	dotnet	valid	
+project/namespaces/prefix-restoration/schema	restored-sibling	libxml2	valid	
+project/namespaces/prefix-restoration/schema	restored-sibling	xerces	valid	
+project/namespaces/prefix-restoration/schema	restored-sibling	xmlschema	valid	
+project/namespaces/prefix-restoration/schema	schema	dotnet	schema-valid	
+project/namespaces/prefix-restoration/schema	schema	libxml2	schema-valid	
+project/namespaces/prefix-restoration/schema	schema	xerces	schema-valid	
+project/namespaces/prefix-restoration/schema	schema	xmlschema	schema-valid	
+project/namespaces/prefix-restoration/schema	wrong-deep-final	dotnet	invalid	schema-wrong-deep-final.xml:1:114: The element 'wrapper' in namespace 'urn:scope:outer' has invalid child element 'after' in namespace 'urn:scope:inner'. List of possible elements expected: 'after' in namespace 'urn:scope:outer'.
+project/namespaces/prefix-restoration/schema	wrong-deep-final	libxml2	invalid	schema-wrong-deep-final.xml:1: element after: Schemas validity error : Element '{urn:scope:inner}after': This element is not expected. Expected is ( {urn:scope:outer}after ).
+project/namespaces/prefix-restoration/schema	wrong-deep-final	xerces	invalid	schema-wrong-deep-final.xml:1:160: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:scope:inner":after}'. One of '{"urn:scope:outer":after}' is expected.
+project/namespaces/prefix-restoration/schema	wrong-deep-final	xmlschema	invalid	line None: Unexpected child with tag 'p:after' at position 1. Tag 'o:after' expected. (path /p:root/p:wrapper)
+project/namespaces/prefix-restoration/schema	wrong-final	dotnet	invalid	schema-wrong-final.xml:1:103: The element 'root' in namespace 'urn:scope:outer' has invalid child element 'after' in namespace 'urn:scope:inner'. List of possible elements expected: 'after, wrapper' in namespace 'urn:scope:outer'.
+project/namespaces/prefix-restoration/schema	wrong-final	libxml2	invalid	schema-wrong-final.xml:1: element after: Schemas validity error : Element '{urn:scope:inner}after': This element is not expected. Expected is one of ( {urn:scope:outer}after, {urn:scope:outer}wrapper ).
+project/namespaces/prefix-restoration/schema	wrong-final	xerces	invalid	schema-wrong-final.xml:1:149: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:scope:inner":after}'. One of '{"urn:scope:outer":after, "urn:scope:outer":wrapper}' is expected.
+project/namespaces/prefix-restoration/schema	wrong-final	xmlschema	invalid	line None: Unexpected child with tag 'p:after' at position 3. Tag ('o:after' | 'o:wrapper') expected. (path /p:root)
+project/namespaces/prefix-restoration/schema	wrong-final-attribute	dotnet	invalid	schema-wrong-final-attribute.xml:1:137: The 'urn:scope:inner:flag' attribute is not declared.
+project/namespaces/prefix-restoration/schema	wrong-final-attribute	libxml2	invalid	schema-wrong-final-attribute.xml:1: element after: Schemas validity error : Element '{urn:scope:outer}after', attribute '{urn:scope:inner}flag': The attribute '{urn:scope:inner}flag' is not allowed.
+project/namespaces/prefix-restoration/schema	wrong-final-attribute	xerces	invalid	schema-wrong-final-attribute.xml:1:149: cvc-complex-type.3.2.2: Attribute 'q:flag' is not allowed to appear in element 'p:after'.
+project/namespaces/prefix-restoration/schema	wrong-final-attribute	xmlschema	invalid	line None: missing required attribute '{urn:scope:outer}flag' (path /p:root/p:after)
+project/namespaces/prefix-restoration/schema	wrong-inner	dotnet	invalid	schema-wrong-inner.xml:1:47: The element 'root' in namespace 'urn:scope:outer' has invalid child element 'inside' in namespace 'urn:scope:outer'. List of possible elements expected: 'inside' in namespace 'urn:scope:inner'.
+project/namespaces/prefix-restoration/schema	wrong-inner	libxml2	invalid	schema-wrong-inner.xml:1: element inside: Schemas validity error : Element '{urn:scope:outer}inside': This element is not expected. Expected is ( {urn:scope:inner}inside ).
+project/namespaces/prefix-restoration/schema	wrong-inner	xerces	invalid	schema-wrong-inner.xml:1:82: cvc-complex-type.2.4.a: Invalid content was found starting with element '{"urn:scope:outer":inside}'. One of '{"urn:scope:inner":inside}' is expected.
+project/namespaces/prefix-restoration/schema	wrong-inner	xmlschema	invalid	line None: Unexpected child with tag 'p:inside' at position 2. Tag 'i:inside' expected. (path /p:root)

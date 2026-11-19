@@ -1,11 +1,6 @@
 project/attribute-fixed-time-leap-second-offset-equivalent-utc
 project/content-models/particle-restriction/inherited-urtype-wildcard
 project/content-models/pointless-groups/singleton-all-outer-optional
-project/corrections-fixed-pattern-type-validity
-project/datatypes/bounds/continuation-b26-equal
 project/element-fixed-time-leap-second-offset-equivalent-lexical
 project/element-fixed-time-leap-second-offset-equivalent-utc
 project/elements/substitution-union-member-restriction-block
-project/namespace-schema-import-namespace-cannot-be-empty
-project/structures-local-idc-addition
-project/temporal-year-boundaries

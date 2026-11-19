@@ -1,0 +1,477 @@
+{
+  "cases": [
+    {
+      "id": "project/namespaces/exact-uri-identity/declaration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/declaration.xsd",
+        "description": "Root element declaration lookup compares namespace names exactly: a root whose namespace name differs from the target namespace only by host case, percent-escape form, percent-escape case or a trailing slash has no global declaration, while a same-URI root under another prefix does.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-assess-elt"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/exact-uri-identity/declaration.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+          "clause": "namespace name identity in Namespaces in XML 1999"
+        }
+      },
+      "instances": [
+        {
+          "testName": "exact",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-exact.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "prefix-alias",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-prefix-alias.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "host-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-host-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "percent-decoded",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-decoded.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "percent-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "trailing-slash",
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-trailing-slash.xml",
+          "expected": "invalid",
+          "errorCode": "validation.root",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-exact.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-prefix-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-host-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-decoded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-percent-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/declaration-trailing-slash.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/exact-uri-identity/child-declaration",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/child-declaration.xsd",
+        "description": "A child element matches a declaration only when its namespace name is identical: host case, percent-escape form, percent-escape case, a trailing slash or no namespace each fail the content model, while a same-URI child under another prefix matches.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/exact-uri-identity/child-declaration.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+          "clause": "namespace name identity in Namespaces in XML 1999"
+        }
+      },
+      "instances": [
+        {
+          "testName": "exact",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-exact.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "prefix-alias",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-prefix-alias.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "host-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-host-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "percent-decoded",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-decoded.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "percent-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-case.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "trailing-slash",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-trailing-slash.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "no-namespace",
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-no-namespace.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#dt-identical",
+            "clause": "namespace name identity in Namespaces in XML 1999"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-exact.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-prefix-alias.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-host-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-decoded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-percent-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-trailing-slash.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/child-declaration-no-namespace.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/exact-uri-identity/attributes",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/exact-uri-identity/attributes.xsd",
+        "description": "Near-alias namespace URIs keep same-local-name attributes distinct; identical URIs make them duplicates.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/exact-uri-identity/attributes.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#uniqAttrs",
+          "clause": "the unique attribute constraint of §5.3 in Namespaces in XML 1.0"
+        }
+      },
+      "instances": [
+        {
+          "testName": "host-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-host-case.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#uniqAttrs",
+            "clause": "the unique attribute constraint of §5.3 in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "percent-decoded",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-decoded.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#uniqAttrs",
+            "clause": "the unique attribute constraint of §5.3 in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "percent-case",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-case.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#uniqAttrs",
+            "clause": "the unique attribute constraint of §5.3 in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "trailing-slash",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-trailing-slash.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#uniqAttrs",
+            "clause": "the unique attribute constraint of §5.3 in Namespaces in XML 1.0"
+          }
+        },
+        {
+          "testName": "identical-alias-duplicate",
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-identical-alias-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.xml",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#uniqAttrs",
+            "clause": "the unique attribute constraint of §5.3 in Namespaces in XML 1.0"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-043"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-host-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-decoded.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-percent-case.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-trailing-slash.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/exact-uri-identity/attributes-identical-alias-duplicate.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/namespaces/prefix-restoration/schema",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/namespaces/prefix-restoration/schema.xsd",
+        "description": "A nested prefix rebind applies to its declared subtree, then the original binding resolves subsequent element and attribute names.",
+        "specification": [
+          "https://www.w3.org/TR/1999/REC-xml-names-19990114/"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/namespaces/prefix-restoration/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+          "clause": "Namespace scoping in Namespaces in XML 1999"
+        }
+      },
+      "instances": [
+        {
+          "testName": "restored-sibling",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-sibling.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+            "clause": "Namespace scoping in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "restored-descendant",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-descendant.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+            "clause": "Namespace scoping in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "wrong-inner",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-inner.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+            "clause": "Namespace scoping in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "wrong-final",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+            "clause": "Namespace scoping in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "wrong-deep-final",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-deep-final.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+            "clause": "Namespace scoping in Namespaces in XML 1999"
+          }
+        },
+        {
+          "testName": "wrong-final-attribute",
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final-attribute.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/1999/REC-xml-names-19990114/#scoping",
+            "clause": "Namespace scoping in Namespaces in XML 1999"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/inner.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-sibling.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-restored-descendant.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-inner.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-deep-final.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/namespaces/prefix-restoration/schema-wrong-final-attribute.xml",
+          "role": "instance"
+        }
+      ]
+    }
+  ]
+}

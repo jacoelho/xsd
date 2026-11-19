@@ -1,0 +1,316 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1ii01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1ii01"
+      },
+      "title": "invalid element in instance document as it does not match ns of wildcard",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1ii01s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii01.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_1ii01i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii01.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii01.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1ii03",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1ii03"
+      },
+      "title": "invalid element in instance document as it does not match ns of wildcard",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1ii03s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii03.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_1ii03i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii03.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii03.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii03.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1ii04",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1ii04"
+      },
+      "title": "invalid element in instance document as it does not match ns of wildcard",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1ii04s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii04.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_1ii04i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii04.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii04.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii04.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1ii07",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1ii07"
+      },
+      "title": "Tests namespace attribute in wildcard",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotNS",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1ii07s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii07.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_1ii07i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii07.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii07.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii07.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1ii08",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1ii08"
+      },
+      "title": "the keyword ##definedSibling can be used to exclude all elements explicitly mentioned in a content model",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotXDefineSibling",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1ii08s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii08.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_1ii08i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii08.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii08.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii08.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1ii09",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1ii09"
+      },
+      "title": "the keyword ##definedSibling can be used to exclude all elements explicitly mentioned in a content model (and all elements substitutable for those elements)",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotXDefineSibling",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1ii09s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii09.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "s3_10_1ii09i",
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii09.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii09.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/instance_invalid/S3_10_1/s3_10_1ii09.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1si01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1si01"
+      },
+      "title": "Wildcard, schema invalid test case",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1si01s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S3_10_1/s3_10_1si01.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S3_10_1/s3_10_1si01.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/wildcard.testSet/s3_10_1si02",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/wildcard.testSet",
+        "testGroup": "s3_10_1si02"
+      },
+      "title": "3.10.6.1.4 - The namespace of each QName in disallowed is allowed by the namespace constraint",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Wildcards-NotQName",
+        "http://www.w3.org/TR/xmlschema11-1/#Wildcard_details"
+      ],
+      "schema": {
+        "testName": "s3_10_1si02s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/S3_10_1/s3_10_1si02.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/S3_10_1/s3_10_1si02.xsd"
+        }
+      ]
+    }
+  ]
+}

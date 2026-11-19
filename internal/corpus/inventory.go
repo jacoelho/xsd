@@ -109,8 +109,10 @@ type Rule struct {
 }
 
 // Difference explains why a provider's measured validity differs from the
-// project expectation: an interpretation record, or for phases measured
-// before records owned every difference, the original prose note.
+// project expectation: Record names an interpretation record (I-NNN) or the
+// anchor of a qualification-table row in docs/spec/INTERPRETATIONS.md; for
+// phases measured before records owned every difference, Note keeps the
+// original prose instead.
 type Difference struct {
 	Record string `json:"record"`
 	Note   string `json:"note"`
@@ -331,8 +333,8 @@ func validateDifference(provider Provider, d Difference) error {
 	case d.Record != "" && d.Note != "":
 		return fmt.Errorf("difference for %s has both record and note", provider)
 	case d.Record != "":
-		if !isRecordID(d.Record) {
-			return fmt.Errorf("difference for %s names record %q, want I-NNN", provider, d.Record)
+		if !isRecordName(d.Record) {
+			return fmt.Errorf("difference for %s names record %q, want I-NNN or a row anchor", provider, d.Record)
 		}
 	case blank(d.Note):
 		return fmt.Errorf("difference for %s has neither record nor note", provider)
@@ -340,16 +342,13 @@ func validateDifference(provider Provider, d Difference) error {
 	return nil
 }
 
-func isRecordID(s string) bool {
-	if len(s) != len("I-000") || !strings.HasPrefix(s, "I-") {
-		return false
+// isRecordName reports whether s names an interpretation record, I-NNN, or a
+// qualification-table row anchor of lowercase letters, digits and hyphens.
+func isRecordName(s string) bool {
+	if digits, ok := strings.CutPrefix(s, "I-"); ok {
+		return len(digits) == 3 && strings.Trim(digits, "0123456789") == ""
 	}
-	for _, r := range s[2:] {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
+	return s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyz0123456789-") == ""
 }
 
 func validExpectation(s string) bool {

@@ -1,0 +1,1126 @@
+{
+  "cases": [
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m2",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m2.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m2.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m3",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m3"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m3",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m3.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m3_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m3.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m3_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m4",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m4"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m4",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m4.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m4.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m5",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m5"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m5",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m5.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m5_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m5.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m5_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m6",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m6"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m6",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m6.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m6.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m7",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m7"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m7",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m7.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m7_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m7.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m7_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/annotation00101m8",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "annotation00101m8"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "annotation00101m8",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m8.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/annotation/annotation00101m/annotation00101m8.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00101m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m2_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m2_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00101m/nsConstraint00101m2_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00102m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00102m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00102m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00102m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00102m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00102m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m2_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00102m/nsConstraint00102m2_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00201m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00201m/nsConstraint00201m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00201m/nsConstraint00201m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00201m/nsConstraint00201m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00201m/nsConstraint00201m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00201m/nsConstraint00201m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00201m/nsConstraint00201m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00202m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00202m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00202m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00202m/nsConstraint00202m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00202m/nsConstraint00202m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00202m/nsConstraint00202m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00202m/nsConstraint00202m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00202m/nsConstraint00202m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00202m/nsConstraint00202m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00301m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00301m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00301m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00301m/nsConstraint00301m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00301m/nsConstraint00301m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00301m/nsConstraint00301m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00301m/nsConstraint00301m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00301m/nsConstraint00301m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00301m/nsConstraint00301m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/nsconstraint00302m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "nsconstraint00302m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "nsConstraint00302m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00302m/nsConstraint00302m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00302m/nsConstraint00302m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00302m/nsConstraint00302m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00302m/nsConstraint00302m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00302m/nsConstraint00302m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/nsConstraint/nsConstraint00302m/nsConstraint00302m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00101m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00101m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00101m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00101m/psContents00101m2_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00102m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00102m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00102m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00102m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00102m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00102m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00102m/psContents00102m2_n.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00201m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00201m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00201m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00201m/psContents00201m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00201m/psContents00201m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00201m/psContents00201m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00201m/psContents00201m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00201m/psContents00201m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00201m/psContents00201m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00202m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00202m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00202m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00202m/psContents00202m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00202m/psContents00202m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00202m/psContents00202m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00202m/psContents00202m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00301m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00301m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00301m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00301m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00301m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00301m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m2_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m2_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00301m/psContents00301m2_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00302m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00302m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00302m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/Wildcard.testSet/pscontents00302m2",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/Wildcard.testSet",
+        "testGroup": "pscontents00302m2"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#Wildcards"
+      ],
+      "schema": {
+        "testName": "psContents00302m2",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m2.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m2_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m2_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m2.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m2_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/Wildcard/psContents/psContents00302m/psContents00302m2_p.xml",
+          "role": "instance"
+        }
+      ]
+    }
+  ]
+}

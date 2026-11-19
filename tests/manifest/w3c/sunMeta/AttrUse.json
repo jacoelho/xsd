@@ -1,0 +1,172 @@
+{
+  "cases": [
+    {
+      "id": "w3c/sunMeta/AttrUse.testSet/au_attrdecl00101m1_n",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/AttrUse.testSet",
+        "testGroup": "au_attrdecl00101m1_n"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cAttributeUse"
+      ],
+      "schema": {
+        "testName": "AU_attrDecl00101m1_n",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/AttrUse/AU_attrDecl/AU_attrDecl00101m/AU_attrDecl00101m1_n.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_attrDecl/AU_attrDecl00101m/AU_attrDecl00101m1_n.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/AttrUse.testSet/au_attrdecl00101m1_p",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/AttrUse.testSet",
+        "testGroup": "au_attrdecl00101m1_p"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cAttributeUse"
+      ],
+      "schema": {
+        "testName": "AU_attrDecl00101m1_p",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/AttrUse/AU_attrDecl/AU_attrDecl00101m/AU_attrDecl00101m1_p.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/AttrUse/AU_attrDecl/AU_attrDecl00101m/AU_attrDecl00101m1.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_attrDecl/AU_attrDecl00101m/AU_attrDecl00101m1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_attrDecl/AU_attrDecl00101m/AU_attrDecl00101m1_p.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/AttrUse.testSet/au_required00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/AttrUse.testSet",
+        "testGroup": "au_required00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cAttributeUse"
+      ],
+      "schema": {
+        "testName": "AU_required00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/AttrUse/AU_required/AU_required00101m/AU_required00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/AttrUse/AU_required/AU_required00101m/AU_required00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/AttrUse/AU_required/AU_required00101m/AU_required00101m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_required/AU_required00101m/AU_required00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_required/AU_required00101m/AU_required00101m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_required/AU_required00101m/AU_required00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "w3c/sunMeta/AttrUse.testSet/au_valconstr00101m1",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "SUN",
+        "testSet": "sunMeta/AttrUse.testSet",
+        "testGroup": "au_valconstr00101m1"
+      },
+      "docRefs": [
+        "http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/#cAttributeUse"
+      ],
+      "schema": {
+        "testName": "AU_valConstr00101m1",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/sunData/AttrUse/AU_valConstr/AU_valConstr00101m/AU_valConstr00101m1.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "Positive",
+          "file": "corpus/w3c/sunData/AttrUse/AU_valConstr/AU_valConstr00101m/AU_valConstr00101m1_p.xml",
+          "expected": "valid",
+          "status": "accepted"
+        },
+        {
+          "testName": "Negative",
+          "file": "corpus/w3c/sunData/AttrUse/AU_valConstr/AU_valConstr00101m/AU_valConstr00101m1_n.xml",
+          "expected": "invalid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_valConstr/AU_valConstr00101m/AU_valConstr00101m1.xsd"
+        },
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_valConstr/AU_valConstr00101m/AU_valConstr00101m1_n.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunData/AttrUse/AU_valConstr/AU_valConstr00101m/AU_valConstr00101m1_p.xml",
+          "role": "instance"
+        }
+      ]
+    }
+  ]
+}

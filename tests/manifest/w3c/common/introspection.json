@@ -1,0 +1,868 @@
+{
+  "cases": [
+    {
+      "id": "w3c/common/introspection.testSet/introspection",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "auto-generated",
+        "testSet": "common/introspection.testSet",
+        "testGroup": "introspection",
+        "conditions": [
+          "Project-owned minimal namespace declarations supplied as explicit offline roots; upstream schema bytes preserved. Not complete copies of W3C xml.xsd or xlink.xsd."
+        ]
+      },
+      "schema": {
+        "testName": "introspect-testSet-schema",
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/w3c/common/xsts.xsd"
+          },
+          {
+            "file": "corpus/project/composition/upstream-namespace-closure/xml-attributes.xsd",
+            "role": "auxiliary"
+          },
+          {
+            "file": "corpus/project/composition/upstream-namespace-closure/xlink-attributes.xsd",
+            "role": "auxiliary"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "introspect-testSet-introspection-1",
+          "file": "corpus/w3c/common/introspection.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-NIST2004-01-14-2",
+          "file": "corpus/w3c/nistMeta/NISTXMLSchemaDatatypes.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-suntest-3",
+          "file": "corpus/w3c/sunMeta/suntest.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-AGroupDef-4",
+          "file": "corpus/w3c/sunMeta/AGroupDef.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-AttrDecl-5",
+          "file": "corpus/w3c/sunMeta/AttrDecl.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-AttrUse-6",
+          "file": "corpus/w3c/sunMeta/AttrUse.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-CType-7",
+          "file": "corpus/w3c/sunMeta/CType.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-ElemDecl-8",
+          "file": "corpus/w3c/sunMeta/ElemDecl.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-IdConstrDefs-9",
+          "file": "corpus/w3c/sunMeta/IdConstrDefs.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MGroup-10",
+          "file": "corpus/w3c/sunMeta/MGroup.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MGroupDef-11",
+          "file": "corpus/w3c/sunMeta/MGroupDef.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Notation-12",
+          "file": "corpus/w3c/sunMeta/Notation.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-SType-13",
+          "file": "corpus/w3c/sunMeta/SType.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Schema-14",
+          "file": "corpus/w3c/sunMeta/Schema.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Wildcard-15",
+          "file": "corpus/w3c/sunMeta/Wildcard.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Additional2006-07-15-16",
+          "file": "corpus/w3c/msMeta/Additional_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Annotations2006-07-15-17",
+          "file": "corpus/w3c/msMeta/Annotations_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-AttributeGroup2006-07-15-18",
+          "file": "corpus/w3c/msMeta/AttributeGroup_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Attribute2006-07-15-19",
+          "file": "corpus/w3c/msMeta/Attribute_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-ComplexType2006-07-15-20",
+          "file": "corpus/w3c/msMeta/ComplexType_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-DataTypes2006-07-15-21",
+          "file": "corpus/w3c/msMeta/DataTypes_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Element2006-07-15-22",
+          "file": "corpus/w3c/msMeta/Element_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Errata102006-07-15-23",
+          "file": "corpus/w3c/msMeta/Errata10_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Group2006-07-15-24",
+          "file": "corpus/w3c/msMeta/Group_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-IdentityConstraint2006-07-15-25",
+          "file": "corpus/w3c/msMeta/IdentityConstraint_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-ModelGroups2006-07-15-26",
+          "file": "corpus/w3c/msMeta/ModelGroups_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Notations2006-07-15-27",
+          "file": "corpus/w3c/msMeta/Notations_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Particles2006-07-15-28",
+          "file": "corpus/w3c/msMeta/Particles_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Regex2006-07-15-29",
+          "file": "corpus/w3c/msMeta/Regex_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Schema2006-07-15-30",
+          "file": "corpus/w3c/msMeta/Schema_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-SimpleType2006-07-15-31",
+          "file": "corpus/w3c/msMeta/SimpleType_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-MS-Wildcards2006-07-15-32",
+          "file": "corpus/w3c/msMeta/Wildcards_w3c.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-BoeingXSDTestCases-33",
+          "file": "corpus/w3c/boeingMeta/BoeingXSDTestSet.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-All-34",
+          "file": "corpus/w3c/saxonMeta/All.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Assert-35",
+          "file": "corpus/w3c/saxonMeta/Assert.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Complex-36",
+          "file": "corpus/w3c/saxonMeta/Complex.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-CTA-37",
+          "file": "corpus/w3c/saxonMeta/CTA.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Id-38",
+          "file": "corpus/w3c/saxonMeta/Id.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Open-39",
+          "file": "corpus/w3c/saxonMeta/Open.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Override-40",
+          "file": "corpus/w3c/saxonMeta/Override.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Simple-41",
+          "file": "corpus/w3c/saxonMeta/Simple.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Subsgroup-42",
+          "file": "corpus/w3c/saxonMeta/Subsgroup.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-TargetNS-43",
+          "file": "corpus/w3c/saxonMeta/TargetNS.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-VC-44",
+          "file": "corpus/w3c/saxonMeta/VC.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Wild-45",
+          "file": "corpus/w3c/saxonMeta/Wild.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-XmlVersions-46",
+          "file": "corpus/w3c/saxonMeta/XmlVersions.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Zone-47",
+          "file": "corpus/w3c/saxonMeta/Zone.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Zone-48",
+          "file": "corpus/w3c/oracleMeta/Zone.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-substitution-groups-49",
+          "file": "corpus/w3c/wgMeta/substitution-groups.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-allGroup-50",
+          "file": "corpus/w3c/ibmMeta/allGroup.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-anyAttribute-51",
+          "file": "corpus/w3c/ibmMeta/anyAttribute.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-Assert-52",
+          "file": "corpus/w3c/ibmMeta/assert.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-assertion-53",
+          "file": "corpus/w3c/ibmMeta/assertion.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-ConditionalInclusion-54",
+          "file": "corpus/w3c/ibmMeta/conditionalInclusion.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-constraintsOnAttribute-55",
+          "file": "corpus/w3c/ibmMeta/constraintsOnAttribute.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-CyclicDependencies_Redefine_Include_Import_Override-56",
+          "file": "corpus/w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-date-57",
+          "file": "corpus/w3c/ibmMeta/date.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-dateTimeStamp-58",
+          "file": "corpus/w3c/ibmMeta/dateTimeStamp.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-dayTimeDuration-59",
+          "file": "corpus/w3c/ibmMeta/dayTimeDuration.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-defaultAttributesApply-60",
+          "file": "corpus/w3c/ibmMeta/defaultAttributesApply.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-DefaultFixed-61",
+          "file": "corpus/w3c/ibmMeta/defaultFixed.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-double-62",
+          "file": "corpus/w3c/ibmMeta/double.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-EDCWildcard-63",
+          "file": "corpus/w3c/ibmMeta/edcWildcard.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-explicitTimezone-64",
+          "file": "corpus/w3c/ibmMeta/explicitTimezone.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-float-65",
+          "file": "corpus/w3c/ibmMeta/float.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-gYearMonth-66",
+          "file": "corpus/w3c/ibmMeta/gYearMonth.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-gYear-67",
+          "file": "corpus/w3c/ibmMeta/gYear.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-gMonthDay-68",
+          "file": "corpus/w3c/ibmMeta/gMonthDay.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-gDay-69",
+          "file": "corpus/w3c/ibmMeta/gDay.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-gMonth-70",
+          "file": "corpus/w3c/ibmMeta/gMonth.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-ID_IDREF-71",
+          "file": "corpus/w3c/ibmMeta/idIDREF.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-IdentityConstraint-72",
+          "file": "corpus/w3c/ibmMeta/identityConstraint.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-list-73",
+          "file": "corpus/w3c/ibmMeta/list.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-PopenContent-74",
+          "file": "corpus/w3c/ibmMeta/openContent.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-RegularExpression-75",
+          "file": "corpus/w3c/ibmMeta/regularExpression.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-RestrictionOfComplexTypes-76",
+          "file": "corpus/w3c/ibmMeta/restrictionOfComplexTypes.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-rf-whiteSpace-77",
+          "file": "corpus/w3c/ibmMeta/rf_whiteSpace.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-substitutionGroup-78",
+          "file": "corpus/w3c/ibmMeta/substitutionGroup.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-TargetNS-79",
+          "file": "corpus/w3c/ibmMeta/targetNamespace.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-time-80",
+          "file": "corpus/w3c/ibmMeta/time.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-TypeAlternativeTests-81",
+          "file": "corpus/w3c/ibmMeta/typeAlternatives.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-CTA-82",
+          "file": "corpus/w3c/ibmMeta/typeAlternativesMixed.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-union-83",
+          "file": "corpus/w3c/ibmMeta/union.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-UnitsLength-84",
+          "file": "corpus/w3c/ibmMeta/unitsLength.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-unsignedIntegers-85",
+          "file": "corpus/w3c/ibmMeta/unsignedInteger.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-VC-86",
+          "file": "corpus/w3c/ibmMeta/vc.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-wildcard-87",
+          "file": "corpus/w3c/ibmMeta/wildcard.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-XML11Support-88",
+          "file": "corpus/w3c/ibmMeta/xml11Support.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-XPathDefaultNSonKeyKeyRefUnique-89",
+          "file": "corpus/w3c/ibmMeta/xpathDefaultNSonKeyKeyRefUnique.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-XSImportReference-90",
+          "file": "corpus/w3c/ibmMeta/xsImportReference.testSet",
+          "expected": "valid"
+        },
+        {
+          "testName": "introspect-testSet-yearMonthDuration-91",
+          "file": "corpus/w3c/ibmMeta/yearMonthDuration.testSet",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/boeingMeta/BoeingXSDTestSet.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/common/introspection.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/common/xsts.xsd"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/allGroup.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/anyAttribute.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/assert.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/assertion.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/conditionalInclusion.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/constraintsOnAttribute.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/cyclicRedefineIncludeImportOverride.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/date.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/dateTimeStamp.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/dayTimeDuration.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/defaultAttributesApply.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/defaultFixed.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/double.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/edcWildcard.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/explicitTimezone.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/float.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/gDay.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/gMonth.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/gMonthDay.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/gYear.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/gYearMonth.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/idIDREF.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/identityConstraint.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/list.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/openContent.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/regularExpression.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/restrictionOfComplexTypes.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/rf_whiteSpace.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/substitutionGroup.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/targetNamespace.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/time.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/typeAlternatives.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/typeAlternativesMixed.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/union.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/unitsLength.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/unsignedInteger.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/vc.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/wildcard.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/xml11Support.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/xpathDefaultNSonKeyKeyRefUnique.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/xsImportReference.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmMeta/yearMonthDuration.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Additional_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Annotations_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/AttributeGroup_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Attribute_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/ComplexType_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/DataTypes_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Element_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Errata10_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Group_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/IdentityConstraint_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/ModelGroups_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Notations_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Particles_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Regex_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Schema_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/SimpleType_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/msMeta/Wildcards_w3c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/nistMeta/NISTXMLSchemaDatatypes.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/oracleMeta/Zone.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/All.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Assert.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/CTA.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Complex.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Id.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Open.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Override.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Simple.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Subsgroup.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/TargetNS.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/VC.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Wild.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/XmlVersions.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/saxonMeta/Zone.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/AGroupDef.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/AttrDecl.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/AttrUse.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/CType.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/ElemDecl.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/IdConstrDefs.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/MGroup.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/MGroupDef.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/Notation.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/SType.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/Schema.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/Wildcard.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/sunMeta/suntest.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/wgMeta/substitution-groups.testSet",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/composition/upstream-namespace-closure/xml-attributes.xsd",
+          "role": "auxiliary"
+        },
+        {
+          "file": "corpus/project/composition/upstream-namespace-closure/xlink-attributes.xsd",
+          "role": "auxiliary"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "id": "w3c/ibmMeta/unitsLength.testSet/d2_4_1_3si01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/unitsLength.testSet",
+        "testGroup": "d2_4_1_3si01"
+      },
+      "title": "Unions with no member types (and thus with empty value space and lexical space) are now explicitly allowed.",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-UnionTypes",
+        "http://www.w3.org/TR/xmlschema11-2/#dt-union"
+      ],
+      "schema": {
+        "testName": "d2_4_1_3si01s",
+        "expected": "invalid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/schema_invalid/D2_4_1_3/d2_4_1_3si01.xsd"
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/schema_invalid/D2_4_1_3/d2_4_1_3si01.xsd"
+        }
+      ]
+    },
+    {
+      "id": "w3c/ibmMeta/unitsLength.testSet/d3_3_16v01",
+      "expectedSource": "w3c",
+      "source": {
+        "kind": "w3c",
+        "origin": "IBM",
+        "testSet": "ibmMeta/unitsLength.testSet",
+        "testGroup": "d3_3_16v01"
+      },
+      "title": "test Units of length for hexBinary datatype.",
+      "docRefs": [
+        "../common/XSD1_1TestCategories.xml#xsd1_1-Misc-ListBounds",
+        "http://www.w3.org/TR/xmlschema11-2/#hexBinary"
+      ],
+      "schema": {
+        "testName": "d3_3_16v01s",
+        "expected": "valid",
+        "status": "accepted",
+        "documents": [
+          {
+            "file": "corpus/w3c/ibmData/valid/D3_3_16/d3_3_16v01.xsd"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "d3_3_16v01i",
+          "file": "corpus/w3c/ibmData/valid/D3_3_16/d3_3_16v01.xml",
+          "expected": "valid",
+          "status": "accepted"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/w3c/ibmData/valid/D3_3_16/d3_3_16v01.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/w3c/ibmData/valid/D3_3_16/d3_3_16v01.xsd"
+        }
+      ]
+    }
+  ]
+}
