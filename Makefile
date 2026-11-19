@@ -74,6 +74,13 @@ browser-test:
 oracles:
 	docker build --tag xsd-oracles:local tools/oracles
 
+ORACLE_JOBS ?= 6
+ORACLE_CASES ?=
+
+.PHONY: oracle-measure
+oracle-measure:
+	go run ./tools/oracles/measure -j $(ORACLE_JOBS) $(ORACLE_CASES)
+
 .PHONY: staticcheck
 staticcheck: $(BIN)/staticcheck
 	$(BIN)/staticcheck ./...

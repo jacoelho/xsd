@@ -18,6 +18,7 @@ import (
 
 type listedPackage struct {
 	ImportPath string   `json:"ImportPath"` //nolint:tagliatelle // go list -json uses exported field names.
+	Name       string   `json:"Name"`       //nolint:tagliatelle // go list -json uses exported field names.
 	Imports    []string `json:"Imports"`    //nolint:tagliatelle // go list -json uses exported field names.
 	Deps       []string `json:"Deps"`       //nolint:tagliatelle // go list -json uses exported field names.
 }
@@ -25,6 +26,7 @@ type listedPackage struct {
 func TestInternalCapabilityImportAllowlist(t *testing.T) {
 	const module = "github.com/jacoelho/xsd"
 	allowed := map[string]map[string]bool{
+		module + "/internal/corpus":         {},
 		module + "/internal/diagnostictext": {},
 		module + "/internal/schema": allowProjectImports(
 			"internal/diagnostictext", "internal/lex", "internal/source", "internal/uriref", "internal/vocab",
@@ -309,13 +311,15 @@ func TestPublicLibraryPackageSurface(t *testing.T) {
 		"github.com/jacoelho/xsd":           true,
 		"github.com/jacoelho/xsd/xsderrors": true,
 	}
-	for path := range packages {
+	for path, pkg := range packages {
 		switch {
 		case allowed[path]:
 			continue
 		case strings.Contains(path, "/internal/"):
 			continue
 		case strings.Contains(path, "/cmd/"):
+			continue
+		case strings.Contains(path, "/tools/") && pkg.Name == "main":
 			continue
 		case path == "github.com/jacoelho/xsd/tests":
 			continue
