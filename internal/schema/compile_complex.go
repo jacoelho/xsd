@@ -388,7 +388,7 @@ func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner,
 		return complexTypeMetadata{}, err
 	}
 	ct.Attrs = attrs
-	if effective.variety == contentEmpty || base.SimpleContent() {
+	if effective.variety == contentEmpty {
 		return ct, nil
 	}
 	ct.Content, err = c.canonicalComplexContentModel(ct.Content, ct.ContentKind, owner)
