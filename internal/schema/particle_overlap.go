@@ -91,6 +91,10 @@ func (r countRange) subsetOf(base countRange) bool {
 	return !base.nothing && occurrenceRangeSubset(r.counts, base.counts)
 }
 
+func (r countRange) emptiable() bool {
+	return !r.nothing && r.counts.Min == 0
+}
+
 func (r countRange) repeated(occurs occurrence) countRange {
 	if r.nothing {
 		return countRange{nothing: occurs.Min != 0}
@@ -143,13 +147,22 @@ func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (countRa
 	}
 	a.rangePath[id] = true
 	defer delete(a.rangePath, id)
-	term, err := a.modelTermCountRange(model)
+	term, err := a.modelTerm(id, model)
 	if err != nil {
 		return countRange{}, err
 	}
 	result := term.repeated(model.Occurs)
 	a.ranges[id] = result
 	return result, nil
+}
+
+func (a *contentModelAnalysis) modelTerm(id contentModelID, model contentModelNode) (countRange, error) {
+	if a.models != nil {
+		if term, ok := a.models.term(id); ok {
+			return term, nil
+		}
+	}
+	return a.modelTermCountRange(model)
 }
 
 func (a *contentModelAnalysis) modelTermCountRange(model contentModelNode) (countRange, error) {
@@ -409,12 +422,21 @@ func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, er
 	}
 	a.emptyPath[id] = true
 	defer delete(a.emptyPath, id)
-	result, err := a.modelEmptiableValue(model)
+	result, err := a.emptiableModel(id, model)
 	if err != nil {
 		return false, err
 	}
 	a.emptiable[id] = result
 	return result, nil
+}
+
+func (a *contentModelAnalysis) emptiableModel(id contentModelID, model contentModelNode) (bool, error) {
+	if a.models != nil {
+		if term, ok := a.models.term(id); ok {
+			return term.repeated(model.Occurs).emptiable(), nil
+		}
+	}
+	return a.modelEmptiableValue(model)
 }
 
 func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool, error) {

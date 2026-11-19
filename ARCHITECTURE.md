@@ -214,9 +214,11 @@ builds an extension's {content type} (clause 3.2), and the publication audit
 `complexContentExtendsBase` checks the same three forms. Each reader that
 reduces a model owns one rule: the restriction normalizer
 (`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
-and decides pointlessness on the declared group, and `emptyGroup` decides
-whether a group left with no members matches only the empty sequence or
-nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
+and decides pointlessness on the declared group; each comparison node it adds
+carries the count range of the group it stands for, which the count analysis
+reads for Particle Emptiable and the effective total range, and `emptyGroup`
+decides from that range whether a group left with no members matches only the
+empty sequence or nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
 [I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)); the execution
 projection owns language-preserving reduction without copying: direct
 compilation walks the execution particles (`executionParticles`), which splice

@@ -1403,13 +1403,22 @@ in a derived sequence maps to no base particle. Such a group still admits the
 empty sequence when its declared members did, since Xerces-J reads Particle
 Emptiable on the declared group: a base choice with `maxOccurs="2"` of empty
 sequences may be left out of a restriction, while the same choice added to a
-derived sequence maps to no base particle. The choice that clause 2.1
+derived sequence maps to no base particle. A group that keeps some of its
+members keeps its declared count range in the same way: a base choice of an
+empty sequence and `b` may be left out of a restriction
+(`base-seq-choice-emptyseq-elt`, `base-seq-repchoice-emptyseq-elt`), which
+Xerces-J, xmlschema and libxml2 accept and .NET rejects, and a derived choice
+with `maxOccurs="2"` of an empty sequence and `b` has the effective total range
+0..2, so it does not restrict a base wildcard with range 1..2
+(`derived-seq-a-repchoice-emptyseq-elt-vs-any`), which Xerces-J rejects and
+.NET, xmlschema and libxml2 accept. The choice that clause 2.1
 generates for a substitution group is not declared and still reduces to its
 only member
 ([I-027](#i-027--derivation-control-and-actual-substitution-groups)). Cases:
 `project/content-models/pointless-groups/declared/*`. Xerces-J gives the
 project result in every case except those I-042 owns; .NET and libxml2
-accept every invalid restriction in the set; xmlschema accepts the invalid
+accept every invalid restriction in the set except that .NET rejects
+`base-seq-choice-emptychoice-elt`; xmlschema accepts the invalid
 restrictions of a base with an ignored group beside a wildcard, keeps
 singleton groups in a derived type (`derived-*-nested-elt`, invalid there) and
 keeps a derived choice of a required empty choice and an empty sequence
@@ -2214,8 +2223,12 @@ Cases: `project/content-models/nested-empty-choice-required`,
 `project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt`,
 `project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b`,
 `project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices`,
-`project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b`
-and `project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1`.
+`project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b`,
+`project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1`
+and `project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt`.
+In the last, a base choice of a required empty choice and `b` matches only
+`b`, so a restriction that leaves it out is invalid; Xerces-J, xmlschema and
+libxml2 accept it and .NET rejects it.
 
 ## I-043 — libxml2 continues after well-formedness errors
 

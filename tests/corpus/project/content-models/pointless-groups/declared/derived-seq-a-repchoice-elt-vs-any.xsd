@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:t">
+  <xs:complexType name="B"><xs:sequence><xs:element name="a" form="qualified" type="xs:string" minOccurs="0"/><xs:element name="x" form="qualified" type="xs:string" minOccurs="0"/><xs:any namespace="##local" processContents="lax" maxOccurs="2"/></xs:sequence></xs:complexType>
+  <xs:complexType name="R"><xs:complexContent><xs:restriction base="t:B" xmlns:t="urn:t"><xs:sequence><xs:element name="a" form="qualified" type="xs:string"/><xs:choice maxOccurs="2"><xs:element name="c" type="xs:string"/><xs:element name="b" type="xs:string"/></xs:choice></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="t:R" xmlns:t="urn:t"/>
+</xs:schema>
