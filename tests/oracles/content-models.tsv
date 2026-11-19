@@ -5576,6 +5576,23 @@ project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schem
 project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schema	libxml2	schema-valid	
 project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schema	xerces	schema-invalid	schema.xsd:10:48: rcase-RecurseLax.1: Group's occurrence range, (1,1), is not a valid restriction of base group's occurrence range, (2,2).
 project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	b	dotnet	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	b	libxml2	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	b	xerces	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	xmlschema	schema-invalid	xs:sequence cannot extend xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E" mixed="true"><xs:complexContent mixed="true"><xs:extension base="B"><xs:sequence><xs:element name="b" type="xs:string" /></xs:sequence></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mixed-empty-all-base.xsd
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	a	dotnet	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	a	libxml2	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	a	xerces	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	empty	dotnet	invalid	mixed-empty-all-extension-empty.xml:2:10: The element 'root' has incomplete content. List of possible elements expected: 'a'.
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	empty	libxml2	invalid	mixed-empty-all-extension-empty.xml:2: element root: Schemas validity error : Element 'root': Missing child element(s). Expected is ( a ).
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	empty	xerces	invalid	mixed-empty-all-extension-empty.xml:2:15: cvc-complex-type.2.4.b: The content of element 'root' is not complete. One of '{a}' is expected.
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	xmlschema	schema-invalid	cannot extend a complex content with xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E" mixed="true"><xs:complexContent mixed="true"><xs:extension base="B"><xs:all /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mixed-empty-all-extension.xsd
 project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	dotnet	schema-valid	
 project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	libxml2	schema-invalid	mixed-empty-extension-all-base.xsd:4: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': A type cannot be derived by extension from a type which has an 'all' model group in its {content type}, since this would produce a 'sequence' model group containing the 'all' model group; 'all' model groups are not allowed to appear inside other model groups.␊WXS schema mixed-empty-extension-all-base.xsd failed to compile
 project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	xerces	schema-invalid	:-1:-1: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.

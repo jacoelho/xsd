@@ -205,9 +205,13 @@ has a schema document to locate it.
 The content model table holds declared components. Lowering drops zero-count
 particles and keeps every declared group as its own particle; xs:anyType's
 content is a 1..1 mixed sequence holding its lax `##any` wildcard
-0..unbounded. `extensionContentType` alone builds an extension's {content
-type} (Structures §3.4.2 complex content clause 3.2), and the publication
-audit `complexContentExtendsBase` checks the same three forms. Each reader
+0..unbounded. `explicitContentEmpty` alone decides from the source whether a
+complex type's ·effective content· is empty (Structures §3.4.2 complex content
+clauses 2.1.1 to 2.1.3); `compileExplicitContent` then gives no model, which
+mixed content stores as the synthetic empty sequence of clause 2.1.4, for the
+direct, restriction and extension paths alike. `extensionContentType` alone
+builds an extension's {content type} (clause 3.2), and the publication audit
+`complexContentExtendsBase` checks the same three forms. Each reader
 that reduces a model owns one rule: the restriction normalizer
 (`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
 and decides pointlessness on the declared group

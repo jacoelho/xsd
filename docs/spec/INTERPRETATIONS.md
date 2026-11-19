@@ -1427,6 +1427,14 @@ an `all` group, the sequence violates
 [All Group Limited](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited)
 clause 1.2. Xerces-J and libxml2 reject it; .NET and xmlschema accept it
 (`project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`).
+An `all` group with no members is empty explicit content (clause 2.1.2), so
+in a mixed type its particle is that synthetic empty sequence, not an `all`
+group: a mixed extension with an empty `all` extends a mixed sequence type,
+and a mixed type whose content is an empty `all` can be extended by a
+sequence. Xerces-J, .NET and libxml2 accept both; xmlschema rejects both as
+extensions involving `xs:all`
+(`project/content-models/type-derivation/extension-content/mixed-empty-all-extension`
+and `project/content-models/type-derivation/extension-content/mixed-empty-all-base`).
 
 NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
 definitions} is a subset of B's declaration's {identity-constraint
@@ -1503,6 +1511,8 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/substitution-normalize-blocked-concrete-head-member-invalid`,
 `project/content-models/substitution-normalize-both-ranges-b-literal-member`,
 `project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`,
+`project/content-models/type-derivation/extension-content/mixed-empty-all-extension`,
+`project/content-models/type-derivation/extension-content/mixed-empty-all-base`,
 `project/content-models/type-derivation/simple-base-mixed-extension-*`,
 `project/content-models/type-derivation/urtype-content/*`,
 `project/content-models/wildcard-restriction-*`,

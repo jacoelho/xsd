@@ -30460,6 +30460,120 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-empty-all-extension",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "An all group with no members gives empty explicit content (§3.4.2 complex content clause 2.1.2); with effective mixed true the effective content is the synthetic empty sequence (clause 2.1.4), so the extension is sequence(base particle, empty sequence) (clause 3.2.3) and holds no all group."
+        ],
+        "description": "A mixed extension whose explicit content is an empty all group extends a mixed sequence type."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clauses 2.1.2 and 2.1.4"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension-a.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension-empty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension-a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-extension-empty.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-empty-all-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited"
+        ],
+        "conditions": [
+          "A mixed type whose explicit content is an empty all group has the synthetic empty sequence as its particle (§3.4.2 complex content clauses 2.1.2 and 2.1.4), so its extension is sequence(empty sequence, extension particle) (clause 3.2.3) and holds no all group."
+        ],
+        "description": "A mixed extension adds a sequence to a mixed type whose content is an empty all group."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "complex content {content type} clauses 2.1.2 and 2.1.4"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "b",
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-base-b.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-empty-all-base-b.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }
