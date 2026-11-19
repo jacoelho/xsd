@@ -1025,8 +1025,10 @@ selecting them are invalid.
 Rejected:
 
 - the literal no-simple-value error. All four providers accept equal undeclared
-  lax values under `unique`.
-- string comparison. Xerces, .NET and libxml2 accept equal undeclared values.
+  attributes of an element that a lax element wildcard admits under `unique`
+  (`v-lax-equal`).
+- string comparison. Xerces, .NET and libxml2 accept equal undeclared values
+  under `unique`.
 - treating the field as absent. Xerces and .NET accept a key whose only field is
   an undeclared lax attribute.
 
@@ -1038,6 +1040,32 @@ The project departs from Xerces twice:
 - Xerces matches an unknown keyref value to an unknown key value (both `null`).
   Under this reading an unknown value equals nothing. .NET and libxml2 also
   reject that instance, though on the key.
+
+Other providers depart from the project as follows:
+
+- xmlschema compares an undeclared attribute that an attribute wildcard admits
+  by its string. It reports equal ones as duplicates under `unique` and `key`
+  (`v-attribute-wildcard-equal`, `v-two-field-unknown-equal`,
+  `v-unknown-key-rows-equal`), matches keyref and key values through them
+  (`i-unknown-key-and-unknown-ref`, `i-unknown-key-row-not-referable`,
+  `i-unknown-ref-equals-key`, `i-two-field-ref-one-unknown`), and reports
+  multiple values when one is selected beside a typed node
+  (`v-typed-and-unknown-same-node`, `v-typed-and-unknown-different-nodes`). It
+  also checks a keyref row whose other field is absent, reporting the value
+  `(None, '2')` not found (`v-two-field-ref-unknown-and-absent`).
+- libxml2 treats an undeclared lax attribute as absent: a key field selecting
+  one fails because not all fields evaluate to a node (`v-lax-present`,
+  `v-lax-equal`, `v-two-field-unknown-equal`, `v-unknown-key-rows-equal`), and a
+  keyref row holding one raises no keyref error (`i-unknown-ref-equals-key`,
+  `i-two-field-ref-one-unknown`).
+- .NET reports a key field selecting an undeclared attribute that an attribute
+  wildcard admits as an empty node (`v-two-field-unknown-equal`,
+  `v-unknown-key-rows-equal`), and a keyref row holding one raises no keyref
+  error (`i-unknown-ref-equals-key`, `i-two-field-ref-one-unknown`).
+- .NET and xmlschema accept a key row with no field node on an element that a
+  lax element wildcard admits without a declaration (`i-lax-missing`).
+- Xerces accepts a key whose only field selects an attribute that a skip
+  wildcard admits (`i-skip-attribute-present`).
 
 Fixtures: `project/identity/undeclared-attribute-field-unique`,
 `project/identity/undeclared-attribute-field-key`,
