@@ -648,8 +648,8 @@ Cases: `project/datatypes/bounds/conformance-minexclusive-maxinclusive-equal`,
 **Status:** selected reading from [W3C bug 10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662)
 and the XSD 1.1 [ID-related types](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#ch_id)
 clarification (§G.1.7; [§3.17.5.2](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#sic-id));
-the XSD 1.0 ID prohibitions are retained, and attribute defaults add no ID/IDREF
-binding (below).
+the XSD 1.0 ID prohibitions are retained, and attribute defaults bind IDREFs as
+accepted W3C `idZ012` expects (below).
 
 XSD 1.0 states its ID rules for types "derived from ID", which literally
 excludes lists and unions while [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
@@ -691,21 +691,33 @@ from an attribute, element simple content, a type selected by `xsi:type` or a
 lax wildcard's declaration. An element's default or fixed value counts: under
 [cvc-elt](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt)
 clause 5.1.2 the element is validated with that value as its content. An
-attribute's default is doubtful: the
+attribute's default or fixed value counts too. The text alone is doubtful: the
 [ID/IDREF table](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
 takes its eligible item set from items "successfully validated with respect to
 an attribute declaration as per Attribute Locally Valid", which an attribute
 supplied by an attribute use's default or fixed value never undergoes, and XSD
 1.1 §G.1.7 presents "The validation rules for values of type xs:IDREF,
 xs:ENTITY, or xs:ENTITIES are now enforced on default values" as a change. The
-processor tie-break settles it by Xerces-J: an attribute absent from the
-instance and supplied by a default or fixed value contributes to
-identity-constraint key-sequences but adds no ID/IDREF binding, so its IDREF
-need name no ID. Observed: .NET 10.0.14 and xmlschema 4.3.2 count attribute
-defaults, and .NET throws `InvalidCastException` on a `union(int, IDREF)`
-attribute default; libxml2 2.9.13 never resolves IDREFs. Case:
-`project/corrections-default-list-union-idref` (instance
-`attribute-missing-target` is valid; `element-missing-target` is invalid). libxml2
+accepted W3C expectation `w3c/msMeta/IdentityConstraint_w3c.xml/idZ012` (an
+`xs:IDREFS` attribute with `default="abc"` on an empty `root`, expected
+invalid) decides it, and accepted W3C expectations rank above the
+[processor tie-break](#processor-tie-break), which is therefore not reached: an
+attribute absent from the instance and supplied by a default or fixed value
+contributes to identity-constraint key-sequences and binds its IDREF values,
+which must name an ID. This holds for local, global and referenced attribute
+declarations, `fixed` as well as `default`, and IDREF restrictions, `xs:IDREFS`,
+IDREF lists and `union(int, IDREF)`. Observed with Xerces-J 2.12.2, .NET
+10.0.14, xmlschema 4.3.2 and libxml2 2.9.13: Xerces-J adds no ID/IDREF binding
+for an attribute supplied by a default or fixed value, so it accepts each
+missing target such an attribute names, while it resolves element defaults and
+physical attributes; .NET and xmlschema count attribute defaults, and .NET
+throws `InvalidCastException` on a `union(int, IDREF)` attribute default.
+Cases: `project/corrections-default-list-union-idref` (instances
+`attribute-missing-target` and `element-missing-target` are invalid),
+`project/identity/default-idref-binding/defaults`,
+`project/identity/default-idref-binding/identity-fields` and
+`project/identity/default-idref-binding/id-attribute-default` (an `xs:ID`
+attribute default is a schema error, so a default never supplies an ID). libxml2
 2.9.13 never resolves IDREF values in schema validation (a single `xs:IDREF`
 attribute naming no ID is accepted), tracks only attribute IDs (two `xs:ID`
 elements with equal content are accepted), and treats only `xs:ID` itself, not

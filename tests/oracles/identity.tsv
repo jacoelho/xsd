@@ -154,6 +154,142 @@ project/identity/conformance-idrefs-repeated-two	unresolved	dotnet	invalid	unres
 project/identity/conformance-idrefs-repeated-two	unresolved	libxml2	valid	
 project/identity/conformance-idrefs-repeated-two	unresolved	xerces	invalid	unresolved.xml:1:49: cvc-id.1: There is no ID/IDREF binding for IDREF 'b'.
 project/identity/conformance-idrefs-repeated-two	unresolved	xmlschema	invalid	line None: IDREF 'b' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	attrDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrDefault-missing-target	dotnet	invalid	attrDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	attrDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrDefault-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrFixed-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	attrFixed-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrFixed-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrFixed-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrFixed-missing-target	dotnet	invalid	attrFixed-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	attrFixed-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrFixed-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrFixed-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrGlobalDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	attrGlobalDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrGlobalDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrGlobalDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrGlobalDefault-missing-target	dotnet	invalid	attrGlobalDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	attrGlobalDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrGlobalDefault-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrGlobalDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-missing-target	dotnet	invalid	attrIdrefsDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrIdrefsDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrListDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	attrListDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrListDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrListDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrListDefault-missing-target	dotnet	invalid	attrListDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	attrListDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrListDefault-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrListDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-missing-target	dotnet	invalid	attrRestrictedDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrRestrictedDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	attrUnionDefault-known-target	dotnet	error	System.InvalidCastException: Unable to cast object of type 'System.Xml.Schema.XsdSimpleValue' to type 'System.String'.␊   at System.Xml.Schema.XmlSchemaValidator.CheckTokenizedTypes(XmlSchemaDatatype dtype, Object typedValue, Boolean attrValue)␊   at System.Xml.Schema.XmlSchemaValidator.GetUnspecifiedDefaultAttributes(ArrayList defaultAttributes, Boolean createNodeData)␊   at System.Xml.XsdValidatingReader.ValidateAttributes()␊   at System.Xml.XsdValidatingReader.ProcessElementEvent()␊   at System.Xml.XsdValidatingReader.Read()␊   at Program.Main(String[] args) in /src/Program.cs:line 176
+project/identity/default-idref-binding/defaults	attrUnionDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrUnionDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrUnionDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	attrUnionDefault-missing-target	dotnet	error	System.InvalidCastException: Unable to cast object of type 'System.Xml.Schema.XsdSimpleValue' to type 'System.String'.␊   at System.Xml.Schema.XmlSchemaValidator.CheckTokenizedTypes(XmlSchemaDatatype dtype, Object typedValue, Boolean attrValue)␊   at System.Xml.Schema.XmlSchemaValidator.GetUnspecifiedDefaultAttributes(ArrayList defaultAttributes, Boolean createNodeData)␊   at System.Xml.XsdValidatingReader.ValidateAttributes()␊   at System.Xml.XsdValidatingReader.ProcessElementEvent()␊   at System.Xml.XsdValidatingReader.Read()␊   at Program.Main(String[] args) in /src/Program.cs:line 176
+project/identity/default-idref-binding/defaults	attrUnionDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	attrUnionDefault-missing-target	xerces	valid	
+project/identity/default-idref-binding/defaults	attrUnionDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	element-default-id-attribute-duplicate	dotnet	invalid	element-default-id-attribute-duplicate.xml:1:146: 'dup' is already used as an ID.
+project/identity/default-idref-binding/defaults	element-default-id-attribute-duplicate	libxml2	valid	
+project/identity/default-idref-binding/defaults	element-default-id-attribute-duplicate	xerces	invalid	element-default-id-attribute-duplicate.xml:1:156: cvc-id.2: There are multiple occurrences of ID value 'dup'.
+project/identity/default-idref-binding/defaults	element-default-id-attribute-duplicate	xmlschema	invalid	line None: attribute id='dup': duplicated xs:ID value 'dup' (path /root/target)
+project/identity/default-idref-binding/defaults	element-default-id-duplicate	dotnet	invalid	element-default-id-duplicate.xml:1:139: 'dup' is already used as an ID.
+project/identity/default-idref-binding/defaults	element-default-id-duplicate	libxml2	valid	
+project/identity/default-idref-binding/defaults	element-default-id-duplicate	xerces	invalid	element-default-id-duplicate.xml:1:171: cvc-id.2: There are multiple occurrences of ID value 'dup'.
+project/identity/default-idref-binding/defaults	element-default-id-duplicate	xmlschema	invalid	line None: duplicated xs:ID value 'dup' (path /root/eltAnyDefault[2])
+project/identity/default-idref-binding/defaults	eltDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	eltDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	eltDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	eltDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	eltDefault-missing-target	dotnet	invalid	eltDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	eltDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	eltDefault-missing-target	xerces	invalid	eltDefault-missing-target.xml:1:27: cvc-id.1: There is no ID/IDREF binding for IDREF 'target'.
+project/identity/default-idref-binding/defaults	eltDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	eltFixed-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	eltFixed-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	eltFixed-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	eltFixed-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	eltFixed-missing-target	dotnet	invalid	eltFixed-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	eltFixed-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	eltFixed-missing-target	xerces	invalid	eltFixed-missing-target.xml:1:25: cvc-id.1: There is no ID/IDREF binding for IDREF 'target'.
+project/identity/default-idref-binding/defaults	eltFixed-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	eltUnionDefault-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	eltUnionDefault-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	eltUnionDefault-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	eltUnionDefault-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	eltUnionDefault-missing-target	dotnet	invalid	eltUnionDefault-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	eltUnionDefault-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	eltUnionDefault-missing-target	xerces	invalid	eltUnionDefault-missing-target.xml:1:32: cvc-id.1: There is no ID/IDREF binding for IDREF 'target'.
+project/identity/default-idref-binding/defaults	eltUnionDefault-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	physical-known-target	dotnet	valid	
+project/identity/default-idref-binding/defaults	physical-known-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	physical-known-target	xerces	valid	
+project/identity/default-idref-binding/defaults	physical-known-target	xmlschema	valid	
+project/identity/default-idref-binding/defaults	physical-missing-target	dotnet	invalid	physical-missing-target.xml:1:17: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/defaults	physical-missing-target	libxml2	valid	
+project/identity/default-idref-binding/defaults	physical-missing-target	xerces	invalid	physical-missing-target.xml:1:38: cvc-id.1: There is no ID/IDREF binding for IDREF 'target'.
+project/identity/default-idref-binding/defaults	physical-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/defaults	schema	dotnet	schema-valid	
+project/identity/default-idref-binding/defaults	schema	libxml2	schema-valid	
+project/identity/default-idref-binding/defaults	schema	xerces	schema-valid	
+project/identity/default-idref-binding/defaults	schema	xmlschema	schema-valid	
+project/identity/default-idref-binding/id-attribute-default	schema	dotnet	schema-invalid	schema.xsd:2:44: An attribute or element of type xs:ID or derived from xs:ID, should not have a value constraint.
+project/identity/default-idref-binding/id-attribute-default	schema	libxml2	schema-invalid	schema.xsd:2: element attribute: Schemas parser error : attribute decl. 'id': Value constraints are not allowed if the type definition is or is derived from xs:ID.␊WXS schema schema.xsd failed to compile
+project/identity/default-idref-binding/id-attribute-default	schema	xerces	schema-invalid	schema.xsd:2:95: a-props-correct.3: Attribute 'id' cannot use 'fixed' or 'default', because the attribute's {type definition} is ID, or is derived from ID.
+project/identity/default-idref-binding/id-attribute-default	schema	xmlschema	schema-invalid	xs:ID key attributes cannot have a default value:␊␊Schema component:␊␊  <xs:attribute xmlns:xs="http://www.w3.org/2001/XMLSchema" name="id" type="xs:ID" default="dup" />␊␊Path: /xs:schema/xs:element/xs:complexType/xs:attribute␊␊Schema URL: schema.xsd
+project/identity/default-idref-binding/identity-fields	fixed-idref-absent-missing-target	dotnet	invalid	fixed-idref-absent-missing-target.xml:1:8: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/identity-fields	fixed-idref-absent-missing-target	libxml2	valid	
+project/identity/default-idref-binding/identity-fields	fixed-idref-absent-missing-target	xerces	valid	
+project/identity/default-idref-binding/identity-fields	fixed-idref-absent-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/identity-fields	fixed-idref-physical-missing-target	dotnet	invalid	fixed-idref-physical-missing-target.xml:1:17: Reference to undeclared ID is 'target'.
+project/identity/default-idref-binding/identity-fields	fixed-idref-physical-missing-target	libxml2	valid	
+project/identity/default-idref-binding/identity-fields	fixed-idref-physical-missing-target	xerces	invalid	fixed-idref-physical-missing-target.xml:1:38: cvc-id.1: There is no ID/IDREF binding for IDREF 'target'.
+project/identity/default-idref-binding/identity-fields	fixed-idref-physical-missing-target	xmlschema	invalid	line None: IDREF 'target' not found in XML document (path /root)
+project/identity/default-idref-binding/identity-fields	keyref-default-string-known-key	dotnet	valid	
+project/identity/default-idref-binding/identity-fields	keyref-default-string-known-key	libxml2	valid	
+project/identity/default-idref-binding/identity-fields	keyref-default-string-known-key	xerces	valid	
+project/identity/default-idref-binding/identity-fields	keyref-default-string-known-key	xmlschema	valid	
+project/identity/default-idref-binding/identity-fields	keyref-default-string-missing-key	dotnet	invalid	keyref-default-string-missing-key.xml:1:8: The key sequence 'target' in 'keys' Keyref fails to refer to some key.
+project/identity/default-idref-binding/identity-fields	keyref-default-string-missing-key	libxml2	invalid	keyref-default-string-missing-key.xml:1: Schemas validity error : Element 'strDefault': No match found for key-sequence ['target'] of keyref 'refs'.
+project/identity/default-idref-binding/identity-fields	keyref-default-string-missing-key	xerces	invalid	keyref-default-string-missing-key.xml:1:27: cvc-identity-constraint.4.3: Key 'refs' with value 'target' not found for identity constraint of element 'root'.
+project/identity/default-idref-binding/identity-fields	keyref-default-string-missing-key	xmlschema	invalid	line None: value ('target',) not found for XsdKey(name='keys') (path /root)
+project/identity/default-idref-binding/identity-fields	schema	dotnet	schema-valid	
+project/identity/default-idref-binding/identity-fields	schema	libxml2	schema-valid	
+project/identity/default-idref-binding/identity-fields	schema	xerces	schema-valid	
+project/identity/default-idref-binding/identity-fields	schema	xmlschema	schema-valid	
+project/identity/default-idref-binding/identity-fields	unique-default-and-physical-idref-duplicate	dotnet	invalid	unique-default-and-physical-idref-duplicate.xml:1:42: There is a duplicate key sequence 'target' for the 'refsUnique' key or unique identity constraint.
+project/identity/default-idref-binding/identity-fields	unique-default-and-physical-idref-duplicate	libxml2	invalid	unique-default-and-physical-idref-duplicate.xml:1: element refDefault: Schemas validity error : Element 'refDefault': Duplicate key-sequence ['target'] in unique identity-constraint 'refsUnique'.
+project/identity/default-idref-binding/identity-fields	unique-default-and-physical-idref-duplicate	xerces	invalid	unique-default-and-physical-idref-duplicate.xml:1:67: cvc-identity-constraint.4.1: Duplicate unique value [target] found for identity constraint "refsUnique" of element "root".
+project/identity/default-idref-binding/identity-fields	unique-default-and-physical-idref-duplicate	xmlschema	invalid	line None: duplicated value ('target',) for XsdUnique(name='refsUnique') (path /root/refDefault[2])
+project/identity/default-idref-binding/identity-fields	unique-default-idref-duplicate	dotnet	invalid	unique-default-idref-duplicate.xml:1:42: There is a duplicate key sequence 'target' for the 'refsUnique' key or unique identity constraint.
+project/identity/default-idref-binding/identity-fields	unique-default-idref-duplicate	libxml2	invalid	unique-default-idref-duplicate.xml:1: element refDefault: Schemas validity error : Element 'refDefault': Duplicate key-sequence ['target'] in unique identity-constraint 'refsUnique'.
+project/identity/default-idref-binding/identity-fields	unique-default-idref-duplicate	xerces	invalid	unique-default-idref-duplicate.xml:1:54: cvc-identity-constraint.4.1: Duplicate unique value [target] found for identity constraint "refsUnique" of element "root".
+project/identity/default-idref-binding/identity-fields	unique-default-idref-duplicate	xmlschema	invalid	line None: duplicated value ('target',) for XsdUnique(name='refsUnique') (path /root/refDefault[2])
+project/identity/default-idref-binding/identity-fields	unique-default-idref-single	dotnet	valid	
+project/identity/default-idref-binding/identity-fields	unique-default-idref-single	libxml2	valid	
+project/identity/default-idref-binding/identity-fields	unique-default-idref-single	xerces	valid	
+project/identity/default-idref-binding/identity-fields	unique-default-idref-single	xmlschema	valid	
 project/identity/field-explicit-axes	key-axis-attribute-absent	dotnet	invalid	key-axis-attribute-absent.xml:1:20: The identity constraint 'axisKey' validation has failed. Either a key is missing or the existing key has an empty node.
 project/identity/field-explicit-axes	key-axis-attribute-absent	libxml2	invalid	key-axis-attribute-absent.xml:1: element s: Schemas validity error : Element 's': Not all fields of key identity-constraint 'axisKey' evaluate to a node.
 project/identity/field-explicit-axes	key-axis-attribute-absent	xerces	invalid	key-axis-attribute-absent.xml:1:23: cvc-identity-constraint.4.2.1.a: Element "winKey" has no value for the key "axisKey".

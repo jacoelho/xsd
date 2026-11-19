@@ -276,6 +276,617 @@
       ]
     },
     {
+      "id": "project/identity/default-idref-binding/defaults",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/default-idref-binding/defaults",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#sic-attrDefault"
+        ],
+        "conditions": [
+          "An IDREF value supplied by an attribute use's default or fixed value, by an element's default or fixed value, or present in the instance binds like any other: its target must be an ID in the document. Attribute variants cover local, global, fixed, restricted, IDREFS, list and union types; element variants cover default, fixed and union. An element default selected through xsi:type xs:ID adds an ID that a second ID duplicates. W3C msMeta/IdentityConstraint_w3c.xml/idZ012 decides the attribute-default reading."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/default-idref-binding/defaults/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+          "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+        }
+      },
+      "instances": [
+        {
+          "testName": "attrDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "attrFixed-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrFixed-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrFixed-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrFixed-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "attrGlobalDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrGlobalDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrGlobalDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrGlobalDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "attrIdrefsDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrIdrefsDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrIdrefsDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrIdrefsDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "attrListDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrListDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrListDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrListDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "attrRestrictedDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrRestrictedDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrRestrictedDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrRestrictedDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "attrUnionDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrUnionDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "attrUnionDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrUnionDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "element-default-id-attribute-duplicate",
+          "file": "corpus/project/identity/default-idref-binding/defaults/element-default-id-attribute-duplicate.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "element-default-id-duplicate",
+          "file": "corpus/project/identity/default-idref-binding/defaults/element-default-id-duplicate.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "eltDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "eltDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "eltFixed-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltFixed-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "eltFixed-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltFixed-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "eltUnionDefault-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltUnionDefault-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "eltUnionDefault-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltUnionDefault-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "physical-known-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/physical-known-target.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "physical-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/defaults/physical-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrFixed-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrFixed-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrGlobalDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrGlobalDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrIdrefsDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrIdrefsDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrListDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrListDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrRestrictedDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrRestrictedDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrUnionDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/attrUnionDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/element-default-id-attribute-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/element-default-id-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltFixed-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltFixed-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltUnionDefault-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/eltUnionDefault-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/physical-known-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/defaults/physical-missing-target.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/default-idref-binding/id-attribute-default",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/default-idref-binding/id-attribute-default",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct"
+        ],
+        "conditions": [
+          "An xs:ID attribute declaration with a default value is a schema error, so a default never supplies an ID."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/default-idref-binding/id-attribute-default/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#a-props-correct",
+          "clause": "Attribute Declaration Properties Correct clause 3 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/identity/default-idref-binding/id-attribute-default/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/default-idref-binding/identity-fields",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/identity/default-idref-binding/identity-fields",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ],
+        "conditions": [
+          "An attribute default or fixed value contributes its value to identity-constraint fields (unique duplicates and keyref targets) and binds its IDREF, whether the attribute is absent or present."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/default-idref-binding/identity-fields/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+          "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+        }
+      },
+      "instances": [
+        {
+          "testName": "fixed-idref-absent-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/fixed-idref-absent-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-016"
+            },
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "fixed-idref-physical-missing-target",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/fixed-idref-physical-missing-target.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-016"
+            }
+          }
+        },
+        {
+          "testName": "keyref-default-string-known-key",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/keyref-default-string-known-key.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "keyref-default-string-missing-key",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/keyref-default-string-missing-key.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "unique-default-and-physical-idref-duplicate",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/unique-default-and-physical-idref-duplicate.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "unique-default-idref-duplicate",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/unique-default-idref-duplicate.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        },
+        {
+          "testName": "unique-default-idref-single",
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/unique-default-idref-single.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness",
+            "clause": "I-016 in docs/spec/INTERPRETATIONS.md (attribute defaults bind IDREFs, as accepted W3C idZ012 expects)"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/fixed-idref-absent-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/fixed-idref-physical-missing-target.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/keyref-default-string-known-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/keyref-default-string-missing-key.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/unique-default-and-physical-idref-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/unique-default-idref-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/default-idref-binding/identity-fields/unique-default-idref-single.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/identity/isolated-activation/dynamic",
       "expectedSource": "project",
       "source": {
