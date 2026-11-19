@@ -11565,6 +11565,20 @@
         ],
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "time-midnight"
+          },
+          "libxml2": {
+            "record": "time-midnight"
+          },
+          "xerces": {
+            "record": "time-midnight"
+          },
+          "xmlschema": {
+            "record": "time-midnight"
+          }
         }
       },
       "instances": [
@@ -11612,6 +11626,20 @@
         ],
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "time-midnight"
+          },
+          "libxml2": {
+            "record": "time-midnight"
+          },
+          "xerces": {
+            "record": "time-midnight"
+          },
+          "xmlschema": {
+            "record": "time-midnight"
+          }
         }
       },
       "instances": [
@@ -11659,6 +11687,20 @@
         ],
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dateTime-order"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "time-midnight"
+          },
+          "libxml2": {
+            "record": "time-midnight"
+          },
+          "xerces": {
+            "record": "time-midnight"
+          },
+          "xmlschema": {
+            "record": "time-midnight"
+          }
         }
       },
       "instances": [
