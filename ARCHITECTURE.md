@@ -191,8 +191,10 @@ schema owns facet admission, final constraints and schema-use policy.
 `MaxContentModelAnalysisSteps` bounds consistency, restriction, UPA,
 compilation and sealing. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
-`appendModelParticles` is the only particle append and charges one step per
-particle before allocating; `addModel` (one step per record) and
+`appendModelParticles` is the only append to retained model particles and
+charges one step per particle before allocating (the restriction normalizer
+builds transient comparison nodes that it charges to
+`MaxContentModelAnalysisSteps` and never retains); `addModel` (one step per record) and
 `completeModel` write the model table, and `completeModel` installs only
 particles already charged; `addAttributeUseSet` charges `len(Uses)` and
 `appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and

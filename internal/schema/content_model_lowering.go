@@ -61,10 +61,12 @@ func validateModelGroupChildAdmission(parent modelKind, child modelChildAdmissio
 	return nil
 }
 
-// appendModelParticles is the only production statement that grows
-// contentModelNode.Particles. It charges one MaxSchemaDependencySteps step per
+// appendModelParticles is the only append to the particles of a model the
+// model table retains. It charges one MaxSchemaDependencySteps step per
 // particle before it allocates, so no model under construction retains memory
-// that the dependency budget has not paid for.
+// that the dependency budget has not paid for. The restriction normalizer
+// builds transient comparison nodes, which it charges to
+// MaxContentModelAnalysisSteps and never retains.
 func appendModelParticles(work *workBudget, model *contentModelNode, particles ...contentParticle) error {
 	if err := work.spend(len(particles)); err != nil {
 		return err
