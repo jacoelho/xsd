@@ -108,7 +108,11 @@ func (c *compiler) addBuiltinAnyType() error {
 	if err != nil {
 		return err
 	}
-	modelID, err := c.addBuiltinModel(builtinAnyTypeContentModel())
+	model := builtinAnyTypeContentModel()
+	if err := appendModelParticles(&c.dependencyWork, &model, builtinAnyTypeContentParticle(anyWildcard)); err != nil {
+		return err
+	}
+	modelID, err := c.addBuiltinModel(model)
 	if err != nil {
 		return err
 	}

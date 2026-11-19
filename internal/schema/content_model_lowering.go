@@ -9,11 +9,10 @@ import (
 // complexExtensionModelAdmission is the compile-time projection needed to
 // validate an extension model before it is appended to its base content.
 type complexExtensionModelAdmission struct {
-	Extension     contentModelID
-	BaseContent   contentModelID
-	BaseIsAnyType bool
-	BaseMixed     bool
-	Mixed         bool
+	Extension   contentModelID
+	BaseContent contentModelID
+	BaseMixed   bool
+	Mixed       bool
 }
 
 // complexExtensionContentAdmission is the compile-time projection needed before
@@ -127,7 +126,7 @@ func modelParticleChildKind(p contentParticle) modelChildKind {
 // validateComplexExtensionModelAdmission validates compile-time complex-content
 // extension model admission rules.
 func validateComplexExtensionModelAdmission(rt *schemaBuild, admission complexExtensionModelAdmission) error {
-	if !admission.BaseIsAnyType && admission.BaseMixed && !admission.Mixed {
+	if admission.BaseMixed && !admission.Mixed {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content")
 	}
 	extension, ok := contentModelByID(rt.Models, admission.Extension)

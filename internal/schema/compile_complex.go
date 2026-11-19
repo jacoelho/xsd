@@ -438,9 +438,6 @@ func complexExtensionContentKind(base complexTypeMetadata, contentKind complexCo
 	if contentKind == contentEmpty || base.SimpleContent() {
 		return base.ContentKind
 	}
-	if base.Mixed() {
-		return contentMixed
-	}
 	return contentKind
 }
 
@@ -460,7 +457,7 @@ func (c *compiler) compileComplexExtensionModel(ctx *schemaSetDocument, modelNod
 	}); err != nil {
 		return noContentModel, withSchemaCompileLocation(modelNode, err)
 	}
-	if err := c.validateComplexExtensionModelAdmission(baseID, base, content, contentKind); err != nil {
+	if err := c.validateComplexExtensionModelAdmission(base, content, contentKind); err != nil {
 		return noContentModel, withSchemaCompileLocation(modelNode, err)
 	}
 	addAtModelNode := func(model contentModelNode) (contentModelID, error) {

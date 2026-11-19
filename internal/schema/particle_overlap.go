@@ -131,8 +131,6 @@ func (a *contentModelAnalysis) modelTermCountRange(model contentModelNode) (occu
 	switch model.Kind {
 	case modelEmpty:
 		return occurrence{}, nil
-	case modelAny:
-		return occurrence{Unbounded: true}, nil
 	case modelSequence, modelAll:
 		return a.sequenceCountRange(model.Particles)
 	case modelChoice:
@@ -211,7 +209,7 @@ func (a *contentModelAnalysis) modelStartOverlap(id contentModelID, particle con
 	}
 	switch model.Kind {
 	case modelAll, modelChoice, modelSequence:
-	case modelEmpty, modelAny:
+	case modelEmpty:
 		return QName{}, false, nil
 	default:
 		overlaps := false
@@ -392,7 +390,7 @@ func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, er
 }
 
 func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool, error) {
-	if model.Occurs.Min == 0 || model.Kind == modelEmpty || model.Kind == modelAny {
+	if model.Occurs.Min == 0 || model.Kind == modelEmpty {
 		return true, nil
 	}
 	switch model.Kind {
@@ -400,7 +398,7 @@ func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool
 		return a.allParticlesEmptiable(model.Particles)
 	case modelChoice:
 		return a.anyParticleEmptiable(model.Particles)
-	case modelEmpty, modelAny:
+	case modelEmpty:
 		return false, nil
 	default:
 	}

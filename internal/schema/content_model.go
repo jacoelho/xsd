@@ -11,8 +11,6 @@ type modelKind uint8
 const (
 	// modelEmpty is an empty content model.
 	modelEmpty modelKind = iota
-	// modelAny is the builtin xs:anyType content model.
-	modelAny
 	// modelSequence is an xs:sequence content model.
 	modelSequence
 	// modelChoice is an xs:choice content model.
@@ -134,8 +132,6 @@ func validateContentModelKindShape(model contentModelNode) error {
 	switch model.Kind {
 	case modelEmpty:
 		return validateEmptyContentModelShape(model)
-	case modelAny:
-		return validateAnyContentModelShape(model)
 	case modelSequence, modelChoice:
 		return validateCompositorContentModelShape(model)
 	case modelAll:
@@ -148,13 +144,6 @@ func validateContentModelKindShape(model contentModelNode) error {
 func validateEmptyContentModelShape(model contentModelNode) error {
 	if len(model.Particles) != 0 || model.Occurs != (occurrence{}) {
 		return errors.New("empty content model stores inactive fields")
-	}
-	return nil
-}
-
-func validateAnyContentModelShape(model contentModelNode) error {
-	if len(model.Particles) != 0 || model.Occurs != (occurrence{}) || !model.Mixed {
-		return errors.New("any content model has invalid shape")
 	}
 	return nil
 }

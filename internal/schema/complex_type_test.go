@@ -821,19 +821,6 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 			wantErr: "complex extension drops mixed base content",
 		},
 		{
-			name: "anyType extension can be non-mixed",
-			base: func() complexTypeMetadata {
-				ct := base
-				ct.ContentKind = contentMixed
-				return ct
-			}(),
-			derived: func() complexTypeMetadata {
-				ct := derived
-				ct.Base = ComplexRef(anyType)
-				return ct
-			}(),
-		},
-		{
 			name: "derived content must preserve base",
 			base: base,
 			derived: func() complexTypeMetadata {
@@ -848,7 +835,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived, anyType)
+			err := validateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeExtensionRuntime() error = %v", err)

@@ -56,7 +56,8 @@ func builtinAnyTypeLocalName() string {
 	return vocab.XSDValueAnyType
 }
 
-// builtinAnyTypeWildcard returns the attribute wildcard used by xs:anyType.
+// builtinAnyTypeWildcard returns the lax ##any wildcard that xs:anyType uses
+// for both its attribute wildcard and its content particle.
 func builtinAnyTypeWildcard() wildcardRuntime {
 	return wildcardRuntime{Mode: WildcardAny, Process: ProcessLax}
 }
@@ -71,9 +72,17 @@ func builtinAnyTypeAttributeUseSet(wildcard WildcardID) attributeUseSet {
 	}
 }
 
-// builtinAnyTypeContentModel returns the content model used by xs:anyType.
+// builtinAnyTypeContentModel returns the mixed 1..1 sequence that is the
+// {content type} particle of xs:anyType (Structures §3.4.7); its one member is
+// builtinAnyTypeContentParticle.
 func builtinAnyTypeContentModel() contentModelNode {
-	return contentModelNode{Kind: modelAny, Mixed: true}
+	return contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Mixed: true}
+}
+
+// builtinAnyTypeContentParticle returns the lax ##any wildcard particle,
+// 0..unbounded, that xs:anyType's content sequence holds.
+func builtinAnyTypeContentParticle(wildcard WildcardID) contentParticle {
+	return wildcardParticle(wildcard, occurrence{Unbounded: true})
 }
 
 // builtinAnyTypeComplexType returns the fixed xs:anyType complex-type

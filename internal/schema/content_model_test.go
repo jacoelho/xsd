@@ -50,10 +50,6 @@ func TestValidateContentModelShape(t *testing.T) {
 			in:   contentModelNode{Kind: modelEmpty},
 		},
 		{
-			name: "any",
-			in:   contentModelNode{Kind: modelAny, Mixed: true},
-		},
-		{
 			name: "sequence",
 			in: contentModelNode{
 				Kind:      modelSequence,
@@ -84,11 +80,6 @@ func TestValidateContentModelShape(t *testing.T) {
 				Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			},
 			wantErr: "empty content model stores inactive fields",
-		},
-		{
-			name:    "any requires mixed",
-			in:      contentModelNode{Kind: modelAny},
-			wantErr: "any content model has invalid shape",
 		},
 		{
 			name:    "sequence invalid occurrence",

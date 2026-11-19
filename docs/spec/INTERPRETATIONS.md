@@ -1372,6 +1372,31 @@ Cases: `project/content-models/pointless-groups/optional-singleton-all-occurrenc
 and `project/content-models/pointless-groups/singleton-all-occurrence/*`.
 libxml2 accepts every one of these schemas.
 
+**Inherited ur-type wildcard.** NSSubset clause 3 waives the processing
+strength "unless B is the content model wildcard of the ·ur-type
+definition·". A type that extends xs:anyType without explicit content takes
+xs:anyType's {content type} (§3.4.2 clause 3.2.1), and a mixed one with empty
+explicit content holds xs:anyType's particle (clause 3.2.3), so whether a
+restriction of such a type compares against the ur-type wildcard is doubtful.
+The processor tie-break settles it by Xerces-J, which checks particle
+restriction against every base except xs:anyType itself: only a restriction
+whose {base type definition} is xs:anyType satisfies clause 5.1 of
+[Derivation Valid (Restriction, Complex)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction),
+and any other restriction compares the inherited wildcard as an ordinary lax
+`##any` wildcard 0..unbounded. Attribute wildcards follow clause 4.3, whose text
+names the immediate base. Cases: `project/content-models/particle-restriction/inherited-urtype-wildcard`
+and the restrictions under `project/content-models/type-derivation/urtype-content/*`.
+.NET and xmlschema accept a lax or strict wildcard restricting a mixed empty
+extension and otherwise agree; libxml2 accepts every one of these
+restrictions.
+
+[Derivation Valid (Extension)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends)
+clause 1.4.3.2.2.1 has no exemption for xs:anyType: an unmixed extension of
+xs:anyType that adds particles is invalid, and a mixed one is the sequence of
+xs:anyType's particle and the added particles, which fails Unique Particle
+Attribution against the lax `##any` wildcard. All four providers agree
+(`project/content-models/type-derivation/urtype-content/anytype-extension-sequence-*`).
+
 NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
 definitions} is a subset of B's declaration's {identity-constraint
 definitions}, if any". The text decides it as written: a local declaration in a
@@ -1428,6 +1453,7 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/particle-restriction/lax-recursive-choice-unmapped`,
 `project/content-models/particle-restriction/lax-unbounded-branch-reverse`,
 `project/content-models/particle-restriction/mapandsum-maximum-product-only`,
+`project/content-models/particle-restriction/inherited-urtype-wildcard`,
 `project/content-models/pointless-groups/empty-restriction-epsilon-base`,
 `project/content-models/pointless-groups/empty-restriction-required-base`,
 `project/content-models/pointless-groups/nonempty-restriction-epsilon-base`,
@@ -1445,6 +1471,7 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/substitution-normalize-blocked-concrete-head-member-invalid`,
 `project/content-models/substitution-normalize-both-ranges-b-literal-member`,
 `project/content-models/type-derivation/simple-base-mixed-extension-*`,
+`project/content-models/type-derivation/urtype-content/*`,
 `project/content-models/wildcard-restriction-*`,
 `project/architecture-repeated-choice-duplicate-optional-upa`,
 `project/architecture-repeated-equivalent-wildcards-upa`,

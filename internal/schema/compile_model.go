@@ -318,13 +318,12 @@ func (c *compiler) modelParticle(id contentModelID) (contentParticle, bool, erro
 	return modelParticle(modelID, occurs), true, nil
 }
 
-func (c *compiler) validateComplexExtensionModelAdmission(baseID ComplexTypeID, base complexTypeMetadata, ext contentModelID, contentKind complexContentVariety) error {
+func (c *compiler) validateComplexExtensionModelAdmission(base complexTypeMetadata, ext contentModelID, contentKind complexContentVariety) error {
 	return validateComplexExtensionModelAdmission(&c.rt, complexExtensionModelAdmission{
-		Extension:     ext,
-		BaseContent:   base.Content,
-		BaseIsAnyType: baseID == c.rt.AnyType,
-		BaseMixed:     base.Mixed(),
-		Mixed:         contentKind.Mixed(),
+		Extension:   ext,
+		BaseContent: base.Content,
+		BaseMixed:   base.Mixed(),
+		Mixed:       contentKind.Mixed(),
 	})
 }
 

@@ -503,7 +503,7 @@ func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 		return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in all")
 	case modelSequence:
 		return c.checkSequenceUPA(model)
-	case modelEmpty, modelAny:
+	case modelEmpty:
 		return nil
 	default:
 	}
@@ -619,7 +619,7 @@ func (c *contentModelCompiler) modelContinuationParticles(model contentModelNode
 	switch model.Kind {
 	case modelSequence, modelChoice:
 		return c.appendParticleContinuations(out, model.Particles)
-	case modelEmpty, modelAny, modelAll:
+	case modelEmpty, modelAll:
 		return out, nil
 	default:
 	}
@@ -731,7 +731,7 @@ func (c *contentModelCompiler) modelStartParticles(model contentModelNode) ([]co
 		return slices.Clone(model.Particles), nil
 	case modelSequence:
 		return c.sequenceStartParticles(model.Particles)
-	case modelEmpty, modelAny:
+	case modelEmpty:
 		return nil, nil
 	default:
 	}
@@ -762,11 +762,12 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 		return compiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model")
 	}
 	model = normalizeSingleParticleModel(model)
+	if c.laxAnyContent(model) {
+		return compiledModel{Kind: compiledModelAny, Empty: true}, nil
+	}
 	switch model.Kind {
 	case modelEmpty:
 		return compiledModel{Kind: compiledModelEmpty, Empty: true}, nil
-	case modelAny:
-		return compiledModel{Kind: compiledModelAny, Empty: true}, nil
 	case modelAll:
 		return c.compileAllModel(model)
 	case modelSequence, modelChoice:
@@ -783,6 +784,22 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 	default:
 		return compiledModel{}, xsderrors.InternalInvariant("content model has unknown kind")
 	}
+}
+
+// laxAnyContent reports whether the execution shape of model is one lax ##any
+// wildcard 0..unbounded, which compiledModelAny executes without a DFA. The
+// decision reads the content, never the owning type: xs:anyType and every
+// declaration of the same content share it.
+func (c *contentModelCompiler) laxAnyContent(model contentModelNode) bool {
+	if model.Kind != modelSequence || len(model.Particles) != 1 {
+		return false
+	}
+	p := model.Particles[0]
+	if p.Kind != particleWildcard || p.Occurs != (occurrence{Unbounded: true}) {
+		return false
+	}
+	w := c.rt.Wildcards[p.Wildcard]
+	return w.Mode == WildcardAny && w.Process == ProcessLax
 }
 
 func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
@@ -846,7 +863,7 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 		return c.compileDirectSequenceModel(model)
 	case modelChoice:
 		return c.compileDirectChoiceModel(model)
-	case modelEmpty, modelAny, modelAll:
+	case modelEmpty, modelAll:
 		return compiledModel{}, false, nil
 	default:
 	}
@@ -1408,8 +1425,6 @@ func (b *dfaBuilder) modelNode(id contentModelID) (dfaNode, error) {
 		}
 	case modelAll:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models")
-	case modelAny:
-		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
 	default:
 		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
 		return dfaNode{}, err

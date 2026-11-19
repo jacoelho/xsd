@@ -197,7 +197,10 @@ particle before allocating; `addModel` (one step per record) and
 particles already charged; `addAttributeUseSet` charges `len(Uses)` and
 `appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and
 `contentModelByID` shares them on read. A new retained table must charge in its
-admission function. Admission functions return unlocated budget errors.
+admission function. Admission functions return unlocated budget errors. The
+builtin components are seeded before the caller's `MaxSchemaDependencySteps`
+budget is installed and spend none of it, so every dependency-limit failure
+has a schema document to locate it.
 
 Every diagnostic about schema document content carries the document path, line
 and column. Two other kinds carry less: a failure to obtain an explicit

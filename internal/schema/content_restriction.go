@@ -663,9 +663,6 @@ func (v contentRestrictionValidator) validateParticleRestrictsModel(base, derive
 	if err != nil {
 		return err
 	}
-	if model.Kind == modelAny {
-		return nil
-	}
 	model.Occurs = multiplyOccurrence(model.Occurs, base.Occurs)
 	var restricted contentModelNode
 	switch derived.Kind {

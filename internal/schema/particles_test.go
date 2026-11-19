@@ -128,7 +128,6 @@ func TestParticleModelHasNoParticles(t *testing.T) {
 		models: []contentModelNode{
 			{Kind: modelEmpty},
 			{Kind: modelSequence, Occurs: one},
-			{Kind: modelAny, Mixed: true},
 			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
 		},
 	}
@@ -140,8 +139,7 @@ func TestParticleModelHasNoParticles(t *testing.T) {
 		{name: "absent", model: noContentModel, want: true},
 		{name: "empty", model: 0, want: true},
 		{name: "empty sequence", model: 1, want: true},
-		{name: "any", model: 2, want: false},
-		{name: "non-empty sequence", model: 3, want: false},
+		{name: "non-empty sequence", model: 2, want: false},
 		{name: "invalid", model: 99, want: false},
 	}
 	for _, tt := range tests {

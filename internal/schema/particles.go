@@ -14,8 +14,6 @@ func modelHasNoParticles(rt *schemaBuild, modelID contentModelID) bool {
 		return true
 	case modelSequence, modelChoice, modelAll:
 		return len(model.Particles) == 0
-	case modelAny:
-		return false
 	default:
 	}
 	return false

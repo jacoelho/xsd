@@ -1,1 +1,0 @@
-project/content-models/particle-restriction/inherited-urtype-wildcard

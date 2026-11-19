@@ -149,7 +149,7 @@ func (n *restrictionNormalizer) model(p contentParticle, depth int) (contentPart
 	if !ok {
 		return contentParticle{}, contentRestrictionInvariant("content restriction references missing content model")
 	}
-	if m.Kind == modelEmpty || m.Kind == modelAny {
+	if m.Kind == modelEmpty {
 		return p, nil
 	}
 	occurs := p.Occurs

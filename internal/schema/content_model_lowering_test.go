@@ -376,15 +376,6 @@ func TestValidateComplexExtensionModelAdmission(t *testing.T) {
 			},
 		},
 		{
-			name: "anyType mixed base can become element-only",
-			admission: complexExtensionModelAdmission{
-				BaseContent:   contentModelID(1),
-				Extension:     contentModelID(1),
-				BaseIsAnyType: true,
-				BaseMixed:     true,
-			},
-		},
-		{
 			name: "mixed base drop",
 			admission: complexExtensionModelAdmission{
 				BaseContent: contentModelID(1),

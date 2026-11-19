@@ -5602,41 +5602,34 @@
     {
       "id": "project/content-models/particle-restriction/inherited-urtype-wildcard",
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/content-models/particle-restriction/inherited-urtype-wildcard.xsd",
             "role": "principal"
           }
         ],
+        "oracle": {
+          "project": {
+            "expected": "valid",
+            "reason": "The previous expectation treated a wildcard inherited from xs:anyType through an intermediate type as the ur-type wildcard that NSSubset clause 3 exempts. Whether an inherited wildcard is that wildcard is doubtful, and the processor tie-break settles it by Xerces-J: only a restriction whose immediate base is xs:anyType is exempt.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset"
+          }
+        },
         "rule": {
-          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset"
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
         }
       },
-      "instances": [
-        {
-          "testName": "empty",
-          "file": "corpus/project/content-models/particle-restriction/inherited-urtype-wildcard-empty.xml",
-          "expected": "valid"
-        },
-        {
-          "testName": "declared-invalid-integer",
-          "file": "corpus/project/content-models/particle-restriction/inherited-urtype-wildcard-declared-invalid-integer.xml",
-          "expected": "valid"
-        }
-      ],
       "files": [
         {
           "file": "corpus/project/content-models/particle-restriction/inherited-urtype-wildcard.xsd",
           "role": "principal"
-        },
-        {
-          "file": "corpus/project/content-models/particle-restriction/inherited-urtype-wildcard-empty.xml",
-          "role": "instance"
-        },
-        {
-          "file": "corpus/project/content-models/particle-restriction/inherited-urtype-wildcard-declared-invalid-integer.xml",
-          "role": "instance"
         }
       ],
       "expectedSource": "project",
@@ -5646,13 +5639,11 @@
         "sourceFile": "tests/corpus/project/content-models/particle-restriction/inherited-urtype-wildcard.xsd",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
-          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-identity"
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset"
         ],
         "conditions": [
-          "The fixture is a mixed empty extension, so section 3.4.2 content mapping clause 3.2.3 applies: its content type is a sequence of the base's ur-type particle and an empty sequence. This preserves the actual ur-type content wildcard by construction; it does not construct an equivalent ordinary wildcard.",
-          "NSSubset 3 exempts that wildcard component from processing-strength restrictions. The operand differs from attribute restriction 4.3, whose exception names the immediate base type. Neither arbitrary anyType ancestry nor equal wildcard shape qualifies.",
-          "The existing direct-anyType strength control and independently declared lax-clone skip opponent distinguish this source qualification. Both instances under this schema are valid: skip ignores even invalid text in a declared integer child."
+          "B is a mixed extension of xs:anyType with empty explicit content, so its content type is sequence(the xs:anyType particle, empty sequence) (§3.4.2 clause 3.2.3).",
+          "R restricts B, not xs:anyType, so Derivation Valid (Restriction, Complex) clause 5.1 does not apply and the inherited lax ##any wildcard is compared as an ordinary wildcard; a skip wildcard weakens it."
         ]
       }
     },
@@ -28003,6 +27994,239 @@
         {
           "file": "corpus/project/content-models/element-zero-occurrence/wildcard-same-name/empty.xml",
           "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ns-subset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type"
+        ],
+        "conditions": [
+          "Wildcard Subset clause 3 waives the processing strength only for the ur-type wildcard where the restriction's {base type definition} is xs:anyType itself. B extends xs:anyType, so R's base content is compared as an ordinary lax ##any wildcard, as the processor tie-break settles by Xerces-J.",
+          "An unmixed extension of xs:anyType with no explicit content takes the base {content type} (§3.4.2 clause 3.2.1)."
+        ],
+        "description": "A restriction of an unmixed empty extension of xs:anyType declares a lax ##any wildcard 0..unbounded; it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ns-subset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type"
+        ],
+        "conditions": [
+          "Wildcard Subset clause 3 waives the processing strength only for the ur-type wildcard where the restriction's {base type definition} is xs:anyType itself. B extends xs:anyType, so R's base content is compared as an ordinary lax ##any wildcard, as the processor tie-break settles by Xerces-J.",
+          "An unmixed extension of xs:anyType with no explicit content takes the base {content type} (§3.4.2 clause 3.2.1)."
+        ],
+        "description": "A restriction of an unmixed empty extension of xs:anyType declares a skip ##any wildcard 0..unbounded; it is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ns-subset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type"
+        ],
+        "conditions": [
+          "Wildcard Subset clause 3 waives the processing strength only for the ur-type wildcard where the restriction's {base type definition} is xs:anyType itself. B extends xs:anyType, so R's base content is compared as an ordinary lax ##any wildcard, as the processor tie-break settles by Xerces-J.",
+          "An unmixed extension of xs:anyType with no explicit content takes the base {content type} (§3.4.2 clause 3.2.1)."
+        ],
+        "description": "A restriction of an unmixed empty extension of xs:anyType declares a strict ##any wildcard 0..unbounded; it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "Wildcard Subset clause 3 waives the processing strength only for the ur-type wildcard where the restriction's {base type definition} is xs:anyType itself. B extends xs:anyType, so R's base content is compared as an ordinary lax ##any wildcard, as the processor tie-break settles by Xerces-J.",
+          "A mixed extension with empty explicit content has the content type sequence(base particle, empty sequence) (§3.4.2 clause 3.2.3); that sequence is declared with two members, so it is not a pointless singleton and a wildcard cannot restrict it."
+        ],
+        "description": "A restriction of a mixed empty extension of xs:anyType declares a skip ##any wildcard; Any:Sequence is forbidden."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Inherited ur-type wildcard in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig"
+        ],
+        "conditions": [
+          "The content of a mixed extension of xs:anyType adding sequence(a) is sequence(the xs:anyType particle, sequence(a)) (§3.4.2 clause 3.2.3); the lax ##any wildcard 0..unbounded and element a compete, so Unique Particle Attribution fails."
+        ],
+        "description": "A mixed extension of xs:anyType that adds an element is ambiguous."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "Unique Particle Attribution"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends"
+        ],
+        "conditions": [
+          "Derivation Valid (Extension) clause 1.4.3.2.2.1 requires both content types mixed or both element-only; xs:anyType is mixed and the unmixed extension is element-only. The clause has no exemption for xs:anyType."
+        ],
+        "description": "An unmixed extension of xs:anyType that adds an element is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends",
+          "clause": "1.4.3.2.2.1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed.xsd",
+          "role": "principal"
         }
       ]
     }
