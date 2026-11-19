@@ -358,9 +358,9 @@ func globMatch(pattern, s string) bool {
 }
 
 // parseNoteAllowlist reads tests/oracle-notes.txt: one sorted, unique
-// "case<TAB>phase<TAB>provider" line per difference whose diagnosis is a note
-// carried over from the reasons recorded before interpretation records owned
-// every difference. The list only shrinks.
+// "case<TAB>phase<TAB>provider" line per difference whose diagnosis may be a
+// note instead of a record. A note is accepted only for a listed key, and the
+// list only shrinks.
 func parseNoteAllowlist(data string) (map[rowKey]bool, error) {
 	notes := make(map[rowKey]bool)
 	if data == "" {

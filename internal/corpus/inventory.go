@@ -110,9 +110,9 @@ type Rule struct {
 
 // Difference explains why a provider's measured validity differs from the
 // project expectation: Record names an interpretation record (I-NNN) or the
-// anchor of a qualification-table row in docs/spec/INTERPRETATIONS.md; for
-// phases measured before records owned every difference, Note keeps the
-// original prose instead.
+// anchor of a qualification-table row in docs/spec/INTERPRETATIONS.md, or Note
+// gives the diagnosis as prose. A Note is accepted only for a case, phase and
+// provider that tests/oracle-notes.txt lists, and that list only shrinks.
 type Difference struct {
 	Record string `json:"record"`
 	Note   string `json:"note"`
