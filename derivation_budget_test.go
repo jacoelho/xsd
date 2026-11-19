@@ -97,8 +97,8 @@ func TestModelGroupDependencyBudgetPreservesReferenceLocation(t *testing.T) {
 const xsNS = `xmlns:xs="http://www.w3.org/2001/XMLSchema"`
 
 // doublingGroups returns group declarations g0..gN where g0 holds one element
-// and every gi is a sequence of two references to g(i-1), so gN flattens into
-// 2^N particles.
+// and every gi is a sequence of two references to g(i-1), so gN holds 2^N
+// element particles once its references are expanded.
 func doublingGroups(n int) string {
 	var b strings.Builder
 	b.WriteString(`<xs:group name="g0"><xs:sequence><xs:element name="e" type="xs:string"/></xs:sequence></xs:group>`)
@@ -127,12 +127,17 @@ func compileAllocated(t *testing.T, schema string) (uint64, error) {
 
 func expectDependencyLimit(t *testing.T, err error) {
 	t.Helper()
+	expectNamedLimit(t, err, "MaxSchemaDependencySteps")
+}
+
+func expectNamedLimit(t *testing.T, err error, limit string) {
+	t.Helper()
 	if err == nil {
 		t.Fatal("compilation succeeded, want schema.limit")
 	}
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
-	if !strings.Contains(err.Error(), "MaxSchemaDependencySteps") {
-		t.Fatalf("error %q does not name MaxSchemaDependencySteps", err)
+	if !strings.Contains(err.Error(), limit) {
+		t.Fatalf("error %q does not name %s", err, limit)
 	}
 }
 
@@ -150,10 +155,11 @@ func expectAllocUnder(t *testing.T, got uint64, limitMiB uint64) {
 	}
 }
 
-func TestDerivedRecordsAreChargedToDependencyBudget(t *testing.T) {
+func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
+	const analysis = "MaxContentModelAnalysisSteps"
 	t.Run("doubling groups at default", func(t *testing.T) {
 		alloc, err := compileAllocated(t, doublingSchema(20))
-		expectDependencyLimit(t, err)
+		expectNamedLimit(t, err, analysis)
 		expectAllocUnder(t, alloc, 128)
 	})
 	t.Run("doubling groups at small budget", func(t *testing.T) {
@@ -161,8 +167,8 @@ func TestDerivedRecordsAreChargedToDependencyBudget(t *testing.T) {
 		if _, err := xsd.CompileWithOptions(xsd.CompileOptions{}, xsd.Bytes("d.xsd", []byte(schema))); err != nil {
 			t.Fatalf("N=10 at default: %v", err)
 		}
-		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaDependencySteps: 1000}, xsd.Bytes("d.xsd", []byte(schema)))
-		expectDependencyLimit(t, err)
+		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: 1000}, xsd.Bytes("d.xsd", []byte(schema)))
+		expectNamedLimit(t, err, analysis)
 	})
 	t.Run("fan-out of a large group", func(t *testing.T) {
 		parent := func(refs int) string {
@@ -175,7 +181,7 @@ func TestDerivedRecordsAreChargedToDependencyBudget(t *testing.T) {
 			return b.String()
 		}
 		alloc, err := compileAllocated(t, parent(64))
-		expectDependencyLimit(t, err)
+		expectNamedLimit(t, err, analysis)
 		expectAllocUnder(t, alloc, 128)
 		_, err = compileAllocated(t, parent(1))
 		expectNotDependencyLimit(t, err)

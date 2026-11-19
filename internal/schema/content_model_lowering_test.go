@@ -3,7 +3,6 @@ package schema
 import (
 	"errors"
 	"math"
-	"reflect"
 	"slices"
 	"testing"
 
@@ -162,110 +161,6 @@ func expectSchemaContentModelMessage(t *testing.T, err error, message string) {
 	}
 	if diag.Category() != xsderrors.CategorySchemaCompile || diag.Code() != xsderrors.CodeSchemaContentModel || diag.Message() != message {
 		t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diag.Category(), diag.Code(), diag.Message(), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel, message)
-	}
-}
-
-func TestAppendFlattenedModelChild(t *testing.T) {
-	t.Parallel()
-
-	one := occurrence{Min: 1, Max: 1}
-	optional := occurrence{Min: 0, Max: 1}
-	modelRepeat := occurrence{Min: 2, Max: 3}
-	modelOptionalRepeat := occurrence{Min: 0, Max: 2}
-	particleRepeat := occurrence{Min: 2, Max: 3}
-	a := elementParticle(1, one)
-	b := elementParticle(2, one)
-
-	tests := []struct {
-		name       string
-		parentKind modelKind
-		child      contentModelNode
-		want       bool
-		wantLen    int
-		wantOccurs occurrence
-	}{
-		{
-			name:       "choice flattens exactly-one choice child",
-			parentKind: modelChoice,
-			child:      contentModelNode{Kind: modelChoice, Occurs: one, Particles: []contentParticle{a, b}},
-			want:       true,
-			wantLen:    2,
-			wantOccurs: one,
-		},
-		{
-			name:       "choice keeps repeated choice child nested",
-			parentKind: modelChoice,
-			child:      contentModelNode{Kind: modelChoice, Occurs: modelRepeat, Particles: []contentParticle{a}},
-		},
-		{
-			name:       "sequence keeps repeated singleton model nested",
-			parentKind: modelSequence,
-			child:      contentModelNode{Kind: modelSequence, Occurs: modelRepeat, Particles: []contentParticle{a}},
-		},
-		{
-			name:       "sequence keeps repeated model around optional particle nested",
-			parentKind: modelSequence,
-			child: contentModelNode{
-				Kind:      modelChoice,
-				Occurs:    modelRepeat,
-				Particles: []contentParticle{elementParticle(1, optional)},
-			},
-		},
-		{
-			name:       "sequence flattens unit singleton preserving repeated child",
-			parentKind: modelSequence,
-			child:      contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(1, particleRepeat)}},
-			want:       true,
-			wantLen:    1,
-			wantOccurs: particleRepeat,
-		},
-		{
-			name:       "sequence keeps unsafe optional repeated single particle nested",
-			parentKind: modelSequence,
-			child: contentModelNode{
-				Kind:      modelSequence,
-				Occurs:    modelOptionalRepeat,
-				Particles: []contentParticle{elementParticle(1, particleRepeat)},
-			},
-		},
-		{
-			name:       "sequence flattens exactly-one multi-particle sequence",
-			parentKind: modelSequence,
-			child:      contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{a, b}},
-			want:       true,
-			wantLen:    2,
-			wantOccurs: one,
-		},
-		{
-			name:       "all keeps sequence child nested",
-			parentKind: modelAll,
-			child:      contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{a}},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			model := contentModelNode{Kind: tt.parentKind, Occurs: one}
-			before := cloneContentModel(model)
-			got, err := appendFlattenedModelChild(testDependencyWork(), &model, tt.child)
-			if err != nil {
-				t.Fatalf("AppendFlattenedModelChild() error = %v", err)
-			}
-			if got != tt.want {
-				t.Fatalf("AppendFlattenedModelChild() = %v, want %v", got, tt.want)
-			}
-			if !got && !reflect.DeepEqual(model, before) {
-				t.Fatalf("refused flatten changed parent: got %#v, want %#v", model, before)
-			}
-			if len(model.Particles) != tt.wantLen {
-				t.Fatalf("particle count = %d, want %d", len(model.Particles), tt.wantLen)
-			}
-			if tt.wantLen > 0 && model.Particles[0].Occurs != tt.wantOccurs {
-				t.Fatalf("first particle occurrence = %#v, want %#v", model.Particles[0].Occurs, tt.wantOccurs)
-			}
-		})
 	}
 }
 

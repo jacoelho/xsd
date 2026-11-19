@@ -1163,12 +1163,18 @@ graph preserves these ownership rules:
 
 ### Schema Compilation And Content Models
 
-- Charging group flattening to `MaxContentModelAnalysisSteps` was rejected: its
-  16.7M-step default admits over 1 GB of particles before failure. Charging
-  `len(Particles)` at `addModel` was rejected because the main path installs
-  particles through `completeModel`, and shared variants would be charged for
-  copies that do not happen. Cloning content models on read was rejected: it
-  is uncharged work proportional to references times group size.
+- Flattening nested groups during lowering was rejected: the declared groups
+  are what Particle Valid (Restriction) clause 2.2 reads
+  ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)), and
+  copying a shared group's particles into every referring group grows the model
+  table exponentially in reference depth. A lowered model holds one particle
+  per declared child, so a group referenced N times is stored once; only the
+  analysis walks and the execution projection (`executionModel`) expand it,
+  each charged to `MaxContentModelAnalysisSteps` before it appends.
+  Charging `len(Particles)` at `addModel` was rejected because the main path
+  installs particles through `completeModel`, and shared variants would be
+  charged for copies that do not happen. Cloning content models on read was
+  rejected: it is uncharged work proportional to references times group size.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
   `compileDeferredModelChildren`): each child particle keeps its own mapping,

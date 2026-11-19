@@ -241,16 +241,9 @@ func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schema
 }
 
 func (c *compiler) appendNestedModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode) error {
-	childModelID, childModel, err := c.compileNestedModelChild(ctx, child, m.Kind)
+	childModelID, _, err := c.compileNestedModelChild(ctx, child, m.Kind)
 	if err != nil || childModelID == noContentModel {
 		return err
-	}
-	flattened, err := appendFlattenedModelChild(&c.dependencyWork, m, childModel)
-	if err != nil {
-		return withSchemaCompileLocation(child, err)
-	}
-	if flattened {
-		return nil
 	}
 	p, ok, err := c.modelParticle(childModelID)
 	if err != nil {

@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -47,6 +48,42 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	}
 	if len(model.Rows) == 0 {
 		t.Fatal("wide DFA has no rows")
+	}
+}
+
+func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
+	t.Parallel()
+
+	for _, kind := range []modelKind{modelSequence, modelChoice} {
+		names, rt := compiledModelRuntimeFixture(t, kind)
+		one := occurrence{Min: 1, Max: 1}
+		flat := rt.models[0].Particles
+		const (
+			innerID  contentModelID = 1
+			emptyID  contentModelID = 2
+			nestedID contentModelID = 3
+		)
+		rt.models[innerID] = contentModelNode{Kind: kind, Occurs: one, Particles: flat[:3]}
+		rt.models[emptyID] = contentModelNode{Kind: modelEmpty, Occurs: one}
+		nested := []contentParticle{modelParticle(innerID, one)}
+		if kind == modelSequence {
+			nested = append(nested, modelParticle(emptyID, one))
+		}
+		rt.models[nestedID] = contentModelNode{Kind: kind, Occurs: one, Particles: append(nested, flat[3:]...)}
+
+		compile := func(id contentModelID) compiledModel {
+			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+			cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+			model, err := cc.compileRootContentModel(id)
+			if err != nil {
+				t.Fatalf("compileRootContentModel(%d) error = %v", id, err)
+			}
+			return model
+		}
+		if got, want := compile(nestedID), compile(0); !reflect.DeepEqual(got, want) {
+			t.Fatalf("kind %d: nested model compiled to %+v, want the flat model's %+v", kind, got, want)
+		}
 	}
 }
 

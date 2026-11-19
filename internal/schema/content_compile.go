@@ -761,6 +761,10 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 	if !ok {
 		return compiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model")
 	}
+	model, err := c.executionModel(model)
+	if err != nil {
+		return compiledModel{}, err
+	}
 	model = normalizeSingleParticleModel(model)
 	if c.laxAnyContent(model) {
 		return compiledModel{Kind: compiledModelAny, Empty: true}, nil
@@ -816,6 +820,68 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 	model.Occurs = occurrence{Min: 1, Max: 1}
 	model.Particles = []contentParticle{particle}
 	return model
+}
+
+// executionModel projects the top level of a declared sequence or choice for
+// execution: a 1..1 child group of the same compositor is spliced into it and,
+// in a sequence, a 1..1 child group with no particles is dropped. Both preserve
+// the accepted language; the declared model keeps its groups for Particle Valid
+// (Restriction) clause 2.2.
+func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
+	if model.Kind != modelSequence && model.Kind != modelChoice {
+		return model, nil
+	}
+	reduces := false
+	for _, p := range model.Particles {
+		_, ok, err := c.executionGroup(model.Kind, p)
+		if err != nil {
+			return contentModelNode{}, err
+		}
+		if ok {
+			reduces = true
+			break
+		}
+	}
+	if !reduces {
+		return model, nil
+	}
+	projected := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed}
+	return projected, c.appendExecutionParticles(&projected, model.Particles)
+}
+
+func (c *contentModelCompiler) appendExecutionParticles(out *contentModelNode, particles []contentParticle) error {
+	for _, p := range particles {
+		if err := c.work.spend(1); err != nil {
+			return err
+		}
+		child, ok, err := c.executionGroup(out.Kind, p)
+		if err != nil {
+			return err
+		}
+		if ok {
+			if err := c.appendExecutionParticles(out, child.Particles); err != nil {
+				return err
+			}
+			continue
+		}
+		out.Particles = append(out.Particles, p)
+	}
+	return nil
+}
+
+// executionGroup returns the group p contributes to a parent of kind parent
+// when its particles replace p there.
+func (c *contentModelCompiler) executionGroup(parent modelKind, p contentParticle) (contentModelNode, bool, error) {
+	if p.Kind != particleModel || !p.Occurs.IsExactlyOne() {
+		return contentModelNode{}, false, nil
+	}
+	child, ok := contentModelByID(c.rt.Models, p.Model)
+	if !ok {
+		return contentModelNode{}, false, xsderrors.InternalInvariant("execution particle references missing content model")
+	}
+	reduces := child.Occurs.IsExactlyOne() &&
+		(child.Kind == parent || (parent == modelSequence && child.Kind == modelEmpty))
+	return child, reduces, nil
 }
 
 // executionParticle collapses representable singleton repetitions only in the

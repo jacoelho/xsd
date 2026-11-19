@@ -4121,6 +4121,14 @@ project/content-models/particle-restriction/mapandsum-maximum-product-only	schem
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	libxml2	schema-valid	
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	xerces	schema-invalid	mapandsum-maximum-product-only.xsd:4:37: rcase-MapAndSum.2: Group's occurrence range, (2,4), is not a valid restriction of base group's occurrence range, (0,2).
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	dotnet	schema-valid	warning: base-cho-emptyreq-any.xsd:3:107: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	xerces	schema-invalid	base-cho-emptyreq-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	dotnet	schema-valid	warning: derived-cho-emptyreq-elt.xsd:4:123: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	xerces	schema-invalid	derived-cho-emptyreq-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:choice /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-emptyreq-elt.xsd
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	libxml2	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xerces	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xmlschema	valid	

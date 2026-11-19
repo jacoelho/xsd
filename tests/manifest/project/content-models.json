@@ -28340,6 +28340,97 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-cho-emptyreq-any",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-cho-emptyreq-any.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The base type of B/R holds the residue shape cho-emptyreq-any and the derived type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyreq-any.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-cho-emptyreq-any.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2 ignores pointless groups. A group is a pointless singleton only when it is declared with one member inside a 1..1 particle; that test is made on the group as declared and is not repeated after its empty or same-kind 1..1 children are removed, as the processor tie-break settles by Xerces-J. A child group is removed when it is empty (a required choice only when its parent is a choice), and a same-kind 1..1 child is flattened into its parent."
+        ],
+        "description": "The derived type of B/R holds the residue shape cho-emptyreq-elt and the base type a plain sequence of the same term; the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

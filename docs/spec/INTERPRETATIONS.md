@@ -1372,6 +1372,28 @@ Cases: `project/content-models/pointless-groups/optional-singleton-all-occurrenc
 and `project/content-models/pointless-groups/singleton-all-occurrence/*`.
 libxml2 accepts every one of these schemas.
 
+**Declared pointless groups.** Clause 2.2 of Particle Valid (Restriction)
+ignores pointless groups, and its text does not say whether a group is tested
+as declared or again once its own pointless children are ignored: a choice of
+a wildcard and an empty choice has two members as declared and one after the
+empty choice is ignored. No adopted correction or accepted W3C test decides
+it, so the processor tie-break settles it by Xerces-J
+(`XSConstraints.getNonUnaryGroup` and `gatherChildren`). A group is a pointless
+singleton only when it is declared with one member and its particle is 1..1,
+and that test is not repeated after its children are reduced. Within its
+parent, a 1..1 child group of the same compositor is replaced by its members,
+and a 1..1 child group that contains no element or wildcard is ignored. A
+required choice declared with no members matches nothing
+([I-042](#i-042--empty-choice)), so it is ignored only inside a choice. The
+choice that clause 2.1 generates for a substitution group is not declared and
+still reduces to its only member
+([I-027](#i-027--derivation-control-and-actual-substitution-groups)). Cases:
+`project/content-models/pointless-groups/declared/*`. Xerces-J gives the
+project result in every case except the two I-042 owns; .NET and libxml2
+accept every invalid restriction in the set; xmlschema accepts the invalid
+restrictions of a base with an ignored group beside a wildcard and keeps
+singleton groups in a derived type (`derived-*-nested-elt`, invalid there).
+
 **Inherited ur-type wildcard.** NSSubset clause 3 waives the processing
 strength "unless B is the content model wildcard of the ·ur-type
 definition·". A type that extends xs:anyType without explicit content takes

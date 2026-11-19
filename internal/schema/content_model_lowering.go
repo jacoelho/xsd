@@ -157,21 +157,3 @@ func compileModelParticle(rt *schemaBuild, add addContentModelFunc, id contentMo
 	}
 	return modelParticle(modelID, occurs), true, nil
 }
-
-// appendFlattenedModelChild removes pointless groups only. Language-equivalent
-// occurrence multiplication can erase a structural restriction boundary.
-func appendFlattenedModelChild(work *workBudget, model *contentModelNode, child contentModelNode) (bool, error) {
-	if model.Kind == modelChoice && child.Kind == modelChoice && child.Occurs.IsExactlyOne() {
-		return true, appendModelParticles(work, model, child.Particles...)
-	}
-	if model.Kind != modelSequence {
-		return false, nil
-	}
-	if (child.Kind == modelSequence || child.Kind == modelChoice) && len(child.Particles) == 1 && child.Occurs.IsExactlyOne() {
-		return true, appendModelParticles(work, model, child.Particles[0])
-	}
-	if child.Kind == modelSequence && len(child.Particles) > 1 && child.Occurs.IsExactlyOne() {
-		return true, appendModelParticles(work, model, child.Particles...)
-	}
-	return false, nil
-}
