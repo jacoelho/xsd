@@ -24,8 +24,14 @@ func unionOccurrenceRanges(a, b occurrence) occurrence {
 	return occurrence{Min: minOccurs, Max: maxOccurs}
 }
 
-// multiplyOccurrence applies occurrence constraints to an accepted range.
+// multiplyOccurrence applies occurrence constraints to an accepted range. A
+// zero maximum stays zero against an unbounded factor, as Effective Total
+// Range (Structures §3.8.6) makes the maximum unbounded only when the
+// repeated part is non-zero.
 func multiplyOccurrence(a, b occurrence) occurrence {
+	if a.IsAbsent() || b.IsAbsent() {
+		return occurrence{}
+	}
 	minOccurs := saturatingMul(a.Min, b.Min)
 	if a.Unbounded || b.Unbounded {
 		return occurrence{Min: minOccurs, Unbounded: true}
