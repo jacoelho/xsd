@@ -28,6 +28,17 @@ type restrictionModel struct {
 	// and the effective total range are read from the group as declared,
 	// whatever members clause 2.2 removed from model.
 	term countRange
+	// ignorable reports that Particle Valid (Restriction) clause 2.2.1 finds
+	// the group pointless. Only a parent group removes it.
+	ignorable bool
+}
+
+func (m *restrictionModelView) ignorable(id contentModelID) bool {
+	if uint64(id) < uint64(len(m.original)) {
+		return false
+	}
+	index := uint64(id) - uint64(len(m.original))
+	return index < uint64(len(m.added)) && m.added[index].ignorable
 }
 
 func (m *restrictionModelView) term(id contentModelID) (countRange, bool) {

@@ -33677,6 +33677,1247 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/name-and-type-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NameAndTypeOK clause 2 requires R's occurrence range to be a valid restriction of B's (Occurrence Range OK); the sequences of one member are pointless (Particle Valid (Restriction) clause 2.2), so the element particles are compared directly."
+        ],
+        "description": "An element with the range 2..3 restricts the same element with the range 2..3."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "clause": "NameAndTypeOK clause 2 with Occurrence Range OK (Structures 3.9.6)"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/name-and-type-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-minimum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NameAndTypeOK clause 2 requires R's occurrence range to be a valid restriction of B's (Occurrence Range OK); the sequences of one member are pointless (Particle Valid (Restriction) clause 2.2), so the element particles are compared directly."
+        ],
+        "description": "An element with the range 1..3 does not restrict the same element with the range 2..3: its minimum is below the base minimum."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-minimum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "clause": "NameAndTypeOK clause 2 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-minimum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/name-and-type-maximum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-maximum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NameAndTypeOK clause 2 requires R's occurrence range to be a valid restriction of B's (Occurrence Range OK); the sequences of one member are pointless (Particle Valid (Restriction) clause 2.2), so the element particles are compared directly."
+        ],
+        "description": "An element with the range 2..4 does not restrict the same element with the range 2..3: its maximum is above the base maximum."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-maximum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK",
+          "clause": "NameAndTypeOK clause 2 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/name-and-type-maximum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nscompat-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nscompat-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSCompat",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NSCompat clause 2 requires R's occurrence range to be a valid restriction of the wildcard particle's range; the sequences of one member are pointless, so the element is compared with the wildcard directly."
+        ],
+        "description": "An element with the range 2..3 restricts a wildcard with the range 2..3."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nscompat-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSCompat",
+          "clause": "NSCompat clause 2 with Occurrence Range OK (Structures 3.9.6)"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nscompat-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nscompat-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nscompat-minimum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSCompat",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NSCompat clause 2 requires R's occurrence range to be a valid restriction of the wildcard particle's range; the sequences of one member are pointless, so the element is compared with the wildcard directly."
+        ],
+        "description": "An element with the range 1..3 does not restrict a wildcard with the range 2..3."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nscompat-minimum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSCompat",
+          "clause": "NSCompat clause 2 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nscompat-minimum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nscompat-maximum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nscompat-maximum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSCompat",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NSCompat clause 2 requires R's occurrence range to be a valid restriction of the wildcard particle's range; the sequences of one member are pointless, so the element is compared with the wildcard directly."
+        ],
+        "description": "An element with the range 2..4 does not restrict a wildcard with the range 2..3."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nscompat-maximum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSCompat",
+          "clause": "NSCompat clause 2 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nscompat-maximum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nssubset-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nssubset-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NSSubset clause 1 requires R's occurrence range to be a valid restriction of B's; the sequences of one member are pointless, so the wildcards are compared directly."
+        ],
+        "description": "A wildcard with the range 2..3 restricts the same wildcard with the range 2..3."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nssubset-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "clause": "NSSubset clause 1 with Occurrence Range OK (Structures 3.9.6)"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nssubset-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nssubset-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nssubset-minimum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NSSubset clause 1 requires R's occurrence range to be a valid restriction of B's; the sequences of one member are pointless, so the wildcards are compared directly."
+        ],
+        "description": "A wildcard with the range 1..3 does not restrict the same wildcard with the range 2..3."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nssubset-minimum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "clause": "NSSubset clause 1 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nssubset-minimum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nssubset-maximum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nssubset-maximum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "NSSubset clause 1 requires R's occurrence range to be a valid restriction of B's; the sequences of one member are pointless, so the wildcards are compared directly."
+        ],
+        "description": "A wildcard with the range 2..4 does not restrict the same wildcard with the range 2..3."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nssubset-maximum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSSubset",
+          "clause": "NSSubset clause 1 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nssubset-maximum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nsrecurse-total-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "NSRecurseCheckCardinality clause 2 requires the effective total range of the derived group to be a valid restriction of the wildcard's occurrence range; each member is within the wildcard's maximum, so only the group total decides."
+        ],
+        "description": "A sequence of an optional a and a required b, effective total range 1..2, restricts a wildcard with the range 1..2."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality",
+          "clause": "NSRecurseCheckCardinality clause 2 with Effective Total Range (Structures 3.8.6)"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nsrecurse-total-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-minimum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "NSRecurseCheckCardinality clause 2 requires the effective total range of the derived group to be a valid restriction of the wildcard's occurrence range; each member is within the wildcard's maximum, so only the group total decides."
+        ],
+        "description": "A sequence of an optional a and an optional b, effective total range 0..2, does not restrict a wildcard with the range 1..2."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-minimum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality",
+          "clause": "NSRecurseCheckCardinality clause 2 with Effective Total Range (Structures 3.8.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-minimum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/nsrecurse-total-maximum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-maximum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "NSRecurseCheckCardinality clause 2 requires the effective total range of the derived group to be a valid restriction of the wildcard's occurrence range; each member is within the wildcard's maximum, so only the group total decides."
+        ],
+        "description": "A sequence of an optional a, a required b and an optional c, effective total range 1..3, does not restrict a wildcard with the range 1..2."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-maximum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality",
+          "clause": "NSRecurseCheckCardinality clause 2 with Effective Total Range (Structures 3.8.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/nsrecurse-total-maximum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/recurse-unordered-equal",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-equal.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "RecurseUnordered clause 1 requires the sequence's occurrence range to be a valid restriction of the all group's range; every member maps to an optional all member."
+        ],
+        "description": "A required sequence of optional a and b restricts a required all group of optional a and b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-equal.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered",
+          "clause": "RecurseUnordered clause 1 with Occurrence Range OK (Structures 3.9.6)"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-equal.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/recurse-unordered-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-minimum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "RecurseUnordered clause 1 requires the sequence's occurrence range to be a valid restriction of the all group's range; every member maps to an optional all member."
+        ],
+        "description": "An optional sequence of optional a and b does not restrict a required all group of optional a and b."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-minimum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered",
+          "clause": "RecurseUnordered clause 1 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-minimum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/particle-restriction/occurrence-range/recurse-unordered-maximum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-maximum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-occurrence-range"
+        ],
+        "conditions": [
+          "RecurseUnordered clause 1 requires the sequence's occurrence range to be a valid restriction of the all group's range; every member maps to an optional all member."
+        ],
+        "description": "A sequence with maxOccurs 2 of optional a and b does not restrict a required all group of optional a and b."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-maximum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseUnordered",
+          "clause": "RecurseUnordered clause 1 with Occurrence Range OK (Structures 3.9.6)"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/particle-restriction/occurrence-range/recurse-unordered-maximum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-vs-cho-ab",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-vs-cho-ab.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles, and a choice with no particles and minOccurs 0, inside the derived choice; the choice is declared with more than one member, so it stays a choice compared by RecurseLax, which compares each member's own range. No rule compares the aggregate range of the content."
+        ],
+        "description": "A choice of a and an empty sequence restricts a choice of a and b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-vs-cho-ab.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-vs-cho-ab.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyseq-a-vs-cho-ab",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-a-vs-cho-ab.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles, and a choice with no particles and minOccurs 0, inside the derived choice; the choice is declared with more than one member, so it stays a choice compared by RecurseLax, which compares each member's own range. No rule compares the aggregate range of the content."
+        ],
+        "description": "A choice of an empty sequence and a restricts a choice of a and b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-a-vs-cho-ab.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-a-vs-cho-ab.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-b-vs-cho-ab",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-b-vs-cho-ab.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles, and a choice with no particles and minOccurs 0, inside the derived choice; the choice is declared with more than one member, so it stays a choice compared by RecurseLax, which compares each member's own range. No rule compares the aggregate range of the content."
+        ],
+        "description": "A choice of a, an empty sequence and b restricts a choice of a and b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-b-vs-cho-ab.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-a-emptyseq-b-vs-cho-ab.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-a-optemptychoice-vs-cho-ab",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-a-optemptychoice-vs-cho-ab.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles, and a choice with no particles and minOccurs 0, inside the derived choice; the choice is declared with more than one member, so it stays a choice compared by RecurseLax, which compares each member's own range. No rule compares the aggregate range of the content."
+        ],
+        "description": "A choice of a and an empty choice with minOccurs 0 restricts a choice of a and b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-a-optemptychoice-vs-cho-ab.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-a-optemptychoice-vs-cho-ab.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-ab",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-ab.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles, and a choice with no particles and minOccurs 0, inside the derived choice; the choice is declared with more than one member, so it stays a choice compared by RecurseLax, which compares each member's own range. No rule compares the aggregate range of the content."
+        ],
+        "description": "A choice of an empty sequence and an optional a does not restrict a choice of a and b: the optional a is not a restriction of the required a (NameAndTypeOK clause 2)."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-ab.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-ab.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-optab",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-optab.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NameAndTypeOK"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles, and a choice with no particles and minOccurs 0, inside the derived choice; the choice is declared with more than one member, so it stays a choice compared by RecurseLax, which compares each member's own range. No rule compares the aggregate range of the content."
+        ],
+        "description": "A choice of an empty sequence and an optional a restricts a choice of an optional a and b."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-optab.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-cho-emptyseq-opta-vs-cho-optab.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-group-ref-all-optional-sequence-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-group-ref-all-optional-sequence-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-props-correct"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "A reference to a group whose model group is an empty all restricts an optional sequence of a required a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-group-ref-all-optional-sequence-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-group-ref-all-optional-sequence-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-group-ref-sequence-optional-sequence-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-group-ref-sequence-optional-sequence-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "A reference to a group whose model group is an empty sequence restricts an optional sequence of a required a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-group-ref-sequence-optional-sequence-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-group-ref-sequence-optional-sequence-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-group-ref-sequence-optional-member-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-group-ref-sequence-optional-member-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "A reference to a group whose model group is an empty sequence restricts an optional sequence of an optional a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-group-ref-sequence-optional-member-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-group-ref-sequence-optional-member-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-group-ref-sequence-singleton-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-group-ref-sequence-singleton-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "A reference to a group whose model group is an empty sequence restricts a sequence of an optional a, as mgE014 expects for the same component."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-group-ref-sequence-singleton-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-group-ref-sequence-singleton-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-group-ref-all-all-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-group-ref-all-all-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "A reference to a group whose model group is an empty all restricts an all group of an optional a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-group-ref-all-all-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-group-ref-all-all-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/zero-count-all-all-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/zero-count-all-all-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "An all group whose only element has minOccurs and maxOccurs 0 has no particles and restricts an all group of an optional a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/zero-count-all-all-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/zero-count-all-all-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-group-ref-all-required-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-group-ref-all-required-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-group-emptiable"
+        ],
+        "conditions": [
+          "A group reference is not empty explicit content (Structures 3.4.2 clause 2.1), so the {content type} is element-only with a group that has no particles. Particle Valid (Restriction) clause 2.2.1 makes that group pointless; ignored, it leaves no particle to compare and restricts only an emptiable base, as accepted W3C test mgE014 expects for a sequence whose only particle maps to no component."
+        ],
+        "description": "A reference to a group whose model group is an empty all does not restrict a sequence of a required a, which is not emptiable."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-group-ref-all-required-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-group-ref-all-required-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/inline-empty-all-optional-sequence-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/inline-empty-all-optional-sequence-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-group-emptiable"
+        ],
+        "conditions": [
+          "Derivation Valid (Restriction, Complex) clause 5.3 admits an empty {content type} when the base particle is emptiable."
+        ],
+        "description": "An inline empty all is empty explicit content (Structures 3.4.2 clause 2.1.2), so the empty {content type} restricts an optional sequence of a required a by Derivation Valid (Restriction, Complex) clause 5.3."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/inline-empty-all-optional-sequence-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "clause": "Derivation Valid (Restriction, Complex) clause 5.3"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/inline-empty-all-optional-sequence-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/mixed-empty-restriction-singleton-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/mixed-empty-restriction-singleton-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-group-emptiable"
+        ],
+        "conditions": [
+          "A mixed type with empty explicit content has an empty particle, which restricts only an emptiable base."
+        ],
+        "description": "A mixed restriction with no explicit content restricts a mixed sequence of an optional a."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/mixed-empty-restriction-singleton-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/mixed-empty-restriction-singleton-base.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/empty-choice-ref-required-choice-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/empty-choice-ref-required-choice-base.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseLax",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "A required choice with no particles is not pointless (Particle Valid (Restriction) clause 2.2.1 needs minOccurs 0) and matches no sequence (Element Sequence Valid clause 2), so RecurseLax compares a choice with no members."
+        ],
+        "description": "A reference to a group whose model group is a required empty choice matches nothing, and restricts a choice of a and b by RecurseLax."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/empty-choice-ref-required-choice-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "I-042 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-042"
+          },
+          "dotnet": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/empty-choice-ref-required-choice-base.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }
