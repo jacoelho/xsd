@@ -611,6 +611,13 @@ or network URLs. The library reports assessment failures without exposing a
 PSVI validity property; failure is not a claim that every enclosing laxly
 assessed item has the PSVI value `invalid`.
 
+Xerces-J 2.12.2 gives the project result in every case listed. .NET 10.0.14
+accepts, with a warning, an element under a lax wildcard whose `xsi:type` names
+no type or an abstract type. libxml2 2.9.13 rejects an element under a strict
+wildcard that has no global declaration but a known `xsi:type`. Cases:
+`project/elements/xsi-type-boundaries/wildcard-strict-type-assessment` and
+`project/elements/xsi-type-boundaries/wildcard-lax-type-assessment`.
+
 ## I-015 — ordered-bound consistency and unordered values
 
 **Status:** selected reading of the operative XSD 1.0 facet-consistency prose;
@@ -1320,6 +1327,9 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 
 - Xerces-J keeps abstract declarations in implicit containment and in the
   clause 2.1 choice, and agrees with the project otherwise.
+- .NET and xmlschema accept an `xsi:type` that names a member of the declared
+  union type on an element with `block="restriction"`
+  (`project/elements/xsi-type-boundaries/union-list-member-versus-item`).
 - .NET ignores type {prohibited substitutions} for substitution, checks element
   blocks per affiliation link instead of against the head being substituted,
   ignores the element block set under `xsi:type` when the declared type is a

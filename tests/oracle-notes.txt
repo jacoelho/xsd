@@ -29,10 +29,4 @@ project/double-bounds-nan-upper	schema	dotnet
 project/double-bounds-nan-upper	schema	xerces
 project/double-bounds-nan-upper	zero	libxml2
 project/double-bounds-nan-upper	zero	xmlschema
-project/elements/xsi-type-boundaries/union-list-member-versus-item	blocked-member	dotnet
-project/elements/xsi-type-boundaries/union-list-member-versus-item	blocked-member	xmlschema
-project/elements/xsi-type-boundaries/wildcard-lax-type-assessment	abstract-type	dotnet
-project/elements/xsi-type-boundaries/wildcard-lax-type-assessment	unknown-type	dotnet
-project/elements/xsi-type-boundaries/wildcard-strict-type-assessment	known-integer	libxml2
-project/elements/xsi-type-boundaries/wildcard-strict-type-assessment	required-present	libxml2
 project/xml/opt-out-instance-forms	xml-1-1	dotnet
