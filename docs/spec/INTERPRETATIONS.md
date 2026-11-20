@@ -1390,7 +1390,21 @@ it, so the processor tie-break settles it by Xerces-J
 singleton only when it is declared with one member and its particle is 1..1,
 and that test is not repeated after its children are reduced. A group
 declared with no members is pointless as clause 2.2.1 states: a sequence or
-all always, a choice only with `minOccurs="0"`. Within its parent, a 1..1
+all always, a choice only with `minOccurs="0"`, in each case whatever its
+`maxOccurs`. The text decides this, so it is not settled by the tie-break, and
+Xerces-J departs from it: `gatherChildren` keeps every group whose particle is
+not 1..1 before testing whether it is empty, and so rejects a derived
+sequence that adds an optional or repeated empty choice or a repeated empty
+sequence (`derived-seq-a-optemptychoice-b`,
+`derived-seq-a-optrepemptychoice-b`, `derived-seq-a-repemptyseq-b`,
+`derived-seq-a-optrepemptyseq-b`, `derived-seq-ab-repemptyseq`,
+`derived-seq-a-repemptyseq-b03`) and a derived choice that holds a repeated
+empty sequence beside an element, alone or within a sequence
+(`derived-choice-a-repemptyseq`, `derived-seq-choice-a-repemptyseq`,
+`derived-seq-c-choice-a-repemptyseq`), which
+.NET, xmlschema and libxml2 accept. Such a group also adds nothing to the effective
+total range of the group holding it: Effective Total Range (§3.8.6) makes a
+maximum unbounded only when the repeated part is non-zero. Within its parent, a 1..1
 child group of the same compositor is replaced by its members, and a 1..1
 child group that contains no element or wildcard is ignored when it matches
 the empty sequence. Such a group matches nothing when it is a required choice
@@ -1416,7 +1430,8 @@ generates for a substitution group is not declared and still reduces to its
 only member
 ([I-027](#i-027--derivation-control-and-actual-substitution-groups)). Cases:
 `project/content-models/pointless-groups/declared/*`. Xerces-J gives the
-project result in every case except those I-042 owns; .NET and libxml2
+project result in every case except those I-042 owns and the empty groups
+that are not 1..1 above; .NET and libxml2
 accept every invalid restriction in the set except that .NET rejects
 `base-seq-choice-emptychoice-elt`; xmlschema accepts the invalid
 restrictions of a base with an ignored group beside a wildcard, keeps
@@ -1424,6 +1439,23 @@ singleton groups in a derived type (`derived-*-nested-elt`, invalid there) and
 keeps a derived choice of a required empty choice and an empty sequence
 (`derived-seq-a-choiceofemptychoiceandseq-b`, invalid there), although it
 ignores a derived empty sequence (`derived-seq-a-empty-b`).
+
+**MapAndSum range.** A derived sequence declared with members whose members
+are all pointless stays a group, as the declared-group reading above settles
+by Xerces-J; read after reduction, it would itself be pointless and the
+restriction would compare empty content. Once it is a group, clause 2 of
+[MapAndSum](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-MapAndSum)
+decides its range from the length of its {particles}: the maximum is
+"unbounded if {max occurs} is unbounded", whatever that length. That range is
+not the sequence's Effective Total Range (§3.8.6), so a sequence with
+`maxOccurs="unbounded"` of two empty sequences has the range 0..unbounded,
+which does not restrict an optional choice (`mapandsum-repseq-twoemptyseq`,
+invalid), while the same sequence with `maxOccurs="2"` has the range 0..0
+(`mapandsum-twoseq-twoemptyseq`, valid) and the unbounded one restricts an
+unbounded choice (`mapandsum-repseq-twoemptyseq-repbase`, valid). Xerces-J
+agrees on all three. .NET and libxml2 accept all three, as the reduced reading
+would; xmlschema rejects all three, so its rejection does not come from
+clause 2.
 
 **Inherited ur-type wildcard.** NSSubset clause 3 waives the processing
 strength "unless B is the content model wildcard of the ·ur-type
@@ -2242,13 +2274,22 @@ empty group except inside a choice, where it adds nothing
 ([I-028](#i-028--content-model-checks)). A sequence keeps it, so a
 restriction compares it like any other member: dropping it from a base
 sequence admits content the base does not, and keeping it in a derived
-sequence the base lacks leaves it unmapped. Xerces-J ignores it as empty
-everywhere and accepts both restrictions, and so do .NET, xmlschema and
-libxml2. A choice of two required empty choices matches nothing in the same
+sequence the base lacks leaves it unmapped. When its particle is 1..1,
+Xerces-J's `gatherChildren` ignores it as empty everywhere and accepts both
+restrictions, and so do .NET, xmlschema and libxml2. A choice of two required empty choices matches nothing in the same
 way: all four accept a base sequence that holds it being restricted without
 it, Xerces-J, .NET and libxml2 accept a derived sequence that adds it while
 xmlschema rejects that, and execution rejects every instance of a sequence
-that must hold it, which Xerces-J, .NET and xmlschema accept. Inside a choice it adds
+that must hold it, which Xerces-J, .NET and xmlschema accept. A required choice
+whose only member is such a sequence of two required empty choices also
+matches nothing, and all four accept a base sequence that holds it being
+restricted without it (`base-seq-a-choice-seqofemptychoices`); with an empty
+sequence beside that member the choice matches the empty sequence, and the
+restriction is valid (`base-seq-a-choice-seqofemptychoices-emptyseq`). A
+required empty choice with `maxOccurs="unbounded"` still matches nothing, so a
+derived sequence that adds it maps to no base particle
+(`derived-seq-a-reqrepemptychoice-b`), as Xerces-J agrees; .NET, xmlschema and
+libxml2 accept it. Inside a choice it adds
 nothing, so a choice of `a` and a required empty choice restricts a choice of
 `a` and `b`, as all four agree.
 
@@ -2258,6 +2299,8 @@ Cases: `project/content-models/nested-empty-choice-required`,
 `project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt`,
 `project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b`,
 `project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices`,
+`project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices`,
+`project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b`,
 `project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b`,
 `project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1`
 and `project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt`.

@@ -30832,6 +30832,683 @@
       ]
     },
     {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-optemptychoice-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-optemptychoice-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence adds an optional choice with no particles between a and b; clause 2.2.1 ignores it, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optemptychoice-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optemptychoice-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-optrepemptychoice-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-optrepemptychoice-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence adds a choice with no particles, minOccurs 0 and maxOccurs unbounded, between a and b; clause 2.2.1 ignores it whatever its maximum, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optrepemptychoice-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optrepemptychoice-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence adds a required choice with no particles and maxOccurs unbounded between a and b; it is not pointless, matches nothing and maps to no base particle, so the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-042"
+          },
+          "libxml2": {
+            "record": "I-042"
+          },
+          "xmlschema": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence adds a sequence with no particles and maxOccurs unbounded between a and b; clause 2.2.1 ignores it, and it adds nothing to the effective total range, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-optrepemptyseq-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-optrepemptyseq-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence adds a sequence with no particles, minOccurs 0 and maxOccurs unbounded, between a and b; clause 2.2.1 ignores it, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optrepemptyseq-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-optrepemptyseq-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-ab-repemptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-ab-repemptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence ends with a sequence with no particles and maxOccurs unbounded; clause 2.2.1 ignores it, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-ab-repemptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-ab-repemptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-MapAndSum"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles. Particle Derivation OK (Sequence:Choice -- MapAndSum) clause 2 compares the base choice range with the product of the derived sequence minOccurs and the length of its particles, and unbounded if its maxOccurs is unbounded, otherwise the product of its maxOccurs and that length."
+        ],
+        "description": "A sequence with maxOccurs unbounded of two empty sequences restricts a choice of a with minOccurs 0; the empty sequences are ignored, and MapAndSum clause 2 gives the sequence the range 0 to unbounded, which is not within 0 to 1, so the restriction is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "MapAndSum range in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-MapAndSum"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles. Particle Derivation OK (Sequence:Choice -- MapAndSum) clause 2 compares the base choice range with the product of the derived sequence minOccurs and the length of its particles, and unbounded if its maxOccurs is unbounded, otherwise the product of its maxOccurs and that length."
+        ],
+        "description": "A sequence with maxOccurs 2 of two empty sequences restricts a choice of a with minOccurs 0; the empty sequences are ignored, and MapAndSum clause 2 gives the sequence the range 0 to 0, which is within 0 to 1, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "MapAndSum range in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-MapAndSum"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 ignores a sequence with no particles. Particle Derivation OK (Sequence:Choice -- MapAndSum) clause 2 compares the base choice range with the product of the derived sequence minOccurs and the length of its particles, and unbounded if its maxOccurs is unbounded, otherwise the product of its maxOccurs and that length."
+        ],
+        "description": "A sequence with maxOccurs unbounded of two empty sequences restricts a choice of a with minOccurs 0 and maxOccurs unbounded; MapAndSum clause 2 gives the sequence the range 0 to unbounded, which is within the base range, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "MapAndSum range in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-choice-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range; a pointless group is ignored. Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "A choice of a and a sequence with no particles and maxOccurs unbounded restricts a choice of a and b with minOccurs 0; clause 2.2.1 ignores the empty sequence, and it adds nothing to the effective total range of the choice, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-choice-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range; a pointless group is ignored. Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "Within a sequence, a choice of a and a sequence with no particles and maxOccurs unbounded restricts a choice of a and b with minOccurs 0; clause 2.2.1 ignores the empty sequence, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-choice-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range; a pointless group is ignored. Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "Within a sequence after c, a choice of a and a sequence with no particles and maxOccurs unbounded restricts a choice of a and b with minOccurs 0; clause 2.2.1 ignores the empty sequence, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-choice-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range; a pointless group is ignored. Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The derived sequence adds a sequence with no particles and maxOccurs unbounded between a and b with occurrence 0 to 3; clause 2.2.1 ignores it, and it adds nothing to the effective total range, so the restriction is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-a-repemptyseq-b",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-a-repemptyseq-b.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The base sequence holds a sequence with no particles and maxOccurs unbounded between a and b; clause 2.2.1 ignores it, so a restriction without it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-a-repemptyseq-b.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-a-repemptyseq-b.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices-emptyseq",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices-emptyseq.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The base sequence holds a choice of a sequence of two required empty choices, which matches nothing, and an empty sequence; the choice matches the empty sequence through its empty sequence, so a restriction that drops it is valid."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices-emptyseq.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "Declared pointless groups in I-028 of docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices-emptyseq.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-seq-range",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "conditions": [
+          "Particle Valid (Restriction) clause 2.2.1 calls a sequence with no particles pointless whatever its occurrence range, and a choice with no particles pointless when its particle has minOccurs 0 whatever its maxOccurs; a pointless group is ignored. A required choice with no particles is not pointless and matches nothing (I-042). Effective Total Range (Structures 3.8.6) makes a maximum unbounded only when the repeated part is non-zero."
+        ],
+        "description": "The base sequence holds a required choice whose only member is a sequence of two required empty choices; it matches nothing, so a restriction that drops it is invalid."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-042--empty-choice",
+          "clause": "Empty choice in I-042 of docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-042"
+          },
+          "libxml2": {
+            "record": "I-042"
+          },
+          "xerces": {
+            "record": "I-042"
+          },
+          "xmlschema": {
+            "record": "I-042"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/nested-choice-of-empty-choices-required",
       "expectedSource": "project",
       "source": {

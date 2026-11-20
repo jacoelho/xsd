@@ -107,7 +107,10 @@ func (r countRange) emptiable() bool {
 
 func (r countRange) repeated(occurs occurrence) countRange {
 	if r.nothing {
-		return countRange{nothing: occurs.Min != 0}
+		if occurs.Min != 0 {
+			return countRange{nothing: true}
+		}
+		occurs = occurrence{}
 	}
 	return countRange{counts: multiplyOccurrence(r.counts, occurs)}
 }
