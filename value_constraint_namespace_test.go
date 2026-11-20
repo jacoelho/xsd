@@ -9,7 +9,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestChangedTypeQNameConstraintUsesSchemaNamespaceContext(t *testing.T) {
+func TestQNameConstraintResolvesInInstanceScope(t *testing.T) {
 	for _, constraint := range []string{"default", "fixed"} {
 		t.Run(constraint, func(t *testing.T) {
 			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
@@ -22,9 +22,15 @@ func TestChangedTypeQNameConstraintUsesSchemaNamespaceContext(t *testing.T) {
 				t.Fatalf("Compile() error = %v", err)
 			}
 			for _, test := range []struct {
-				name string
-				doc  string
+				name  string
+				doc   string
+				valid bool
 			}{
+				{
+					name:  "instance prefix is bound to the admitted namespace",
+					doc:   `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:p" xsi:type="Actual"/>`,
+					valid: true,
+				},
 				{
 					name: "instance prefix is absent",
 					doc:  `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual"/>`,
@@ -35,16 +41,21 @@ func TestChangedTypeQNameConstraintUsesSchemaNamespaceContext(t *testing.T) {
 				},
 			} {
 				t.Run(test.name, func(t *testing.T) {
-					if err := engine.Validate(strings.NewReader(test.doc)); err != nil {
-						t.Fatalf("Validate() error = %v, want schema constraint {urn:p}x to remain valid", err)
+					err := engine.Validate(strings.NewReader(test.doc))
+					if test.valid {
+						if err != nil {
+							t.Fatalf("Validate() error = %v", err)
+						}
+						return
 					}
+					expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 				})
 			}
 		})
 	}
 }
 
-func TestProspectiveQNameConstraintKeepsUnresolvedSchemaPrefix(t *testing.T) {
+func TestQNameConstraintSpellingNeedNotResolveInSchema(t *testing.T) {
 	const source = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="Declared"><xs:union memberTypes="xs:string xs:QName"/></xs:simpleType>
   <xs:simpleType name="Actual"><xs:restriction base="xs:QName"/></xs:simpleType>
@@ -57,16 +68,17 @@ func TestProspectiveQNameConstraintKeepsUnresolvedSchemaPrefix(t *testing.T) {
 	for _, document := range []string{
 		`<root/>`,
 		`<root xmlns:p="urn:instance" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual">p:x</root>`,
+		`<root xmlns:p="urn:instance" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual"/>`,
 	} {
 		if validationErr := engine.Validate(strings.NewReader(document)); validationErr != nil {
 			t.Fatalf("Validate(%s): %v", document, validationErr)
 		}
 	}
-	err = engine.Validate(strings.NewReader(`<root xmlns:p="urn:instance" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual"/>`))
+	err = engine.Validate(strings.NewReader(`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual"/>`))
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 }
 
-func TestChangedTypeQNameConstraintUsesSchemaDefaultNamespace(t *testing.T) {
+func TestUnprefixedQNameConstraintUsesInstanceDefaultNamespace(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
     targetNamespace="urn:p" xmlns="urn:p" elementFormDefault="qualified">
   <xs:simpleType name="Declared"><xs:union memberTypes="xs:string xs:QName"/></xs:simpleType>
@@ -77,38 +89,19 @@ func TestChangedTypeQNameConstraintUsesSchemaDefaultNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-
-	// The root and xsi:type use an explicit schema namespace prefix so that the
-	// instance default namespace can intentionally differ from the schema's
-	// default namespace used to compile the unprefixed fixed QName.
-	doc := `<p:root xmlns:p="urn:p" xmlns="urn:other" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Actual"/>`
-	if err := engine.Validate(strings.NewReader(doc)); err != nil {
-		t.Fatalf("Validate() error = %v, want schema default namespace {urn:p}x", err)
+	const sameDefault = `<p:root xmlns:p="urn:p" xmlns="urn:p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Actual"/>`
+	if err := engine.Validate(strings.NewReader(sameDefault)); err != nil {
+		t.Fatalf("Validate(instance default namespace urn:p) error = %v", err)
+	}
+	for _, doc := range []string{
+		`<p:root xmlns:p="urn:p" xmlns="urn:other" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Actual"/>`,
+		`<p:root xmlns:p="urn:p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Actual"/>`,
+	} {
+		expectCategoryCode(t, engine.Validate(strings.NewReader(doc)), xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 	}
 }
 
-func TestChangedTypeQNameConstraintUsesSchemaNoDefaultNamespace(t *testing.T) {
-	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    targetNamespace="urn:p" xmlns:p="urn:p" elementFormDefault="qualified">
-  <xs:simpleType name="Declared"><xs:union memberTypes="xs:string xs:QName"/></xs:simpleType>
-  <xs:simpleType name="Actual"><xs:restriction base="xs:QName"><xs:enumeration value="x"/></xs:restriction></xs:simpleType>
-  <xs:element name="root" type="p:Declared" fixed="x"/>
-</xs:schema>`
-	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(schema)))
-	if err != nil {
-		t.Fatalf("Compile() error = %v", err)
-	}
-
-	// The schema has no default namespace, so the unprefixed constraint QName
-	// is in no namespace. The instance default namespace must not change that
-	// prospective QName while the prefixed root and xsi:type remain qualified.
-	doc := `<p:root xmlns:p="urn:p" xmlns="urn:other" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="p:Actual"/>`
-	if err := engine.Validate(strings.NewReader(doc)); err != nil {
-		t.Fatalf("Validate() error = %v, want schema no-namespace x", err)
-	}
-}
-
-func TestQNameConstraintIdentityUsesSchemaExpandedName(t *testing.T) {
+func TestQNameConstraintIdentityUsesInstanceExpandedName(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
   <xs:simpleType name="Actual"><xs:restriction base="xs:QName"/></xs:simpleType>
   <xs:element name="root">
@@ -137,29 +130,29 @@ func TestQNameConstraintIdentityUsesSchemaExpandedName(t *testing.T) {
 		refValue   string
 		valid      bool
 	}{
-		{name: "same declared type matches schema expanded name", refValue: "q:x", valid: true},
-		{name: "same declared type rejects rebound name", refValue: "p:x"},
-		{name: "changed actual type matches schema expanded name", sourceAttr: ` xsi:type="Actual"`, refValue: "q:x", valid: true},
-		{name: "changed actual type rejects rebound name", sourceAttr: ` xsi:type="Actual"`, refValue: "p:x"},
+		{name: "declared type matches instance expanded name", refValue: "p:x", valid: true},
+		{name: "declared type rejects schema expanded name", refValue: "q:x"},
+		{name: "changed actual type matches instance expanded name", sourceAttr: ` xsi:type="Actual"`, refValue: "p:x", valid: true},
+		{name: "changed actual type rejects schema expanded name", sourceAttr: ` xsi:type="Actual"`, refValue: "q:x"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			err := engine.Validate(strings.NewReader(document(test.sourceAttr, test.refValue)))
 			if test.valid {
 				if err != nil {
-					t.Fatalf("Validate() error = %v, want keyref to resolve to {urn:p}x", err)
+					t.Fatalf("Validate() error = %v, want keyref to resolve to {urn:other}x", err)
 				}
 				return
 			}
 			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationIdentity)
 			if !errorTreeContains(err, `keyref value does not match any value of referenced identity constraint "sourceName"`) {
-				t.Fatalf("Validate() error = %v, want keyref mismatch for {urn:other}x", err)
+				t.Fatalf("Validate() error = %v, want keyref mismatch for {urn:p}x", err)
 			}
 		})
 	}
 }
 
-func TestImplicitAnyTypeQNameConstraintUsesSchemaNamespaceContext(t *testing.T) {
+func TestImplicitAnyTypeQNameConstraintResolvesInInstanceScope(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
   <xs:simpleType name="Actual"><xs:restriction base="xs:QName"><xs:enumeration value="p:x"/></xs:restriction></xs:simpleType>
   <xs:element name="root" default="p:x"/>
@@ -168,18 +161,19 @@ func TestImplicitAnyTypeQNameConstraintUsesSchemaNamespaceContext(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-
+	const bound = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:p" xsi:type="Actual"/>`
+	if err := engine.Validate(strings.NewReader(bound)); err != nil {
+		t.Fatalf("Validate(%s) error = %v", bound, err)
+	}
 	for _, doc := range []string{
 		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual"/>`,
 		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:other" xsi:type="Actual"/>`,
 	} {
-		if err := engine.Validate(strings.NewReader(doc)); err != nil {
-			t.Fatalf("Validate(%s) error = %v, want implicit anyType constraint {urn:p}x", doc, err)
-		}
+		expectCategoryCode(t, engine.Validate(strings.NewReader(doc)), xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 	}
 }
 
-func TestChangedTypeQNameListConstraintUsesSchemaNamespaceContext(t *testing.T) {
+func TestQNameListConstraintResolvesInInstanceScope(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:p">
   <xs:simpleType name="Declared"><xs:list itemType="xs:QName"/></xs:simpleType>
   <xs:simpleType name="Actual"><xs:restriction base="Declared"><xs:enumeration value="p:x p:x"/></xs:restriction></xs:simpleType>
@@ -189,18 +183,19 @@ func TestChangedTypeQNameListConstraintUsesSchemaNamespaceContext(t *testing.T) 
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-
+	const bound = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:p" xsi:type="Actual"/>`
+	if err := engine.Validate(strings.NewReader(bound)); err != nil {
+		t.Fatalf("Validate(%s) error = %v", bound, err)
+	}
 	for _, doc := range []string{
 		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="Actual"/>`,
 		`<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:other" xsi:type="Actual"/>`,
 	} {
-		if err := engine.Validate(strings.NewReader(doc)); err != nil {
-			t.Fatalf("Validate(%s) error = %v, want schema list {urn:p}x {urn:p}x", doc, err)
-		}
+		expectCategoryCode(t, engine.Validate(strings.NewReader(doc)), xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
 	}
 }
 
-func TestChangedTypeNotationConstraintPreservesDeclarationChecks(t *testing.T) {
+func TestNotationConstraintResolvesInInstanceScopeAndKeepsDeclarationChecks(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
     targetNamespace="urn:p" xmlns:p="urn:p" elementFormDefault="qualified">
   <xs:notation name="n" public="notation-n"/>
@@ -216,14 +211,17 @@ func TestChangedTypeNotationConstraintPreservesDeclarationChecks(t *testing.T) {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	valid := `<e:root xmlns:e="urn:p" xmlns:p="urn:other" xmlns:t="urn:p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><e:defaulted xsi:type="t:Actual"/><e:value>t:n</e:value></e:root>`
+	valid := `<e:root xmlns:e="urn:p" xmlns:p="urn:p" xmlns:t="urn:p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><e:defaulted xsi:type="t:Actual"/><e:value>t:n</e:value></e:root>`
 	err = engine.Validate(strings.NewReader(valid))
 	if err != nil {
 		t.Fatalf("Validate(valid NOTATION values) error = %v", err)
 	}
-	invalid := `<e:root xmlns:e="urn:p" xmlns:t="urn:p"><e:defaulted/><e:value>t:missing</e:value></e:root>`
-	err = engine.Validate(strings.NewReader(invalid))
-	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
+	for _, invalid := range []string{
+		`<e:root xmlns:e="urn:p" xmlns:p="urn:p" xmlns:t="urn:p"><e:defaulted/><e:value>t:missing</e:value></e:root>`,
+		`<e:root xmlns:e="urn:p" xmlns:p="urn:other" xmlns:t="urn:p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><e:defaulted xsi:type="t:Actual"/><e:value>t:n</e:value></e:root>`,
+	} {
+		expectCategoryCode(t, engine.Validate(strings.NewReader(invalid)), xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
+	}
 }
 
 func TestQNameConstraintSessionReuseAndConcurrentEngineValidation(t *testing.T) {
@@ -240,8 +238,8 @@ func TestQNameConstraintSessionReuseAndConcurrentEngineValidation(t *testing.T) 
 	if err != nil {
 		t.Fatalf("NewSession() error = %v", err)
 	}
-	valid := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:other" xsi:type="Actual"/>`
-	invalid := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:other" xsi:type="Actual">p:x</root>`
+	valid := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:p" xsi:type="Actual"/>`
+	invalid := `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="urn:other" xsi:type="Actual"/>`
 	for _, test := range []struct {
 		name string
 		doc  string

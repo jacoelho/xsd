@@ -290,7 +290,7 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaN
 		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
 	if simpleID == NoSimpleType {
-		decl.ValueConstraint = mixedContentConstraint(constraint, n.namespace.Lookup)
+		decl.ValueConstraint = mixedContentConstraint(constraint)
 		return nil
 	}
 	if !validSimpleTypeID(simpleID, len(unavailable)) {
@@ -303,7 +303,7 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaN
 	if err = validateValueConstraintIdentity(&c.rt, simpleID, constraint, valueConstraintOwnerElementDeclaration); err != nil {
 		return schemaValueError(c.limits, xsderrors.CodeSchemaInvalidAttribute, "invalid element value constraint", err)
 	}
-	validated, err := c.validateValueConstraint(simpleID, constraint, schemaQNameResolver(n), n.namespace.Lookup, decl.Name, "element")
+	validated, err := c.validateValueConstraint(simpleID, constraint, schemaQNameResolver(n), decl.Name, "element")
 	if err != nil {
 		return err
 	}
@@ -314,13 +314,12 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaN
 // mixedContentConstraint builds the constraint for an emptiable mixed-content
 // element, whose default or fixed text is used verbatim: the lexical form is
 // its own canonical form and the value is untyped.
-func mixedContentConstraint(constraint *valueConstraint, lookup func(string) (string, bool)) *valueConstraint {
+func mixedContentConstraint(constraint *valueConstraint) *valueConstraint {
 	lexical := constraint.Lexical
 	return &valueConstraint{
-		Lexical:      lexical,
-		Canonical:    lexical,
-		Value:        valuepkg.NewUntypedValue(lexical),
-		qnameContext: newValueConstraintQNameContext(lexical, lookup),
-		Fixed:        constraint.Fixed,
+		Lexical:   lexical,
+		Canonical: lexical,
+		Value:     valuepkg.NewUntypedValue(lexical),
+		Fixed:     constraint.Fixed,
 	}
 }

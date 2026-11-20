@@ -104,12 +104,12 @@ func (c *compiler) validateAttributeValueConstraint(
 	if constraint == nil {
 		return nil, nil //nolint:nilnil // A nil constraint is the absent {value constraint}; see valueConstraint.
 	}
-	return c.validateValueConstraint(typ, constraint, schemaQNameResolver(n), n.namespace.Lookup, name, "attribute")
+	return c.validateValueConstraint(typ, constraint, schemaQNameResolver(n), name, "attribute")
 }
 
 // validateValueConstraint validates constraint, which the component kind
 // names for owner, against id.
-func (c *compiler) validateValueConstraint(id SimpleTypeID, constraint *valueConstraint, resolve valuepkg.QNameResolver, lookup func(string) (string, bool), owner QName, kind string) (*valueConstraint, error) {
+func (c *compiler) validateValueConstraint(id SimpleTypeID, constraint *valueConstraint, resolve valuepkg.QNameResolver, owner QName, kind string) (*valueConstraint, error) {
 	lexical := constraint.Lexical
 	validated, resolvedNames, err := c.validateValue(id, lexical, resolve, valuepkg.NeedCanonical|valuepkg.NeedIdentity)
 	if err != nil {
@@ -121,7 +121,6 @@ func (c *compiler) validateValueConstraint(id SimpleTypeID, constraint *valueCon
 		Lexical:       lexical,
 		Canonical:     canonical,
 		Value:         validated,
-		qnameContext:  newValueConstraintQNameContext(valueConstraintApplication(lexical, canonical, validated), lookup),
 		Fixed:         constraint.Fixed,
 	}, nil
 }

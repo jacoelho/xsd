@@ -346,17 +346,19 @@ func TestInstanceValueWorkConstraintFailureReleasesIdentityTarget(t *testing.T) 
 			if err != nil {
 				t.Fatal(err)
 			}
-			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceValueWork: 7})
+			session, err := engine.NewSession(xsd.ValidateOptions{MaxInstanceValueWork: 8})
 			if err != nil {
 				t.Fatal(err)
 			}
-			const changed = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><s xsi:type="Actual"/></root>`
+			const unbound = `<root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><s xsi:type="Actual"/></root>`
+			const changed = `<root xmlns:p="urn:value" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><s xsi:type="Actual"/></root>`
 			for range 2 {
-				expectCategoryCode(t, session.Validate(strings.NewReader(changed)), xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
-				if err := session.Validate(strings.NewReader(`<root><s/></root>`)); err != nil {
-					t.Fatalf("cached constraint after failed changed-type evaluation: %v", err)
+				expectCategoryCode(t, session.Validate(strings.NewReader(unbound)), xsderrors.CategoryValidation, xsderrors.CodeValidationFacet)
+				if err := session.Validate(strings.NewReader(`<root xmlns:p="urn:value"><s/></root>`)); err != nil {
+					t.Fatalf("declared-type constraint after failed changed-type evaluation: %v", err)
 				}
 			}
+			expectCategoryCode(t, engine.ValidateWithOptions(strings.NewReader(changed), xsd.ValidateOptions{MaxInstanceValueWork: 7}), xsderrors.CategoryValidation, xsderrors.CodeValidationLimit)
 			if err := engine.ValidateWithOptions(strings.NewReader(changed), xsd.ValidateOptions{MaxInstanceValueWork: 8}); err != nil {
 				t.Fatalf("changed-type constraint at work boundary: %v", err)
 			}

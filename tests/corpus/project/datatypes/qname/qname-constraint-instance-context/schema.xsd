@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:p="urn:value" xmlns:q="urn:other">
+  <xs:simpleType name="Actual"><xs:restriction base="xs:QName"><xs:enumeration value="p:x"/></xs:restriction></xs:simpleType>
+  <xs:simpleType name="ActualOther"><xs:restriction base="xs:QName"><xs:enumeration value="q:x"/></xs:restriction></xs:simpleType>
+  <xs:element name="default" type="xs:QName" default="p:x"/>
+  <xs:element name="fixed" type="xs:QName" fixed="p:x"/>
+  <xs:element name="restricted" type="Actual" default="p:x"/>
+  <xs:element name="attr"><xs:complexType><xs:attribute name="a" type="xs:QName" default="p:x"/></xs:complexType></xs:element>
+</xs:schema>

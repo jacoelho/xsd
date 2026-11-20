@@ -66,7 +66,12 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 			constraint, present = constraints.DefaultValueConstraint()
 		}
 		if present {
-			if constraints.OwnerType() == f.Type {
+			// cvc-elt clause 5.1.2 validates the constraint against the actual
+			// type in the element's namespace scope, the reading recorded in
+			// docs/spec/INTERPRETATIONS.md. Only a value whose lexical mapping
+			// reads no namespace bindings can reuse the value compiled against
+			// the same type.
+			if constraints.OwnerType() == f.Type && !input.NeedsQName {
 				return s.recordElementSimpleContent(ctx, constraint.Value(), identityTarget)
 			}
 			return s.applyElementValueConstraint(ctx, typeID, constraint, identityTarget, input)
@@ -87,12 +92,7 @@ func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValue
 }
 
 func (s *session) applyElementValueConstraint(ctx startContext, typeID xsdSchema.SimpleTypeID, constraint xsdSchema.ValueConstraintRead, target identityValueTarget, input xsdValue.InputRequirements) (bool, error) {
-	var resolver xsdValue.Resolver
-	if input.NeedsQName {
-		resolver.QName = constraint.ResolveQName
-		resolver.Notation = s.rt.NotationDeclared
-	}
-	result, err := s.validateSimpleValue(typeID, constraint.ApplicationText(), resolver, simpleContentNeeds(target, input))
+	result, err := s.validateAdmittedSimpleValue(typeID, constraint.ApplicationText(), input, simpleContentNeeds(target, input))
 	if err != nil {
 		return false, s.elementSimpleContentValueError(ctx, target, err)
 	}

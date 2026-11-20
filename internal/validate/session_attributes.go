@@ -46,15 +46,6 @@ func (s *session) attributeValue(attr *xmlstream.Attr) (string, error) {
 	return value, nil
 }
 
-func (s *session) validateSimpleValue(
-	id xsdSchema.SimpleTypeID,
-	lexical string,
-	resolve xsdValue.Resolver,
-	needs xsdValue.Needs,
-) (xsdValue.Value, error) {
-	return s.rt.ValueProgram().Validate(id, lexical, resolve, needs, s.limits.evaluation(&s.patternTotal), &s.valueScratch)
-}
-
 func (s *session) validateSimpleValueBytes(
 	id xsdSchema.SimpleTypeID,
 	lexical []byte,

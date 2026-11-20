@@ -10,10 +10,11 @@ does not claim publication as Second Edition errata.
 <a id="processor-tie-break"></a>
 **Processor tie-break.** Precedence is: explicit specification text, then
 adopted corrections, then accepted W3C test-suite expectations, then measured
-processor behaviour. Only when the earlier sources leave a reading doubtful does
-a record follow Xerces-J, then .NET, then libxml2, taking the first that has a
-result. libxml2 is permissive, so its agreement alone is weak evidence.
-xmlschema results are diagnostic only.
+processor behaviour. When the earlier sources leave a reading doubtful and
+Xerces-J, .NET, xmlschema and libxml2 all give the same result, a record follows
+that result. When they disagree, it follows Xerces-J, then .NET, then libxml2,
+taking the first that has a result. libxml2 is permissive, so its agreement alone is weak evidence.
+Outside that agreement, xmlschema results are diagnostic only.
 
 ## I-001 — complex types with simple content as identity fields
 
@@ -530,32 +531,39 @@ union. For the list item the sources stay doubtful, and the
 Cases: `project/datatypes/type-derivation/list-anysimpletype-constructor` and
 `project/datatypes/type-derivation/union-anysimpletype-constructor`.
 
-## I-013 — QName element constraints under xsi:type
+## I-013 — QName element constraints in instance scope
 
-**Status:** selected library interpretation of a lexical/context integration gap;
-the three corpus witnesses are not settled processor-conformance judgments.
+[cvc-elt](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt)
+clause 5.1.2 validates an element that has no children with "the canonical lexical
+representation of the {value constraint} value used as its normalized value"
+against the actual type definition, with or without `xsi:type`.
+[QName](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName)
+has no canonical representation, and the clause does not say which namespace
+bindings resolve the spelling. Approved E1-56 changes the default and PSVI
+wording without settling that. The text is doubtful, so the
+[processor tie-break](#processor-tie-break) decides.
 
-The [element representation](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element)
-resolves a declaration constraint to its actual value in schema scope.
-[cvc-elt 5.1.1–5.1.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt)
-then asks for its canonical lexical representation when applying it under
-`xsi:type`. [QName](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName)
-has contextual lexical mapping but no specified canonical representation.
-Those clauses do not specify the resolver for this synthetic revalidation.
-Approved E1-56 changes default/PSVI lexical wording without settling that resolver.
+An element default or fixed value whose actual type reads namespace bindings
+(QName, NOTATION, or a type built from them) is validated against the actual type with
+its schema spelling resolved in the element's instance namespace scope. A
+missing prefix is unresolved and a rebound prefix gives the value in the bound
+namespace, which the actual type's facets then check. Attribute defaults are
+not revalidated (Attribute Default Value adds the declared value), so their
+instance scope does not matter.
 
-The library preserves the constraint's schema namespace context while checking
-its spelling against the actual type, including facets. Missing or rebound
-instance prefixes therefore cannot change the declaration's QName value.
-Explicit instance text continues to resolve in instance scope. Replaying a
-schema spelling in instance scope is an interoperability alternative, not a
-reason to classify either reading as a confirmed implementation defect.
-
-`qname-constraint-schema-context` records missing/rebound-prefix defaults and a
-missing-prefix fixed value under a QName-derived actual type. All four comparison
-processors reject those three instances; the selected library interpretation
-accepts them. A WG resolution or a provenance-backed test for this exact
-`xsi:type` seam would be needed to settle the source gap.
+Cases: `project/qname-constraint-instance-context`. Xerces-J, .NET, xmlschema
+and libxml2 all reject a missing or rebound prefix under `xsi:type`
+(`default-missing-prefix`, `default-rebound-prefix`, `fixed-missing-prefix`)
+and accept a prefix bound to the namespace the actual type admits
+(`default-bound-prefix`, `default-other-binding`, `fixed-other-binding`), so
+their agreement decides those. Without `xsi:type` they split: Xerces-J,
+xmlschema and libxml2 reject a missing prefix and a rebound prefix that the
+declared type's facets exclude (`no-xsi-type-missing-prefix`,
+`fixed-no-xsi-type-missing-prefix`, `declared-facet-rebound-prefix`), while .NET
+uses the schema value and accepts them; the library follows Xerces-J.
+xmlschema rejects an attribute default whose prefix the instance does not bind
+(`attribute-default-missing-prefix`); Xerces-J, .NET and libxml2 accept it, and
+so does the library.
 
 ## I-014 — xsi:type under element wildcards
 
@@ -1702,7 +1710,7 @@ A value constraint on `<attribute ref>` belongs to the use (§3.2.2), and
 takes the use's constraint over the declaration's, including an empty default or
 fixed value. An element value constraint keeps the declared type's value when
 `xsi:type` selects another type (cvc-elt clause 5.2.2.2.2; compare
-[I-013](#i-013--qname-element-constraints-under-xsitype)).
+[I-013](#i-013--qname-element-constraints-in-instance-scope)).
 
 [Derivation Valid (Restriction, Complex)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction)
 clause 2.1.3.2 asks for R's effective value constraint to be "fixed with the
