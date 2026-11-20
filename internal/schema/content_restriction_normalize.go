@@ -32,7 +32,25 @@ func (v contentRestrictionValidator) compareNormalizedRestriction(base, derived 
 		comparison.analysis = analysis
 		comparison.wildcards = make(map[contentModelID]bool)
 	}
+	if derived.Kind == particleModel && n.models.ignorable(derived.Model) {
+		return comparison.validatePointlessRestriction(base)
+	}
 	return comparison.compareParticleRestriction(base, derived)
+}
+
+// validatePointlessRestriction decides a derived {content type} particle that
+// clause 2.2.1 of Particle Valid (Restriction) finds pointless: it leaves no
+// particle to compare, and restricts only an emptiable base particle, as
+// accepted W3C test mgE014 expects.
+func (v contentRestrictionValidator) validatePointlessRestriction(base contentParticle) error {
+	emptiable, err := v.analysis.ParticleEmptiable(base)
+	if err != nil {
+		return err
+	}
+	if !emptiable {
+		return contentRestrictionMismatch("pointless restriction of base that is not emptiable")
+	}
+	return nil
 }
 
 func (n *restrictionNormalizer) particle(p contentParticle, depth int) (contentParticle, error) {
@@ -180,7 +198,7 @@ func (n *restrictionNormalizer) repeatedModel(p contentParticle, depth int) (con
 	if err != nil {
 		return contentParticle{}, err
 	}
-	return n.addGroup(contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Particles: []contentParticle{inner}}, p.Occurs, restrictionChoiceOrder{}, term)
+	return n.addGroup(restrictionModel{model: contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Particles: []contentParticle{inner}}, term: term}, p.Occurs)
 }
 
 func pointlessSingleton(m contentModelNode, occurs occurrence) bool {
@@ -306,7 +324,7 @@ func (n *restrictionNormalizer) child(original contentParticle, parent modelKind
 	if !ok {
 		return normalizedRestrictionChild{}, contentRestrictionInvariant("normalized content model is missing")
 	}
-	if body.Kind == modelEmpty {
+	if body.Kind == modelEmpty || n.models.ignorable(p.Model) {
 		child.disposition = childIgnored
 		return child, nil
 	}
@@ -336,23 +354,29 @@ func (n *restrictionNormalizer) appendChild(particles []contentParticle, child n
 
 // declaredGroup is the normalized form of the declared group m once its
 // pointless children are ignored (Particle Valid (Restriction) clause 2.2). m
-// was not a pointless singleton as declared, so it stays a group whatever the
-// number of children left (I-028 in docs/spec/INTERPRETATIONS.md), unless it
-// matches only the empty sequence, which emptyGroup decides.
+// was not a pointless singleton as declared, so it stays a group of its
+// declared kind whatever the number of children left, as
+// docs/spec/INTERPRETATIONS.md records. A group left with no children that
+// emptyGroup finds pointless is marked ignorable: its parent ignores it, and
+// validatePointlessRestriction decides the derived particle of a
+// {content type}, which has no parent.
 func (n *restrictionNormalizer) declaredGroup(m contentModelNode, occurs occurrence, children normalizedRestrictionChildren) (contentParticle, error) {
 	term, err := n.validator.analysis.modelTermCountRange(m)
 	if err != nil {
 		return contentParticle{}, err
 	}
-	if len(children.particles) == 0 && emptyGroup(m, occurs, term) {
-		return n.addGroup(contentModelNode{Kind: modelEmpty}, occurrence{Min: 1, Max: 1}, children.order, countRange{})
-	}
-	return n.addGroup(contentModelNode{Kind: m.Kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: children.particles}, occurs, children.order, term)
+	return n.addGroup(restrictionModel{
+		model:     contentModelNode{Kind: m.Kind, Occurs: occurrence{Min: 1, Max: 1}, Particles: children.particles},
+		order:     children.order,
+		term:      term,
+		ignorable: len(children.particles) == 0 && emptyGroup(m, occurs, term),
+	}, occurs)
 }
 
 // emptyGroup reports whether the declared group m, left with no children, is
-// ignored in its parent (Particle Valid (Restriction) clause 2.2.1; I-028 and
-// I-042 in docs/spec/INTERPRETATIONS.md).
+// ignored in its parent (Particle Valid (Restriction) clause 2.2.1), as
+// docs/spec/INTERPRETATIONS.md records for groups declared empty and for
+// required empty choices.
 func emptyGroup(m contentModelNode, occurs occurrence, term countRange) bool {
 	return term.repeated(occurs).emptiable() && (len(m.Particles) == 0 || occurs.IsExactlyOne())
 }
@@ -369,10 +393,10 @@ func (n *restrictionNormalizer) substitutionChoice(occurs occurrence, members []
 	if err != nil {
 		return contentParticle{}, err
 	}
-	return n.addGroup(body, occurs, restrictionChoiceOrder{unordered: true}, term)
+	return n.addGroup(restrictionModel{model: body, order: restrictionChoiceOrder{unordered: true}, term: term}, occurs)
 }
 
-func (n *restrictionNormalizer) addGroup(body contentModelNode, occurs occurrence, order restrictionChoiceOrder, term countRange) (contentParticle, error) {
+func (n *restrictionNormalizer) addGroup(model restrictionModel, occurs occurrence) (contentParticle, error) {
 	if err := n.validator.charge(); err != nil {
 		return contentParticle{}, err
 	}
@@ -380,6 +404,6 @@ func (n *restrictionNormalizer) addGroup(body contentModelNode, occurs occurrenc
 	if err != nil {
 		return contentParticle{}, err
 	}
-	n.models.added = append(n.models.added, restrictionModel{model: body, order: order, term: term})
+	n.models.added = append(n.models.added, model)
 	return modelParticle(id, occurs), nil
 }

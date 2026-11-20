@@ -59,11 +59,12 @@ type contentModelWorkState struct {
 // validateContentRestriction validates content-model restriction while
 // charging every graph traversal and particle comparison to work.
 //
-// Compilation and publication share this validator. Both operands have their
-// actual substitution groups expanded and prescribed pointless groups removed
-// before structural dispatch. Group-to-wildcard restriction checks the
-// aggregate against the original wildcard and each member against a copy with
-// minimum zero (I-004 in docs/spec/INTERPRETATIONS.md). RecurseLax waives
+// Compilation and publication share this validator. An empty derived
+// {content type} is decided by Derivation Valid (Restriction, Complex) clause
+// 5.3. Otherwise both operands have their actual substitution groups expanded
+// and prescribed pointless groups removed before structural dispatch, and each
+// case of the Particle Valid (Restriction) table applies its own occurrence
+// range rule; no rule compares aggregate ranges. RecurseLax waives
 // order only inside generated substitution choices or their flattened spans
 // (I-005); explicit siblings keep their order. Matching is bounded and
 // functional, with no permutation search. Comparison never mutates build
@@ -130,12 +131,10 @@ func (v contentRestrictionValidator) validateContentRestriction(baseID, derivedI
 	if err != nil {
 		return err
 	}
-	if err := v.validateContentRestrictionRanges(baseID, derivedID); err != nil {
-		return err
+	if derived.Kind == modelEmpty {
+		return v.validateEmptyContentRestriction(baseID)
 	}
-	// Empty content restricts an originally emptiable base (clause 5.3).
-	// Pointless-group removal can discard the branch proving emptiability.
-	if derived.Kind == modelEmpty || baseID == derivedID {
+	if baseID == derivedID {
 		return nil
 	}
 	one := occurrence{Min: 1, Max: 1}
@@ -162,28 +161,16 @@ func (v contentRestrictionValidator) restrictionModels(
 	return base, derived, nil
 }
 
-func (v contentRestrictionValidator) validateContentRestrictionRanges(baseID, derivedID contentModelID) error {
-	derivedEmptiable, err := v.analysis.ModelEmptiable(derivedID)
+// validateEmptyContentRestriction decides an empty derived {content type} by
+// Derivation Valid (Restriction, Complex) clause 5.3: the base content is
+// empty or its particle is emptiable, read as declared.
+func (v contentRestrictionValidator) validateEmptyContentRestriction(baseID contentModelID) error {
+	emptiable, err := v.analysis.ModelEmptiable(baseID)
 	if err != nil {
 		return err
 	}
-	baseEmptiable, err := v.analysis.ModelEmptiable(baseID)
-	if err != nil {
-		return err
-	}
-	if derivedEmptiable && !baseEmptiable {
-		return contentRestrictionMismatch("content restriction is not subset of base")
-	}
-	derivedRange, err := v.analysis.ModelCountRange(derivedID)
-	if err != nil {
-		return err
-	}
-	baseRange, err := v.analysis.ModelCountRange(baseID)
-	if err != nil {
-		return err
-	}
-	if !derivedRange.subsetOf(baseRange) {
-		return contentRestrictionMismatch("content restriction is not subset of base")
+	if !emptiable {
+		return contentRestrictionMismatch("empty content restriction of base that is not emptiable")
 	}
 	return nil
 }
@@ -542,27 +529,6 @@ func (v contentRestrictionValidator) compareParticleRestriction(base, derived co
 	if err := v.charge(); err != nil {
 		return err
 	}
-	derivedRange, err := v.analysis.ParticleCountRange(derived)
-	if err != nil {
-		return err
-	}
-	baseRange, err := v.analysis.ParticleCountRange(base)
-	if err != nil {
-		return err
-	}
-	if !derivedRange.subsetOf(baseRange) {
-		return contentRestrictionMismatch("particle restriction occurrence is not subset of base")
-	}
-	if derived.Kind == particleModel {
-		model, err := v.requireContentModel(derived.Model)
-		if err != nil {
-			return err
-		}
-		// Empty restrictions are admitted by the aggregate range check.
-		if model.Kind == modelEmpty {
-			return nil
-		}
-	}
 	switch base.Kind {
 	case particleWildcard:
 		return v.validateParticleRestrictsWildcard(base, derived)
@@ -578,6 +544,10 @@ func (v contentRestrictionValidator) compareParticleRestriction(base, derived co
 func (v contentRestrictionValidator) validateParticleRestrictsElement(base, derived contentParticle) error {
 	if derived.Kind != particleElement {
 		return contentRestrictionMismatch("particle restriction is not subset of element")
+	}
+	// NameAndTypeOK clause 2.
+	if !occurrenceRangeSubset(derived.Occurs, base.Occurs) {
+		return contentRestrictionMismatch("element restriction occurrence is not subset of base")
 	}
 	baseElement, derivedElement, err := v.restrictedElementIDs(base.Element, derived.Element)
 	if err != nil {
@@ -676,9 +646,6 @@ func (v contentRestrictionValidator) validateParticleRestrictsModel(base, derive
 		if err != nil {
 			return err
 		}
-		if restricted.Kind == modelEmpty {
-			return nil
-		}
 		restricted.Occurs = multiplyOccurrence(restricted.Occurs, derived.Occurs)
 	default:
 		return contentRestrictionInvariant("content restriction references invalid particle kind")
@@ -699,21 +666,25 @@ func (v contentRestrictionValidator) validateParticleRestrictsWildcard(base, der
 	}
 	switch derived.Kind {
 	case particleElement:
-		return v.validateElementRestrictsWildcard(base.Wildcard, derived.Element)
+		return v.validateElementRestrictsWildcard(base, derived)
 	case particleWildcard:
-		return v.validateWildcardRestrictsWildcard(base.Wildcard, derived.Wildcard)
+		return v.validateWildcardRestrictsWildcard(base, derived)
 	case particleModel:
-		return v.validateModelRestrictsWildcard(base, derived.Model)
+		return v.validateModelRestrictsWildcard(base, derived)
 	}
 	return nil
 }
 
-func (v contentRestrictionValidator) validateElementRestrictsWildcard(base WildcardID, derived ElementID) error {
-	baseWildcard, err := v.requireWildcard(base)
+// validateElementRestrictsWildcard applies NSCompat.
+func (v contentRestrictionValidator) validateElementRestrictsWildcard(base, derived contentParticle) error {
+	if !occurrenceRangeSubset(derived.Occurs, base.Occurs) {
+		return contentRestrictionMismatch("element restriction occurrence is not subset of wildcard")
+	}
+	baseWildcard, err := v.requireWildcard(base.Wildcard)
 	if err != nil {
 		return err
 	}
-	derivedName, err := v.requireElementName(derived)
+	derivedName, err := v.requireElementName(derived.Element)
 	if err != nil {
 		return err
 	}
@@ -723,12 +694,16 @@ func (v contentRestrictionValidator) validateElementRestrictsWildcard(base Wildc
 	return nil
 }
 
-func (v contentRestrictionValidator) validateWildcardRestrictsWildcard(base, derived WildcardID) error {
-	derivedWildcard, err := v.requireWildcard(derived)
+// validateWildcardRestrictsWildcard applies NSSubset.
+func (v contentRestrictionValidator) validateWildcardRestrictsWildcard(base, derived contentParticle) error {
+	if !occurrenceRangeSubset(derived.Occurs, base.Occurs) {
+		return contentRestrictionMismatch("wildcard restriction occurrence is not subset of base")
+	}
+	derivedWildcard, err := v.requireWildcard(derived.Wildcard)
 	if err != nil {
 		return err
 	}
-	baseWildcard, err := v.requireWildcard(base)
+	baseWildcard, err := v.requireWildcard(base.Wildcard)
 	if err != nil {
 		return err
 	}
@@ -738,13 +713,23 @@ func (v contentRestrictionValidator) validateWildcardRestrictsWildcard(base, der
 	return nil
 }
 
-func (v contentRestrictionValidator) validateModelRestrictsWildcard(base contentParticle, derived contentModelID) error {
-	model, err := v.requireContentModel(derived)
+// validateModelRestrictsWildcard applies NSRecurseCheckCardinality. Clause 2
+// compares the effective total range of the group as declared with the
+// wildcard's own range. Clause 1 compares each member with a copy of the
+// wildcard whose minimum is zero, the R-240 repair that
+// docs/spec/INTERPRETATIONS.md adopts.
+func (v contentRestrictionValidator) validateModelRestrictsWildcard(base, derived contentParticle) error {
+	total, err := v.analysis.ParticleCountRange(derived)
 	if err != nil {
 		return err
 	}
-	// R-240 (I-004 in docs/spec/INTERPRETATIONS.md) applies the wildcard minimum to the group's effective range,
-	// already checked by compareParticleRestriction, rather than each member.
+	if !total.subsetOf(countRange{counts: base.Occurs}) {
+		return contentRestrictionMismatch("group restriction effective total range is not subset of wildcard")
+	}
+	model, err := v.requireContentModel(derived.Model)
+	if err != nil {
+		return err
+	}
 	base.Occurs.Min = 0
 	for _, child := range model.Particles {
 		if err := v.compareParticleRestriction(base, child); err != nil {

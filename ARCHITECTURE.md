@@ -223,7 +223,17 @@ carries the count range of the group it stands for, which the count analysis
 reads for Particle Emptiable and the effective total range, and `emptyGroup`
 decides from that range whether a group left with no members matches only the
 empty sequence or nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
-[I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)); the execution
+[I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)). A group it finds
+pointless that way is only marked: its parent ignores it, and a derived
+{content type} particle so marked leaves nothing to compare and restricts only
+an emptiable base (`validatePointlessRestriction`), as W3C mgE014 expects.
+Each case of the Particle Valid (Restriction) table owns its own range rule
+(NameAndTypeOK, NSCompat and NSSubset compare the particles' own ranges;
+Recurse, RecurseLax and RecurseUnordered clause 1 the groups' ranges; MapAndSum
+clause 2 its product range; NSRecurseCheckCardinality clause 2 the group's
+effective total range), and no check compares the aggregate range of a
+content model. `validateEmptyContentRestriction` owns Derivation Valid
+(Restriction, Complex) clause 5.3 for an empty derived {content type}; the execution
 projection owns language-preserving reduction without copying: direct
 compilation walks the execution particles (`executionParticles`), which splice
 every 1..1 child group of the same compositor in place, charging one step per
@@ -1270,6 +1280,17 @@ graph preserves these ownership rules:
   matches nothing although it was declared with members, and an optional
   group of empty groups is not pointless as declared. `emptyGroup` decides
   from what the ignored members matched.
+- Checking the aggregate count range and emptiability of the whole content,
+  or the count range of each particle pair before the case table, was
+  rejected: Particle Valid (Restriction) has no aggregate range rule, so those
+  checks duplicated the per-case range rules and rejected restrictions the
+  text admits, such as a choice of `a` and an empty sequence restricting a
+  choice of `a` and `b`.
+- Sending a derived {content type} particle that clause 2.2.1 makes pointless
+  through the case table, as Xerces-J does, was rejected: accepted W3C mgE014
+  expects such an empty sequence to restrict a sequence of one optional
+  element, which the case table forbids once that sequence reduces to its
+  element ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)).
 - Keying the ur-type exemption on a content model kind or wildcard identity was
   rejected: a type that inherits xs:anyType's content shares that identity
   without being xs:anyType, and clause 5.1 names the base type. Particle

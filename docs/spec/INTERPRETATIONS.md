@@ -1446,7 +1446,8 @@ sequence (`derived-seq-a-optemptychoice-b`,
 `derived-seq-a-repemptyseq-b03`) and a derived choice that holds a repeated
 empty sequence beside an element, alone or within a sequence
 (`derived-choice-a-repemptyseq`, `derived-seq-choice-a-repemptyseq`,
-`derived-seq-c-choice-a-repemptyseq`), which
+`derived-seq-c-choice-a-repemptyseq`) or an optional empty choice beside an
+element (`derived-cho-a-optemptychoice-vs-cho-ab`), which
 .NET, xmlschema and libxml2 accept. Such a group also adds nothing to the effective
 total range of the group holding it: Effective Total Range (§3.8.6) makes a
 maximum unbounded only when the repeated part is non-zero. Within its parent, a 1..1
@@ -1484,6 +1485,55 @@ singleton groups in a derived type (`derived-*-nested-elt`, invalid there) and
 keeps a derived choice of a required empty choice and an empty sequence
 (`derived-seq-a-choiceofemptychoiceandseq-b`, invalid there), although it
 ignores a derived empty sequence (`derived-seq-a-empty-b`).
+
+**Occurrence ranges.** Particle Valid (Restriction) has no rule that compares
+the aggregate range of the derived content with the base's; each case of its
+table owns one range rule. NameAndTypeOK clause 2, NSCompat clause 2 and
+NSSubset clause 1 compare the two particles' own ranges by Occurrence Range
+OK; Recurse, RecurseLax and RecurseUnordered clause 1 compare the groups'
+ranges; MapAndSum clause 2 compares its product range; and
+NSRecurseCheckCardinality clause 2 compares the effective total range of the
+derived group, read as declared, with the wildcard's own range, before
+[I-004](#i-004--published-member-minimum-rule) zeroes the minimum for the
+members. A pointless member therefore adds nothing to a derived choice: a
+choice of `a` and an empty sequence, in any position, or of `a` and an empty
+choice with `minOccurs="0"`, restricts a choice of `a` and `b`, while a choice
+of an empty sequence and an optional `a` does not, since the optional `a` does
+not restrict the required one (`project/content-models/pointless-groups/declared/derived-cho-*-vs-cho-*`).
+The text decides these. Each range rule has a case with equal ranges and cases
+one step outside on the minimum and on the maximum
+(`project/content-models/particle-restriction/occurrence-range/*`). Xerces-J,
+.NET and xmlschema agree on every one; libxml2 accepts every invalid one.
+
+**Pointless content particle.** Particle Valid (Restriction) clause 2.2.1
+makes a sequence or `all` whose {particles} is empty pointless, and the
+particle of a {content type} is not exempt. A group reference is not empty
+explicit content (§3.4.2 clause 2.1 lists only the `all`, `sequence` and
+`choice` elements), so a restriction whose content is a reference to a group
+whose model group is `<xs:sequence/>` or `<xs:all/>` has an element-only
+{content type} whose particle clause 2.2.1 ignores. The text does not say how
+the restriction is then compared, and accepted W3C test `msMeta` mgE014
+decides it: a sequence whose only element has `minOccurs` and `maxOccurs` 0,
+the same component, restricts a sequence of one optional element (also
+`project/content-models/element-zero-occurrence/restriction-derived-particle-zero-count`).
+The ignored particle leaves nothing to compare, and the restriction is valid
+exactly when the base particle is emptiable, for `all` as for `sequence`,
+since clause 2.2.1 treats them alike. A mixed restriction with empty explicit
+content compares the same way. The base particle is not ignored. Xerces-J
+instead sends the empty group through the case table, and so rejects an empty
+`all` against an optional sequence (Forbidden all:sequence), an empty sequence
+against an optional sequence of a required element (Recurse clause 2.2), and
+an empty sequence or `all` against a base that reduces to an optional element
+(Forbidden sequence:element and all:element), as it rejects mgE014 and the
+mixed restriction; xmlschema
+rejects the first two. .NET and libxml2 accept them all. All four reject an
+empty `all` against a base that is not emptiable, and accept an inline
+`<xs:all/>`, which is empty content decided by clause 5.3 of Derivation Valid
+(Restriction, Complex). Cases:
+`project/content-models/pointless-groups/empty-group-ref-*`,
+`project/content-models/pointless-groups/zero-count-all-all-base`,
+`project/content-models/pointless-groups/mixed-empty-restriction-singleton-base`
+and `project/content-models/pointless-groups/inline-empty-all-optional-sequence-base`.
 
 **MapAndSum range.** A derived sequence declared with members whose members
 are all pointless stays a group, as the declared-group reading above settles
@@ -2407,7 +2457,18 @@ libxml2 accept it. Inside a choice it adds
 nothing, so a choice of `a` and a required empty choice restricts a choice of
 `a` and `b`, as all four agree.
 
+As the particle of a {content type}, reached through a reference to a group
+whose model group is a required empty choice, it is not pointless (clause
+2.2.1 needs `minOccurs="0"`), so RecurseLax compares a choice with no members
+with the base choice: no member needs a mapping, and the range 1..1 restricts
+a required choice of `a` and `b`, which is valid although the base is not
+emptiable (`project/content-models/pointless-groups/empty-choice-ref-required-choice-base`).
+The text decides it. Xerces-J rejects it as an empty particle against a base
+that is not emptiable (`cos-particle-restrict.a`), and .NET as empty content
+of a base that is not emptiable; xmlschema and libxml2 accept it.
+
 Cases: `project/content-models/nested-empty-choice-required`,
+`project/content-models/pointless-groups/empty-choice-ref-required-choice-base`,
 `project/content-models/type-derivation/extension-content/required-empty-choice-base`,
 `project/content-models/nested-choice-of-empty-choices-required`,
 `project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt`,
