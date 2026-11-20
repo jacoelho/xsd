@@ -279,12 +279,20 @@ func nextNestedContentModel(particles []contentParticle, next *int) (contentMode
 	return child, true
 }
 
-// complexContentExtendsBase reports whether derived's {content type} is the
-// one Structures §3.4.2 complex content clause 3.2 gives an extension of base:
-// the base content type itself (3.2.1), any content over an empty base (3.2.2),
-// or a 1..1 sequence whose first particle is the base particle (3.2.3).
+// complexContentExtendsBase reports whether derived's {content type}, its
+// variety and particle, is the one Structures §3.4.2 complex content clause
+// 3.2 gives an extension of base: any content over an empty base (3.2.2), and
+// otherwise the base variety (Derivation Valid (Extension) clause 1.4.3.2.2.1)
+// with the base particle itself (3.2.1) or a 1..1 sequence whose first
+// particle is the base particle (3.2.3).
 func complexContentExtendsBase(rt *schemaBuild, base, derived complexTypeMetadata) bool {
-	if derived.Content == base.Content || base.ContentKind == contentEmpty {
+	if base.ContentKind == contentEmpty {
+		return true
+	}
+	if derived.ContentKind != base.ContentKind {
+		return false
+	}
+	if derived.Content == base.Content {
 		return true
 	}
 	model, ok := contentModelByID(rt.Models, derived.Content)

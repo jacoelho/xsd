@@ -299,7 +299,10 @@ func TestComplexContentExtendsBase(t *testing.T) {
 	elementOnly := func(id contentModelID) complexTypeMetadata {
 		return complexTypeMetadata{Content: id, ContentKind: contentElementOnly}
 	}
-	mixedEmpty := complexTypeMetadata{Content: emptyID, ContentKind: contentMixed}
+	mixed := func(id contentModelID) complexTypeMetadata {
+		return complexTypeMetadata{Content: id, ContentKind: contentMixed}
+	}
+	mixedEmpty := mixed(emptyID)
 	empty := complexTypeMetadata{Content: emptyID, ContentKind: contentEmpty}
 	tests := []struct {
 		name    string
@@ -310,8 +313,10 @@ func TestComplexContentExtendsBase(t *testing.T) {
 		{name: "base content type kept", base: elementOnly(baseSeqID), derived: elementOnly(baseSeqID), want: true},
 		{name: "empty base takes any content", base: empty, derived: elementOnly(choiceID), want: true},
 		{name: "sequence of base particle and explicit content", base: elementOnly(baseSeqID), derived: elementOnly(extendedID), want: true},
-		{name: "mixed empty base contributes the empty sequence", base: mixedEmpty, derived: elementOnly(mixedEmptyExt), want: true},
-		{name: "mixed empty base needs the empty sequence first", base: mixedEmpty, derived: elementOnly(extendedID)},
+		{name: "base particle with another variety", base: elementOnly(baseSeqID), derived: mixed(baseSeqID)},
+		{name: "sequence with another variety", base: elementOnly(baseSeqID), derived: mixed(extendedID)},
+		{name: "mixed empty base contributes the empty sequence", base: mixedEmpty, derived: mixed(mixedEmptyExt), want: true},
+		{name: "mixed empty base needs the empty sequence first", base: mixedEmpty, derived: mixed(extendedID)},
 		{name: "base particles spliced into the sequence", base: elementOnly(baseSeqID), derived: elementOnly(splicedID)},
 		{name: "base particle not first", base: elementOnly(baseSeqID), derived: elementOnly(reversedID)},
 		{name: "sequence not exactly once", base: elementOnly(baseSeqID), derived: elementOnly(repeatedID)},

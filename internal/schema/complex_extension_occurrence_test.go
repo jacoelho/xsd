@@ -73,3 +73,27 @@ func TestPublicationRejectsNormalizedExtensionBaseCorruption(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicationRejectsExtensionContentVarietyCorruption(t *testing.T) {
+	const source = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="Base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
+  <xs:complexType name="Derived">
+    <xs:complexContent><xs:extension base="Base"><xs:attribute name="x"/></xs:extension></xs:complexContent>
+  </xs:complexType>
+</xs:schema>`
+	build := mutableSchemaBuild(t, source)
+	if err := validateSchemaBuild(build); err != nil {
+		t.Fatalf("ValidateSchema() before mutation error = %v", err)
+	}
+	derived := &build.ComplexTypes[complexBuildTypeIDByName(t, build, "Derived")]
+	base := build.ComplexTypes[complexBuildTypeIDByName(t, build, "Base")]
+	if derived.Content != base.Content {
+		t.Fatalf("Derived content model %d, want the base content model %d", derived.Content, base.Content)
+	}
+	derived.ContentKind = xsdSchema.ContentMixed
+	published, err := publishSchema(build)
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if published != nil {
+		t.Fatal("PublishSchema() returned a schema whose extension changed the base content variety")
+	}
+}
