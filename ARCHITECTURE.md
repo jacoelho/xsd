@@ -191,13 +191,59 @@ schema owns facet admission, final constraints and schema-use policy.
 `MaxContentModelAnalysisSteps` bounds consistency, restriction, UPA,
 compilation and sealing. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
-`appendModelParticles` is the only particle append and charges one step per
-particle before allocating; `addModel` (one step per record) and
+`appendModelParticles` is the only append to retained model particles and
+charges one step per particle before allocating (the restriction normalizer
+builds transient comparison nodes that it charges to
+`MaxContentModelAnalysisSteps` and never retains); `addModel` (one step per record) and
 `completeModel` write the model table, and `completeModel` installs only
 particles already charged; `addAttributeUseSet` charges `len(Uses)` and
 `appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and
 `contentModelByID` shares them on read. A new retained table must charge in its
-admission function. Admission functions return unlocated budget errors.
+admission function. Admission functions return unlocated budget errors. The
+builtin components are seeded before the caller's `MaxSchemaDependencySteps`
+budget is installed and spend none of it, so every dependency-limit failure
+has a schema document to locate it.
+
+The content model table holds declared components. Lowering drops zero-count
+particles and keeps every declared group as its own particle; xs:anyType's
+content is a 1..1 mixed sequence holding its lax `##any` wildcard
+0..unbounded. `explicitContentEmpty` alone decides from the source whether a
+complex type's ·effective content· is empty (Structures §3.4.2 complex content
+clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
+direct, restriction and extension paths call, and returns the effective
+content with the variety it gives the {content type}, with no model for empty
+content, which mixed content stores as the synthetic empty sequence of clause
+2.1.4. `extensionContentType` alone
+builds an extension's {content type} (clause 3.2), and the publication audit
+`complexContentExtendsBase` checks the same three forms. Each reader that
+reduces a model owns one rule: the restriction normalizer
+(`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
+and decides pointlessness on the declared group; each comparison node it adds
+carries the count range of the group it stands for, which the count analysis
+reads for Particle Emptiable and the effective total range, and `emptyGroup`
+decides from that range whether a group left with no members matches only the
+empty sequence or nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
+[I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)); the execution
+projection owns language-preserving reduction without copying: direct
+compilation walks the execution particles (`executionParticles`), which splice
+every 1..1 child group of the same compositor in place, charging one step per
+particle visited and stopping when compilation stops, and `executionModel`
+lifts a model whose walk yields one particle, as `executionParticle` reduces
+it, and otherwise hands the declared model to automaton construction, which
+walks nested groups as declared; `executionParticle` reduces singleton
+particles for direct compilation, and the projection recognizes lax-any
+content in that reduced form by the shape `builtin.go` defines for
+xs:anyType's content particle. The direct Unique
+Particle Attribution check (`checkContentModelUPA`) also reads nested groups as
+declared, through facts the content-model analysis owns:
+`lastParticles` alone decides which particles of a nested group can match its
+last element, and `ModelContinuations` computes the continuation set of each
+model once, holding each particle once, so a group referenced N times adds
+no copies; both direct checks iterate the shared sets. The count analysis
+(`countRange`) represents a term that matches nothing, so such a member adds
+no alternative to a choice. `baseIsUrType` alone decides the ur-type
+exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
+the restriction's base type.
 
 Every diagnostic about schema document content carries the document path, line
 and column. Two other kinds carry less: a failure to obtain an explicit
@@ -1160,12 +1206,23 @@ graph preserves these ownership rules:
 
 ### Schema Compilation And Content Models
 
-- Charging group flattening to `MaxContentModelAnalysisSteps` was rejected: its
-  16.7M-step default admits over 1 GB of particles before failure. Charging
-  `len(Particles)` at `addModel` was rejected because the main path installs
-  particles through `completeModel`, and shared variants would be charged for
-  copies that do not happen. Cloning content models on read was rejected: it
-  is uncharged work proportional to references times group size.
+- Flattening nested groups during lowering was rejected: the declared groups
+  are what Particle Valid (Restriction) clause 2.2 reads
+  ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)), and
+  copying a shared group's particles into every referring group grows the model
+  table exponentially in reference depth. A lowered model holds one particle
+  per declared child, so a group referenced N times is stored once; only the
+  analysis walks and the execution projection expand it, each charged to
+  `MaxContentModelAnalysisSteps` per particle visited. Materializing the
+  execution projection as a flat particle list was rejected for the same
+  reason: one step per particle bought 32 bytes or more of a list that direct
+  compilation and automaton construction can read in place, so a fan-out of
+  references to a large group reached hundreds of MiB within the default
+  analysis budget.
+  Charging `len(Particles)` at `addModel` was rejected because the main path
+  installs particles through `completeModel`, and shared variants would be
+  charged for copies that do not happen. Cloning content models on read was
+  rejected: it is uncharged work proportional to references times group size.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
   `compileDeferredModelChildren`): each child particle keeps its own mapping,
@@ -1200,6 +1257,21 @@ graph preserves these ownership rules:
 - Rebuilding unchanged groups to relocate occurrence bounds, and cloning child
   slices inside trusted analysis, were rejected: comparison already composes
   both layers, and wide groups amplify copying cost.
+- Testing a group for pointlessness again after its children are reduced was
+  rejected: the processor tie-break settles clause 2.2 on the declared group
+  ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks)), and a
+  re-test makes a declared two-member group a singleton. Only the choice
+  clause 2.1 generates for a substitution group, which is not declared, is
+  reduced by its member count (`substitutionChoice`). Deciding that a group
+  left with no members is empty from its declared member count or its
+  occurrence was rejected: a required choice of required empty choices
+  matches nothing although it was declared with members, and an optional
+  group of empty groups is not pointless as declared. `emptyGroup` decides
+  from what the ignored members matched.
+- Keying the ur-type exemption on a content model kind or wildcard identity was
+  rejected: a type that inherits xs:anyType's content shares that identity
+  without being xs:anyType, and clause 5.1 names the base type. Particle
+  comparison has no ur-type concept.
 - Discarding generated-choice provenance during flattening, or using global
   unordered flags with permutation search, was rejected: either reintroduces
   storage-order dependence or waives explicit sibling order (I-005).
@@ -1207,7 +1279,16 @@ graph preserves these ownership rules:
   computation has already occurred; repeated failures would evade the aggregate
   work bound. Retryability preserves build data, not spent resources.
 - Sharing UPA results across roots and eager DFA follow interning were
-  rejected because each changes work accounting or limit-failure order.
+  rejected because each changes work accounting or limit-failure order. The
+  analysis facts the checks read (emptiability, count ranges, continuation
+  sets) are shared: each is computed once per model, charged to the root
+  that first reads it.
+- Materializing the continuation particles of each sequence member as a fresh
+  list was rejected: a list per referring particle copies the lists of its
+  nested groups, so shared emptiable groups nested N deep produce 2^N entries
+  (277 MiB at N=16 on the doubling-groups schema). Continuation sets are
+  memoized per model ID and deduplicated by particle, and the start particles
+  of a repeated group are a shared prefix of its declared particles.
 - Locating content-model diagnostics at the particle was rejected: particles
   carry no source node, and one per particle adds a pointer to every retained
   particle. The precision limit is that a violation inside a referenced group

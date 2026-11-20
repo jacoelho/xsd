@@ -145,33 +145,6 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNoModel(t *testing.T) {
 	}
 }
 
-func TestCanonicalComplexContentModelLocatesBuiltinCopiesAtOwner(t *testing.T) {
-	t.Parallel()
-
-	for _, kind := range []complexContentVariety{contentEmpty, contentElementOnly} {
-		limits, err := NormalizeOptions(Options{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		c, err := newCompiler(limits)
-		if err != nil {
-			t.Fatal(err)
-		}
-		anyTypeModel := c.rt.complexType(c.rt.AnyType).Content
-		owner := &schemaNode{}
-		got, err := c.canonicalComplexContentModel(anyTypeModel, kind, owner)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got == anyTypeModel {
-			t.Fatalf("variety %v reused the builtin anyType model", kind)
-		}
-		if c.modelSources[got] != owner {
-			t.Fatalf("variety %v: copy source = %p, want owner %p", kind, c.modelSources[got], owner)
-		}
-	}
-}
-
 func TestAddModelRejectsModelWithoutSource(t *testing.T) {
 	t.Parallel()
 

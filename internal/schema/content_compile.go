@@ -128,8 +128,11 @@ func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compi
 
 // contentModelUPACheck validates the direct unique-particle-attribution checks
 // that can be proven before compiled DFA construction, one model of a table at
-// a time. Traversal is root-local: each root uses its own seen tag, so results
-// and work charges are never shared across roots.
+// a time. Verdicts are root-local: each root uses its own seen tag, so a
+// root's verdict and the work of its own traversal are never shared across
+// roots. The analysis facts it reads, such as emptiability and continuation
+// sets, are computed once per model and charged to the root that first reads
+// them.
 type contentModelUPACheck struct {
 	compiler contentModelCompiler
 	seen     []int
@@ -503,7 +506,7 @@ func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 		return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in all")
 	case modelSequence:
 		return c.checkSequenceUPA(model)
-	case modelEmpty, modelAny:
+	case modelEmpty:
 		return nil
 	default:
 	}
@@ -511,18 +514,27 @@ func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 }
 
 func (c *contentModelCompiler) checkSequenceUPA(model contentModelNode) error {
-	for i, p := range model.Particles {
-		candidates, err := c.particleContinuationParticles(p)
+	for i := range model.Particles {
+		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
 		if err != nil {
 			return err
 		}
-		if err := c.work.spend(len(candidates)); err != nil {
-			return err
-		}
-		for _, candidate := range candidates {
-			if err := c.checkSequenceContinuationUPA(model, candidate, i+1); err != nil {
+		for _, candidates := range sets {
+			if err := c.checkCandidatesUPA(model, candidates, i+1); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (c *contentModelCompiler) checkCandidatesUPA(model contentModelNode, candidates []contentParticle, start int) error {
+	if err := c.work.spend(len(candidates)); err != nil {
+		return err
+	}
+	for _, candidate := range candidates {
+		if err := c.checkSequenceContinuationUPA(model, candidate, start); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -550,7 +562,8 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 		return false, err
 	}
 	if !overlap {
-		return next.Occurs.Min > 0, nil
+		emptiable, err := c.analysis.ParticleEmptiable(next)
+		return !emptiable, err
 	}
 	if !modelOccurs.IsExactlyOne() && c.wildcardEquivalentOverlap(candidate, next) {
 		return false, nil
@@ -558,130 +571,28 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 	return false, c.upaError("UPA violation: duplicate element in sequence", name)
 }
 
-func (c *contentModelCompiler) particleContinuationParticles(p contentParticle) ([]contentParticle, error) {
-	if err := c.work.spend(1); err != nil {
-		return nil, err
-	}
-	if p.Occurs.IsAbsent() {
-		return nil, nil
-	}
-	switch p.Kind {
-	case particleElement, particleWildcard:
-		return c.leafContinuationParticles(p)
-	case particleModel:
-		return c.nestedModelContinuationParticles(p)
-	}
-	return nil, nil
-}
-
-func (c *contentModelCompiler) leafContinuationParticles(particle contentParticle) ([]contentParticle, error) {
-	overlaps, err := c.particleCanOverlapFollowing(particle)
-	if err != nil || !overlaps {
-		return nil, err
-	}
-	return []contentParticle{particle}, nil
-}
-
-func (c *contentModelCompiler) nestedModelContinuationParticles(particle contentParticle) ([]contentParticle, error) {
-	model, ok := contentModelByID(c.rt.Models, particle.Model)
-	if !ok {
-		return nil, nil
-	}
-	var out []contentParticle
-	if particle.Occurs.Unbounded || particle.Occurs.Max > particle.Occurs.Min {
-		start, err := c.modelStartParticles(model)
-		if err != nil {
-			return nil, err
-		}
-		if err := c.work.spend(len(start)); err != nil {
-			return nil, err
-		}
-		out = append(out, start...)
-	}
-	continuations, err := c.modelContinuationParticles(model)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.work.spend(len(continuations)); err != nil {
-		return nil, err
-	}
-	return append(out, continuations...), nil
-}
-
-func (c *contentModelCompiler) modelContinuationParticles(model contentModelNode) ([]contentParticle, error) {
-	if err := c.work.spend(1); err != nil {
-		return nil, err
-	}
-	out, err := c.repeatedModelStartParticles(model)
-	if err != nil {
-		return nil, err
-	}
-	switch model.Kind {
-	case modelSequence, modelChoice:
-		return c.appendParticleContinuations(out, model.Particles)
-	case modelEmpty, modelAny, modelAll:
-		return out, nil
-	default:
-	}
-	return out, nil
-}
-
-func (c *contentModelCompiler) repeatedModelStartParticles(model contentModelNode) ([]contentParticle, error) {
-	if !model.Occurs.Unbounded && model.Occurs.Max <= model.Occurs.Min {
-		return nil, nil
-	}
-	start, err := c.modelStartParticles(model)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.work.spend(len(start)); err != nil {
-		return nil, err
-	}
-	return start, nil
-}
-
-func (c *contentModelCompiler) appendParticleContinuations(out []contentParticle, particles []contentParticle) ([]contentParticle, error) {
-	for _, particle := range particles {
-		continuations, err := c.particleContinuationParticles(particle)
-		if err != nil {
-			return nil, err
-		}
-		if err := c.work.spend(len(continuations)); err != nil {
-			return nil, err
-		}
-		out = append(out, continuations...)
-	}
-	return out, nil
-}
-
-func (c *contentModelCompiler) particleCanOverlapFollowing(p contentParticle) (bool, error) {
-	r, err := c.analysis.ParticleCountRange(p)
-	return r.Unbounded || r.Max > r.Min, err
-}
-
 func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model contentModelNode) (bool, error) {
 	if model.Kind != modelSequence {
 		return false, nil
 	}
-	for i, p := range model.Particles {
-		overlap, err := c.particleHasWildcardEquivalentContinuation(model, p, i+1)
+	for i := range model.Particles {
+		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
 		if err != nil {
 			return false, err
 		}
-		if overlap {
-			return true, nil
+		for _, candidates := range sets {
+			overlap, err := c.candidatesHaveWildcardEquivalentOverlap(model.Particles, candidates, i+1)
+			if err != nil || overlap {
+				return overlap, err
+			}
 		}
 	}
 	return false, nil
 }
 
-func (c *contentModelCompiler) particleHasWildcardEquivalentContinuation(model contentModelNode, particle contentParticle, start int) (bool, error) {
-	candidates, err := c.particleContinuationParticles(particle)
-	if err != nil {
-		return false, err
-	}
+func (c *contentModelCompiler) candidatesHaveWildcardEquivalentOverlap(particles, candidates []contentParticle, start int) (bool, error) {
 	for _, candidate := range candidates {
-		overlap, err := c.wildcardCandidateOverlaps(model.Particles, candidate, start)
+		overlap, err := c.wildcardCandidateOverlaps(particles, candidate, start)
 		if err != nil || overlap {
 			return overlap, err
 		}
@@ -697,8 +608,9 @@ func (c *contentModelCompiler) wildcardCandidateOverlaps(particles []contentPart
 		if c.wildcardEquivalentOverlap(candidate, particles[i]) {
 			return true, nil
 		}
-		if particles[i].Occurs.Min > 0 {
-			break
+		emptiable, err := c.analysis.ParticleEmptiable(particles[i])
+		if err != nil || !emptiable {
+			return false, err
 		}
 	}
 	return false, nil
@@ -719,54 +631,21 @@ func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b contentParticle) b
 	return wildcardNamespaceEqual(wa, wb)
 }
 
-func (c *contentModelCompiler) modelStartParticles(model contentModelNode) ([]contentParticle, error) {
-	if err := c.work.spend(1); err != nil {
-		return nil, err
-	}
-	switch model.Kind {
-	case modelAll, modelChoice:
-		if err := c.work.spend(len(model.Particles)); err != nil {
-			return nil, err
-		}
-		return slices.Clone(model.Particles), nil
-	case modelSequence:
-		return c.sequenceStartParticles(model.Particles)
-	case modelEmpty, modelAny:
-		return nil, nil
-	default:
-	}
-	return nil, nil
-}
-
-func (c *contentModelCompiler) sequenceStartParticles(particles []contentParticle) ([]contentParticle, error) {
-	var out []contentParticle
-	for _, particle := range particles {
-		if err := c.work.spend(1); err != nil {
-			return nil, err
-		}
-		out = append(out, particle)
-		emptiable, err := c.analysis.ParticleEmptiable(particle)
-		if err != nil {
-			return nil, err
-		}
-		if !emptiable {
-			break
-		}
-	}
-	return out, nil
-}
-
 func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledModel, error) {
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
 		return compiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model")
 	}
-	model = normalizeSingleParticleModel(model)
+	model, err := c.executionModel(model)
+	if err != nil {
+		return compiledModel{}, err
+	}
+	if c.laxAnyContent(model) {
+		return compiledModel{Kind: compiledModelAny, Empty: true}, nil
+	}
 	switch model.Kind {
 	case modelEmpty:
 		return compiledModel{Kind: compiledModelEmpty, Empty: true}, nil
-	case modelAny:
-		return compiledModel{Kind: compiledModelAny, Empty: true}, nil
 	case modelAll:
 		return c.compileAllModel(model)
 	case modelSequence, modelChoice:
@@ -779,10 +658,19 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 			states: make(map[string]uint32),
 			limit:  c.maxContentModelStates,
 		}
-		return b.compile(id)
+		return b.compile(model)
 	default:
 		return compiledModel{}, xsderrors.InternalInvariant("content model has unknown kind")
 	}
+}
+
+// laxAnyContent reports whether model, an execution model, holds only the
+// particle of xs:anyType's content, which compiledModelAny executes without a
+// DFA. The decision reads the content, never the owning type: xs:anyType and
+// every declaration of the same content share it.
+func (c *contentModelCompiler) laxAnyContent(model contentModelNode) bool {
+	return model.Kind == modelSequence && len(model.Particles) == 1 &&
+		builtinAnyTypeContentParticleShape(c.rt.Wildcards, model.Particles[0])
 }
 
 func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
@@ -799,6 +687,76 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 	model.Occurs = occurrence{Min: 1, Max: 1}
 	model.Particles = []contentParticle{particle}
 	return model
+}
+
+// executionModel is the root that direct compilation and automaton
+// construction compile for a declared model. The declared model keeps its
+// groups for Particle Valid (Restriction) clause 2.2, and a shared group is
+// never copied into the models that refer to it: execution reads the
+// language-preserving splice of same-compositor 1..1 groups through
+// executionParticles. A model whose splice is one particle becomes a model of
+// that particle as executionParticle reduces it.
+func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
+	if model.Kind != modelSequence && model.Kind != modelChoice {
+		return model, nil
+	}
+	var first contentParticle
+	count := 0
+	err := c.executionParticles(model, func(p contentParticle) (bool, error) {
+		first = p
+		count++
+		return count < 2, nil
+	})
+	if err != nil || count != 1 {
+		return model, err
+	}
+	if first, err = c.executionParticle(first); err != nil {
+		return model, err
+	}
+	single := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed, Particles: []contentParticle{first}}
+	return normalizeSingleParticleModel(single), nil
+}
+
+func (c *contentModelCompiler) executionParticles(model contentModelNode, yield func(contentParticle) (bool, error)) error {
+	_, err := c.yieldExecutionParticles(model, yield)
+	return err
+}
+
+func (c *contentModelCompiler) yieldExecutionParticles(model contentModelNode, yield func(contentParticle) (bool, error)) (bool, error) {
+	for _, p := range model.Particles {
+		next, err := c.yieldExecutionParticle(model.Kind, p, yield)
+		if err != nil || !next {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (c *contentModelCompiler) yieldExecutionParticle(parent modelKind, p contentParticle, yield func(contentParticle) (bool, error)) (bool, error) {
+	if err := c.work.spend(1); err != nil {
+		return false, err
+	}
+	child, ok, err := c.executionGroup(parent, p)
+	if err != nil {
+		return false, err
+	}
+	if ok {
+		return c.yieldExecutionParticles(child, yield)
+	}
+	return yield(p)
+}
+
+// executionGroup returns the group p contributes to a parent of kind parent
+// when its particles replace p there.
+func (c *contentModelCompiler) executionGroup(parent modelKind, p contentParticle) (contentModelNode, bool, error) {
+	if p.Kind != particleModel || !p.Occurs.IsExactlyOne() {
+		return contentModelNode{}, false, nil
+	}
+	child, ok := contentModelByID(c.rt.Models, p.Model)
+	if !ok {
+		return contentModelNode{}, false, xsderrors.InternalInvariant("execution particle references missing content model")
+	}
+	return child, child.Occurs.IsExactlyOne() && child.Kind == parent, nil
 }
 
 // executionParticle collapses representable singleton repetitions only in the
@@ -846,7 +804,7 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 		return c.compileDirectSequenceModel(model)
 	case modelChoice:
 		return c.compileDirectChoiceModel(model)
-	case modelEmpty, modelAny, modelAll:
+	case modelEmpty, modelAll:
 		return compiledModel{}, false, nil
 	default:
 	}
@@ -855,11 +813,14 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 
 func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode) (compiledModel, bool, error) {
 	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, active: []uint32{0}}
-	for _, particle := range model.Particles {
-		supported, err := compilation.addParticle(particle)
-		if err != nil || !supported {
-			return compiledModel{}, supported, err
-		}
+	supported := true
+	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
+		var err error
+		supported, err = compilation.addParticle(particle)
+		return supported, err
+	})
+	if err != nil || !supported {
+		return compiledModel{}, supported, err
 	}
 	for _, state := range compilation.active {
 		compilation.rows[state].Accept = true
@@ -961,11 +922,14 @@ func (b *directSequenceCompilation) appendActiveEdges(edge compiledModelEdge) er
 
 func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode) (compiledModel, bool, error) {
 	compilation := directChoiceCompilation{compiler: c, rows: []compiledModelRow{{}}}
-	for _, particle := range model.Particles {
-		supported, err := compilation.addParticle(particle)
-		if err != nil || !supported {
-			return compiledModel{}, supported, err
-		}
+	supported := true
+	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
+		var err error
+		supported, err = compilation.addParticle(particle)
+		return supported, err
+	})
+	if err != nil || !supported {
+		return compiledModel{}, supported, err
 	}
 	if err := c.checkCompiledRowsUPA(compilation.rows); err != nil {
 		return compiledModel{}, false, err
@@ -1228,8 +1192,11 @@ func (c *contentModelCompiler) upaError(msg string, name QName) error {
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, msg)
 }
 
-func (b *dfaBuilder) compile(id contentModelID) (compiledModel, error) {
-	root, err := b.modelNode(id)
+func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {
+	if err := b.c.work.spend(1); err != nil {
+		return compiledModel{}, err
+	}
+	root, err := b.groupNode(model)
 	if err != nil {
 		return compiledModel{}, err
 	}
@@ -1253,7 +1220,7 @@ func (b *dfaBuilder) compile(id contentModelID) (compiledModel, error) {
 	if err := b.checkUPA(); err != nil {
 		return compiledModel{}, err
 	}
-	return b.compileDeterministicModel(id, startID)
+	return b.compileDeterministicModel(startID)
 }
 
 func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
@@ -1389,6 +1356,10 @@ func (b *dfaBuilder) modelNode(id contentModelID) (dfaNode, error) {
 	if !ok {
 		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model")
 	}
+	return b.groupNode(model)
+}
+
+func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 	var (
 		node dfaNode
 		err  error
@@ -1408,8 +1379,6 @@ func (b *dfaBuilder) modelNode(id contentModelID) (dfaNode, error) {
 		}
 	case modelAll:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models")
-	case modelAny:
-		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
 	default:
 		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
 		return dfaNode{}, err

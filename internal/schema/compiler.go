@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/source"
@@ -268,13 +269,17 @@ func newCompiler(limits Limits) (*compiler, error) {
 		missingSimple:            NoSimpleType,
 		limits:                   limits,
 		contentWork:              newWorkBudget(contentModelWorkBudget, limits.MaxContentModelAnalysisSteps),
-		dependencyWork:           newWorkBudget(dependencyWorkBudget, limits.MaxSchemaDependencySteps),
+		dependencyWork:           newWorkBudget(dependencyWorkBudget, math.MaxInt),
 		patterns:                 newSchemaPatterns(limits),
 	}
 	c.rt.typeWork = &c.dependencyWork
+	// The builtin components are a fixed set, not admitted from the caller's
+	// sources, so seeding them spends no MaxSchemaDependencySteps work and a
+	// limit failure always has a schema document to locate it.
 	if err = c.addBuiltins(); err != nil {
 		return nil, err
 	}
+	c.dependencyWork = newWorkBudget(dependencyWorkBudget, limits.MaxSchemaDependencySteps)
 	c.contentAnalysis, err = newContentModelAnalysis(&c.rt, c.contentWork.spend)
 	if err != nil {
 		return nil, err
@@ -412,11 +417,11 @@ func (c *compiler) validateComplexRestrictionModels() error {
 
 func (c *compiler) validateComplexRestrictionModel(id ComplexTypeID) (err error) {
 	ct := c.rt.complexType(id)
-	if id == c.rt.AnyType || ct.Derivation != derivationKindRestriction {
+	if ct.Derivation != derivationKindRestriction || baseIsUrType(&c.rt, ct) {
 		return nil
 	}
 	baseID, ok := ct.Base.Complex()
-	if !ok || baseID == c.rt.AnyType {
+	if !ok {
 		return nil
 	}
 	n := c.complexDefinitions[id].source.sourceNode()

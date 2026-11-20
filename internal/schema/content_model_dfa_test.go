@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -47,6 +48,103 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	}
 	if len(model.Rows) == 0 {
 		t.Fatal("wide DFA has no rows")
+	}
+}
+
+func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
+	t.Parallel()
+
+	for _, kind := range []modelKind{modelSequence, modelChoice} {
+		names, rt := compiledModelRuntimeFixture(t, kind)
+		one := occurrence{Min: 1, Max: 1}
+		flat := rt.models[0].Particles
+		const (
+			innerID  contentModelID = 1
+			emptyID  contentModelID = 2
+			nestedID contentModelID = 3
+		)
+		rt.models[innerID] = contentModelNode{Kind: kind, Occurs: one, Particles: flat[:3]}
+		rt.models[emptyID] = contentModelNode{Kind: modelSequence, Occurs: one}
+		nested := []contentParticle{modelParticle(innerID, one)}
+		if kind == modelSequence {
+			nested = append(nested, modelParticle(emptyID, one))
+		}
+		rt.models[nestedID] = contentModelNode{Kind: kind, Occurs: one, Particles: append(nested, flat[3:]...)}
+
+		compile := func(id contentModelID) compiledModel {
+			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+			cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+			model, err := cc.compileRootContentModel(id)
+			if err != nil {
+				t.Fatalf("compileRootContentModel(%d) error = %v", id, err)
+			}
+			return model
+		}
+		if got, want := compile(nestedID), compile(0); !reflect.DeepEqual(got, want) {
+			t.Fatalf("kind %d: nested model compiled to %+v, want the flat model's %+v", kind, got, want)
+		}
+	}
+}
+
+func TestCompileContentModelExecutesReducedLaxAnyContentWithoutDFA(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	many := occurrence{Unbounded: true}
+	const (
+		lax    WildcardID = 0
+		strict WildcardID = 1
+	)
+	group := func(kind modelKind, occurs occurrence, p contentParticle) contentModelNode {
+		return contentModelNode{Kind: kind, Occurs: occurs, Particles: []contentParticle{p}}
+	}
+	for _, test := range []struct {
+		name   string
+		models map[contentModelID]contentModelNode
+		want   compiledModelKind
+	}{
+		{name: "sequence of a choice of the wildcard", want: compiledModelAny, models: map[contentModelID]contentModelNode{
+			0: group(modelSequence, one, modelParticle(1, one)),
+			1: group(modelChoice, one, wildcardParticle(lax, many)),
+		}},
+		{name: "optional sequence of the wildcard", want: compiledModelAny, models: map[contentModelID]contentModelNode{
+			0: group(modelChoice, one, modelParticle(1, occurrence{Max: 1})),
+			1: group(modelSequence, one, wildcardParticle(lax, many)),
+		}},
+		{name: "sequence of a choice of a required wildcard", want: compiledModelDFA, models: map[contentModelID]contentModelNode{
+			0: group(modelSequence, one, modelParticle(1, one)),
+			1: group(modelChoice, one, wildcardParticle(lax, occurrence{Min: 1, Unbounded: true})),
+		}},
+		{name: "sequence of a choice of a strict wildcard", want: compiledModelDFA, models: map[contentModelID]contentModelNode{
+			0: group(modelSequence, one, modelParticle(1, one)),
+			1: group(modelChoice, one, wildcardParticle(strict, many)),
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			rt := compiledModelFixture{
+				models: test.models,
+				wildcards: map[WildcardID]wildcardRuntime{
+					lax:    {Mode: WildcardAny, Process: ProcessLax},
+					strict: {Mode: WildcardAny, Process: ProcessStrict},
+				},
+			}
+			names, err := newNameTable(8, []string{vocab.EmptyNamespaceURI}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+			cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+			model, err := cc.compileRootContentModel(0)
+			if err != nil {
+				t.Fatalf("compileRootContentModel() error = %v", err)
+			}
+			if model.Kind != test.want {
+				t.Fatalf("compiled model kind = %d, want %d", model.Kind, test.want)
+			}
+		})
 	}
 }
 

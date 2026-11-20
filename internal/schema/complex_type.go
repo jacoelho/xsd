@@ -324,7 +324,7 @@ func validateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 
 // validateComplexTypeExtensionRuntime validates complex-type extension rules
 // that do not depend on attribute-use value-constraint equality.
-func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexTypeMetadata, anyType ComplexTypeID) error {
+func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexTypeMetadata) error {
 	if err := validateComplexTypeFinalAllows(base.Final, DerivationExtension); err != nil {
 		return err
 	}
@@ -337,10 +337,10 @@ func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexT
 	if derived.SimpleContent() {
 		return errors.New("complex extension changes element content to simple content")
 	}
-	if base.Mixed() && !derived.Mixed() && derived.Base != ComplexRef(anyType) {
+	if base.Mixed() && !derived.Mixed() {
 		return errors.New("complex extension drops mixed base content")
 	}
-	if !complexContentExtendsBase(rt, base.Content, derived.Content) {
+	if !complexContentExtendsBase(rt, base, derived) {
 		return errors.New("complex extension content does not preserve base content")
 	}
 	return nil
@@ -476,14 +476,20 @@ func validateSimpleContentRestrictionTextType(
 	return nil
 }
 
-// Only the immediate built-in anyType base exempts restriction clause 4.3;
-// equal wildcard shapes, shared wildcard IDs and anyType ancestry do not.
+// baseIsUrType reports whether the {base type definition} of ct is the
+// ur-type itself (Derivation Valid (Restriction, Complex) clauses 5.1 and
+// 4.3). A type that shares xs:anyType's content or wildcard, or derives from
+// it, is not the ur-type.
+func baseIsUrType(rt *schemaBuild, ct complexTypeMetadata) bool {
+	return ct.Base == ComplexRef(rt.AnyType)
+}
+
 func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct complexTypeMetadata) error {
-	if ct.Derivation != derivationKindRestriction {
+	if ct.Derivation != derivationKindRestriction || baseIsUrType(rt, ct) {
 		return nil
 	}
 	derivedID := rt.AttributeUseSets[ct.Attrs].Wildcard
-	if derivedID == NoWildcard || ct.Base == ComplexRef(rt.AnyType) {
+	if derivedID == NoWildcard {
 		return nil
 	}
 	baseID, err := complexTypeDerivationBaseID(ct.Base, len(rt.ComplexTypes))

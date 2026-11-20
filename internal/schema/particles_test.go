@@ -120,41 +120,6 @@ func TestParticleModelEmptiability(t *testing.T) {
 	}
 }
 
-func TestParticleModelHasNoParticles(t *testing.T) {
-	t.Parallel()
-
-	one := occurrence{Min: 1, Max: 1}
-	rt := particleFixture{
-		models: []contentModelNode{
-			{Kind: modelEmpty},
-			{Kind: modelSequence, Occurs: one},
-			{Kind: modelAny, Mixed: true},
-			{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
-		},
-	}
-	tests := []struct {
-		name  string
-		model contentModelID
-		want  bool
-	}{
-		{name: "absent", model: noContentModel, want: true},
-		{name: "empty", model: 0, want: true},
-		{name: "empty sequence", model: 1, want: true},
-		{name: "any", model: 2, want: false},
-		{name: "non-empty sequence", model: 3, want: false},
-		{name: "invalid", model: 99, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := modelHasNoParticles(rt.build(), tt.model); got != tt.want {
-				t.Fatalf("ModelHasNoParticles() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestParticleCountRange(t *testing.T) {
 	t.Parallel()
 
@@ -176,16 +141,36 @@ func TestParticleCountRange(t *testing.T) {
 				Occurs:    occurrence{Min: 2, Max: 2},
 				Particles: []contentParticle{elementParticle(0, one), elementParticle(1, repeat)},
 			},
+			{Kind: modelChoice, Occurs: one},
+			{
+				Kind:      modelChoice,
+				Occurs:    one,
+				Particles: []contentParticle{elementParticle(0, repeat), modelParticle(2, one)},
+			},
+			{
+				Kind:      modelSequence,
+				Occurs:    one,
+				Particles: []contentParticle{elementParticle(0, one), modelParticle(2, one)},
+			},
+			{
+				Kind:      modelSequence,
+				Occurs:    one,
+				Particles: []contentParticle{elementParticle(0, one), modelParticle(2, optional)},
+			},
 		},
 	}
 	tests := []struct {
 		name  string
 		model contentModelID
-		want  occurrence
+		want  countRange
 	}{
-		{name: "sequence sums particles", model: 0, want: occurrence{Min: 2, Max: 4}},
-		{name: "choice unions then multiplies", model: 1, want: occurrence{Min: 2, Max: 6}},
-		{name: "absent", model: noContentModel, want: occurrence{}},
+		{name: "sequence sums particles", model: 0, want: countRange{counts: occurrence{Min: 2, Max: 4}}},
+		{name: "choice unions then multiplies", model: 1, want: countRange{counts: occurrence{Min: 2, Max: 6}}},
+		{name: "absent", model: noContentModel, want: countRange{}},
+		{name: "required empty choice matches nothing", model: 2, want: countRange{nothing: true}},
+		{name: "choice ignores a member matching nothing", model: 3, want: countRange{counts: repeat}},
+		{name: "sequence holding a term matching nothing matches nothing", model: 4, want: countRange{nothing: true}},
+		{name: "optional term matching nothing counts zero", model: 5, want: countRange{counts: one}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -195,7 +180,7 @@ func TestParticleCountRange(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ModelCountRange() error = %v", err)
 			}
-			if got != tt.want {
+			if got.nothing != tt.want.nothing || !tt.want.nothing && got.counts != tt.want.counts {
 				t.Fatalf("ModelCountRange() = %+v, want %+v", got, tt.want)
 			}
 		})
@@ -204,7 +189,7 @@ func TestParticleCountRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParticleCountRange() error = %v", err)
 	}
-	if want := (occurrence{Min: 4, Max: 8}); got != want {
+	if want := (countRange{counts: occurrence{Min: 4, Max: 8}}); got != want {
 		t.Fatalf("ParticleCountRange() = %+v, want %+v", got, want)
 	}
 }

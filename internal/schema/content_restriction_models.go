@@ -24,6 +24,21 @@ func (m *restrictionModelView) model(id contentModelID) (contentModelNode, bool)
 type restrictionModel struct {
 	order restrictionChoiceOrder
 	model contentModelNode
+	// term belongs to the declared group, not to model: Particle Emptiable
+	// and the effective total range are read from the group as declared,
+	// whatever members clause 2.2 removed from model.
+	term countRange
+}
+
+func (m *restrictionModelView) term(id contentModelID) (countRange, bool) {
+	if uint64(id) < uint64(len(m.original)) {
+		return countRange{}, false
+	}
+	index := uint64(id) - uint64(len(m.original))
+	if index >= uint64(len(m.added)) {
+		return countRange{}, false
+	}
+	return m.added[index].term, true
 }
 
 type restrictionChoiceOrder struct {

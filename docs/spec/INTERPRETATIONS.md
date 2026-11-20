@@ -1354,6 +1354,14 @@ A particle with `minOccurs` and `maxOccurs` 0 maps to no component
 (§3.7.2). Where a particle shared through two group references makes Unique
 Particle Attribution doubtful (`project/structures-group-two-ref-choice`), the
 processor tie-break settles it by Xerces-J, which agrees with the project.
+Unique Particle Attribution compares the particles that can match the last
+element of a nested group with the particles that may follow it, and within a
+nested sequence only its last particle that is not emptiable and the particles
+after it can match that element, however the sequence is nested: in a
+sequence, a group reference, a choice or an extension. All four providers
+agree on these cases except that libxml2 accepts two equal `##other` wildcards
+that compete across a nested sequence
+(`project/content-models/attribution/nested-sequence-tail/*`).
 
 **Single-member all groups (rule P).** Clause 2.2 of Particle Valid
 (Restriction) calls a group with one member pointless, and its prose names the
@@ -1371,6 +1379,127 @@ a required `all`, sequence or choice of one member reduces to that member.
 Cases: `project/content-models/pointless-groups/optional-singleton-all-occurrence`
 and `project/content-models/pointless-groups/singleton-all-occurrence/*`.
 libxml2 accepts every one of these schemas.
+
+**Declared pointless groups.** Clause 2.2 of Particle Valid (Restriction)
+ignores pointless groups, and its text does not say whether a group is tested
+as declared or again once its own pointless children are ignored: a choice of
+a wildcard and an empty choice has two members as declared and one after the
+empty choice is ignored. No adopted correction or accepted W3C test decides
+it, so the processor tie-break settles it by Xerces-J
+(`XSConstraints.getNonUnaryGroup` and `gatherChildren`). A group is a pointless
+singleton only when it is declared with one member and its particle is 1..1,
+and that test is not repeated after its children are reduced. A group
+declared with no members is pointless as clause 2.2.1 states: a sequence or
+all always, a choice only with `minOccurs="0"`. Within its parent, a 1..1
+child group of the same compositor is replaced by its members, and a 1..1
+child group that contains no element or wildcard is ignored when it matches
+the empty sequence. Such a group matches nothing when it is a required choice
+declared with no members, or a choice none of whose members matches the
+empty sequence, such as a choice of required empty choices
+([I-042](#i-042--empty-choice)); it is then ignored only inside a choice. A
+group that is not 1..1 and is declared with members stays a group whatever
+members are left, as Xerces-J keeps it, so an optional group of empty groups
+in a derived sequence maps to no base particle. Such a group still admits the
+empty sequence when its declared members did, since Xerces-J reads Particle
+Emptiable on the declared group: a base choice with `maxOccurs="2"` of empty
+sequences may be left out of a restriction, while the same choice added to a
+derived sequence maps to no base particle. A group that keeps some of its
+members keeps its declared count range in the same way: a base choice of an
+empty sequence and `b` may be left out of a restriction
+(`base-seq-choice-emptyseq-elt`, `base-seq-repchoice-emptyseq-elt`), which
+Xerces-J, xmlschema and libxml2 accept and .NET rejects, and a derived choice
+with `maxOccurs="2"` of an empty sequence and `b` has the effective total range
+0..2, so it does not restrict a base wildcard with range 1..2
+(`derived-seq-a-repchoice-emptyseq-elt-vs-any`), which Xerces-J rejects and
+.NET, xmlschema and libxml2 accept. The choice that clause 2.1
+generates for a substitution group is not declared and still reduces to its
+only member
+([I-027](#i-027--derivation-control-and-actual-substitution-groups)). Cases:
+`project/content-models/pointless-groups/declared/*`. Xerces-J gives the
+project result in every case except those I-042 owns; .NET and libxml2
+accept every invalid restriction in the set except that .NET rejects
+`base-seq-choice-emptychoice-elt`; xmlschema accepts the invalid
+restrictions of a base with an ignored group beside a wildcard, keeps
+singleton groups in a derived type (`derived-*-nested-elt`, invalid there) and
+keeps a derived choice of a required empty choice and an empty sequence
+(`derived-seq-a-choiceofemptychoiceandseq-b`, invalid there), although it
+ignores a derived empty sequence (`derived-seq-a-empty-b`).
+
+**Inherited ur-type wildcard.** NSSubset clause 3 waives the processing
+strength "unless B is the content model wildcard of the ·ur-type
+definition·". A type that extends xs:anyType without explicit content takes
+xs:anyType's {content type} (§3.4.2 clause 3.2.1), and a mixed one with empty
+explicit content holds xs:anyType's particle (clause 3.2.3), so whether a
+restriction of such a type compares against the ur-type wildcard is doubtful.
+The processor tie-break settles it by Xerces-J, which checks particle
+restriction against every base except xs:anyType itself: only a restriction
+whose {base type definition} is xs:anyType satisfies clause 5.1 of
+[Derivation Valid (Restriction, Complex)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#derivation-ok-restriction),
+and any other restriction compares the inherited wildcard as an ordinary lax
+`##any` wildcard 0..unbounded. Attribute wildcards follow clause 4.3, whose text
+names the immediate base. Cases: `project/content-models/particle-restriction/inherited-urtype-wildcard`
+and the restrictions under `project/content-models/type-derivation/urtype-content/*`.
+.NET and xmlschema accept a lax or strict wildcard restricting a mixed empty
+extension and otherwise agree; libxml2 accepts every one of these
+restrictions.
+
+[Derivation Valid (Extension)](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-extends)
+clause 1.4.3.2.2.1 has no exemption for xs:anyType: an unmixed extension of
+xs:anyType that adds particles is invalid, and a mixed one is the sequence of
+xs:anyType's particle and the added particles, which fails Unique Particle
+Attribution against the lax `##any` wildcard. All four providers agree
+(`project/content-models/type-derivation/urtype-content/anytype-extension-sequence-*`).
+
+A mixed extension with empty explicit content has an ·effective content· of a
+synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not
+empty, so its {content type} is the sequence of the base particle and that
+sequence (clause 3.2.3), not the base {content type}. When the base particle is
+an `all` group, the sequence violates
+[All Group Limited](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited)
+clause 1.2. Xerces-J and libxml2 reject it; .NET and xmlschema accept it
+(`project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`).
+
+The same clause 3.2.3 sequence is the {content type} of a mixed extension
+that adds only attributes to a base that is not empty, xs:anyType included, so
+a restriction of such a type compares against a 1..1 sequence of the base
+particle and an empty sequence. Particle Valid (Restriction) clause 2.2 ignores
+the empty sequence but decides pointlessness on the declared sequence, which
+has two members (the declared pointless groups rule above), so the comparison
+keeps the sequence: a repeated choice, even a copy of the base choice or a
+choice reduced from a pointless derived sequence, may not restrict it
+(Choice:Sequence is forbidden), a sequence with a range other than 1..1 may
+not, and a sequence of a choice and an empty sequence may. Over xs:anyType,
+`sequence(a, b)` cannot map both members into the one member that holds the
+wildcard (Recurse), and the ur-type exemption of clause 5.1 does not apply
+because the base is the extension. The element-only extension of the same base
+takes the base {content type} (clause 3.2.1) and accepts every one of these
+restrictions. The text decides these, and Xerces-J agrees on every case. .NET
+and libxml2 accept every restriction; xmlschema rejects a restriction of an
+element-only repeated choice by a narrower choice, which the text admits,
+rejects the sequence of a choice and an empty sequence, and accepts every
+invalid restriction except a narrower choice of the mixed extension. Cases:
+`project/content-models/type-derivation/extension-content/mixed-attribute-extension/*`.
+
+An `all` group with no members is empty explicit content (clause 2.1.2), so
+in a mixed type its particle is that synthetic empty sequence, not an `all`
+group: a mixed extension with an empty `all` extends a mixed sequence type,
+and a mixed type whose content is an empty `all` can be extended by a
+sequence. Xerces-J, .NET and libxml2 accept both; xmlschema rejects both as
+extensions involving `xs:all`
+(`project/content-models/type-derivation/extension-content/mixed-empty-all-extension`
+and `project/content-models/type-derivation/extension-content/mixed-empty-all-base`).
+A mixed type with no particle or an empty sequence likewise has the synthetic
+empty sequence as its particle, not empty content, so a mixed extension that
+adds an `all` group puts it in a sequence; a group reference is not empty
+explicit content even when it names an empty `all` group (clause 2.1 lists only
+the `all`, `sequence` and `choice` elements), so a type whose content is that
+reference has the `all` group as its particle and an extension that adds a
+sequence violates All Group Limited. The text decides these, and Xerces-J and
+xmlschema reject them; .NET accepts all three and libxml2 accepts the group
+reference. An extension whose explicit content is an empty sequence keeps the
+`all` group of its base (clause 3.2.1), which xmlschema rejects as a sequence
+extending `xs:all`. Cases:
+`project/content-models/type-derivation/extension-content/all-extension/*`.
 
 NameAndTypeOK clause 3.2.3 requires that "R's declaration's {identity-constraint
 definitions} is a subset of B's declaration's {identity-constraint
@@ -1416,8 +1545,9 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   base.
 - .NET and xmlschema miss ambiguity reached through group references.
 - Xerces-J gives the project result in every case listed except
-  `project/structures-local-idc-addition` and the invalid
-  `project/content-models/particle-restriction/local-idc-*` cases (above).
+  `project/structures-local-idc-addition`, the invalid
+  `project/content-models/particle-restriction/local-idc-*` cases (above) and
+  the required empty choices [I-042](#i-042--empty-choice) owns.
 
 Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/dispatch-all-sequence-forbidden`, `project/content-models/dispatch-choice-normalize-optional`, `project/content-models/dispatch-choice-normalize-repeated`, `project/content-models/dispatch-lax-missing-map`, `project/content-models/dispatch-lax-reverse`, `project/content-models/dispatch-mapandsum-count-three-minimum`, `project/content-models/dispatch-range-finite-unbounded`, `project/content-models/dispatch-sequence-required-gap`, `project/content-models/dispatch-sequence-reverse`, `project/content-models/dispatch-source-zero-elimination`, `project/content-models/dispatch-wrapper-all-required`, `project/content-models/dispatch-wrapper-choice-member-range`, `project/content-models/dispatch-wrapper-sequence-required`, `project/content-models/occurrence-boundaries/*`,
@@ -1428,6 +1558,7 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/particle-restriction/lax-recursive-choice-unmapped`,
 `project/content-models/particle-restriction/lax-unbounded-branch-reverse`,
 `project/content-models/particle-restriction/mapandsum-maximum-product-only`,
+`project/content-models/particle-restriction/inherited-urtype-wildcard`,
 `project/content-models/pointless-groups/empty-restriction-epsilon-base`,
 `project/content-models/pointless-groups/empty-restriction-required-base`,
 `project/content-models/pointless-groups/nonempty-restriction-epsilon-base`,
@@ -1444,7 +1575,12 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/properties-wildcard-*`,
 `project/content-models/substitution-normalize-blocked-concrete-head-member-invalid`,
 `project/content-models/substitution-normalize-both-ranges-b-literal-member`,
+`project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`,
+`project/content-models/type-derivation/extension-content/mixed-empty-all-extension`,
+`project/content-models/type-derivation/extension-content/mixed-empty-all-base`,
+`project/content-models/type-derivation/extension-content/mixed-attribute-extension/*`,
 `project/content-models/type-derivation/simple-base-mixed-extension-*`,
+`project/content-models/type-derivation/urtype-content/*`,
 `project/content-models/wildcard-restriction-*`,
 `project/architecture-repeated-choice-duplicate-optional-upa`,
 `project/architecture-repeated-equivalent-wildcards-upa`,
@@ -2090,10 +2226,44 @@ should accept no instances", accepted 2015-06-02, no version restriction) expect
 both instances invalid. An empty choice with `minOccurs="0"` remains satisfiable
 by absence.
 
-Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 accept empty content
-and a child for a required empty choice. libxml2 2.9.13 rejects both.
+A required empty choice is not empty content: §3.4.2 complex content clause
+2.1.3 treats a choice with no members as empty only with `minOccurs="0"`. An
+extension of a type whose content is a required empty choice therefore has the
+sequence of that choice and the added particles (clause 3.2.3) as its {content
+type}, and admits no instance.
 
-Cases: `project/content-models/nested-empty-choice-required`.
+Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 accept empty content
+and a child for a required empty choice, and accept the added particles in an
+extension of it. libxml2 2.9.13 rejects all of them.
+
+Under Particle Valid (Restriction) clause 2.2 a required empty choice, and a
+required choice whose members all match nothing, is therefore not an ignorable
+empty group except inside a choice, where it adds nothing
+([I-028](#i-028--content-model-checks)). A sequence keeps it, so a
+restriction compares it like any other member: dropping it from a base
+sequence admits content the base does not, and keeping it in a derived
+sequence the base lacks leaves it unmapped. Xerces-J ignores it as empty
+everywhere and accepts both restrictions, and so do .NET, xmlschema and
+libxml2. A choice of two required empty choices matches nothing in the same
+way: all four accept a base sequence that holds it being restricted without
+it, Xerces-J, .NET and libxml2 accept a derived sequence that adds it while
+xmlschema rejects that, and execution rejects every instance of a sequence
+that must hold it, which Xerces-J, .NET and xmlschema accept. Inside a choice it adds
+nothing, so a choice of `a` and a required empty choice restricts a choice of
+`a` and `b`, as all four agree.
+
+Cases: `project/content-models/nested-empty-choice-required`,
+`project/content-models/type-derivation/extension-content/required-empty-choice-base`,
+`project/content-models/nested-choice-of-empty-choices-required`,
+`project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt`,
+`project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b`,
+`project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices`,
+`project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b`,
+`project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1`
+and `project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt`.
+In the last, a base choice of a required empty choice and `b` matches only
+`b`, so a restriction that leaves it out is invalid; Xerces-J, xmlschema and
+libxml2 accept it and .NET rejects it.
 
 ## I-043 — libxml2 continues after well-formedness errors
 

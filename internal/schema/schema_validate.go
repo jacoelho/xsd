@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -573,20 +574,31 @@ func validateBuiltinAnyType(rt *schemaValidation) error {
 		ct.ContentKind != contentMixed ||
 		ct.TextType != NoSimpleType ||
 		!validContentModelID(ct.Content, len(rt.build.Models)) ||
-		rt.build.Models[ct.Content].Kind != modelAny ||
 		!validAttributeUseSetID(ct.Attrs, len(rt.build.AttributeUseSets)) {
 		return xsderrors.InternalInvariant("builtin anyType shape does not match handle")
 	}
+	return validateBuiltinAnyTypeComponents(rt, ct)
+}
+
+func validateBuiltinAnyTypeComponents(rt *schemaValidation, ct complexTypeMetadata) error {
 	set := rt.build.AttributeUseSets[ct.Attrs]
-	if len(set.Uses) != 0 || len(set.Index) != 0 || set.Wildcard == NoWildcard ||
-		!validWildcardID(set.Wildcard, len(rt.build.Wildcards)) {
+	if len(set.Uses) != 0 || len(set.Index) != 0 {
 		return xsderrors.InternalInvariant("builtin anyType attribute set does not match handle")
 	}
-	w := rt.build.Wildcards[set.Wildcard]
-	if w.Mode != WildcardAny || w.Process != ProcessLax {
+	w, ok := wildcardByID(rt.build.Wildcards, set.Wildcard)
+	if !ok || !builtinAnyTypeWildcardShape(w) {
 		return xsderrors.InternalInvariant("builtin anyType attribute wildcard does not match handle")
 	}
+	if !builtinAnyTypeContent(rt.build.Models[ct.Content], set.Wildcard) {
+		return xsderrors.InternalInvariant("builtin anyType content model does not match handle")
+	}
 	return nil
+}
+
+func builtinAnyTypeContent(content contentModelNode, wildcard WildcardID) bool {
+	want := builtinAnyTypeContentModel()
+	return content.Kind == want.Kind && content.Occurs == want.Occurs && content.Mixed == want.Mixed &&
+		slices.Equal(content.Particles, []contentParticle{builtinAnyTypeContentParticle(wildcard)})
 }
 
 func validateElementDeclShape(rt *schemaValidation, decl elementDecl) error {
@@ -697,7 +709,7 @@ func validateComplexExtensionRuntime(rt *schemaValidation, ct complexTypeMetadat
 	if err != nil {
 		return err
 	}
-	if err := validateComplexTypeExtensionRuntime(rt.build, base, ct, rt.build.AnyType); err != nil {
+	if err := validateComplexTypeExtensionRuntime(rt.build, base, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	if err := validateComplexExtensionAttributeAncestry(rt.build, ct); err != nil {
@@ -717,14 +729,16 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct complexTypeMetad
 	if err := validateComplexRestrictionAttributeWildcard(rt.build, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	if err := validateContentRestriction(
-		rt.build,
-		base.Content,
-		ct.Content,
-		rt.contentModelWork,
-		rt.contentAnalysis,
-	); err != nil {
-		return schemaBuildValidationError(err)
+	if !baseIsUrType(rt.build, ct) {
+		if err := validateContentRestriction(
+			rt.build,
+			base.Content,
+			ct.Content,
+			rt.contentModelWork,
+			rt.contentAnalysis,
+		); err != nil {
+			return schemaBuildValidationError(err)
+		}
 	}
 	binding := attributeWildcardUnbound
 	if ct.ExplicitDerivation {

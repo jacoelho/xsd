@@ -178,6 +178,102 @@ project/content-models/all-substitution-slot/width-8	width-8-two	dotnet	invalid	
 project/content-models/all-substitution-slot/width-8	width-8-two	libxml2	invalid	width-8-two.xml:1: element second: Schemas validity error : Element 'second': This element is not expected.
 project/content-models/all-substitution-slot/width-8	width-8-two	xerces	invalid	width-8-two.xml:1:34: cvc-complex-type.2.4.a: Invalid content was found starting with element 'second'. One of '{f1, f2, f3, f4, f5, f6}' is expected.
 project/content-models/all-substitution-slot/width-8	width-8-two	xmlschema	invalid	line None: Unexpected child with tag 'second' at position 4. (path /root)
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	z-x	dotnet	valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	z-x	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	z-x	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/choice-group-ref-optional-before-required	z-x	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	z-x	dotnet	valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	z-x	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	z-x	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-optional-before-required	z-x	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional	schema	dotnet	schema-invalid	choice-nested-trailing-optional.xsd:3:223: Multiple definition of element 'x' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional	schema	libxml2	schema-invalid	choice-nested-trailing-optional.xsd:3: element complexType: Schemas parser error : complex type 'T': The content model is not determinist.␊WXS schema choice-nested-trailing-optional.xsd failed to compile
+project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional	schema	xerces	schema-invalid	choice-nested-trailing-optional.xsd:3:28: cos-nonambig: x and x (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/choice-nested-trailing-optional	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='x', occurs=[0, 1]) and XsdElement(name='x', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:choice><xs:sequence><xs:element name="y" type="xs:string" /><xs:element name="x" type="xs:string" minOccurs="0" /></xs:sequence><xs:element name="z" type="xs:string" /></xs:choice><xs:element name="x" type="xs:string" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: choice-nested-trailing-optional.xsd
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	y-x	dotnet	valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	y-x	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	y-x	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-optional-before-required	y-x	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/deep-nested-trailing	schema	dotnet	schema-invalid	deep-nested-trailing.xsd:3:268: Multiple definition of element 'urn:t:y' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/deep-nested-trailing	schema	libxml2	schema-invalid	deep-nested-trailing.xsd:3: element complexType: Schemas parser error : complex type 'T': The content model is not determinist.␊WXS schema deep-nested-trailing.xsd failed to compile
+project/content-models/attribution/nested-sequence-tail/deep-nested-trailing	schema	xerces	schema-invalid	deep-nested-trailing.xsd:3:28: cos-nonambig: "urn:t":y and "urn:t":y (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/deep-nested-trailing	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='y', occurs=[0, 1]) and XsdElement(name='y', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:sequence><xs:sequence><xs:element name="x" type="xs:string" minOccurs="0" /><xs:element name="y" type="xs:string" /></xs:sequence><xs:sequence><xs:element name="y" type="xs:string" minOccurs="0" /></xs:sequence></xs:sequence><xs:element name="y" type="xs:string" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: deep-nested-trailing.xsd
+project/content-models/attribution/nested-sequence-tail/emptiable-group-between	schema	dotnet	schema-invalid	emptiable-group-between.xsd:3:175: Multiple definition of element 'urn:t:x' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/emptiable-group-between	schema	libxml2	schema-invalid	emptiable-group-between.xsd:3: element complexType: Schemas parser error : complex type 'T': The content model is not determinist.␊WXS schema emptiable-group-between.xsd failed to compile
+project/content-models/attribution/nested-sequence-tail/emptiable-group-between	schema	xerces	schema-invalid	emptiable-group-between.xsd:3:28: cos-nonambig: "urn:t":x and "urn:t":x (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/emptiable-group-between	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='x', occurs=[0, 1]) and XsdElement(name='x', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="x" type="xs:string" minOccurs="0" /><xs:sequence><xs:element name="y" type="xs:string" minOccurs="0" /></xs:sequence><xs:element name="x" type="xs:string" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: emptiable-group-between.xsd
+project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between	schema	dotnet	schema-invalid	emptiable-group-ref-between.xsd:4:114: Multiple definition of element 'urn:t:x' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between	schema	libxml2	schema-invalid	emptiable-group-ref-between.xsd:4: element complexType: Schemas parser error : complex type 'T': The content model is not determinist.␊WXS schema emptiable-group-ref-between.xsd failed to compile
+project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between	schema	xerces	schema-invalid	emptiable-group-ref-between.xsd:4:28: cos-nonambig: "urn:t":x and "urn:t":x (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/emptiable-group-ref-between	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='x', occurs=[0, 1]) and XsdElement(name='x', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="x" type="xs:string" minOccurs="0" /><xs:group ref="g" /><xs:element name="x" type="xs:string" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: emptiable-group-ref-between.xsd
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	y-x	dotnet	valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	y-x	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	y-x	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/extension-optional-before-required	y-x	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	y-x	dotnet	valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	y-x	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	y-x	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/group-ref-optional-before-required	y-x	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	x-x	dotnet	invalid	nested-optional-before-required-x-x.xml:1:16: The element 'root' has invalid child element 'x'. List of possible elements expected: 'y'.
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	x-x	libxml2	invalid	nested-optional-before-required-x-x.xml:1: element x: Schemas validity error : Element 'x': This element is not expected. Expected is ( y ).
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	x-x	xerces	invalid	nested-optional-before-required-x-x.xml:1:18: cvc-complex-type.2.4.a: Invalid content was found starting with element 'x'. One of '{y}' is expected.
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	x-x	xmlschema	invalid	line None: Unexpected child with tag 'x' at position 2. Tag 'y' expected. (path /root)
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	y-x	dotnet	valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	y-x	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	y-x	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/nested-optional-before-required	y-x	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail	schema	dotnet	schema-invalid	nested-repeated-required-tail.xsd:3:183: Multiple definition of element 'urn:t:y' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail	schema	libxml2	schema-invalid	nested-repeated-required-tail.xsd:3: element complexType: Schemas parser error : complex type 'T': The content model is not determinist.␊WXS schema nested-repeated-required-tail.xsd failed to compile
+project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail	schema	xerces	schema-invalid	nested-repeated-required-tail.xsd:3:28: cos-nonambig: "urn:t":y and "urn:t":y (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/nested-repeated-required-tail	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='y', occurs=[1, None]) and XsdElement(name='y', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:sequence><xs:element name="x" type="xs:string" minOccurs="0" /><xs:element name="y" type="xs:string" maxOccurs="unbounded" /></xs:sequence><xs:element name="y" type="xs:string" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: nested-repeated-required-tail.xsd
+project/content-models/attribution/nested-sequence-tail/nested-trailing-optional	schema	dotnet	schema-invalid	nested-trailing-optional.xsd:3:161: Multiple definition of element 'x' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/nested-trailing-optional	schema	libxml2	schema-invalid	nested-trailing-optional.xsd:3: element complexType: Schemas parser error : complex type 'T': The content model is not determinist.␊WXS schema nested-trailing-optional.xsd failed to compile
+project/content-models/attribution/nested-sequence-tail/nested-trailing-optional	schema	xerces	schema-invalid	nested-trailing-optional.xsd:3:28: cos-nonambig: x and x (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/nested-trailing-optional	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='x', occurs=[0, 1]) and XsdElement(name='x', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:sequence><xs:element name="y" type="xs:string" /><xs:element name="x" type="xs:string" minOccurs="0" /></xs:sequence><xs:element name="x" type="xs:string" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: nested-trailing-optional.xsd
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	y-other	dotnet	valid	warning: nested-wildcard-before-required-y-other.xml:1:30: Could not find schema information for the element 'urn:o:o'.
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	y-other	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	y-other	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-before-required	y-other	xmlschema	valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing	schema	dotnet	schema-invalid	nested-wildcard-trailing.xsd:3:173: Wildcards '##other' and '##other' have not empty intersection, and causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing	schema	xerces	schema-invalid	nested-wildcard-trailing.xsd:3:28: cos-nonambig: WC[##other:"urn:t"] and WC[##other:"urn:t"] (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/attribution/nested-sequence-tail/nested-wildcard-trailing	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdAnyElement(namespace=['##other'], process_contents='lax', occurs=[0, 1]) and XsdAnyElement(namespace=['##other'], process_contents='lax', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:sequence><xs:element name="y" type="xs:string" /><xs:any namespace="##other" processContents="lax" minOccurs="0" /></xs:sequence><xs:any namespace="##other" processContents="lax" /></xs:sequence>␊␊Path: /xs:schema/xs:complexType/xs:sequence␊␊Schema URL: nested-wildcard-trailing.xsd
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	schema	dotnet	schema-valid	
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	schema	libxml2	schema-valid	
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	schema	xerces	schema-valid	
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	schema	xmlschema	schema-valid	
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	y-other-y-other	dotnet	valid	warning: repeated-nested-wildcard-before-required-y-other-y-other.xml:1:30: Could not find schema information for the element 'urn:o:o'.
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	y-other-y-other	libxml2	valid	
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	y-other-y-other	xerces	valid	
+project/content-models/attribution/nested-sequence-tail/repeated-nested-wildcard-before-required	y-other-y-other	xmlschema	valid	
 project/content-models/chains-affiliation-middle-e0	base-identity	dotnet	valid	
 project/content-models/chains-affiliation-middle-e0	base-identity	libxml2	valid	
 project/content-models/chains-affiliation-middle-e0	base-identity	xerces	valid	
@@ -3505,6 +3601,18 @@ project/content-models/implicit-substitution-consistency/transitive-same-type	sc
 project/content-models/implicit-substitution-consistency/transitive-same-type	schema	libxml2	schema-valid	
 project/content-models/implicit-substitution-consistency/transitive-same-type	schema	xerces	schema-valid	
 project/content-models/implicit-substitution-consistency/transitive-same-type	schema	xmlschema	schema-valid	
+project/content-models/nested-choice-of-empty-choices-required	a	dotnet	valid	
+project/content-models/nested-choice-of-empty-choices-required	a	libxml2	invalid	a.xml:2: element a: Schemas validity error : Element 'a': This element is not expected. Expected is ( a ).
+project/content-models/nested-choice-of-empty-choices-required	a	xerces	valid	
+project/content-models/nested-choice-of-empty-choices-required	a	xmlschema	valid	
+project/content-models/nested-choice-of-empty-choices-required	empty	dotnet	invalid	empty.xml:2:2: The element 'root' has incomplete content. List of possible elements expected: 'a'.
+project/content-models/nested-choice-of-empty-choices-required	empty	libxml2	invalid	empty.xml:2: element root: Schemas validity error : Element 'root': Missing child element(s). Expected is ( a ).
+project/content-models/nested-choice-of-empty-choices-required	empty	xerces	invalid	empty.xml:2:8: cvc-complex-type.2.4.b: The content of element 'root' is not complete. One of '{a}' is expected.
+project/content-models/nested-choice-of-empty-choices-required	empty	xmlschema	invalid	line None: The content of element 'root' is not complete. Tag 'a' expected. (path /root)
+project/content-models/nested-choice-of-empty-choices-required	schema	dotnet	schema-valid	warning: schema.xsd:3:107: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/nested-choice-of-empty-choices-required	schema	libxml2	schema-valid	
+project/content-models/nested-choice-of-empty-choices-required	schema	xerces	schema-valid	
+project/content-models/nested-choice-of-empty-choices-required	schema	xmlschema	schema-valid	
 project/content-models/nested-empty-choice-optional	empty	dotnet	valid	
 project/content-models/nested-empty-choice-optional	empty	libxml2	valid	
 project/content-models/nested-empty-choice-optional	empty	xerces	valid	
@@ -3989,8 +4097,6 @@ project/content-models/oracle-ordering-derived-singleton-control	schema	dotnet	s
 project/content-models/oracle-ordering-derived-singleton-control	schema	libxml2	schema-valid	
 project/content-models/oracle-ordering-derived-singleton-control	schema	xerces	schema-invalid	schema.xsd:8:46: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
 project/content-models/oracle-ordering-derived-singleton-control	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="D" final="" block=""><xs:complexContent><xs:restriction base="t:B"><xs:sequence><xs:element ref="t:h" minOccurs="1" maxOccurs="1" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: schema.xsd
-project/content-models/particle-restriction/inherited-urtype-wildcard	declared-invalid-integer	libxml2	valid	
-project/content-models/particle-restriction/inherited-urtype-wildcard	empty	libxml2	valid	
 project/content-models/particle-restriction/inherited-urtype-wildcard	schema	dotnet	schema-invalid	inherited-urtype-wildcard.xsd:1:242: Invalid particle derivation by restriction - 'The derived wildcard's 'processContents' must be identical to or stronger than the base wildcard's 'processContents', where 'strict' is stronger than 'lax' and 'lax' is stronger than 'skip', Any:Any -- NSSubset Rule 3.'.
 project/content-models/particle-restriction/inherited-urtype-wildcard	schema	libxml2	schema-valid	
 project/content-models/particle-restriction/inherited-urtype-wildcard	schema	xerces	schema-invalid	inherited-urtype-wildcard.xsd:1:279: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
@@ -4123,6 +4229,274 @@ project/content-models/particle-restriction/mapandsum-maximum-product-only	schem
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	libxml2	schema-valid	
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	xerces	schema-invalid	mapandsum-maximum-product-only.xsd:4:37: rcase-MapAndSum.2: Group's occurrence range, (2,4), is not a valid restriction of base group's occurrence range, (0,2).
 project/content-models/particle-restriction/mapandsum-maximum-product-only	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	xerces	schema-invalid	base-cho-both-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-both-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	xerces	schema-invalid	base-cho-empty-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-empty-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	dotnet	schema-valid	warning: base-cho-emptyreq-any.xsd:3:107: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	xerces	schema-invalid	base-cho-emptyreq-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-emptyreq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	dotnet	schema-valid	warning: base-cho-emptyreq-elt.xsd:3:79: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyreq-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	xerces	schema-invalid	base-cho-emptyseq-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-cho-emptyseq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-emptyseq-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-cho-nested-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	xerces	schema-invalid	base-seq-both-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-both-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt	schema	dotnet	schema-invalid	base-seq-choice-emptychoice-elt.xsd:4:4: Invalid particle derivation by restriction - 'The derived element a at (4, 86) is not a valid restriction of the base sequence particle at (3, 29) according to Elt:All/Choice/Sequence -- RecurseAsIfGroup.'. | warning: base-seq-choice-emptychoice-elt.xsd:3:92: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt	schema	dotnet	schema-invalid	base-seq-choice-emptyseq-elt.xsd:4:4: Invalid particle derivation by restriction - 'The derived element a at (4, 86) is not a valid restriction of the base sequence particle at (3, 29) according to Elt:All/Choice/Sequence -- RecurseAsIfGroup.'.
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt-keeps-b	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt-keeps-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt-keeps-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choice-emptyseq-elt-keeps-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	dotnet	schema-valid	warning: base-seq-choiceofempties.xsd:3:81: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofempties	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	dotnet	schema-valid	warning: base-seq-choiceofemptychoiceandseq.xsd:3:92: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoiceandseq	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	dotnet	schema-valid	warning: base-seq-choiceofemptychoices.xsd:3:92: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choiceofemptychoices	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-choicesingleton	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	xerces	schema-invalid	base-seq-empty-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-empty-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	xerces	schema-invalid	base-seq-emptychoice0-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice0-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	dotnet	schema-valid	warning: base-seq-emptychoice1-any.xsd:3:109: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	xerces	schema-invalid	base-seq-emptychoice1-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	dotnet	schema-valid	warning: base-seq-emptychoice1-elt.xsd:3:81: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-emptychoice1-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nested-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	xerces	schema-invalid	base-seq-nestedempty-any.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/pointless-groups/declared/base-seq-nestedempty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-nestedempty-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	dotnet	schema-valid	warning: base-seq-optchoiceofemptychoices.xsd:3:106: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-optchoiceofemptychoices	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoice-emptyseq-elt	schema	dotnet	schema-invalid	base-seq-repchoice-emptyseq-elt.xsd:4:4: Invalid particle derivation by restriction - 'The derived element a at (4, 86) is not a valid restriction of the base sequence particle at (3, 29) according to Elt:All/Choice/Sequence -- RecurseAsIfGroup.'.
+project/content-models/pointless-groups/declared/base-seq-repchoice-emptyseq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoice-emptyseq-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoice-emptyseq-elt	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	dotnet	schema-valid	warning: base-seq-repchoiceofempty.xsd:3:81: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/base-seq-repchoiceofempty	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	dotnet	schema-valid	warning: derived-cho-ab-choiceofemptychoices.xsd:4:134: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-choiceofemptychoices	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	dotnet	schema-valid	warning: derived-cho-ab-emptychoice1.xsd:4:123: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	xerces	schema-invalid	derived-cho-both-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-both-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:choice><xs:element name="a" type="xs:string" /></xs:choice><xs:choice minOccurs="0" /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-both-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	xerces	schema-invalid	derived-cho-empty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-empty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:choice minOccurs="0" /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-empty-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	dotnet	schema-valid	warning: derived-cho-emptyreq-any.xsd:4:151: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	dotnet	schema-valid	warning: derived-cho-emptyreq-elt.xsd:4:123: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	xerces	schema-invalid	derived-cho-emptyreq-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-emptyreq-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:choice /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-emptyreq-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	xerces	schema-invalid	derived-cho-emptyseq-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/pointless-groups/declared/derived-cho-emptyseq-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:element name="a" type="xs:string" /><xs:sequence /></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-emptyseq-elt.xsd
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:choice><xs:element name="a" type="xs:string" /></xs:choice></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-nested-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	dotnet	schema-valid	warning: derived-seq-a-choiceofemptychoiceandseq-b.xsd:4:136: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice><xs:choice /><xs:sequence /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-choiceofemptychoiceandseq-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	dotnet	schema-valid	warning: derived-seq-a-choiceofemptychoices-b.xsd:4:136: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice><xs:choice /><xs:choice /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-choiceofemptychoices-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-empty-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	dotnet	schema-valid	warning: derived-seq-a-emptychoice1-b.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-emptychoice1-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	dotnet	schema-valid	warning: derived-seq-a-optchoiceofemptychoices-b.xsd:4:150: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	xerces	schema-invalid	derived-seq-a-optchoiceofemptychoices-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-optchoiceofemptychoices-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice minOccurs="0"><xs:choice /><xs:choice /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-optchoiceofemptychoices-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	xerces	schema-invalid	derived-seq-a-optseqofempty-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-optseqofempty-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence minOccurs="0"><xs:sequence /></xs:sequence><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-optseqofempty-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-elt-vs-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-elt-vs-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-elt-vs-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-elt-vs-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-emptyseq-elt-vs-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-emptyseq-elt-vs-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-emptyseq-elt-vs-any	schema	xerces	schema-invalid	derived-seq-a-repchoice-emptyseq-elt-vs-any.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-repchoice-emptyseq-elt-vs-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	dotnet	schema-valid	warning: derived-seq-a-repchoiceofempty-b.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	xerces	schema-invalid	derived-seq-a-repchoiceofempty-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-repchoiceofempty-b	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice maxOccurs="2"><xs:sequence /><xs:sequence /></xs:choice><xs:element name="b" type="xs:string" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-a-repchoiceofempty-b.xsd
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	xerces	schema-invalid	derived-seq-both-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-both-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	dotnet	schema-valid	warning: derived-seq-choiceofempties.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	xerces	schema-invalid	derived-seq-choiceofempties.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice><xs:sequence /><xs:sequence /></xs:choice></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-choiceofempties.xsd
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choicesingleton	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	xerces	schema-invalid	derived-seq-empty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-empty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-empty-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	xerces	schema-invalid	derived-seq-emptychoice0-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice0-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice minOccurs="0" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-emptychoice0-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	dotnet	schema-valid	warning: derived-seq-emptychoice1-any.xsd:4:153: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	dotnet	schema-valid	warning: derived-seq-emptychoice1-elt.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	xerces	schema-invalid	derived-seq-emptychoice1-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-emptychoice1-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:choice /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-emptychoice1-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nested-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-nested-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-any	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	xerces	schema-invalid	derived-seq-nestedempty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
+project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence><xs:sequence /></xs:sequence></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-nestedempty-elt.xsd
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	libxml2	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xerces	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xmlschema	valid	
@@ -5378,6 +5752,139 @@ project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schem
 project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schema	libxml2	schema-valid	
 project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schema	xerces	schema-invalid	schema.xsd:10:48: rcase-RecurseLax.1: Group's occurrence range, (1,1), is not a valid restriction of base group's occurrence range, (2,2).
 project/content-models/substitution-normalize-mapandsum-dba-repeated-first	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-empty-sequence-extension	schema	xmlschema	schema-invalid	xs:sequence cannot extend xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="B"><xs:sequence /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: all-base-empty-sequence-extension.xsd
+project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-no-extension	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension	schema	dotnet	schema-invalid	all-base-sequence-extension.xsd:3:29: 'all' is not the only particle in a group, or is being used as an extension.
+project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension	schema	libxml2	schema-invalid	all-base-sequence-extension.xsd:4: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': A type cannot be derived by extension from a type which has an 'all' model group in its {content type}, since this would produce a 'sequence' model group containing the 'all' model group; 'all' model groups are not allowed to appear inside other model groups.␊WXS schema all-base-sequence-extension.xsd failed to compile
+project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension	schema	xerces	schema-invalid	all-base-sequence-extension.xsd:4:83: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.
+project/content-models/type-derivation/extension-content/all-extension/all-base-sequence-extension	schema	xmlschema	schema-invalid	xs:sequence cannot extend xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="B"><xs:sequence><xs:element name="b" type="xs:string" /></xs:sequence></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: all-base-sequence-extension.xsd
+project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-all-base-sequence-extension	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-all-extension	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-base-group-ref-all-extension	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/empty-sequence-base-all-extension	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-no-extension	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension	schema	xerces	schema-invalid	group-ref-empty-all-base-sequence-extension.xsd:5:83: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.
+project/content-models/type-derivation/extension-content/all-extension/group-ref-empty-all-base-sequence-extension	schema	xmlschema	schema-invalid	xs:sequence cannot extend xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="B"><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: group-ref-empty-all-base-sequence-extension.xsd
+project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension	schema	libxml2	schema-invalid	mixed-empty-sequence-base-all-extension.xsd:4: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The type has an 'all' model group in its {content type} and thus cannot be derived from a non-empty type, since this would produce a 'sequence' model group containing the 'all' model group; 'all' model groups are not allowed to appear inside other model groups.␊WXS schema mixed-empty-sequence-base-all-extension.xsd failed to compile
+project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension	schema	xerces	schema-invalid	mixed-empty-sequence-base-all-extension.xsd:4:104: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.
+project/content-models/type-derivation/extension-content/all-extension/mixed-empty-sequence-base-all-extension	schema	xmlschema	schema-invalid	cannot extend a complex content with xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E" mixed="true"><xs:complexContent mixed="true"><xs:extension base="B"><xs:all><xs:element name="a" type="xs:string" /></xs:all></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mixed-empty-sequence-base-all-extension.xsd
+project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension	schema	libxml2	schema-invalid	mixed-no-particle-base-all-extension.xsd:4: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The type has an 'all' model group in its {content type} and thus cannot be derived from a non-empty type, since this would produce a 'sequence' model group containing the 'all' model group; 'all' model groups are not allowed to appear inside other model groups.␊WXS schema mixed-no-particle-base-all-extension.xsd failed to compile
+project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension	schema	xerces	schema-invalid	mixed-no-particle-base-all-extension.xsd:4:104: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.
+project/content-models/type-derivation/extension-content/all-extension/mixed-no-particle-base-all-extension	schema	xmlschema	schema-invalid	cannot extend a complex content with xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E" mixed="true"><xs:complexContent mixed="true"><xs:extension base="B"><xs:all><xs:element name="a" type="xs:string" /></xs:all></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mixed-no-particle-base-all-extension.xsd
+project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension	schema	dotnet	schema-invalid	sequence-base-all-extension.xsd:4:71: 'all' is not the only particle in a group, or is being used as an extension.
+project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension	schema	libxml2	schema-invalid	sequence-base-all-extension.xsd:4: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': The type has an 'all' model group in its {content type} and thus cannot be derived from a non-empty type, since this would produce a 'sequence' model group containing the 'all' model group; 'all' model groups are not allowed to appear inside other model groups.␊WXS schema sequence-base-all-extension.xsd failed to compile
+project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension	schema	xerces	schema-invalid	sequence-base-all-extension.xsd:4:78: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.
+project/content-models/type-derivation/extension-content/all-extension/sequence-base-all-extension	schema	xmlschema	schema-invalid	cannot extend a complex content with xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E"><xs:complexContent><xs:extension base="B"><xs:all><xs:element name="b" type="xs:string" /></xs:all></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: sequence-base-all-extension.xsd
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction	schema	xerces	schema-invalid	anytype-base-sequence-restriction.xsd:6:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed	schema	xerces	schema-invalid	anytype-base-sequence-restriction-mixed.xsd:6:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction	schema	xerces	schema-invalid	choice-base-choice-restriction.xsd:7:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent mixed="true"><xs:restriction base="D"><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="a" /></xs:choice><xs:attribute name="x" /></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: choice-base-choice-restriction.xsd
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent mixed="false"><xs:restriction base="D"><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="a" /></xs:choice><xs:attribute name="x" /></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: choice-base-choice-restriction-unmixed.xsd
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction	schema	xerces	schema-invalid	choice-base-same-choice-restriction.xsd:7:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent mixed="true"><xs:restriction base="D"><xs:sequence><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="a" /></xs:choice><xs:sequence /></xs:sequence><xs:attribute name="x" /></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[3]␊␊Schema URL: choice-base-sequence-pair-restriction.xsd
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction	schema	xerces	schema-invalid	choice-base-sequence-wrapper-restriction.xsd:7:28: cos-particle-restrict.2: Forbidden particle restriction: 'choice:all,sequence,elt'.
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction	schema	xerces	schema-invalid	sequence-base-bounded-restriction.xsd:7:28: rcase-Recurse.1: Group's occurrence range, (0,3), is not a valid restriction of base group's occurrence range, (1,1).
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction	schema	xerces	schema-invalid	sequence-base-same-restriction.xsd:7:28: rcase-Recurse.1: Group's occurrence range, (0,unbounded), is not a valid restriction of base group's occurrence range, (1,1).
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	b	dotnet	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	b	libxml2	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	b	xerces	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-base	schema	xmlschema	schema-invalid	xs:sequence cannot extend xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E" mixed="true"><xs:complexContent mixed="true"><xs:extension base="B"><xs:sequence><xs:element name="b" type="xs:string" /></xs:sequence></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mixed-empty-all-base.xsd
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	a	dotnet	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	a	libxml2	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	a	xerces	valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	empty	dotnet	invalid	mixed-empty-all-extension-empty.xml:2:10: The element 'root' has incomplete content. List of possible elements expected: 'a'.
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	empty	libxml2	invalid	mixed-empty-all-extension-empty.xml:2: element root: Schemas validity error : Element 'root': Missing child element(s). Expected is ( a ).
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	empty	xerces	invalid	mixed-empty-all-extension-empty.xml:2:15: cvc-complex-type.2.4.b: The content of element 'root' is not complete. One of '{a}' is expected.
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-all-extension	schema	xmlschema	schema-invalid	cannot extend a complex content with xs:all:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="E" mixed="true"><xs:complexContent mixed="true"><xs:extension base="B"><xs:all /></xs:extension></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mixed-empty-all-extension.xsd
+project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	dotnet	schema-valid	
+project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	libxml2	schema-invalid	mixed-empty-extension-all-base.xsd:4: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType': A type cannot be derived by extension from a type which has an 'all' model group in its {content type}, since this would produce a 'sequence' model group containing the 'all' model group; 'all' model groups are not allowed to appear inside other model groups.␊WXS schema mixed-empty-extension-all-base.xsd failed to compile
+project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	xerces	schema-invalid	:-1:-1: cos-all-limited.1.2: An all model group must appear in a particle with {min occurs} = {max occurs} = 1, and that particle must be part of a pair which constitutes the {content type} of a complex type definition.
+project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/extension-content/required-empty-choice-base	a	dotnet	valid	
+project/content-models/type-derivation/extension-content/required-empty-choice-base	a	libxml2	invalid	required-empty-choice-base-a.xml:1: element a: Schemas validity error : Element 'a': This element is not expected.
+project/content-models/type-derivation/extension-content/required-empty-choice-base	a	xerces	valid	
+project/content-models/type-derivation/extension-content/required-empty-choice-base	a	xmlschema	valid	
+project/content-models/type-derivation/extension-content/required-empty-choice-base	empty	dotnet	invalid	required-empty-choice-base-empty.xml:1:2: The element 'root' has incomplete content. List of possible elements expected: 'a'.
+project/content-models/type-derivation/extension-content/required-empty-choice-base	empty	libxml2	invalid	required-empty-choice-base-empty.xml:1: element root: Schemas validity error : Element 'root': Missing child element(s).
+project/content-models/type-derivation/extension-content/required-empty-choice-base	empty	xerces	invalid	required-empty-choice-base-empty.xml:1:8: cvc-complex-type.2.4.b: The content of element 'root' is not complete. One of '{a}' is expected.
+project/content-models/type-derivation/extension-content/required-empty-choice-base	empty	xmlschema	invalid	line None: The content of element 'root' is not complete. Tag 'a' expected. (path /root)
+project/content-models/type-derivation/extension-content/required-empty-choice-base	schema	dotnet	schema-valid	warning: required-empty-choice-base.xsd:3:29: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/type-derivation/extension-content/required-empty-choice-base	schema	libxml2	schema-valid	
+project/content-models/type-derivation/extension-content/required-empty-choice-base	schema	xerces	schema-valid	
+project/content-models/type-derivation/extension-content/required-empty-choice-base	schema	xmlschema	schema-valid	
 project/content-models/type-derivation/prohibited-ancestor-fixed-changed	schema	dotnet	schema-valid	
 project/content-models/type-derivation/prohibited-ancestor-fixed-changed	schema	libxml2	schema-valid	
 project/content-models/type-derivation/prohibited-ancestor-fixed-changed	schema	xerces	schema-valid	
@@ -5499,6 +6006,38 @@ project/content-models/type-derivation/simple-base-mixed-extension-true	schema	d
 project/content-models/type-derivation/simple-base-mixed-extension-true	schema	libxml2	schema-invalid	simple-base-mixed-extension-true.xsd:1: element complexType: Schemas parser error : complex type 'D': The content type of both, the type and its base type, must either 'mixed' or 'element-only'.␊WXS schema simple-base-mixed-extension-true.xsd failed to compile
 project/content-models/type-derivation/simple-base-mixed-extension-true	schema	xerces	schema-invalid	:-1:-1: cos-ct-extends.1.4.3.2.2.1.b: The content type of a derived type and that of its base must both be mixed or both be element-only. Type 'D' is mixed, but its base type is not.
 project/content-models/type-derivation/simple-base-mixed-extension-true	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed	schema	dotnet	schema-invalid	:0:0: Wildcard '##any' allows element 'a', and causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence.
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed	schema	libxml2	schema-invalid	anytype-extension-sequence-mixed.xsd:3: element complexType: Schemas parser error : complex type 'E': The content model is not determinist.␊WXS schema anytype-extension-sequence-mixed.xsd failed to compile
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed	schema	xerces	schema-invalid	anytype-extension-sequence-mixed.xsd:3:41: cos-nonambig: WC[##any] and a (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-mixed	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdAnyElement(namespace=['##any'], process_contents='lax', occurs=[0, None]) and XsdElement(name='a', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema">␊    <xs:sequence>␊   <xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax" />␊  </xs:sequence>␊  <xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence></xs:sequence>␊␊Schema URL: anytype-extension-sequence-mixed.xsd
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	dotnet	schema-invalid	anytype-extension-sequence-unmixed.xsd:3:4: The derived type and the base type must have the same content type.
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	libxml2	schema-invalid	anytype-extension-sequence-unmixed.xsd:3: element complexType: Schemas parser error : complex type 'E': The content type of both, the type and its base type, must either 'mixed' or 'element-only'.␊WXS schema anytype-extension-sequence-unmixed.xsd failed to compile
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	xerces	schema-invalid	anytype-extension-sequence-unmixed.xsd:3:92: cos-ct-extends.1.4.3.2.2.1.a: The content type of a derived type and that of its base must both be mixed or both be element-only. Type 'E' is element only, but its base type is not.
+project/content-models/type-derivation/urtype-content/anytype-extension-sequence-unmixed	schema	xmlschema	schema-invalid	base has a different content type (mixed=True) and the extension group is not empty:␊␊Schema component:␊␊  <xs:extension xmlns:xs="http://www.w3.org/2001/XMLSchema" base="xs:anyType"><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence></xs:extension>␊␊Path: /xs:schema/xs:complexType/xs:complexContent/xs:extension␊␊Schema URL: anytype-extension-sequence-unmixed.xsd
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	dotnet	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	xerces	schema-invalid	inherited-anytype-content-wildcard-lax.xsd:4:41: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-lax	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	dotnet	schema-invalid	inherited-anytype-content-wildcard-skip.xsd:4:4: Invalid particle derivation by restriction - 'The derived wildcard's 'processContents' must be identical to or stronger than the base wildcard's 'processContents', where 'strict' is stronger than 'lax' and 'lax' is stronger than 'skip', Any:Any -- NSSubset Rule 3.'.
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	xerces	schema-invalid	inherited-anytype-content-wildcard-skip.xsd:4:41: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-skip	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R" mixed="true"><xs:complexContent mixed="true"><xs:restriction base="B"><xs:sequence><xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" /></xs:sequence><xs:anyAttribute processContents="lax" /></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: inherited-anytype-content-wildcard-skip.xsd
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	dotnet	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	xerces	schema-invalid	inherited-anytype-content-wildcard-strict.xsd:4:41: cos-particle-restrict.2: Forbidden particle restriction: 'any:choice,sequence,all,elt'.
+project/content-models/type-derivation/urtype-content/inherited-anytype-content-wildcard-strict	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	dotnet	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	xerces	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-lax	schema	xmlschema	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip	schema	dotnet	schema-invalid	unmixed-extension-anytype-content-wildcard-skip.xsd:4:4: Invalid particle derivation by restriction - 'The derived wildcard's 'processContents' must be identical to or stronger than the base wildcard's 'processContents', where 'strict' is stronger than 'lax' and 'lax' is stronger than 'skip', Any:Any -- NSSubset Rule 3.'.
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip	schema	xerces	schema-invalid	unmixed-extension-anytype-content-wildcard-skip.xsd:4:41: rcase-NSSubset.3: Wildcard's process contents, 'skip', is weaker than that in the base, 'lax'.
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-skip	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R" mixed="true"><xs:complexContent mixed="true"><xs:restriction base="B"><xs:sequence><xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded" /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: unmixed-extension-anytype-content-wildcard-skip.xsd
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict	schema	dotnet	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict	schema	libxml2	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict	schema	xerces	schema-valid	
+project/content-models/type-derivation/urtype-content/unmixed-extension-anytype-content-wildcard-strict	schema	xmlschema	schema-valid	
 project/content-models/wildcard-overlap/empty-finite-any-disjoint	dead-empty	libxml2	invalid	empty-finite-any-disjoint-dead-empty.xml:1: element dead: Schemas validity error : Element '{urn:t}dead': Missing child element(s).
 project/content-models/wildcard-overlap/empty-finite-any-disjoint	dead-empty	xerces	invalid	empty-finite-any-disjoint-dead-empty.xml:1:26: cvc-complex-type.2.4.b: The content of element 't:dead' is not complete. One of '{WC[]}' is expected.
 project/content-models/wildcard-overlap/empty-finite-any-disjoint	dead-local	libxml2	invalid	empty-finite-any-disjoint-dead-local.xml:1: element child: Schemas validity error : Element 'child': This element is not expected.

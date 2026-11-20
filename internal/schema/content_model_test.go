@@ -50,10 +50,6 @@ func TestValidateContentModelShape(t *testing.T) {
 			in:   contentModelNode{Kind: modelEmpty},
 		},
 		{
-			name: "any",
-			in:   contentModelNode{Kind: modelAny, Mixed: true},
-		},
-		{
 			name: "sequence",
 			in: contentModelNode{
 				Kind:      modelSequence,
@@ -84,11 +80,6 @@ func TestValidateContentModelShape(t *testing.T) {
 				Particles: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			},
 			wantErr: "empty content model stores inactive fields",
-		},
-		{
-			name:    "any requires mixed",
-			in:      contentModelNode{Kind: modelAny},
-			wantErr: "any content model has invalid shape",
 		},
 		{
 			name:    "sequence invalid occurrence",
@@ -274,84 +265,70 @@ func TestComplexContentExtendsBase(t *testing.T) {
 	t.Parallel()
 
 	const (
-		emptyID      contentModelID = 0
-		baseSeqID    contentModelID = 1
-		derivedSeqID contentModelID = 2
-		baseChoiceID contentModelID = 3
-		wrappedID    contentModelID = 4
-		badKindID    contentModelID = 5
-		badOccursID  contentModelID = 6
-		badPrefixID  contentModelID = 7
-		elemA        ElementID      = 0
-		elemB        ElementID      = 1
+		emptyID       contentModelID = 0
+		baseSeqID     contentModelID = 1
+		extendedID    contentModelID = 2
+		emptySeqID    contentModelID = 3
+		mixedEmptyExt contentModelID = 4
+		splicedID     contentModelID = 5
+		reversedID    contentModelID = 6
+		repeatedID    contentModelID = 7
+		choiceID      contentModelID = 8
+		elemA         ElementID      = 0
+		elemB         ElementID      = 1
 	)
 	one := occurrence{Min: 1, Max: 1}
-	repeat := occurrence{Min: 0, Unbounded: true}
-	baseParticle := elementParticle(elemA, one)
-	nextParticle := elementParticle(elemB, one)
+	a := elementParticle(elemA, one)
+	b := elementParticle(elemB, one)
+	seq := func(occurs occurrence, particles ...contentParticle) contentModelNode {
+		return contentModelNode{Kind: modelSequence, Occurs: occurs, Particles: particles}
+	}
 	rt := particleFixture{
 		models: []contentModelNode{
-			{Kind: modelEmpty},
-			{
-				Kind:      modelSequence,
-				Occurs:    one,
-				Particles: []contentParticle{baseParticle},
-			},
-			{
-				Kind:      modelSequence,
-				Occurs:    one,
-				Particles: []contentParticle{baseParticle, nextParticle},
-			},
-			{
-				Kind:      modelChoice,
-				Occurs:    one,
-				Particles: []contentParticle{baseParticle, nextParticle},
-			},
-			{
-				Kind:      modelSequence,
-				Occurs:    one,
-				Particles: []contentParticle{modelParticle(baseChoiceID, one), nextParticle},
-			},
-			{
-				Kind:      modelChoice,
-				Occurs:    one,
-				Particles: []contentParticle{baseParticle, nextParticle},
-			},
-			{
-				Kind:      modelSequence,
-				Occurs:    repeat,
-				Particles: []contentParticle{baseParticle, nextParticle},
-			},
-			{
-				Kind:      modelSequence,
-				Occurs:    one,
-				Particles: []contentParticle{nextParticle, baseParticle},
-			},
+			emptyID:       {Kind: modelEmpty, Mixed: true},
+			baseSeqID:     seq(one, a),
+			extendedID:    seq(one, modelParticle(baseSeqID, one), b),
+			emptySeqID:    seq(one),
+			mixedEmptyExt: seq(one, modelParticle(emptySeqID, one), b),
+			splicedID:     seq(one, a, b),
+			reversedID:    seq(one, b, modelParticle(baseSeqID, one)),
+			repeatedID:    seq(occurrence{Min: 0, Unbounded: true}, modelParticle(baseSeqID, one), b),
+			choiceID:      {Kind: modelChoice, Occurs: one, Particles: []contentParticle{modelParticle(baseSeqID, one), b}},
 		},
 	}
+	elementOnly := func(id contentModelID) complexTypeMetadata {
+		return complexTypeMetadata{Content: id, ContentKind: contentElementOnly}
+	}
+	mixed := func(id contentModelID) complexTypeMetadata {
+		return complexTypeMetadata{Content: id, ContentKind: contentMixed}
+	}
+	mixedEmpty := mixed(emptyID)
+	empty := complexTypeMetadata{Content: emptyID, ContentKind: contentEmpty}
 	tests := []struct {
 		name    string
-		base    contentModelID
-		derived contentModelID
+		base    complexTypeMetadata
+		derived complexTypeMetadata
 		want    bool
 	}{
-		{name: "same model", base: baseSeqID, derived: baseSeqID, want: true},
-		{name: "empty base", base: emptyID, derived: badKindID, want: true},
-		{name: "sequence prefix", base: baseSeqID, derived: derivedSeqID, want: true},
-		{name: "wrapped non-sequence base", base: baseChoiceID, derived: wrappedID, want: true},
-		{name: "invalid base", base: 99, derived: derivedSeqID},
-		{name: "invalid derived", base: baseSeqID, derived: 99},
-		{name: "derived must be sequence", base: baseSeqID, derived: badKindID},
-		{name: "derived must occur exactly once", base: baseSeqID, derived: badOccursID},
-		{name: "derived sequence must preserve prefix", base: baseSeqID, derived: badPrefixID},
-		{name: "wrapped base must be first particle", base: baseChoiceID, derived: derivedSeqID},
+		{name: "base content type kept", base: elementOnly(baseSeqID), derived: elementOnly(baseSeqID), want: true},
+		{name: "empty base takes any content", base: empty, derived: elementOnly(choiceID), want: true},
+		{name: "sequence of base particle and explicit content", base: elementOnly(baseSeqID), derived: elementOnly(extendedID), want: true},
+		{name: "base particle with another variety", base: elementOnly(baseSeqID), derived: mixed(baseSeqID)},
+		{name: "sequence with another variety", base: elementOnly(baseSeqID), derived: mixed(extendedID)},
+		{name: "mixed empty base contributes the empty sequence", base: mixedEmpty, derived: mixed(mixedEmptyExt), want: true},
+		{name: "mixed empty base needs the empty sequence first", base: mixedEmpty, derived: mixed(extendedID)},
+		{name: "base particles spliced into the sequence", base: elementOnly(baseSeqID), derived: elementOnly(splicedID)},
+		{name: "base particle not first", base: elementOnly(baseSeqID), derived: elementOnly(reversedID)},
+		{name: "sequence not exactly once", base: elementOnly(baseSeqID), derived: elementOnly(repeatedID)},
+		{name: "choice instead of sequence", base: elementOnly(baseSeqID), derived: elementOnly(choiceID)},
+		{name: "missing derived model", base: elementOnly(baseSeqID), derived: elementOnly(99)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			if got := complexContentExtendsBase(rt.build(), tt.base, tt.derived); got != tt.want {
-				t.Fatalf("ComplexContentExtendsBase() = %v, want %v", got, tt.want)
+				t.Fatalf("complexContentExtendsBase() = %v, want %v", got, tt.want)
 			}
 		})
 	}

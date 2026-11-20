@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="B"><xs:complexContent><xs:extension base="xs:anyType"/></xs:complexContent></xs:complexType>
+  <xs:complexType name="R" mixed="true"><xs:complexContent mixed="true"><xs:restriction base="B"><xs:sequence><xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded"/></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="root" type="R"/>
+</xs:schema>

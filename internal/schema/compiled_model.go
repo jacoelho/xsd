@@ -11,7 +11,8 @@ type compiledModelKind uint8
 const (
 	// compiledModelEmpty is the compiled representation for empty content.
 	compiledModelEmpty compiledModelKind = iota
-	// compiledModelAny is the compiled representation for xs:anyType content.
+	// compiledModelAny is the compiled representation for content that is one
+	// lax ##any wildcard 0..unbounded, such as xs:anyType's.
 	compiledModelAny
 	// compiledModelAll is the compiled representation for xs:all content.
 	compiledModelAll

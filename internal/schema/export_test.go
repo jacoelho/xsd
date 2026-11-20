@@ -124,6 +124,7 @@ func (rt *Schema) PublishedContentModelCountForTest() int {
 const (
 	CompiledModelAll          = compiledModelAll
 	ContentElementOnly        = contentElementOnly
+	ContentMixed              = contentMixed
 	DeclarationScopeGlobal    = declarationScopeGlobal
 	DeclarationScopeInvalid   = declarationScopeInvalid
 	DeclarationScopeNonGlobal = declarationScopeNonGlobal

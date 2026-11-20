@@ -63,12 +63,3 @@ func TestCompileKindPanics(t *testing.T) {
 		})
 	}
 }
-
-func TestModelTextKindInvariant(t *testing.T) {
-	t.Parallel()
-
-	for _, kind := range []modelTextKind{modelTextInvalid, modelTextKind(99)} {
-		_, err := modelWithTextKind(nil, nil, 0, kind)
-		expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	}
-}

@@ -432,7 +432,7 @@ func TestSchemaDependencyStepLimitStopsResolutionIncrementally(t *testing.T) {
 		calls++
 		return source.Source{}, xsderrors.ErrSchemaNotFound
 	})
-	_, err := Compile(Options{MaxSchemaDependencySteps: 2}, []source.Source{
+	_, err := Compile(Options{MaxSchemaDependencySteps: 1}, []source.Source{
 		source.Bytes("root.xsd", rootData).WithResolver(resolver),
 	})
 

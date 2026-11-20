@@ -1327,11 +1327,11 @@ func TestFreezeRejectsInvalidContentModelShape(t *testing.T) {
 			},
 		},
 		{
-			name: "any model inactive state",
+			name: "any model is not the canonical anyType content",
 			mutate: func(t *testing.T, rt *xsdSchema.SchemaBuild) {
 				t.Helper()
 				model := &rt.Models[rt.ComplexTypes[rt.AnyType].Content]
-				model.Occurs = xsdSchema.Occurrence{Min: 1, Max: 1}
+				model.Occurs = xsdSchema.Occurrence{Min: 0, Max: 1}
 			},
 		},
 	}
