@@ -233,8 +233,11 @@ model to automaton construction, which walks nested groups as declared;
 `executionParticle` reduces singleton particles for direct compilation, and
 the projection recognizes lax-any content by its shape. The direct Unique
 Particle Attribution check (`checkContentModelUPA`) also reads nested groups as
-declared, and `sequenceTail` alone decides which particles of a nested
-sequence can match its last element. The count analysis
+declared, through facts the content-model analysis owns:
+`lastParticles` alone decides which particles of a nested group can match its
+last element, and `ModelContinuations` computes the continuation set of each
+model once, holding each particle once, so a group referenced N times adds
+no copies; both direct checks iterate the shared sets. The count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
 no alternative to a choice. `baseIsUrType` alone decides the ur-type
 exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
@@ -1274,7 +1277,16 @@ graph preserves these ownership rules:
   computation has already occurred; repeated failures would evade the aggregate
   work bound. Retryability preserves build data, not spent resources.
 - Sharing UPA results across roots and eager DFA follow interning were
-  rejected because each changes work accounting or limit-failure order.
+  rejected because each changes work accounting or limit-failure order. The
+  analysis facts the checks read (emptiability, count ranges, continuation
+  sets) are shared: each is computed once per model, charged to the root
+  that first reads it.
+- Materializing the continuation particles of each sequence member as a fresh
+  list was rejected: a list per referring particle copies the lists of its
+  nested groups, so shared emptiable groups nested N deep produce 2^N entries
+  (277 MiB at N=16 on the doubling-groups schema). Continuation sets are
+  memoized per model ID and deduplicated by particle, and the start particles
+  of a repeated group are a shared prefix of its declared particles.
 - Locating content-model diagnostics at the particle was rejected: particles
   carry no source node, and one per particle adds a pointer to every retained
   particle. The precision limit is that a violation inside a referenced group

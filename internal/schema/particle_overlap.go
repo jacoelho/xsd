@@ -6,7 +6,9 @@ import (
 )
 
 // contentModelAnalysis is the bounded owner of content-model emptiability,
-// count-range, substitution-name, and particle-overlap facts.
+// count-range, continuation, substitution-name, and particle-overlap facts.
+// Facts are memoized per model and shared by every root that reads them;
+// verdicts are not.
 type contentModelAnalysis struct {
 	rt        *schemaBuild
 	models    *restrictionModelView
@@ -16,6 +18,10 @@ type contentModelAnalysis struct {
 	ranges    map[contentModelID]countRange
 	emptyPath map[contentModelID]bool
 	rangePath map[contentModelID]bool
+
+	continuations     map[contentModelID][]contentParticle
+	continuationPath  map[contentModelID]bool
+	continuationIndex map[contentParticle]struct{}
 }
 
 func (a *contentModelAnalysis) contentModel(id contentModelID) (contentModelNode, bool) {
@@ -55,6 +61,10 @@ func newContentModelAnalysis(rt *schemaBuild, work contentModelWork) (*contentMo
 		ranges:    make(map[contentModelID]countRange),
 		emptyPath: make(map[contentModelID]bool),
 		rangePath: make(map[contentModelID]bool),
+
+		continuations:     make(map[contentModelID][]contentParticle),
+		continuationPath:  make(map[contentModelID]bool),
+		continuationIndex: make(map[contentParticle]struct{}),
 	}, nil
 }
 

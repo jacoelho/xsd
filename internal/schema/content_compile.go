@@ -128,8 +128,11 @@ func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compi
 
 // contentModelUPACheck validates the direct unique-particle-attribution checks
 // that can be proven before compiled DFA construction, one model of a table at
-// a time. Traversal is root-local: each root uses its own seen tag, so results
-// and work charges are never shared across roots.
+// a time. Verdicts are root-local: each root uses its own seen tag, so a
+// root's verdict and the work of its own traversal are never shared across
+// roots. The analysis facts it reads, such as emptiability and continuation
+// sets, are computed once per model and charged to the root that first reads
+// them.
 type contentModelUPACheck struct {
 	compiler contentModelCompiler
 	seen     []int
@@ -511,18 +514,27 @@ func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 }
 
 func (c *contentModelCompiler) checkSequenceUPA(model contentModelNode) error {
-	for i, p := range model.Particles {
-		candidates, err := c.particleContinuationParticles(p)
+	for i := range model.Particles {
+		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
 		if err != nil {
 			return err
 		}
-		if err := c.work.spend(len(candidates)); err != nil {
-			return err
-		}
-		for _, candidate := range candidates {
-			if err := c.checkSequenceContinuationUPA(model, candidate, i+1); err != nil {
+		for _, candidates := range sets {
+			if err := c.checkCandidatesUPA(model, candidates, i+1); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (c *contentModelCompiler) checkCandidatesUPA(model contentModelNode, candidates []contentParticle, start int) error {
+	if err := c.work.spend(len(candidates)); err != nil {
+		return err
+	}
+	for _, candidate := range candidates {
+		if err := c.checkSequenceContinuationUPA(model, candidate, start); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -559,154 +571,28 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 	return false, c.upaError("UPA violation: duplicate element in sequence", name)
 }
 
-// particleContinuationParticles returns the particles of p that compete with
-// the particles following p in its parent sequence (cos-nonambig).
-func (c *contentModelCompiler) particleContinuationParticles(p contentParticle) ([]contentParticle, error) {
-	if err := c.work.spend(1); err != nil {
-		return nil, err
-	}
-	if p.Occurs.IsAbsent() {
-		return nil, nil
-	}
-	switch p.Kind {
-	case particleElement, particleWildcard:
-		return c.leafContinuationParticles(p)
-	case particleModel:
-		return c.nestedModelContinuationParticles(p)
-	}
-	return nil, nil
-}
-
-func (c *contentModelCompiler) leafContinuationParticles(particle contentParticle) ([]contentParticle, error) {
-	overlaps, err := c.particleCanOverlapFollowing(particle)
-	if err != nil || !overlaps {
-		return nil, err
-	}
-	return []contentParticle{particle}, nil
-}
-
-func (c *contentModelCompiler) nestedModelContinuationParticles(particle contentParticle) ([]contentParticle, error) {
-	model, ok := contentModelByID(c.rt.Models, particle.Model)
-	if !ok {
-		return nil, nil
-	}
-	var out []contentParticle
-	if particle.Occurs.Unbounded || particle.Occurs.Max > particle.Occurs.Min {
-		start, err := c.modelStartParticles(model)
-		if err != nil {
-			return nil, err
-		}
-		if err := c.work.spend(len(start)); err != nil {
-			return nil, err
-		}
-		out = append(out, start...)
-	}
-	continuations, err := c.modelContinuationParticles(model)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.work.spend(len(continuations)); err != nil {
-		return nil, err
-	}
-	return append(out, continuations...), nil
-}
-
-func (c *contentModelCompiler) modelContinuationParticles(model contentModelNode) ([]contentParticle, error) {
-	if err := c.work.spend(1); err != nil {
-		return nil, err
-	}
-	out, err := c.repeatedModelStartParticles(model)
-	if err != nil {
-		return nil, err
-	}
-	switch model.Kind {
-	case modelSequence:
-		tail, err := c.sequenceTail(model.Particles)
-		if err != nil {
-			return nil, err
-		}
-		return c.appendParticleContinuations(out, tail)
-	case modelChoice:
-		return c.appendParticleContinuations(out, model.Particles)
-	case modelEmpty, modelAll:
-		return out, nil
-	default:
-	}
-	return out, nil
-}
-
-// sequenceTail returns the particles that can match the last element of a
-// sequence: an element matched before its last non-emptiable particle is
-// always followed by one that particle matches.
-func (c *contentModelCompiler) sequenceTail(particles []contentParticle) ([]contentParticle, error) {
-	for i, p := range slices.Backward(particles) {
-		emptiable, err := c.analysis.ParticleEmptiable(p)
-		if err != nil {
-			return nil, err
-		}
-		if !emptiable {
-			return particles[i:], nil
-		}
-	}
-	return particles, nil
-}
-
-func (c *contentModelCompiler) repeatedModelStartParticles(model contentModelNode) ([]contentParticle, error) {
-	if !model.Occurs.Unbounded && model.Occurs.Max <= model.Occurs.Min {
-		return nil, nil
-	}
-	start, err := c.modelStartParticles(model)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.work.spend(len(start)); err != nil {
-		return nil, err
-	}
-	return start, nil
-}
-
-func (c *contentModelCompiler) appendParticleContinuations(out []contentParticle, particles []contentParticle) ([]contentParticle, error) {
-	for _, particle := range particles {
-		continuations, err := c.particleContinuationParticles(particle)
-		if err != nil {
-			return nil, err
-		}
-		if err := c.work.spend(len(continuations)); err != nil {
-			return nil, err
-		}
-		out = append(out, continuations...)
-	}
-	return out, nil
-}
-
-func (c *contentModelCompiler) particleCanOverlapFollowing(p contentParticle) (bool, error) {
-	r, err := c.analysis.ParticleCountRange(p)
-	return r.counts.Unbounded || r.counts.Max > r.counts.Min, err
-}
-
 func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model contentModelNode) (bool, error) {
 	if model.Kind != modelSequence {
 		return false, nil
 	}
-	for i, p := range model.Particles {
-		overlap, err := c.particleHasWildcardEquivalentContinuation(model, p, i+1)
+	for i := range model.Particles {
+		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
 		if err != nil {
 			return false, err
 		}
-		if overlap {
-			return true, nil
+		for _, candidates := range sets {
+			overlap, err := c.candidatesHaveWildcardEquivalentOverlap(model.Particles, candidates, i+1)
+			if err != nil || overlap {
+				return overlap, err
+			}
 		}
 	}
 	return false, nil
 }
 
-func (c *contentModelCompiler) particleHasWildcardEquivalentContinuation(model contentModelNode, particle contentParticle, start int) (bool, error) {
-	candidates, err := c.particleContinuationParticles(particle)
-	if err != nil {
-		return false, err
-	}
+func (c *contentModelCompiler) candidatesHaveWildcardEquivalentOverlap(particles, candidates []contentParticle, start int) (bool, error) {
 	for _, candidate := range candidates {
-		overlap, err := c.wildcardCandidateOverlaps(model.Particles, candidate, start)
+		overlap, err := c.wildcardCandidateOverlaps(particles, candidate, start)
 		if err != nil || overlap {
 			return overlap, err
 		}
@@ -743,43 +629,6 @@ func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b contentParticle) b
 		return false
 	}
 	return wildcardNamespaceEqual(wa, wb)
-}
-
-func (c *contentModelCompiler) modelStartParticles(model contentModelNode) ([]contentParticle, error) {
-	if err := c.work.spend(1); err != nil {
-		return nil, err
-	}
-	switch model.Kind {
-	case modelAll, modelChoice:
-		if err := c.work.spend(len(model.Particles)); err != nil {
-			return nil, err
-		}
-		return slices.Clone(model.Particles), nil
-	case modelSequence:
-		return c.sequenceStartParticles(model.Particles)
-	case modelEmpty:
-		return nil, nil
-	default:
-	}
-	return nil, nil
-}
-
-func (c *contentModelCompiler) sequenceStartParticles(particles []contentParticle) ([]contentParticle, error) {
-	var out []contentParticle
-	for _, particle := range particles {
-		if err := c.work.spend(1); err != nil {
-			return nil, err
-		}
-		out = append(out, particle)
-		emptiable, err := c.analysis.ParticleEmptiable(particle)
-		if err != nil {
-			return nil, err
-		}
-		if !emptiable {
-			break
-		}
-	}
-	return out, nil
 }
 
 func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledModel, error) {

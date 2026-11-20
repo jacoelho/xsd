@@ -97,19 +97,20 @@ func TestModelGroupDependencyBudgetPreservesReferenceLocation(t *testing.T) {
 const xsNS = `xmlns:xs="http://www.w3.org/2001/XMLSchema"`
 
 // doublingGroups returns group declarations g0..gN where g0 holds one element
-// and every gi is a sequence of two references to g(i-1), so gN holds 2^N
-// element particles once its references are expanded.
-func doublingGroups(n int) string {
+// with minOccurs leafMin and every gi is a sequence of two references to
+// g(i-1) with minOccurs refMin, so gN holds 2^N element particles once its
+// references are expanded.
+func doublingGroups(n, leafMin, refMin int) string {
 	var b strings.Builder
-	b.WriteString(`<xs:group name="g0"><xs:sequence><xs:element name="e" type="xs:string"/></xs:sequence></xs:group>`)
+	fmt.Fprintf(&b, `<xs:group name="g0"><xs:sequence><xs:element name="e" type="xs:string" minOccurs="%d"/></xs:sequence></xs:group>`, leafMin)
 	for i := 1; i <= n; i++ {
-		fmt.Fprintf(&b, `<xs:group name="g%d"><xs:sequence><xs:group ref="g%d"/><xs:group ref="g%d"/></xs:sequence></xs:group>`, i, i-1, i-1)
+		fmt.Fprintf(&b, `<xs:group name="g%d"><xs:sequence><xs:group ref="g%d" minOccurs="%d"/><xs:group ref="g%d" minOccurs="%d"/></xs:sequence></xs:group>`, i, i-1, refMin, i-1, refMin)
 	}
 	return b.String()
 }
 
-func doublingSchema(n int) string {
-	return `<xs:schema ` + xsNS + `>` + doublingGroups(n) +
+func doublingSchema(n, leafMin, refMin int) string {
+	return `<xs:schema ` + xsNS + `>` + doublingGroups(n, leafMin, refMin) +
 		fmt.Sprintf(`<xs:complexType name="T"><xs:group ref="g%d"/></xs:complexType><xs:element name="root" type="T"/></xs:schema>`, n)
 }
 
@@ -158,7 +159,7 @@ func expectSchemaLimit(t *testing.T, err error) {
 
 func fanOutSchema(n, refs int) string {
 	var b strings.Builder
-	b.WriteString(`<xs:schema ` + xsNS + `>` + doublingGroups(n) + `<xs:complexType name="T"><xs:sequence>`)
+	b.WriteString(`<xs:schema ` + xsNS + `>` + doublingGroups(n, 1, 1) + `<xs:complexType name="T"><xs:sequence>`)
 	for range refs {
 		fmt.Fprintf(&b, `<xs:group ref="g%d"/>`, n)
 	}
@@ -169,12 +170,25 @@ func fanOutSchema(n, refs int) string {
 func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 	const analysis = "MaxContentModelAnalysisSteps"
 	t.Run("doubling groups at default", func(t *testing.T) {
-		alloc, err := compileAllocated(t, doublingSchema(20))
+		alloc, err := compileAllocated(t, doublingSchema(20, 1, 1))
 		expectSchemaLimit(t, err)
 		expectAllocUnder(t, alloc, 128)
 	})
+	for _, test := range []struct {
+		name            string
+		leafMin, refMin int
+	}{
+		{name: "optional element", leafMin: 0, refMin: 1},
+		{name: "optional references", leafMin: 1, refMin: 0},
+	} {
+		t.Run("doubling groups with "+test.name+" at default", func(t *testing.T) {
+			alloc, err := compileAllocated(t, doublingSchema(20, test.leafMin, test.refMin))
+			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
+			expectAllocUnder(t, alloc, 128)
+		})
+	}
 	t.Run("doubling groups at small budget", func(t *testing.T) {
-		schema := doublingSchema(10)
+		schema := doublingSchema(10, 1, 1)
 		if _, err := xsd.CompileWithOptions(xsd.CompileOptions{}, xsd.Bytes("d.xsd", []byte(schema))); err != nil {
 			t.Fatalf("N=10 at default: %v", err)
 		}
@@ -292,7 +306,7 @@ func TestContentModelReadsShareStoredParticles(t *testing.T) {
 	})
 	t.Run("choice of large sequences", func(t *testing.T) {
 		var b strings.Builder
-		b.WriteString(`<xs:schema ` + xsNS + `>` + doublingGroups(17) + `<xs:complexType name="T"><xs:choice>`)
+		b.WriteString(`<xs:schema ` + xsNS + `>` + doublingGroups(17, 1, 1) + `<xs:complexType name="T"><xs:choice>`)
 		for range 1000 {
 			b.WriteString(`<xs:group ref="g17"/>`)
 		}
