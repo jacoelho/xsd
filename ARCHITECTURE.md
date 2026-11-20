@@ -492,7 +492,7 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   comment of `atomicValue` names the owner of each primitive's order,
   equality and enumeration key and states what a value type may hold. An
   `xs:time` value is its timezone-normalized time of day, so `24:00:00` is
-  `00:00:00` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`). One
+  `00:00:00` (I-045 and I-047 in `docs/spec/INTERPRETATIONS.md`). One
   relation needs more than the two values: the same-side restriction clause
   orders `xs:time` bounds by un-wrapped time. The day that the hour 24 or a
   timezone offset moves a bound to is a fact of the bound
@@ -1372,7 +1372,7 @@ graph preserves these ownership rules:
 - Making the day a timezone moves an `xs:time` to part of its value was
   rejected: it contradicts the equality Xerces-J applies in enumerations,
   fixed values and identity constraints, where `00:30:00+14:00` is
-  `10:30:00Z` (Time midnight boundary in `docs/spec/INTERPRETATIONS.md`).
+  `10:30:00Z` (I-045 in `docs/spec/INTERPRETATIONS.md`).
 - Keeping that day in `TimeValue` for the order while equality ignores it was
   rejected: order and equality then disagree, so a bound separates two equal
   values and a value can equal an enumerated literal that a bound of the same

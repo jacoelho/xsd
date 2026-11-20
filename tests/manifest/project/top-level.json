@@ -11504,7 +11504,7 @@
         ],
         "rule": {
           "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
-          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          "clause": "I-048 in docs/spec/INTERPRETATIONS.md"
         },
         "oracle": {
           "project": {
@@ -11563,7 +11563,7 @@
         ],
         "rule": {
           "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
-          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          "clause": "I-048 in docs/spec/INTERPRETATIONS.md"
         },
         "oracle": {
           "project": {
@@ -11618,7 +11618,7 @@
         ],
         "rule": {
           "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
-          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          "clause": "I-048 in docs/spec/INTERPRETATIONS.md"
         },
         "oracle": {
           "project": {
@@ -11673,7 +11673,7 @@
         ],
         "rule": {
           "specRef": "docs/spec/INTERPRETATIONS.md#time-midnight",
-          "clause": "the Second 60 clause of the Time midnight row of docs/spec/INTERPRETATIONS.md"
+          "clause": "I-048 in docs/spec/INTERPRETATIONS.md"
         },
         "oracle": {
           "project": {
@@ -12794,7 +12794,7 @@
         ],
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#time",
-          "clause": "the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle"
+          "clause": "the minInclusive and maxInclusive Valid rules in the time value space of I-045 in docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle"
         }
       },
       "instances": [
@@ -12805,14 +12805,14 @@
           "internalExpected": "valid",
           "rule": {
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-minInclusive-valid",
-            "clause": "the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle"
+            "clause": "the minInclusive and maxInclusive Valid rules in the time value space of I-045 in docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle"
           },
           "differences": {
             "dotnet": {
-              "record": "time-midnight"
+              "record": "I-045"
             },
             "xmlschema": {
-              "record": "time-midnight"
+              "record": "I-045"
             }
           }
         },
@@ -12822,7 +12822,7 @@
           "expected": "valid",
           "rule": {
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-minInclusive-valid",
-            "clause": "the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle"
+            "clause": "the minInclusive and maxInclusive Valid rules in the time value space of I-045 in docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle"
           }
         },
         {
@@ -12832,7 +12832,7 @@
           "errorCode": "validation.facet",
           "rule": {
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-minInclusive-valid",
-            "clause": "the minInclusive and maxInclusive Valid rules in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle"
+            "clause": "the minInclusive and maxInclusive Valid rules in the time value space of I-045 in docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle"
           }
         }
       ],
