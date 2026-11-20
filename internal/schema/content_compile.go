@@ -664,20 +664,13 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 	}
 }
 
-// laxAnyContent reports whether the execution shape of model is one lax ##any
-// wildcard 0..unbounded, which compiledModelAny executes without a DFA. The
-// decision reads the content, never the owning type: xs:anyType and every
-// declaration of the same content share it.
+// laxAnyContent reports whether model, an execution model, holds only the
+// particle of xs:anyType's content, which compiledModelAny executes without a
+// DFA. The decision reads the content, never the owning type: xs:anyType and
+// every declaration of the same content share it.
 func (c *contentModelCompiler) laxAnyContent(model contentModelNode) bool {
-	if model.Kind != modelSequence || len(model.Particles) != 1 {
-		return false
-	}
-	p := model.Particles[0]
-	if p.Kind != particleWildcard || p.Occurs != (occurrence{Unbounded: true}) {
-		return false
-	}
-	w := c.rt.Wildcards[p.Wildcard]
-	return w.Mode == WildcardAny && w.Process == ProcessLax
+	return model.Kind == modelSequence && len(model.Particles) == 1 &&
+		builtinAnyTypeContentParticleShape(c.rt.Wildcards, model.Particles[0])
 }
 
 func normalizeSingleParticleModel(model contentModelNode) contentModelNode {

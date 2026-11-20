@@ -582,12 +582,11 @@ func validateBuiltinAnyType(rt *schemaValidation) error {
 
 func validateBuiltinAnyTypeComponents(rt *schemaValidation, ct complexTypeMetadata) error {
 	set := rt.build.AttributeUseSets[ct.Attrs]
-	if len(set.Uses) != 0 || len(set.Index) != 0 || set.Wildcard == NoWildcard ||
-		!validWildcardID(set.Wildcard, len(rt.build.Wildcards)) {
+	if len(set.Uses) != 0 || len(set.Index) != 0 {
 		return xsderrors.InternalInvariant("builtin anyType attribute set does not match handle")
 	}
-	w := rt.build.Wildcards[set.Wildcard]
-	if w.Mode != WildcardAny || w.Process != ProcessLax {
+	w, ok := wildcardByID(rt.build.Wildcards, set.Wildcard)
+	if !ok || !builtinAnyTypeWildcardShape(w) {
 		return xsderrors.InternalInvariant("builtin anyType attribute wildcard does not match handle")
 	}
 	if !builtinAnyTypeContent(rt.build.Models[ct.Content], set.Wildcard) {

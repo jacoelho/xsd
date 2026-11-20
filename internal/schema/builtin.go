@@ -62,6 +62,13 @@ func builtinAnyTypeWildcard() wildcardRuntime {
 	return wildcardRuntime{Mode: WildcardAny, Process: ProcessLax}
 }
 
+// builtinAnyTypeWildcardShape reports whether w admits the elements or
+// attributes builtinAnyTypeWildcard admits, processed the same way.
+func builtinAnyTypeWildcardShape(w wildcardRuntime) bool {
+	want := builtinAnyTypeWildcard()
+	return w.Mode == want.Mode && w.Process == want.Process
+}
+
 // builtinAnyTypeAttributeUseSet returns the attribute-use set used by
 // xs:anyType.
 func builtinAnyTypeAttributeUseSet(wildcard WildcardID) attributeUseSet {
@@ -83,6 +90,17 @@ func builtinAnyTypeContentModel() contentModelNode {
 // 0..unbounded, that xs:anyType's content sequence holds.
 func builtinAnyTypeContentParticle(wildcard WildcardID) contentParticle {
 	return wildcardParticle(wildcard, occurrence{Unbounded: true})
+}
+
+// builtinAnyTypeContentParticleShape reports whether p, whose wildcard is in
+// wildcards, is the particle builtinAnyTypeContentParticle returns for a
+// wildcard of builtinAnyTypeWildcardShape.
+func builtinAnyTypeContentParticleShape(wildcards []wildcardRuntime, p contentParticle) bool {
+	if p != builtinAnyTypeContentParticle(p.Wildcard) {
+		return false
+	}
+	w, ok := wildcardByID(wildcards, p.Wildcard)
+	return ok && builtinAnyTypeWildcardShape(w)
 }
 
 // builtinAnyTypeComplexType returns the fixed xs:anyType complex-type
