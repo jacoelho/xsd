@@ -116,7 +116,7 @@ func TestIncompleteSchemaDocumentIsLocatedWhereReadingStopped(t *testing.T) {
 // precision limit of content-model location: particles carry no source, so a
 // violation inside a group is reported by the first model, in compilation
 // order, whose check reaches it. Types compile before groups, so a referring
-// type in another document can be named; an unreferenced group names itself.
+// type in another document can be named.
 func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 	t.Parallel()
 
@@ -148,11 +148,6 @@ func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 			name:    "referenced from another document",
 			sources: []xsd.SchemaSource{xsd.Bytes("a.xsd", []byte(referrer)), xsd.Bytes("b.xsd", []byte(group))},
 			want:    compileLocation{path: "a.xsd", line: 3},
-		},
-		{
-			name:    "unreferenced",
-			sources: []xsd.SchemaSource{xsd.Bytes("b.xsd", []byte(group))},
-			want:    compileLocation{path: "b.xsd", line: 3},
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -391,14 +391,6 @@ func (c *compiler) completeModel(id contentModelID, model contentModelNode) {
 	c.rt.Models[id] = model
 }
 
-func (c *compiler) installCompiledModels(models []compiledModel) error {
-	if len(models) != len(c.rt.Models) {
-		return xsderrors.InternalInvariant("compiled content model count does not match source models")
-	}
-	c.rt.CompiledModels = models
-	return nil
-}
-
 func (c *compiler) installFinalizedElements(elements []elementDecl, substitutions substitutionTable) {
 	c.rt.Elements = elements
 	c.rt.Substitutions = substitutions

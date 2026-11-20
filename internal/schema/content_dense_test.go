@@ -29,7 +29,7 @@ func TestDenseDFAAdmissionPolicy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, test.names)
-			reads := testCompiledModelReads(build.CompiledModels)
+			reads := testCompiledModelReads(build.CompiledContent.Models)
 			row := &reads[0].Rows[0]
 			if (row.indexKind == publishedDFADense) != test.want {
 				t.Fatalf("dense admission = %v, want %v", row.indexKind == publishedDFADense, test.want)
@@ -48,7 +48,7 @@ func TestDenseDFAUsesFullQNameAndBounds(t *testing.T) {
 		names[i] = QName{Namespace: 1000, Local: localNameID(math.MaxUint32 - 32 + i*2)}
 	}
 	build := contentContractBuild(t, names)
-	reads := testCompiledModelReads(build.CompiledModels)
+	reads := testCompiledModelReads(build.CompiledContent.Models)
 	if reads[0].Rows[0].indexKind != publishedDFADense {
 		t.Fatal("wide high-ID row was not admitted")
 	}
@@ -91,11 +91,11 @@ func TestDenseDFAUsesFullQNameAndBounds(t *testing.T) {
 func TestDenseDFAUniqueCountedRowPreservesAdmission(t *testing.T) {
 	t.Parallel()
 	build := contentContractBuild(t, contentContractNames(16))
-	row := &build.CompiledModels[0].Rows[0]
+	row := &build.CompiledContent.Models[0].Rows[0]
 	row.Accept, row.Counted, row.Min, row.Max = true, true, 1, 1
 	row.CountParticle = row.Edges[0].Particle
 	row.Edges[0].To = 0
-	reads := testCompiledModelReads(build.CompiledModels)
+	reads := testCompiledModelReads(build.CompiledContent.Models)
 	if reads[0].Rows[0].indexKind != publishedDFADense {
 		t.Fatal("unambiguous counted row was not admitted")
 	}
@@ -122,7 +122,7 @@ func TestDenseDFAExcludesWildcardAndAmbiguousRows(t *testing.T) {
 		t.Run(map[bool]string{false: "wildcard", true: "loop and exit"}[ambiguous], func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(16))
-			row := &build.CompiledModels[0].Rows[0]
+			row := &build.CompiledContent.Models[0].Rows[0]
 			if ambiguous {
 				loop := row.Edges[0]
 				loop.To = 0
@@ -133,10 +133,10 @@ func TestDenseDFAExcludesWildcardAndAmbiguousRows(t *testing.T) {
 			} else {
 				row.Edges = append(row.Edges, compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1})
 			}
-			if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+			if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
-			reads := testCompiledModelReads(build.CompiledModels)
+			reads := testCompiledModelReads(build.CompiledContent.Models)
 			if reads[0].Rows[0].indexKind == publishedDFADense {
 				t.Fatal("excluded row admitted a dense index")
 			}
@@ -190,10 +190,10 @@ func TestDenseDFAEffectiveSubstitutionReturnsActualMember(t *testing.T) {
 			}
 			build := contentContractBuild(t, contentContractNames(16))
 			build.Elements, build.Substitutions = elements, table
-			if indexErr := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); indexErr != nil {
+			if indexErr := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); indexErr != nil {
 				t.Fatal(indexErr)
 			}
-			reads := testCompiledModelReads(build.CompiledModels)
+			reads := testCompiledModelReads(build.CompiledContent.Models)
 			if reads[0].Rows[0].indexKind != publishedDFADense {
 				t.Fatal("wide contiguous substitution row was not admitted")
 			}
@@ -259,7 +259,7 @@ func TestDenseDFAProjectionMarkerAndCompleteSmallFallback(t *testing.T) {
 		t.Run(strconv.Itoa(width), func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(width))
-			reads, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, allContentModelIDs(len(build.CompiledModels)), unlimitedContentModelWork)
+			reads, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledContent.Models, allCompiledModels(len(build.CompiledContent.Models)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -268,8 +268,8 @@ func TestDenseDFAProjectionMarkerAndCompleteSmallFallback(t *testing.T) {
 			}
 			rt := contentContractSchema(build, reads)
 			last := build.Elements[width-1].Name
-			build.CompiledModels[0].Rows[0].index.nameToEdge[last] = 0
-			build.CompiledModels[0].Rows[0].Edges[width-1].Particle.Element = 0
+			build.CompiledContent.Models[0].Rows[0].index.nameToEdge[last] = 0
+			build.CompiledContent.Models[0].Rows[0].Edges[width-1].Particle.Element = 0
 			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: last}}, &ContentScratch{})
 			kind, element := transition.Match()
 			if status != contentTransitionMatched || kind != ContentMatchDeclared || int(element) != width-1 {
@@ -287,17 +287,17 @@ func TestPublishedMapIndexPreservesWildcardOrder(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				build := contentContractBuild(t, contentContractNames(width-1))
-				row := &build.CompiledModels[0].Rows[0]
+				row := &build.CompiledContent.Models[0].Rows[0]
 				wild := compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1}
 				if before {
 					row.Edges = append([]compiledModelEdge{wild}, row.Edges...)
 				} else {
 					row.Edges = append(row.Edges, wild)
 				}
-				if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+				if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
 					t.Fatal(err)
 				}
-				rt := contentContractSchema(build, testCompiledModelReads(build.CompiledModels))
+				rt := contentContractSchema(build, testCompiledModelReads(build.CompiledContent.Models))
 				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 				st := ContentState{model: 0, present: true}
 				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
@@ -334,7 +334,7 @@ func TestDenseDFAVisitAndArrayAdmissionBounds(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(16))
-			reads, _, err := newCompiledModelReads(build.CompiledModels, allContentModelIDs(len(build.CompiledModels)), unlimitedContentModelWork)
+			reads, _, err := newCompiledModelReads(build.CompiledContent.Models, allCompiledModels(len(build.CompiledContent.Models)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -359,8 +359,8 @@ func TestDenseDFAExhaustionStopsRemainingConversion(t *testing.T) {
 	t.Parallel()
 	build := contentContractBuild(t, contentContractNames(200))
 	other := contentContractBuild(t, contentContractNames(16))
-	models := append([]compiledModel{build.CompiledModels[0]}, other.CompiledModels...)
-	reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
+	models := append([]compiledModel{build.CompiledContent.Models[0]}, other.CompiledContent.Models...)
+	reads, _, err := newCompiledModelReads(models, allCompiledModels(len(models)), unlimitedContentModelWork)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,8 +377,8 @@ func TestDenseDFAAggregateAdmissionIsStable(t *testing.T) {
 		t.Run(limit, func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(16))
-			models := []compiledModel{build.CompiledModels[0], build.CompiledModels[0]}
-			reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
+			models := []compiledModel{build.CompiledContent.Models[0], build.CompiledContent.Models[0]}
+			reads, _, err := newCompiledModelReads(models, allCompiledModels(len(models)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -400,8 +400,8 @@ func TestDenseDFAWideMapScanIsOrderIndependent(t *testing.T) {
 	t.Parallel()
 	for rotation := range uint32(32) {
 		build := contentContractBuild(t, contentContractNames(16))
-		models := []compiledModel{build.CompiledModels[0], build.CompiledModels[0]}
-		reads, _, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
+		models := []compiledModel{build.CompiledContent.Models[0], build.CompiledContent.Models[0]}
+		reads, _, err := newCompiledModelReads(models, allCompiledModels(len(models)), unlimitedContentModelWork)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -429,11 +429,11 @@ func TestDenseDFAConversionOwnsOneRepresentation(t *testing.T) {
 				names[15].Namespace = 1
 			}
 			build := contentContractBuild(t, names)
-			reads, _, err := newCompiledModelReads(build.CompiledModels, allContentModelIDs(len(build.CompiledModels)), unlimitedContentModelWork)
+			reads, _, err := newCompiledModelReads(build.CompiledContent.Models, allCompiledModels(len(build.CompiledContent.Models)), unlimitedContentModelWork)
 			if err != nil {
 				t.Fatal(err)
 			}
-			build.CompiledModels[0].Rows[0].index.nameToEdge[names[15]] = 0
+			build.CompiledContent.Models[0].Rows[0].index.nameToEdge[names[15]] = 0
 			budget := defaultDenseIndexBudget()
 			addDenseDFAIndexes(reads, &budget)
 			row := &reads[0].Rows[0]
@@ -444,7 +444,7 @@ func TestDenseDFAConversionOwnsOneRepresentation(t *testing.T) {
 				t.Fatal("dense conversion retained a competing map")
 			}
 			rt := contentContractSchema(build, reads)
-			build.CompiledModels[0].Rows[0].Edges[15].Particle.Element = 0
+			build.CompiledContent.Models[0].Rows[0].Edges[15].Particle.Element = 0
 			build.Elements[15].Name = QName{Local: 99}
 			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: names[15]}}, &ContentScratch{})
 			kind, element := transition.Match()

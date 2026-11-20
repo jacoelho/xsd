@@ -76,7 +76,7 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 		{name: "element-declaration", length: len(build.Elements)},
 		{name: "attribute-declaration", length: len(build.Attributes)},
 		{name: "content-model", length: len(build.Models)},
-		{name: "compiled-content-model", length: len(build.CompiledModels)},
+		{name: "compiled-content-model", length: len(build.CompiledContent.Models)},
 		{name: "attribute-use-set", length: len(build.AttributeUseSets)},
 		{name: "wildcard-definition", length: len(build.Wildcards)},
 		{name: "identity-constraint", length: len(build.Identities)},
@@ -86,8 +86,8 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 			return xsderrors.InternalInvariant("schema " + table.name + " table exceeds runtime ID domain")
 		}
 	}
-	if len(build.CompiledModels) != len(build.Models) {
-		return xsderrors.InternalInvariant("schema compiled content-model table does not match content models")
+	if err := validateCompiledContent(build); err != nil {
+		return err
 	}
 	if !build.Substitutions.validNameOrder() {
 		return xsderrors.InternalInvariant("schema substitution table has no expanded-name order")
@@ -95,14 +95,36 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 	return nil
 }
 
+// validateCompiledContent proves that the compiled table names ascending
+// source models, one compiled model each, and holds every complex type's
+// root, which enterContentModels relies on.
+func validateCompiledContent(build *schemaBuild) error {
+	content := &build.CompiledContent
+	if len(content.Sources) != len(content.Models) {
+		return xsderrors.InternalInvariant("schema compiled content-model table does not match its sources")
+	}
+	for i, id := range content.Sources {
+		if !validContentModelID(id, len(build.Models)) || (i > 0 && content.Sources[i-1] >= id) {
+			return xsderrors.InternalInvariant("schema compiled content-model sources are not ascending source models")
+		}
+	}
+	for i := range build.ComplexTypes {
+		if _, ok := content.modelIndex(build.ComplexTypes[i].Content); !ok {
+			return xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root")
+		}
+	}
+	return nil
+}
+
 func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
-	content := enterContentModels(build.ComplexTypes, build.CompiledModels)
+	content := enterContentModels(build.ComplexTypes, &build.CompiledContent)
 	entered := content.Models
-	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(build.CompiledModels, entered, work)
+	compiled := build.CompiledContent.Models
+	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(compiled, entered, work)
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	if err = indexAllContentModels(build.CompiledModels, entered, compiledModels, build, work); err != nil {
+	if err = indexAllContentModels(compiled, entered, compiledModels, build, work); err != nil {
 		return schemaProgram{}, err
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(

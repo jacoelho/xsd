@@ -34,7 +34,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
-| `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. |
+| `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. The content model of each complex type is compiled with its nested groups; a named model group that no complex type's content model reaches is not compiled and is not subject to this limit. |
 | `MaxContentModelAnalysisSteps` | `16_777_216` | Max content-model traversal, determinization, and ambiguity-analysis work. |
 | `MaxSubstitutionClosureEntries` | `1_000_000` | Max aggregate transitive substitution-group relationships. |
 | `MaxSimpleUnionMemberEntries` | `1_000_000` | Max aggregate flattened simple-union members. |

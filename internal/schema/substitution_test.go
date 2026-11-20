@@ -336,9 +336,9 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 		compareQName,
 	)
 	build := schemaBuild{
-		Substitutions:  table,
-		ComplexTypes:   []complexTypeMetadata{{Derivation: derivationKindNone}},
-		CompiledModels: []compiledModel{{}},
+		Substitutions:   table,
+		ComplexTypes:    []complexTypeMetadata{{Derivation: derivationKindNone}},
+		CompiledContent: compiledContent{Sources: []contentModelID{0}, Models: []compiledModel{{}}},
 	}
 	reads, err := newSchemaProgram(&build, unlimitedContentModelWork)
 	if err != nil {

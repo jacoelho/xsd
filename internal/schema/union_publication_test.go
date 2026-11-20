@@ -17,7 +17,7 @@ func TestPublicationRejectsUnionFacetProjectionDrift(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			c, _ := newEmptyComplexTypePublicationCompiler(t, document)
-			if err := c.compileContentModels(); err != nil {
+			if err := c.compileReachedContentModelsForTest(); err != nil {
 				t.Fatal(err)
 			}
 			q, _ := c.rt.Names.LookupQName("", name)

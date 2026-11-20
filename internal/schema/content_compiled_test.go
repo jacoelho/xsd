@@ -119,7 +119,7 @@ func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) 
 			All:  []compiledAllTerm{{Required: i%2 == 0}},
 		}
 	}
-	work := func(entered []contentModelID) ([]compiledModelRead, int) {
+	work := func(entered []int) ([]compiledModelRead, int) {
 		units := 0
 		reads, _, err := newCompiledModelReads(models, entered, func(steps int) error { units += steps; return nil })
 		if err != nil {
@@ -127,17 +127,17 @@ func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) 
 		}
 		return reads, units
 	}
-	entered := []contentModelID{1, 3, 4}
+	entered := []int{1, 3, 4}
 	reads, units := work(entered)
 	if len(reads) != len(entered) {
 		t.Fatalf("published %d models, want %d", len(reads), len(entered))
 	}
 	for i, id := range entered {
-		if reads[i].Rows[0].Edges[0].To != uint32(10+id) || reads[i].All[0].Required != (id%2 == 0) {
+		if int(reads[i].Rows[0].Edges[0].To) != 10+id || reads[i].All[0].Required != (id%2 == 0) {
 			t.Fatalf("published model %d = %+v, want source model %d", i, reads[i], id)
 		}
 	}
-	if _, all := work(allContentModelIDs(len(models))); units != all {
+	if _, all := work(allCompiledModels(len(models))); units != all {
 		t.Fatalf("projection work = %d for entered models, want %d as for every model", units, all)
 	}
 }
@@ -151,7 +151,7 @@ func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
 		models[i].All = []compiledAllTerm{{Required: true}}
 	}
 
-	entered := allContentModelIDs(len(models))
+	entered := allCompiledModels(len(models))
 	allocs := testing.AllocsPerRun(3, func() {
 		reads, _, err := newCompiledModelReads(models, entered, unlimitedContentModelWork)
 		if err != nil {

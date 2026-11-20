@@ -37,7 +37,7 @@ func TestPublicationChecksCanonicalNotationConstructorEdges(t *testing.T) {
 			// construction record must not hide its invalid constructor edge.
 			c.rt.SimpleTypes[id].ValueSpec.ListItem = stringType
 			c.rt.SimpleTypes[id].ValueSpec.Union = []value.TypeID{stringType}
-			if err = c.compileContentModels(); err != nil {
+			if err = c.compileReachedContentModelsForTest(); err != nil {
 				t.Fatal(err)
 			}
 			published, err := c.publishSchema()

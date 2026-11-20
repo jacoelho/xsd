@@ -21,7 +21,7 @@ type schemaBuild struct {
 	Models                []contentModelNode
 	AttributeUseSets      []attributeUseSet
 	Wildcards             []wildcardRuntime
-	CompiledModels        []compiledModel
+	CompiledContent       compiledContent
 	SimpleTypes           []simpleType
 	simpleTypeUnavailable []bool
 	Attributes            []attributeDecl

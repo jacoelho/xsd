@@ -382,10 +382,14 @@ func (c *compiler) finalizeCompiledGlobals() error {
 	if err := c.validateIdentityReferences(); err != nil {
 		return err
 	}
-	if err := c.checkCompiledModelsUPA(); err != nil {
+	reached, err := c.complexTypeReachableModels()
+	if err != nil {
 		return err
 	}
-	return c.compileContentModels()
+	if err := c.checkCompiledModelsUPA(reached); err != nil {
+		return err
+	}
+	return c.compileContentModels(reached)
 }
 
 func (c *compiler) compileModelGroupByQName(q QName) error {
