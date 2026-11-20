@@ -447,7 +447,7 @@ func TestDeterministicRowCapsTransitionGroupBeforeStateLookup(t *testing.T) {
 		}},
 	}
 	calledStateID := false
-	_, err := b.deterministicRow(dfaDeterministicState{Configs: []dfaConfig{{}}}, nil, func(dfaDeterministicState) (uint32, error) {
+	_, err := mustDeterministicModelCompilation(t, b).deterministicRow([]dfaConfig{{}}, func([]dfaConfig) (uint32, error) {
 		calledStateID = true
 		return 0, nil
 	})
@@ -470,8 +470,8 @@ func TestDeterministicRowDeduplicatesTransitionGroupBeforeLimit(t *testing.T) {
 		}},
 	}
 	var stateConfigs int
-	_, err := b.deterministicRow(dfaDeterministicState{Configs: []dfaConfig{{}}}, nil, func(state dfaDeterministicState) (uint32, error) {
-		stateConfigs = len(state.Configs)
+	_, err := mustDeterministicModelCompilation(t, b).deterministicRow([]dfaConfig{{}}, func(configs []dfaConfig) (uint32, error) {
+		stateConfigs = len(configs)
 		return 0, nil
 	})
 	if err != nil {
@@ -498,12 +498,20 @@ func TestDeterministicRowChargesRejectedGuards(t *testing.T) {
 			}},
 		}},
 	}
-	_, err := b.deterministicRow(
-		dfaDeterministicState{Configs: []dfaConfig{{}}},
-		nil,
-		func(dfaDeterministicState) (uint32, error) { return 0, nil },
+	_, err := mustDeterministicModelCompilation(t, b).deterministicRow(
+		[]dfaConfig{{}},
+		func([]dfaConfig) (uint32, error) { return 0, nil },
 	)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func mustDeterministicModelCompilation(t *testing.T, b *dfaBuilder) *deterministicModelCompilation {
+	t.Helper()
+	c, err := newDeterministicModelCompilation(b, nil)
+	if err != nil {
+		t.Fatalf("newDeterministicModelCompilation() error = %v", err)
+	}
+	return c
 }
 
 func TestNormalizeFollowsChargesEntryStorage(t *testing.T) {

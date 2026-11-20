@@ -2,24 +2,99 @@ package schema
 
 import (
 	"cmp"
+	"encoding/binary"
 	"slices"
 	"strconv"
 
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// dfaConfig is one configuration of a deterministic state: a state of the
+// counted source automaton and the interned values of its counters. Interned
+// vectors make a configuration a fixed-size comparable value, so equal
+// configurations are equal values.
 type dfaConfig struct {
-	Counters []uint32
 	State    uint32
+	Counters dfaCounterVectorID
 }
 
-type dfaDeterministicState struct {
-	Configs []dfaConfig
+type dfaCounterVectorID uint32
+
+// dfaZeroCounters is interned first by every determinization, so the zero
+// configuration value is the start configuration of source state zero.
+const dfaZeroCounters dfaCounterVectorID = 0
+
+// dfaConfigKeyBytes is the encoded width of one configuration in a state key:
+// the source state and the counter vector ID, little endian.
+const dfaConfigKeyBytes = 8
+
+// dfaCounterVectors interns the counter vectors of one determinization. A
+// vector is stored once however many configurations hold it.
+type dfaCounterVectors struct {
+	ids    map[string]dfaCounterVectorID
+	values []uint32
+	key    []byte
+	width  int
+}
+
+func newDFACounterVectors(width int) (dfaCounterVectors, error) {
+	v := dfaCounterVectors{ids: make(map[string]dfaCounterVectorID), width: width}
+	if _, err := v.intern(make([]uint32, width)); err != nil {
+		return dfaCounterVectors{}, err
+	}
+	return v, nil
+}
+
+func (v *dfaCounterVectors) intern(counters []uint32) (dfaCounterVectorID, error) {
+	v.key = v.key[:0]
+	for _, counter := range counters {
+		v.key = binary.LittleEndian.AppendUint32(v.key, counter)
+	}
+	if id, ok := v.ids[string(v.key)]; ok {
+		return id, nil
+	}
+	n, err := checkedSchemaUint32(len(v.ids), "content model DFA counter vector limit exceeded")
+	if err != nil {
+		return 0, err
+	}
+	id := dfaCounterVectorID(n)
+	v.ids[string(v.key)] = id
+	v.values = append(v.values, counters...)
+	return id, nil
+}
+
+// vector returns the interned counters of id. The result is capped at its
+// width, and interning never rewrites stored values, so it stays valid while
+// further vectors are interned.
+func (v *dfaCounterVectors) vector(id dfaCounterVectorID) []uint32 {
+	start := int(id) * v.width
+	end := start + v.width
+	return v.values[start:end:end]
+}
+
+// compareConfigs orders configurations by source state, then by counter
+// values. The order is independent of interning order, so a state's
+// configurations, and the particle that first reaches each transition term,
+// do not depend on which vector was interned first.
+func (v *dfaCounterVectors) compareConfigs(a, b dfaConfig) int {
+	if n := cmp.Compare(a.State, b.State); n != 0 {
+		return n
+	}
+	if a.Counters == b.Counters {
+		return 0
+	}
+	return slices.Compare(v.vector(a.Counters), v.vector(b.Counters))
+}
+
+type dfaDeterministicRow struct {
+	Edges  []compiledModelEdge
+	Accept bool
 }
 
 type dfaTransitionSet struct {
 	Configs  []dfaConfig
 	Particle contentParticle
+	Key      particleTermKey
 }
 
 type particleTermKey struct {
@@ -33,8 +108,9 @@ func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, err
 	if capsErr != nil {
 		return compiledModel{}, capsErr
 	}
-	compilation := deterministicModelCompilation{
-		builder: b, caps: caps, states: make(map[string]uint32),
+	compilation, err := newDeterministicModelCompilation(b, caps)
+	if err != nil {
+		return compiledModel{}, err
 	}
 	startID, err := compilation.start(start)
 	if err != nil {
@@ -43,47 +119,77 @@ func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, err
 	if err := compilation.compileRows(); err != nil {
 		return compiledModel{}, err
 	}
-	if err := b.c.checkCompiledRowsUPA(compilation.rows); err != nil {
+	rows := compilation.table()
+	if err := b.c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, err
 	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
-		Rows:  compilation.rows,
+		Rows:  rows,
 		Start: startID,
-		Empty: compilation.rows[startID].Accept,
+		Empty: rows[startID].Accept,
 	}, nil
 }
 
+// deterministicModelCompilation determinizes one counted source automaton.
+// A deterministic state is identified by its key, the encoding of its sorted
+// and deduplicated configurations; keys[id] is the only stored form of state
+// id's configurations. States are discovered in ID order and their rows are
+// built in the same order, so keys[len(rows):] is the work queue. Row
+// construction reuses the scratch fields across rows.
 type deterministicModelCompilation struct {
-	builder *dfaBuilder
-	caps    []uint32
-	states  map[string]uint32
-	queue   []dfaDeterministicState
-	rows    []compiledModelRow
+	builder    *dfaBuilder
+	states     map[string]uint32
+	groupIndex map[particleTermKey]int
+	caps       []uint32
+	keys       []string
+	rows       []dfaDeterministicRow
+	configs    []dfaConfig
+	groups     []dfaTransitionSet
+	counters   []uint32
+	key        []byte
+	vectors    dfaCounterVectors
+}
+
+func newDeterministicModelCompilation(b *dfaBuilder, caps []uint32) (*deterministicModelCompilation, error) {
+	vectors, err := newDFACounterVectors(int(b.counters))
+	if err != nil {
+		return nil, err
+	}
+	return &deterministicModelCompilation{
+		builder:    b,
+		states:     make(map[string]uint32),
+		groupIndex: make(map[particleTermKey]int),
+		caps:       caps,
+		vectors:    vectors,
+		counters:   make([]uint32, b.counters),
+	}, nil
 }
 
 func (c *deterministicModelCompilation) start(start uint32) (uint32, error) {
 	if err := c.builder.c.work.spend(int(c.builder.counters)); err != nil {
 		return 0, err
 	}
-	counters := make([]uint32, c.builder.counters)
-	return c.stateID(dfaDeterministicState{Configs: []dfaConfig{{State: start, Counters: counters}}})
+	return c.stateID([]dfaConfig{{State: start, Counters: dfaZeroCounters}})
 }
 
-func (c *deterministicModelCompilation) stateID(state dfaDeterministicState) (uint32, error) {
-	if err := c.builder.spendDFAConfigs(state.Configs); err != nil {
+func (c *deterministicModelCompilation) stateID(configs []dfaConfig) (uint32, error) {
+	if err := c.builder.spendDFAConfigs(len(configs)); err != nil {
 		return 0, err
 	}
-	state.Configs = normalizeDFAConfigs(state.Configs)
-	return c.stateIDNormalized(state)
+	return c.stateIDNormalized(c.normalize(configs))
 }
 
-func (c *deterministicModelCompilation) stateIDNormalized(state dfaDeterministicState) (uint32, error) {
-	if len(state.Configs) > c.builder.limit {
+func (c *deterministicModelCompilation) stateIDNormalized(configs []dfaConfig) (uint32, error) {
+	if len(configs) > c.builder.limit {
 		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
 	}
-	key := dfaConfigStateKey(state.Configs)
-	if id, ok := c.states[key]; ok {
+	c.key = c.key[:0]
+	for _, config := range configs {
+		c.key = binary.LittleEndian.AppendUint32(c.key, config.State)
+		c.key = binary.LittleEndian.AppendUint32(c.key, uint32(config.Counters))
+	}
+	if id, ok := c.states[string(c.key)]; ok {
 		return id, nil
 	}
 	if len(c.states) >= c.builder.limit {
@@ -93,49 +199,95 @@ func (c *deterministicModelCompilation) stateIDNormalized(state dfaDeterministic
 	if err != nil {
 		return 0, err
 	}
+	key := string(c.key)
 	c.states[key] = id
-	c.queue = append(c.queue, state)
+	c.keys = append(c.keys, key)
 	return id, nil
 }
 
+func (c *deterministicModelCompilation) normalize(configs []dfaConfig) []dfaConfig {
+	slices.SortFunc(configs, c.vectors.compareConfigs)
+	return slices.Compact(configs)
+}
+
 func (c *deterministicModelCompilation) compileRows() error {
-	for len(c.queue) != 0 {
-		state := c.queue[0]
-		c.queue[0] = dfaDeterministicState{}
-		c.queue = c.queue[1:]
-		if err := c.builder.c.work.spend(len(state.Configs) + 1); err != nil {
+	for len(c.rows) < len(c.keys) {
+		configs := c.decodeState(c.keys[len(c.rows)])
+		if err := c.builder.c.work.spend(len(configs) + 1); err != nil {
 			return err
 		}
-		row, err := c.builder.deterministicRow(state, c.caps, c.stateIDNormalized)
+		row, err := c.deterministicRow(configs, c.stateIDNormalized)
 		if err != nil {
 			return err
 		}
-		c.rows = append(c.rows, row)
+		c.appendRow(row)
 	}
 	return nil
 }
 
-func (b *dfaBuilder) deterministicRow(state dfaDeterministicState, caps []uint32, stateID func(dfaDeterministicState) (uint32, error)) (compiledModelRow, error) {
+func (c *deterministicModelCompilation) decodeState(key string) []dfaConfig {
+	c.configs = c.configs[:0]
+	for i := 0; i+dfaConfigKeyBytes <= len(key); i += dfaConfigKeyBytes {
+		c.configs = append(c.configs, dfaConfig{
+			State:    decodeUint32LE(key[i:]),
+			Counters: dfaCounterVectorID(decodeUint32LE(key[i+4:])),
+		})
+	}
+	return c.configs
+}
+
+func decodeUint32LE(s string) uint32 {
+	return uint32(s[0]) | uint32(s[1])<<8 | uint32(s[2])<<16 | uint32(s[3])<<24
+}
+
+// appendRow keeps the two fields a deterministic row sets and grows them by
+// doubling: append's own growth for large slices allocates about five times
+// the final length, and compiledModelRow is three times their size.
+func (c *deterministicModelCompilation) appendRow(row compiledModelRow) {
+	if len(c.rows) == cap(c.rows) {
+		c.rows = slices.Grow(c.rows, max(len(c.rows), len(c.keys)-len(c.rows)))
+	}
+	c.rows = append(c.rows, dfaDeterministicRow{Edges: row.Edges, Accept: row.Accept})
+}
+
+// table returns the built rows at their exact length; compiled models live
+// until publication.
+func (c *deterministicModelCompilation) table() []compiledModelRow {
+	rows := make([]compiledModelRow, len(c.rows))
+	for i, row := range c.rows {
+		rows[i] = compiledModelRow{Edges: row.Edges, Accept: row.Accept}
+	}
+	return rows
+}
+
+func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, stateID func([]dfaConfig) (uint32, error)) (compiledModelRow, error) {
 	var row compiledModelRow
-	groups := make(map[particleTermKey]*dfaTransitionSet)
-	for _, config := range state.Configs {
-		if err := b.collectDeterministicConfig(&row, groups, config, caps); err != nil {
+	c.groups = c.groups[:0]
+	clear(c.groupIndex)
+	for _, config := range configs {
+		if err := c.collectConfig(&row, config); err != nil {
 			return compiledModelRow{}, err
 		}
 	}
-	if err := b.c.work.spend(len(groups)); err != nil {
+	if err := c.builder.c.work.spend(len(c.groups)); err != nil {
 		return compiledModelRow{}, err
 	}
-	keys := sortedParticleTermKeys(groups)
-	for _, key := range keys {
-		if err := b.appendDeterministicTransition(&row, groups[key], stateID); err != nil {
+	slices.SortFunc(c.groups, func(a, b dfaTransitionSet) int {
+		return compareParticleTermKey(a.Key, b.Key)
+	})
+	if len(c.groups) != 0 {
+		row.Edges = make([]compiledModelEdge, 0, len(c.groups))
+	}
+	for i := range c.groups {
+		if err := c.appendTransition(&row, &c.groups[i], stateID); err != nil {
 			return compiledModelRow{}, err
 		}
 	}
 	return row, nil
 }
 
-func (b *dfaBuilder) collectDeterministicConfig(row *compiledModelRow, groups map[particleTermKey]*dfaTransitionSet, config dfaConfig, caps []uint32) error {
+func (c *deterministicModelCompilation) collectConfig(row *compiledModelRow, config dfaConfig) error {
+	b := c.builder
 	if !validUint32Index(config.State, len(b.rows)) {
 		return xsderrors.InternalInvariant("content model DFA state out of range")
 	}
@@ -143,18 +295,24 @@ func (b *dfaBuilder) collectDeterministicConfig(row *compiledModelRow, groups ma
 	if err := b.c.work.spend(len(source.Accept) + len(source.Edges)); err != nil {
 		return err
 	}
-	if err := b.collectDeterministicAccept(row, source.Accept, config, caps); err != nil {
+	counters := c.vectors.vector(config.Counters)
+	if err := b.collectDeterministicAccept(row, source.Accept, counters, c.caps); err != nil {
 		return err
 	}
-	return b.collectDeterministicEdges(groups, source.Edges, config, caps)
+	for _, edge := range source.Edges {
+		if err := c.collectEdge(edge, counters); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (b *dfaBuilder) collectDeterministicAccept(row *compiledModelRow, accepts []dfaAccept, config dfaConfig, caps []uint32) error {
+func (b *dfaBuilder) collectDeterministicAccept(row *compiledModelRow, accepts []dfaAccept, counters, caps []uint32) error {
 	for _, accept := range accepts {
 		if err := b.c.work.spend(len(accept.Guards)); err != nil {
 			return err
 		}
-		if dfaGuardsOK(config.Counters, caps, accept.Guards) {
+		if dfaGuardsOK(counters, caps, accept.Guards) {
 			row.Accept = true
 			break
 		}
@@ -162,57 +320,61 @@ func (b *dfaBuilder) collectDeterministicAccept(row *compiledModelRow, accepts [
 	return nil
 }
 
-func (b *dfaBuilder) collectDeterministicEdges(groups map[particleTermKey]*dfaTransitionSet, edges []dfaSourceEdge, config dfaConfig, caps []uint32) error {
-	for _, edge := range edges {
-		if err := b.collectDeterministicEdge(groups, edge, config, caps); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *dfaBuilder) collectDeterministicEdge(groups map[particleTermKey]*dfaTransitionSet, edge dfaSourceEdge, config dfaConfig, caps []uint32) error {
-	if err := b.c.work.spend(len(edge.Guards)); err != nil {
+func (c *deterministicModelCompilation) collectEdge(edge dfaSourceEdge, counters []uint32) error {
+	work := c.builder.c.work
+	if err := work.spend(len(edge.Guards)); err != nil {
 		return err
 	}
-	if !dfaGuardsOK(config.Counters, caps, edge.Guards) {
+	if !dfaGuardsOK(counters, c.caps, edge.Guards) {
 		return nil
 	}
-	if err := b.c.work.spend(len(config.Counters) + len(edge.Actions) + 1); err != nil {
+	if err := work.spend(len(counters) + len(edge.Actions) + 1); err != nil {
 		return err
 	}
-	counters, err := applyDFAActions(config.Counters, caps, edge.Actions)
+	next, err := c.applyActions(counters, edge.Actions)
 	if err != nil {
 		return err
 	}
-	key := particleTermKeyOf(edge.Particle)
-	group := groups[key]
-	if group == nil {
-		group = &dfaTransitionSet{Particle: edge.Particle}
-		groups[key] = group
-	}
-	group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: counters})
+	group := c.group(edge.Particle)
+	group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: next})
 	return nil
 }
 
-func sortedParticleTermKeys(groups map[particleTermKey]*dfaTransitionSet) []particleTermKey {
-	keys := make([]particleTermKey, 0, len(groups))
-	for key := range groups {
-		keys = append(keys, key)
+func (c *deterministicModelCompilation) applyActions(counters []uint32, actions []compiledAction) (dfaCounterVectorID, error) {
+	c.counters = append(c.counters[:0], counters...)
+	if err := applyDFAActions(c.counters, c.caps, actions); err != nil {
+		return 0, err
 	}
-	slices.SortFunc(keys, compareParticleTermKey)
-	return keys
+	return c.vectors.intern(c.counters)
 }
 
-func (b *dfaBuilder) appendDeterministicTransition(row *compiledModelRow, group *dfaTransitionSet, stateID func(dfaDeterministicState) (uint32, error)) error {
-	if err := b.spendDFAConfigs(group.Configs); err != nil {
+// group returns the transition set of p's term in the row being built. The
+// first particle to reach a term is the particle of its edge.
+func (c *deterministicModelCompilation) group(p contentParticle) *dfaTransitionSet {
+	key := particleTermKeyOf(p)
+	if i, ok := c.groupIndex[key]; ok {
+		return &c.groups[i]
+	}
+	i := len(c.groups)
+	c.groupIndex[key] = i
+	if i < cap(c.groups) {
+		c.groups = c.groups[:i+1]
+		c.groups[i] = dfaTransitionSet{Configs: c.groups[i].Configs[:0], Particle: p, Key: key}
+	} else {
+		c.groups = append(c.groups, dfaTransitionSet{Particle: p, Key: key})
+	}
+	return &c.groups[i]
+}
+
+func (c *deterministicModelCompilation) appendTransition(row *compiledModelRow, group *dfaTransitionSet, stateID func([]dfaConfig) (uint32, error)) error {
+	if err := c.builder.spendDFAConfigs(len(group.Configs)); err != nil {
 		return err
 	}
-	group.Configs = normalizeDFAConfigs(group.Configs)
-	if len(group.Configs) > b.limit {
+	group.Configs = c.normalize(group.Configs)
+	if len(group.Configs) > c.builder.limit {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
 	}
-	to, err := stateID(dfaDeterministicState{Configs: group.Configs})
+	to, err := stateID(group.Configs)
 	if err != nil {
 		return err
 	}
@@ -249,16 +411,11 @@ func (b *dfaBuilder) addRowCounterCaps(caps []uint32, row dfaSourceRow) error {
 	return nil
 }
 
-func (b *dfaBuilder) spendDFAConfigs(configs []dfaConfig) error {
-	if err := b.c.work.spend(len(configs) + 1); err != nil {
+func (b *dfaBuilder) spendDFAConfigs(count int) error {
+	if err := b.c.work.spend(count + 1); err != nil {
 		return err
 	}
-	for _, config := range configs {
-		if err := b.c.work.spend(len(config.Counters)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return b.c.work.spendProduct(count, int(b.counters))
 }
 
 func addCounterCaps(caps []uint32, guards []compiledGuard) {
@@ -294,63 +451,23 @@ func dfaGuardOK(counters, caps []uint32, guard compiledGuard) bool {
 	}
 }
 
-func applyDFAActions(counters, caps []uint32, actions []compiledAction) ([]uint32, error) {
-	out := slices.Clone(counters)
+func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 	for _, action := range actions {
-		if !validUint32Index(action.Slot, len(out)) {
-			return nil, xsderrors.InternalInvariant("content model DFA action references invalid counter")
+		if !validUint32Index(action.Slot, len(counters)) {
+			return xsderrors.InternalInvariant("content model DFA action references invalid counter")
 		}
 		switch action.Kind {
 		case compiledActionInc:
-			if out[action.Slot] < caps[action.Slot] {
-				out[action.Slot]++
+			if counters[action.Slot] < caps[action.Slot] {
+				counters[action.Slot]++
 			}
 		case compiledActionReset:
-			out[action.Slot] = 0
+			counters[action.Slot] = 0
 		default:
-			return nil, xsderrors.InternalInvariant("content model DFA action kind out of range")
+			return xsderrors.InternalInvariant("content model DFA action kind out of range")
 		}
 	}
-	return out, nil
-}
-
-// normalizeDFAConfigs canonicalizes DFA state keys before map lookup.
-func normalizeDFAConfigs(configs []dfaConfig) []dfaConfig {
-	configs = slices.Clone(configs)
-	slices.SortFunc(configs, compareDFAConfig)
-	return slices.CompactFunc(configs, func(a, b dfaConfig) bool {
-		return compareDFAConfig(a, b) == 0
-	})
-}
-
-func compareDFAConfig(a, b dfaConfig) int {
-	if n := cmp.Compare(a.State, b.State); n != 0 {
-		return n
-	}
-	if n := cmp.Compare(len(a.Counters), len(b.Counters)); n != 0 {
-		return n
-	}
-	for i := range a.Counters {
-		if n := cmp.Compare(a.Counters[i], b.Counters[i]); n != 0 {
-			return n
-		}
-	}
-	return 0
-}
-
-func dfaConfigStateKey(configs []dfaConfig) string {
-	var b []byte
-	for _, config := range configs {
-		b = append(b, 's')
-		b = strconv.AppendUint(b, uint64(config.State), 10)
-		b = append(b, ':')
-		for _, counter := range config.Counters {
-			b = strconv.AppendUint(b, uint64(counter), 10)
-			b = append(b, ',')
-		}
-		b = append(b, ';')
-	}
-	return string(b)
+	return nil
 }
 
 func particleTermKeyOf(p contentParticle) particleTermKey {
