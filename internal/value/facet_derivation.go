@@ -246,7 +246,7 @@ func orderedUpperRestricts(derived, base boundValue) bool {
 // time before it is wrapped into one day, so a base maxInclusive of
 // 12:00:00-10:00 makes a derived 12:00:00-14:00 invalid (W3C
 // time_maxInclusive007_119). Every other relation between bounds and values
-// uses compareAtomic, which knows no day (Time midnight in
+// uses compareAtomic, which knows no day (the time value reading in
 // docs/spec/INTERPRETATIONS.md).
 func compareDerivationBounds(derived, base boundValue) (orderedFacetRelation, bool) {
 	if derived.value.kind != primitiveTime || base.value.kind != primitiveTime {
