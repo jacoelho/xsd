@@ -79498,13 +79498,13 @@
           },
           "differences": {
             "xerces": {
-              "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             }
           }
         },
@@ -79518,13 +79518,13 @@
           },
           "differences": {
             "xerces": {
-              "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             }
           }
         },
@@ -79538,16 +79538,16 @@
           },
           "differences": {
             "xerces": {
-              "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "xmlschema": {
-              "note": "Observed offline with xmlschema 4.3.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             }
           }
         },
@@ -79561,13 +79561,13 @@
           },
           "differences": {
             "xerces": {
-              "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             }
           }
         },
@@ -79581,13 +79581,13 @@
           },
           "differences": {
             "xerces": {
-              "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             }
           }
         },
@@ -79601,13 +79601,13 @@
           },
           "differences": {
             "xerces": {
-              "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 on the current fixture: instance rejected. The project expectation follows I-020 (XML 1.0 Fifth Edition name characters); this is interoperability evidence, not a majority-vote oracle."
+              "record": "I-020"
             }
           }
         },

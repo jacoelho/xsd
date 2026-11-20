@@ -995,7 +995,7 @@ well-formedness errors. The Fifth Edition `1.x`-as-1.0 rule is not adopted.
 In their name datatypes Xerces-J, .NET and libxml2 use Second Edition classes
 and reject characters such as U+0132, U+2070 and U+10000, and xmlschema uses
 Fifth Edition classes except for supplementary characters. U+00D7 is excluded
-in every edition. Fixture: `tests/corpus/project/datatypes/name-fifth-edition-chars`.
+in every edition (`project/datatypes/name-fifth-edition-chars`).
 In element and attribute names the XML parsers of Xerces-J 2.12.2, .NET 10.0.14
 and xmlschema 4.3.2 reject U+02FF and U+037F as well as supplementary
 characters, and the parser of libxml2 2.9.13 admits all of them
