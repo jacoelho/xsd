@@ -27,7 +27,6 @@ the violated contract, not preserve incidental control flow.
 - `harness_manifest_test.go`: verifies the manifest closure: every referenced file exists and every corpus file is referenced.
 - `oracle_observations_test.go`: verifies the oracle rules of the [Corpus Contract](#corpus-contract) against the observations.
 - `oracle-backlog.txt`: sorted, unique IDs of measured project cases with a provider difference that no record owns yet.
-- `oracle-notes.txt`: sorted `case<TAB>phase<TAB>provider` lines of the differences whose diagnosis is a `note` instead of a record; a `note` is accepted only for a listed line. It only shrinks.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
 - `corpus/xerces-j`: selected Xerces-J XSD/XML validation fixtures.
@@ -183,9 +182,7 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   `docs/spec/INTERPRETATIONS.md` record (`I-NNN`) or the `<a id>` anchor of a
   qualification-table row, that lists the case as a backticked ID or `*`
   pattern and names the provider (Xerces, .NET, xmlschema or libxml2); the
-  record owns the rule and the diagnosis. A `{"note": ...}` entry gives the
-  diagnosis as prose and is accepted only where `oracle-notes.txt` lists its
-  case, phase and provider. Every entry explains such a row.
+  record owns the rule and the diagnosis. Every entry explains such a row.
   `TestObservedDifferencesAreDiagnosed` enforces both directions and lists
   every undiagnosed row, except in cases listed in `oracle-backlog.txt`. For a
   record it checks only that the record exists, that its text lists the case,

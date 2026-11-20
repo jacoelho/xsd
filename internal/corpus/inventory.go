@@ -124,12 +124,9 @@ type Rule struct {
 
 // Difference explains why a provider's measured validity differs from the
 // project expectation: Record names an interpretation record (I-NNN) or the
-// anchor of a qualification-table row in docs/spec/INTERPRETATIONS.md, or Note
-// gives the diagnosis as prose. A Note is accepted only for a case, phase and
-// provider that tests/oracle-notes.txt lists, and that list only shrinks.
+// anchor of a qualification-table row in docs/spec/INTERPRETATIONS.md.
 type Difference struct {
 	Record string `json:"record"`
-	Note   string `json:"note"`
 }
 
 // Phases returns the case's phases in order: the schema phase, when present,
@@ -353,14 +350,10 @@ func validateDifference(provider Provider, d Difference) error {
 		return fmt.Errorf("difference for unknown provider %q", provider)
 	}
 	switch {
-	case d.Record != "" && d.Note != "":
-		return fmt.Errorf("difference for %s has both record and note", provider)
-	case d.Record != "":
-		if !isRecordName(d.Record) {
-			return fmt.Errorf("difference for %s names record %q, want I-NNN or a row anchor", provider, d.Record)
-		}
-	case blank(d.Note):
-		return fmt.Errorf("difference for %s has neither record nor note", provider)
+	case d.Record == "":
+		return fmt.Errorf("difference for %s has no record", provider)
+	case !isRecordName(d.Record):
+		return fmt.Errorf("difference for %s names record %q, want I-NNN or a row anchor", provider, d.Record)
 	}
 	return nil
 }
