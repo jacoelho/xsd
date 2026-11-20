@@ -201,7 +201,7 @@ func (c *deterministicModelCompilation) stateIDNormalized(configs []dfaConfig) (
 	}
 	key := string(c.key)
 	c.states[key] = id
-	c.keys = append(c.keys, key)
+	c.keys = appendDoubling(c.keys, key)
 	return id, nil
 }
 
@@ -240,14 +240,22 @@ func decodeUint32LE(s string) uint32 {
 	return uint32(s[0]) | uint32(s[1])<<8 | uint32(s[2])<<16 | uint32(s[3])<<24
 }
 
-// appendRow keeps the two fields a deterministic row sets and grows them by
-// doubling: append's own growth for large slices allocates about five times
-// the final length, and compiledModelRow is three times their size.
+// appendRow keeps only the two fields a deterministic row sets, a third of
+// compiledModelRow, until the table's length is known.
 func (c *deterministicModelCompilation) appendRow(row compiledModelRow) {
-	if len(c.rows) == cap(c.rows) {
-		c.rows = slices.Grow(c.rows, max(len(c.rows), len(c.keys)-len(c.rows)))
+	c.rows = appendDoubling(c.rows, dfaDeterministicRow{Edges: row.Edges, Accept: row.Accept})
+}
+
+// appendDoubling appends e and doubles the capacity when it is full.
+// Automaton construction appends one element at a time to slices whose final
+// length it cannot know in advance. Over a slice's life, append's growth for
+// large slices allocates about five times the final length; doubling
+// allocates about twice.
+func appendDoubling[S ~[]E, E any](s S, e E) S {
+	if len(s) == cap(s) {
+		s = slices.Grow(s, max(len(s), 4))
 	}
-	c.rows = append(c.rows, dfaDeterministicRow{Edges: row.Edges, Accept: row.Accept})
+	return append(s, e)
 }
 
 // table returns the built rows at their exact length; compiled models live
@@ -544,14 +552,34 @@ func resetActions(counters []uint32, except uint32) []compiledAction {
 }
 
 func mergeCounters(a, b []uint32) []uint32 {
+	if len(b) == 0 {
+		return a
+	}
+	if len(a) == 0 {
+		return b
+	}
 	out := slices.Clone(a)
 	out = append(out, b...)
 	slices.Sort(out)
 	return slices.Compact(out)
 }
 
+// unionDFAEntries returns the normalized union of two normalized entry sets.
+// It shares an operand when the other is empty, so callers treat node entry
+// sets as immutable.
+func unionDFAEntries(a, b []dfaEntry) []dfaEntry {
+	if len(b) == 0 {
+		return a
+	}
+	if len(a) == 0 {
+		return b
+	}
+	return normalizeDFAEntries(slices.Concat(a, b))
+}
+
+// normalizeDFAEntries sorts and deduplicates entries in place; callers pass
+// a slice they own.
 func normalizeDFAEntries(entries []dfaEntry) []dfaEntry {
-	entries = slices.Clone(entries)
 	slices.SortFunc(entries, compareDFAEntry)
 	return slices.CompactFunc(entries, func(a, b dfaEntry) bool {
 		return compareDFAEntry(a, b) == 0
