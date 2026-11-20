@@ -943,12 +943,10 @@ func validateEffectiveFacetShape(f facetProgram) error {
 
 func validBoundPair(lower, upper boundValue) bool {
 	relation, ok := compareAtomic(&lower.value, &upper.value)
-	if !ok || relation == orderedFacetGreater || relation == orderedFacetEqual && lower.exclusive != upper.exclusive {
-		return false
-	}
-	// Schema consistency permits empty value spaces and does not prohibit
-	// incomparable endpoints; instance acceptance still checks each bound.
-	return true
+	// The pair constraints require the order to relate the endpoints, so
+	// incomparable endpoints are inconsistent, the reading for unordered
+	// values that docs/spec/INTERPRETATIONS.md records.
+	return ok && (relation == orderedFacetLess || relation == orderedFacetEqual && lower.exclusive == upper.exclusive)
 }
 
 func validateTypeSpecShape(spec TypeSpec) error {

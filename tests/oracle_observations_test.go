@@ -30,15 +30,11 @@ func TestObservedDifferencesAreDiagnosed(t *testing.T) {
 	inv := loadInventory(t, dir)
 	obs := loadObservations(t, dir, &inv)
 	records := parseRecords(readTestFile(t, filepath.Dir(dir), "docs/spec/INTERPRETATIONS.md"))
-	notes, err := parseNoteAllowlist(readTestFile(t, dir, "oracle-notes.txt"))
-	if err != nil {
-		t.Fatalf("oracle notes allowlist: %v", err)
-	}
 	backlog, err := parseOracleBacklog(readTestFile(t, dir, "oracle-backlog.txt"))
 	if err != nil {
 		t.Fatalf("oracle backlog: %v", err)
 	}
-	if err := checkDifferences(&inv, obs.Rows, oracleEvidence{records: records, notes: notes, backlog: backlog}); err != nil {
+	if err := checkDifferences(&inv, obs.Rows, oracleEvidence{records: records, backlog: backlog}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -163,7 +159,6 @@ func checkObservationCoverage(inv *corpus.Inventory, rows []corpus.Row) error {
 // cases whose differences are not yet owned.
 type oracleEvidence struct {
 	records map[string]string
-	notes   map[rowKey]bool
 	backlog []string
 }
 
@@ -181,7 +176,6 @@ func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidenc
 		listed[id] = true
 	}
 	var errs, undiagnosed []error
-	usedNotes := make(map[rowKey]bool, len(ev.notes))
 	for i := range inv.Cases {
 		c := &inv.Cases[i]
 		if c.ExpectedSource != corpus.SourceProject {
@@ -205,7 +199,6 @@ func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidenc
 					if err := checkDifference(k, d, ev); err != nil {
 						errs = append(errs, err)
 					}
-					usedNotes[k] = d.Note != ""
 				}
 			}
 		}
@@ -217,11 +210,6 @@ func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidenc
 	}
 	for _, id := range slices.Sorted(maps.Keys(listed)) {
 		errs = append(errs, fmt.Errorf("oracle backlog lists %q, which is not a project case", id))
-	}
-	for _, k := range slices.SortedFunc(maps.Keys(ev.notes), func(a, b rowKey) int { return strings.Compare(a.String(), b.String()) }) {
-		if !usedNotes[k] {
-			errs = append(errs, fmt.Errorf("oracle notes allowlist lists %s, which has no note", k))
-		}
 	}
 	if len(undiagnosed) > 0 {
 		errs = append(errs, fmt.Errorf("%d rows differ from the project expectation without a differences entry:\n%w", len(undiagnosed), errors.Join(undiagnosed...)))
@@ -278,12 +266,6 @@ func providerName(p corpus.Provider) string {
 }
 
 func checkDifference(k rowKey, d corpus.Difference, ev oracleEvidence) error {
-	if d.Note != "" {
-		if !ev.notes[k] {
-			return fmt.Errorf("%s has a note, but the oracle notes allowlist does not list it; cite a record", k)
-		}
-		return nil
-	}
 	text, ok := ev.records[d.Record]
 	switch {
 	case !ok:
@@ -355,31 +337,6 @@ func globMatch(pattern, s string) bool {
 		rest = rest[i+len(piece):]
 	}
 	return strings.HasSuffix(rest, pieces[len(pieces)-1])
-}
-
-// parseNoteAllowlist reads tests/oracle-notes.txt: one sorted, unique
-// "case<TAB>phase<TAB>provider" line per difference whose diagnosis may be a
-// note instead of a record. A note is accepted only for a listed key, and the
-// list only shrinks.
-func parseNoteAllowlist(data string) (map[rowKey]bool, error) {
-	notes := make(map[rowKey]bool)
-	if data == "" {
-		return notes, nil
-	}
-	lines := strings.Split(strings.TrimSuffix(data, "\n"), "\n")
-	for i, line := range lines {
-		fields := strings.Split(line, "\t")
-		switch {
-		case len(fields) != 3 || slices.Contains(fields, ""):
-			return nil, fmt.Errorf("line %d is not case, phase and provider", i+1)
-		case !corpus.Provider(fields[2]).Known():
-			return nil, fmt.Errorf("line %d has unknown provider %q", i+1, fields[2])
-		case i > 0 && line <= lines[i-1]:
-			return nil, fmt.Errorf("line %d is not sorted after %q", i+1, lines[i-1])
-		}
-		notes[rowKey{phaseKey{fields[0], fields[1]}, corpus.Provider(fields[2])}] = true
-	}
-	return notes, nil
 }
 
 // parseOracleBacklog reads tests/oracle-backlog.txt: one project case ID per

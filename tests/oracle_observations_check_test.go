@@ -67,12 +67,10 @@ func TestCheckDifferences(t *testing.T) {
 		return corpus.Case{ID: "project/diff", ExpectedSource: "project", Schema: &corpus.Schema{Expected: corpus.ExpectedValid, Differences: d}}
 	}
 	differing := []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.SchemaInvalid)}
-	note := map[rowKey]bool{{phaseKey{"project/diff", "schema"}, corpus.Xerces}: true}
 	for _, tt := range []struct {
 		name    string
 		c       corpus.Case
 		rows    []corpus.Row
-		notes   map[rowKey]bool
 		backlog []string
 		want    string
 	}{
@@ -84,7 +82,6 @@ func TestCheckDifferences(t *testing.T) {
 		{name: "backlog case without differences", c: schemaDiff(nil), rows: []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.SchemaValid)}, backlog: []string{"project/diff"}, want: "whose differences are all owned"},
 		{name: "backlog lists an unknown case", c: schemaDiff(nil), rows: differing, backlog: []string{"project/diff", "project/zz"}, want: `oracle backlog lists "project/zz", which is not a project case`},
 		{name: "record", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}), rows: differing},
-		{name: "allowlisted note", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Note: "n"}}), rows: differing, notes: note},
 		{name: "agreeing, unassessed and error rows need none", c: schemaDiff(nil), rows: []corpus.Row{
 			row("project/diff", "schema", corpus.Xerces, corpus.SchemaValid), row("project/diff", "schema", corpus.DotNet, corpus.Error),
 		}},
@@ -92,8 +89,6 @@ func TestCheckDifferences(t *testing.T) {
 		{name: "undefined record", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-009"}}), rows: differing, want: "cites I-009, which docs/spec/INTERPRETATIONS.md does not define"},
 		{name: "record without the case", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-002"}}), rows: differing, want: "cites I-002, which does not list the case"},
 		{name: "record without the provider", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.LibXML2: {Record: "I-001"}}), rows: []corpus.Row{row("project/diff", "schema", corpus.LibXML2, corpus.SchemaInvalid)}, want: "cites I-001, which does not name libxml2"},
-		{name: "unlisted note", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Note: "n"}}), rows: differing, want: "the oracle notes allowlist does not list it"},
-		{name: "stale note allowlist", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}), rows: differing, notes: note, want: "oracle notes allowlist lists project/diff\tschema\txerces, which has no note"},
 		{name: "difference for a blocked row", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}), rows: []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.Blocked)}, want: "has a difference but no row whose validity differs"},
 		{
 			name: "instances of an invalid schema have no expectation to differ from",
@@ -111,7 +106,7 @@ func TestCheckDifferences(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			inv := corpus.Inventory{Cases: []corpus.Case{tt.c}}
-			err := checkDifferences(&inv, tt.rows, oracleEvidence{records: records, notes: tt.notes, backlog: tt.backlog})
+			err := checkDifferences(&inv, tt.rows, oracleEvidence{records: records, backlog: tt.backlog})
 			if tt.want == "" {
 				if err != nil {
 					t.Fatalf("checkDifferences() error = %v, want nil", err)
@@ -142,24 +137,6 @@ func TestRecordListsCase(t *testing.T) {
 		if got := recordListsCase(text, tt.id); got != tt.want {
 			t.Errorf("recordListsCase(%q) = %v, want %v", tt.id, got, tt.want)
 		}
-	}
-}
-
-func TestParseNoteAllowlistRejectsBadLines(t *testing.T) {
-	for _, tt := range []struct {
-		name, data, want string
-	}{
-		{name: "unsorted", data: "project/b\tschema\txerces\nproject/a\tschema\txerces\n", want: "line 2 is not sorted"},
-		{name: "duplicate", data: strings.Repeat("project/a\tschema\txerces\n", 2), want: "line 2 is not sorted"},
-		{name: "fields", data: "project/a\tschema\n", want: "line 1 is not case, phase and provider"},
-		{name: "provider", data: "project/a\tschema\tdotNet\n", want: `line 1 has unknown provider "dotNet"`},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseNoteAllowlist(tt.data)
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("parseNoteAllowlist() error = %v, want containing %q", err, tt.want)
-			}
-		})
 	}
 }
 

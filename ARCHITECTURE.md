@@ -102,6 +102,12 @@ The principal state machines are deliberately linear or owner-local:
 Use the narrowest authoritative source that answers the question:
 
 1. Explicit requirements, XSD 1.0, XML 1.0, and exported behavior are binding.
+   XSD 1.0 means the 28 October 2004 Second Edition with its approved errata
+   and the corrections `docs/spec/SOURCES.md` adopts. XML 1.0 means the edition
+   XSD 1.0 cites, except that name characters follow the Fifth Edition
+   (26 November 2008) everywhere, including `xs:Name`, `xs:NCName` and the
+   regex `\i` and `\c` classes; the Fifth Edition rule that reads any `1.x`
+   version as 1.0 is not adopted. `docs/spec/SOURCES.md` owns each boundary.
 2. This file owns cross-module architecture: module ownership, boundaries,
    contracts, data flow, state transitions, lifecycle, resource policy, and
    rejected alternatives.
@@ -1016,7 +1022,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `internal/value/value_laws_contract_test.go` | For every primitive, one order and one equality: equality decides identity keys and enumeration membership, the bound facets agree on one order that never separates equal values and separates unequal ones outside the declared duration exception, and canonical text denotes its value; checked on declared pairs and on a generated grid of lexical forms |
 | `schema_diagnostic_order_test.go` with the catalogue in `schema_diagnostic_catalogue_test.go` | The schema-document diagnostics order of `internal/schema`: a catalogue of single violations, each declaring its tier and stage from the contract and never from compiler output, and every ordered pair of them (as consecutive components, inside one component, on one start tag in both attribute orders, and across two documents) reports the violation that tier, decision point, stage and attribute order select. A rule decided later than the contract says is listed by name in `knownSchemaDiagnosticOrderGaps`, and a listed gap that holds fails as stale |
 | `tests/harness_test.go` (`checkDiagnosticLocations`) | Every compile diagnostic of a corpus case, and every validation or unsupported diagnostic of an instance run, carries a path and a line; a compile pass that reports outside a component scope fails the corpus |
-| `tests/oracle_observations_test.go` with `tests/oracle-backlog.txt` and `tests/oracle-notes.txt` | Every project corpus case has an observation row for every provider and phase, as the `tests/README.md` Corpus Contract defines measured, and no other rows. Every row whose validity differs from the project expectation has a `differences` entry citing an interpretation record or anchored row that lists the case and names the provider, or an allowlisted note; only cases listed in the backlog are exempt, and a listed case that is unknown or has every difference owned fails as stale |
+| `tests/oracle_observations_test.go` with `tests/oracle-backlog.txt` | Every project corpus case has an observation row for every provider and phase, as the `tests/README.md` Corpus Contract defines measured, and no other rows. Every row whose validity differs from the project expectation has a `differences` entry citing an interpretation record or anchored row that lists the case and names the provider; only cases listed in the backlog are exempt, and a listed case that is unknown or has every difference owned fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |

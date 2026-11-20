@@ -695,7 +695,7 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 	_ = derived
 }
 
-func TestFacetContractAllowsIncomparableOrderedBounds(t *testing.T) {
+func TestFacetContractRejectsIncomparableOrderedBounds(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
@@ -703,14 +703,13 @@ func TestFacetContractAllowsIncomparableOrderedBounds(t *testing.T) {
 		primitive value.PrimitiveKind
 		lower     string
 		upper     string
-		rejected  []string
 	}{
 		{name: "duration", primitive: value.PrimitiveDuration, lower: "P1M", upper: "P30D"},
 		{name: "dateTime", primitive: value.PrimitiveDateTime, lower: "2020-01-01T00:00:00", upper: "2020-01-01T00:00:00Z"},
-		{name: "float NaN lower", primitive: value.PrimitiveFloat, lower: "NaN", upper: "0", rejected: []string{"NaN", "0"}},
-		{name: "float NaN upper", primitive: value.PrimitiveFloat, lower: "0", upper: "NaN", rejected: []string{"NaN", "0"}},
-		{name: "double NaN lower", primitive: value.PrimitiveDouble, lower: "NaN", upper: "0", rejected: []string{"NaN", "0"}},
-		{name: "double NaN upper", primitive: value.PrimitiveDouble, lower: "0", upper: "NaN", rejected: []string{"NaN", "0"}},
+		{name: "float NaN lower", primitive: value.PrimitiveFloat, lower: "NaN", upper: "0"},
+		{name: "float NaN upper", primitive: value.PrimitiveFloat, lower: "0", upper: "NaN"},
+		{name: "double NaN lower", primitive: value.PrimitiveDouble, lower: "NaN", upper: "0"},
+		{name: "double NaN upper", primitive: value.PrimitiveDouble, lower: "0", upper: "NaN"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -731,14 +730,9 @@ func TestFacetContractAllowsIncomparableOrderedBounds(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					if completeErr := builder.Complete(id, atomicFacetType(test.primitive, bounds.facets)); completeErr != nil {
-						t.Fatalf("Complete() rejected incomparable bounds: %v", completeErr)
+					if err := builder.Complete(id, atomicFacetType(test.primitive, bounds.facets)); !errors.Is(err, value.ErrFacet) {
+						t.Fatalf("Complete() = %v; want ErrFacet", err)
 					}
-					program, err := builder.Seal()
-					if err != nil {
-						t.Fatal(err)
-					}
-					assertOrderedFacetValues(t, program, id, nil, test.rejected)
 				})
 			}
 		})

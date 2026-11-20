@@ -1135,22 +1135,14 @@ project/double-bounds-nan-equal	zero	dotnet	valid
 project/double-bounds-nan-equal	zero	libxml2	invalid	zero.xml:1: element root: Schemas validity error : Element 'root': [facet 'minInclusive'] The value '0' is less than the minimum value allowed ('NaN').
 project/double-bounds-nan-equal	zero	xerces	invalid	zero.xml:1:15: cvc-maxInclusive-valid: Value '0' is not facet-valid with respect to maxInclusive 'NaN' for type 'Bounded'.
 project/double-bounds-nan-equal	zero	xmlschema	valid	
-project/double-bounds-nan-lower	nan	dotnet	valid	
-project/double-bounds-nan-lower	nan	xmlschema	valid	
 project/double-bounds-nan-lower	schema	dotnet	schema-valid	
 project/double-bounds-nan-lower	schema	libxml2	schema-invalid	Schemas parser error : facet 'maxInclusive': 'maxInclusive' has to be greater than or equal to 'minInclusive'.␊WXS schema schema.xsd failed to compile
 project/double-bounds-nan-lower	schema	xerces	schema-invalid	schema.xsd:1:119: minInclusive-less-than-equal-to-maxInclusive: In the definition of Bounded, minInclusive value = 'NaN' must be <= maxInclusive value = '0.0E1'.
 project/double-bounds-nan-lower	schema	xmlschema	schema-valid	
-project/double-bounds-nan-lower	zero	dotnet	valid	
-project/double-bounds-nan-lower	zero	xmlschema	valid	
-project/double-bounds-nan-upper	nan	libxml2	valid	
-project/double-bounds-nan-upper	nan	xmlschema	valid	
 project/double-bounds-nan-upper	schema	dotnet	schema-invalid	schema.xsd:1:57: The value specified for 'minInclusive' cannot be greater than the value specified for 'maxInclusive' for the same data type.
 project/double-bounds-nan-upper	schema	libxml2	schema-valid	
 project/double-bounds-nan-upper	schema	xerces	schema-invalid	schema.xsd:1:119: minInclusive-less-than-equal-to-maxInclusive: In the definition of Bounded, minInclusive value = '0.0E1' must be <= maxInclusive value = 'NaN'.
 project/double-bounds-nan-upper	schema	xmlschema	schema-valid	
-project/double-bounds-nan-upper	zero	libxml2	valid	
-project/double-bounds-nan-upper	zero	xmlschema	valid	
 project/duration-negative-prefix	period	dotnet	invalid	period.xml:1:15: The 'duration' element is invalid - The value '-P' is invalid according to its datatype 'http://www.w3.org/2001/XMLSchema:duration' - The string '-P' is not a valid Duration value.
 project/duration-negative-prefix	period	libxml2	invalid	period.xml:1: element duration: Schemas validity error : Element 'duration': '-P' is not a valid value of the atomic type 'xs:duration'.
 project/duration-negative-prefix	period	xerces	invalid	period.xml:1:24: cvc-datatype-valid.1.2.1: '-P' is not a valid value for 'duration'.

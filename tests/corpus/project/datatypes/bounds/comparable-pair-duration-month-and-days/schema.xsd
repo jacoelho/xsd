@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="T"><xs:restriction base="xs:duration"><xs:minInclusive value="P1M"/><xs:maxInclusive value="P32D"/></xs:restriction></xs:simpleType>
+<xs:element name="r" type="T"/>
+</xs:schema>

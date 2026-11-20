@@ -20,7 +20,7 @@ func inventoryFS(projectCases, w3cCases string) fstest.MapFS {
 
 const validProjectCase = `{"id":"project/a","expectedSource":"project",
 	"schema":{"expected":"valid","documents":[{"file":"corpus/a.xsd"}],"rule":{"specRef":"https://example.test/#r","clause":"r clause 1"},
-		"differences":{"xerces":{"record":"I-001"},"libxml2":{"note":"observed before records"}}},
+		"differences":{"xerces":{"record":"I-001"},"libxml2":{"record":"limits"}}},
 	"instances":[{"testName":"i","file":"corpus/i.xml","expected":"invalid","oracle":{"project":{"expected":"valid","reason":"corrected"}}}]}`
 
 const validW3CCase = `{"id":"w3c/msMeta/Regex_w3c.xml/g","expectedSource":"w3c","schema":{"expected":"invalid","documents":[{"file":"corpus/w.xsd"}]}}`
@@ -64,10 +64,10 @@ func TestLoadInventoryRejectsInvalidCases(t *testing.T) {
 		{name: "oracle status", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"project":{"status":"blocked","reason":"r"}}}}`, want: `oracle "project" has unknown expected value ""`},
 		{name: "rule without specRef", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","rule":{"clause":"c"}}}`, want: "rule has no specRef"},
 		{name: "difference for unknown provider", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotNet":{"record":"I-001"}}}}`, want: `difference for unknown provider "dotNet"`},
-		{name: "difference with record and note", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"record":"I-001","note":"n"}}}}`, want: "has both record and note"},
+		{name: "difference with only a note", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"note":"n"}}}}`, want: "difference for dotnet has no record"},
 		{name: "malformed record", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"record":"I-1"}}}}`, want: `names record "I-1", want I-NNN or a row anchor`},
 		{name: "malformed row anchor", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"record":"Temporal boundaries"}}}}`, want: `names record "Temporal boundaries"`},
-		{name: "empty difference", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{}}}}`, want: "has neither record nor note"},
+		{name: "empty difference", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{}}}}`, want: "difference for dotnet has no record"},
 		{name: "schema without documents", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[]}}`, want: `case "project/a" has a schema phase without documents`},
 		{name: "schema document without file", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":""}]}}`, want: `case "project/a" has a schema document without a file`},
 		{name: "instance without file", project: `{"id":"project/a","expectedSource":"project","instances":[{"testName":"i","expected":"valid"}]}`, want: `case "project/a" instance "i" has no file`},
