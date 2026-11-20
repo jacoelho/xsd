@@ -722,7 +722,10 @@ items. The literal 1.0 reading was rejected because it leaves a default on an
 ID-carrying union able to create duplicate IDs and splits ID-ness between
 schema checks and the cvc-id table. Fixtures:
 `tests/corpus/project/identity/id-carriers/` and the corrected
-`w3c/msMeta/SimpleType_w3c.xml/stE072`.
+`w3c/msMeta/SimpleType_w3c.xml/stE072`. The accepted W3C test expects that
+schema valid, and its title notes it is "possibly invalid in XSD 1.0"; the
+adopted correction outranks the test, and Xerces-J and xmlschema reject it,
+while .NET and libxml2 accept it under the literal reading.
 
 [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id)
 clauses 1 and 2 require every IDREF value assessed under an IDREF-carrying type
