@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"math"
 	"strconv"
 	"testing"
 
@@ -59,7 +60,7 @@ func TestCompileIDAllocationDiagnostics(t *testing.T) {
 			err := tt.next(-1)
 			expectSchemaLimitDiagnostic(t, err, tt.msg)
 			if strconv.IntSize > 32 {
-				err = tt.next(int(^uint32(0)))
+				err = tt.next(min(math.MaxInt, math.MaxUint32))
 				expectSchemaLimitDiagnostic(t, err, tt.msg)
 			}
 		})

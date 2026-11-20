@@ -60,6 +60,9 @@ jobs:
           - name: Lint
             run: make lint
 
+          - name: 32-bit vet
+            run: make vet-32bit
+
       - run: npm ci --prefix web/js
 
       - run: npm exec --prefix web/js -- playwright install --with-deps chromium

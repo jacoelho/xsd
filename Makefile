@@ -8,8 +8,12 @@ BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
 export GOBIN := $(BIN)
 
 .PHONY: test
-test:
+test: vet-32bit
 	go test ./...
+
+.PHONY: vet-32bit
+vet-32bit:
+	GOOS=linux GOARCH=386 go vet ./...
 
 .PHONY: race
 race:

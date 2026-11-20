@@ -142,7 +142,7 @@ func (b *Builder) Reserve() (TypeID, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return NoType, ErrMetadata
 	}
-	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) || len(b.program.types) > maxUserTypeIndex {
+	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) || uint64(len(b.program.types)) > uint64(maxUserTypeIndex) {
 		return NoType, ErrLimit
 	}
 	if b.prepaidSlots == 0 {
@@ -429,7 +429,7 @@ type Program struct {
 	sealed   bool
 }
 
-const maxUserTypeIndex = int(^TypeID(0) - BuiltinTypeCount)
+const maxUserTypeIndex = ^TypeID(0) - BuiltinTypeCount
 
 func userTypeID(index int) TypeID {
 	// The builder checks the index against maxUserTypeIndex before every call.

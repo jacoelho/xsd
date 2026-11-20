@@ -266,14 +266,15 @@ func (t substitutionTable) span(head ElementID) (substitutionSpan, bool) {
 	return span, true
 }
 
-// substitutionClosureLimit is maxClosureEntries, capped at the entries a
-// uint32 byName position can address, so the configured limit is the only
-// bound a closure meets.
+// maxAddressableClosureEntries is the most entries a uint32 byName position
+// can address on a platform whose int may be narrower than uint32.
+const maxAddressableClosureEntries = min(math.MaxInt, math.MaxUint32)
+
+// substitutionClosureLimit is maxClosureEntries, capped at
+// maxAddressableClosureEntries, so the configured limit is the only bound a
+// closure meets.
 func substitutionClosureLimit(maxClosureEntries int) int {
-	if _, addressable := newUint32Index(maxClosureEntries); addressable || maxClosureEntries < 0 {
-		return maxClosureEntries
-	}
-	return math.MaxUint32
+	return min(maxClosureEntries, maxAddressableClosureEntries)
 }
 
 // validNameOrder reports whether byName holds, for every span, a permutation
