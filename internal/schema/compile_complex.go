@@ -427,7 +427,7 @@ func (c *compiler) extensionContentType(base complexTypeMetadata, effective effe
 	if base.Mixed() && !effective.variety.Mixed() {
 		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content"))
 	}
-	if err := validateExtensionSequenceTerms(&c.rt, base.Content, effective.model); err != nil {
+	if err := validateExtensionSequenceTerms(&c.rt, base.Content, effective); err != nil {
 		return effectiveContent{}, withSchemaCompileLocation(at, err)
 	}
 	add := func(model contentModelNode) (contentModelID, error) {

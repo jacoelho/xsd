@@ -588,6 +588,19 @@ func TestComplexContentExtensionCannotUseAllGroupWithNonEmptyBase(t *testing.T) 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
+func TestMixedEmptyExtensionOfAllBaseNamesTheEmptySequence(t *testing.T) {
+	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="base" mixed="true"><xs:all><xs:element name="a"/></xs:all></xs:complexType>
+  <xs:complexType name="derived"><xs:complexContent mixed="true"><xs:extension base="base"><xs:attribute name="x"/></xs:extension></xs:complexContent></xs:complexType>
+</xs:schema>`))})
+
+	expectCode(t, err, xsderrors.CodeSchemaContentModel)
+	if !strings.Contains(err.Error(), "empty sequence") || strings.Contains(err.Error(), "add particles") {
+		t.Fatalf("Compile() error = %v, want the empty sequence of mixed empty content named as the cause", err)
+	}
+}
+
 func TestComplexContentExtensionCanUseAllWithEmptyBase(t *testing.T) {
 	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">

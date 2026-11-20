@@ -123,17 +123,21 @@ func contentTypeParticle(rt *schemaBuild, add addContentModelFunc, id contentMod
 }
 
 // validateExtensionSequenceTerms rejects an all group in the sequence clause
-// 3.2.3 builds from the base content model and the explicit content model:
-// All Group Limited admits an all group only as the whole {content type}
-// particle.
-func validateExtensionSequenceTerms(rt *schemaBuild, base, explicit contentModelID) error {
-	if explicit != noContentModel && rt.Models[explicit].Kind == modelAll {
+// 3.2.3 builds from the base content model and the effective content: All
+// Group Limited admits an all group only as the whole {content type} particle.
+// Effective content with no model is mixed empty content, whose particle is
+// the synthetic empty sequence of clause 2.1.4.
+func validateExtensionSequenceTerms(rt *schemaBuild, base contentModelID, effective effectiveContent) error {
+	if effective.model != noContentModel && rt.Models[effective.model].Kind == modelAll {
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot use xs:all")
 	}
-	if rt.Models[base].Kind == modelAll {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base")
+	if rt.Models[base].Kind != modelAll {
+		return nil
 	}
-	return nil
+	if effective.model == noContentModel {
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "mixed complexContent extension with empty content cannot extend an xs:all base: its content type is a sequence of the xs:all group and an empty sequence")
+	}
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base")
 }
 
 // compileModelParticle lowers a referenced content model into a particle. Repeated
