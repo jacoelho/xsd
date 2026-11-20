@@ -228,10 +228,12 @@ projection owns language-preserving reduction without copying: direct
 compilation walks the execution particles (`executionParticles`), which splice
 every 1..1 child group of the same compositor in place, charging one step per
 particle visited and stopping when compilation stops, and `executionModel`
-lifts a model whose walk yields one particle and otherwise hands the declared
-model to automaton construction, which walks nested groups as declared;
-`executionParticle` reduces singleton particles for direct compilation, and
-the projection recognizes lax-any content by its shape. The direct Unique
+lifts a model whose walk yields one particle, as `executionParticle` reduces
+it, and otherwise hands the declared model to automaton construction, which
+walks nested groups as declared; `executionParticle` reduces singleton
+particles for direct compilation, and the projection recognizes lax-any
+content in that reduced form by the shape `builtin.go` defines for
+xs:anyType's content particle. The direct Unique
 Particle Attribution check (`checkContentModelUPA`) also reads nested groups as
 declared, through facts the content-model analysis owns:
 `lastParticles` alone decides which particles of a nested group can match its

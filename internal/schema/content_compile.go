@@ -694,7 +694,8 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 // groups for Particle Valid (Restriction) clause 2.2, and a shared group is
 // never copied into the models that refer to it: execution reads the
 // language-preserving splice of same-compositor 1..1 groups through
-// executionParticles.
+// executionParticles. A model whose splice is one particle becomes a model of
+// that particle as executionParticle reduces it.
 func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
 	if model.Kind != modelSequence && model.Kind != modelChoice {
 		return model, nil
@@ -707,6 +708,9 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 		return count < 2, nil
 	})
 	if err != nil || count != 1 {
+		return model, err
+	}
+	if first, err = c.executionParticle(first); err != nil {
 		return model, err
 	}
 	single := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed, Particles: []contentParticle{first}}
