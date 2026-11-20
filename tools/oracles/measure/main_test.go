@@ -103,6 +103,63 @@ func TestRecordPartialRunDropsRowsOfRemovedCases(t *testing.T) {
 	}
 }
 
+func TestRecordPartialRunKeepsW3COverrideRowsAndDropsRowsOfUnmeasuredW3CCases(t *testing.T) {
+	t.Chdir(t.TempDir())
+	const (
+		overrideRow = "w3c/msMeta/Regex_w3c.xml/overridden\tschema\txerces\tschema-valid\t\n"
+		upstreamRow = "w3c/msMeta/Regex_w3c.xml/upstream\tschema\txerces\tschema-valid\t\n"
+	)
+	writeTestTree(t, map[string]string{
+		corpus.IndexPath:                  `{"version":"2.0","specification":"XSD 1.0","shards":["project/top-level","w3c/msMeta/Regex_w3c"]}`,
+		"manifest/project/top-level.json": `{"cases":[{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"a.xsd"}]}}]}`,
+		"manifest/w3c/msMeta/Regex_w3c.json": `{"cases":[` +
+			`{"id":"w3c/msMeta/Regex_w3c.xml/overridden","expectedSource":"w3c","schema":{"expected":"invalid","documents":[{"file":"o.xsd"}],"oracle":{"w3c":{"expected":"valid","reason":"r"}}}},` +
+			`{"id":"w3c/msMeta/Regex_w3c.xml/upstream","expectedSource":"w3c","schema":{"expected":"valid","documents":[{"file":"u.xsd"}]}}]}`,
+		corpus.ProfilePath:      `{"providers":{"xerces":"Xerces-J 2.12.2","dotnet":".NET 10.0.14","xmlschema":"xmlschema 4.3.2","libxml2":"libxml2 2.9.13"},"date":"2026-11-19","image":"` + testDigest + `"}`,
+		"oracles/top-level.tsv": "",
+		"oracles/w3c.tsv":       overrideRow + upstreamRow,
+	})
+	inv, err := corpus.LoadInventory(os.DirFS("tests"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	measured := corpus.Row{CaseID: "project/a", Phase: corpus.SchemaPhase, Provider: corpus.Xerces, Verdict: corpus.SchemaValid}
+	results := map[string]caseResult{"project/a": {
+		versions: map[corpus.Provider]string{corpus.Xerces: "Xerces-J 2.12.2"},
+		rows:     []corpus.Row{measured},
+	}}
+
+	if err := record(&inv, results, false, testDigest); err != nil {
+		t.Fatalf("record() error = %v", err)
+	}
+
+	if got := readTestTree(t, "oracles/w3c.tsv"); got != overrideRow {
+		t.Fatalf("oracles/w3c.tsv = %q, want only the overridden case's row %q", got, overrideRow)
+	}
+	if got, want := readTestTree(t, "oracles/top-level.tsv"), measured.String()+"\n"; got != want {
+		t.Fatalf("oracles/top-level.tsv = %q, want %q", got, want)
+	}
+}
+
+func TestSelectCasesAcceptsOnlyMeasuredCases(t *testing.T) {
+	inv := corpus.Inventory{Cases: []corpus.Case{
+		{ID: "project/a", ExpectedSource: corpus.SourceProject},
+		{ID: "w3c/s/t.xml/overridden", ExpectedSource: corpus.SourceW3C, Schema: &corpus.Schema{Expected: corpus.ExpectedInvalid, Oracle: map[string]corpus.Provenance{corpus.SourceW3C: {Expected: corpus.ExpectedValid, Reason: "r"}}}},
+		{ID: "w3c/s/t.xml/upstream", ExpectedSource: corpus.SourceW3C, Schema: &corpus.Schema{Expected: corpus.ExpectedValid}},
+	}}
+
+	every, all, err := selectCases(&inv, nil)
+	if err != nil || !all || len(every) != 2 || every[0].ID != "project/a" || every[1].ID != "w3c/s/t.xml/overridden" {
+		t.Fatalf("selectCases(nil) = %v, %v, %v; want project/a and the overridden W3C case, all", every, all, err)
+	}
+	if _, all, err := selectCases(&inv, []string{"w3c/s/t.xml/overridden", "project/a"}); err != nil || !all {
+		t.Fatalf("selectCases(every member) all = %v, error = %v; want true, nil", all, err)
+	}
+	if _, _, err := selectCases(&inv, []string{"w3c/s/t.xml/upstream"}); err == nil || !strings.Contains(err.Error(), "is not a measured case") {
+		t.Fatalf("selectCases(upstream W3C case) error = %v, want not a measured case", err)
+	}
+}
+
 func TestRecordRefusesAPartialRunAgainstAnotherProfileWithoutWriting(t *testing.T) {
 	tests := []struct {
 		name     string

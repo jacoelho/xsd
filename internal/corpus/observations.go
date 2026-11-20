@@ -154,31 +154,41 @@ func FormatRows(rows []Row) []byte {
 }
 
 // ObservationPath returns the observation file that holds the rows of the
-// project case caseID, relative to the tests directory. Observation files are
-// sharded like the project inventory.
+// project or W3C case caseID, relative to the tests directory. Project files
+// are sharded like the project inventory; every W3C case shares one file.
 func ObservationPath(caseID string) (string, error) {
 	name, err := ShardName(caseID)
 	if err != nil {
 		return "", err
 	}
+	if strings.HasPrefix(name, SourceW3C+"/") {
+		return w3cObservationPath, nil
+	}
 	area, ok := strings.CutPrefix(name, SourceProject+"/")
 	if !ok {
-		return "", fmt.Errorf("case %q is not a project case", caseID)
+		return "", fmt.Errorf("case %q is neither a project nor a W3C case", caseID)
 	}
 	return areaObservationPath(area), nil
 }
 
 // ObservationPaths returns the observation file of every project shard of
-// inv, in shard order.
+// inv, in shard order, then the W3C file when inv has a W3C shard.
 func (inv *Inventory) ObservationPaths() []string {
 	var paths []string
+	w3c := false
 	for _, name := range inv.Shards {
 		if area, ok := strings.CutPrefix(name, SourceProject+"/"); ok {
 			paths = append(paths, areaObservationPath(area))
 		}
+		w3c = w3c || strings.HasPrefix(name, SourceW3C+"/")
+	}
+	if w3c {
+		paths = append(paths, w3cObservationPath)
 	}
 	return paths
 }
+
+const w3cObservationPath = "oracles/" + SourceW3C + ".tsv"
 
 func areaObservationPath(area string) string {
 	return "oracles/" + area + ".tsv"
@@ -193,16 +203,15 @@ type Profile struct {
 	Image     string              `json:"image"`
 }
 
-// Observations are the measured rows of every project shard and their
-// profile.
+// Observations are the rows of every observation file and their profile.
 type Observations struct {
 	Profile Profile
 	Rows    []Row
 }
 
-// LoadObservations reads the profile and the observation file of every
-// project shard of inv from fsys, rooted at the tests directory. Each file must
-// hold sorted, unique rows of its own shard's cases.
+// LoadObservations reads the profile and every observation file of inv from
+// fsys, rooted at the tests directory. Each file must hold sorted, unique rows
+// of the cases ObservationPath assigns to it.
 func LoadObservations(fsys fs.FS, inv *Inventory) (Observations, error) {
 	var obs Observations
 	if err := readJSON(fsys, ProfilePath, &obs.Profile); err != nil {

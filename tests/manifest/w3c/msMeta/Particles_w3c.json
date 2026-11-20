@@ -9962,11 +9962,6 @@
           }
         ],
         "oracle": {
-          "w3c": {
-            "expected": "valid",
-            "reason": "Original W3C valid outcome retained. The selected R240 correction now agrees; the earlier published-text member-minimum override is superseded.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality"
-          },
           "project": {
             "expected": "invalid",
             "reason": "Previous published-text member-minimum override is superseded by the adopted R240 minimum-zero member copy. Aggregate range and namespace restriction remain independent.",
@@ -10032,11 +10027,6 @@
           }
         ],
         "oracle": {
-          "w3c": {
-            "expected": "valid",
-            "reason": "Original W3C valid outcome retained. The selected R240 correction now agrees; the earlier published-text member-minimum override is superseded.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality"
-          },
           "project": {
             "expected": "invalid",
             "reason": "Previous published-text member-minimum override is superseded by the adopted R240 minimum-zero member copy. Aggregate range and namespace restriction remain independent.",
@@ -10160,11 +10150,6 @@
           }
         ],
         "oracle": {
-          "w3c": {
-            "expected": "valid",
-            "reason": "Original W3C valid outcome retained. The selected R240 correction now agrees; the earlier published-text member-minimum override is superseded.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality"
-          },
           "project": {
             "expected": "invalid",
             "reason": "Previous published-text member-minimum override is superseded by the adopted R240 minimum-zero member copy. Aggregate range and namespace restriction remain independent.",
@@ -25823,11 +25808,6 @@
           }
         ],
         "oracle": {
-          "w3c": {
-            "expected": "valid",
-            "reason": "Original W3C valid outcome retained. The selected R240 correction now agrees; the earlier published-text member-minimum override is superseded.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality"
-          },
           "project": {
             "expected": "invalid",
             "reason": "Previous published-text member-minimum override is superseded by the adopted R240 minimum-zero member copy. Aggregate range and namespace restriction remain independent.",
@@ -26993,11 +26973,6 @@
           }
         ],
         "oracle": {
-          "w3c": {
-            "expected": "valid",
-            "reason": "Original W3C valid outcome retained. The selected R240 correction now agrees; the earlier published-text member-minimum override is superseded.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-NSRecurseCheckCardinality"
-          },
           "project": {
             "expected": "invalid",
             "reason": "Previous published-text member-minimum override is superseded by the adopted R240 minimum-zero member copy. Aggregate range and namespace restriction remain independent.",

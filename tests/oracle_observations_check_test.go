@@ -37,19 +37,27 @@ func TestCheckObservationCoverage(t *testing.T) {
 	if err := checkObservationCoverage(&inv, base); err != nil {
 		t.Fatalf("checkObservationCoverage() error = %v, want nil", err)
 	}
+	override := corpus.Case{ID: "w3c/a/b/override", ExpectedSource: "w3c", Schema: &corpus.Schema{
+		Expected: corpus.ExpectedInvalid,
+		Oracle:   map[string]corpus.Provenance{"w3c": {Expected: corpus.ExpectedValid, Reason: "r"}},
+	}}
+	overridden := corpus.Inventory{Cases: []corpus.Case{measured, w3c, override}}
+	if err := checkObservationCoverage(&overridden, base); err == nil || !strings.Contains(err.Error(), `measured case "w3c/a/b/override" has no row for phase "schema" provider xerces`) {
+		t.Fatalf("checkObservationCoverage() with a W3C override and no rows error = %v, want its schema rows required", err)
+	}
 	with := func(r corpus.Row) []corpus.Row { return append(append([]corpus.Row(nil), base...), r) }
 	for _, tt := range []struct {
 		name string
 		rows []corpus.Row
 		want string
 	}{
-		{name: "missing schema row", rows: base[1:], want: `project case "project/measured" has no row for phase "schema" provider xerces`},
-		{name: "missing instance row", rows: base[:5], want: `project case "project/measured" has no row for phase "i1" provider xmlschema`},
-		{name: "instance row of a provider that rejected the schema", rows: with(row("project/measured", "i1", corpus.DotNet, corpus.Valid)), want: "row project/measured\ti1\tdotnet names no project phase measured with that provider"},
-		{name: "instance row of a provider that errored on the schema", rows: with(row("project/measured", "i1", corpus.LibXML2, corpus.Valid)), want: "row project/measured\ti1\tlibxml2 names no project phase"},
-		{name: "unknown phase", rows: with(row("project/measured", "i2", corpus.Xerces, corpus.Valid)), want: "row project/measured\ti2\txerces names no project phase"},
-		{name: "unknown case", rows: with(row("project/other", "schema", corpus.Xerces, corpus.SchemaValid)), want: "row project/other\tschema\txerces names no project phase"},
-		{name: "w3c case", rows: with(row("w3c/a/b/c", "schema", corpus.Xerces, corpus.SchemaValid)), want: "row w3c/a/b/c\tschema\txerces names no project phase"},
+		{name: "missing schema row", rows: base[1:], want: `measured case "project/measured" has no row for phase "schema" provider xerces`},
+		{name: "missing instance row", rows: base[:5], want: `measured case "project/measured" has no row for phase "i1" provider xmlschema`},
+		{name: "instance row of a provider that rejected the schema", rows: with(row("project/measured", "i1", corpus.DotNet, corpus.Valid)), want: "row project/measured\ti1\tdotnet names no phase of a measured case measured with that provider"},
+		{name: "instance row of a provider that errored on the schema", rows: with(row("project/measured", "i1", corpus.LibXML2, corpus.Valid)), want: "row project/measured\ti1\tlibxml2 names no phase of a measured case"},
+		{name: "unknown phase", rows: with(row("project/measured", "i2", corpus.Xerces, corpus.Valid)), want: "row project/measured\ti2\txerces names no phase of a measured case"},
+		{name: "unknown case", rows: with(row("project/other", "schema", corpus.Xerces, corpus.SchemaValid)), want: "row project/other\tschema\txerces names no phase of a measured case"},
+		{name: "w3c case", rows: with(row("w3c/a/b/c", "schema", corpus.Xerces, corpus.SchemaValid)), want: "row w3c/a/b/c\tschema\txerces names no phase of a measured case"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			err := checkObservationCoverage(&inv, tt.rows)
@@ -80,7 +88,16 @@ func TestCheckDifferences(t *testing.T) {
 		{name: "backlog case with an unowned difference", c: schemaDiff(nil), rows: differing, backlog: []string{"project/diff"}},
 		{name: "backlog case whose differences are owned", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}), rows: differing, backlog: []string{"project/diff"}, want: `oracle backlog lists "project/diff", whose differences are all owned; remove it`},
 		{name: "backlog case without differences", c: schemaDiff(nil), rows: []corpus.Row{row("project/diff", "schema", corpus.Xerces, corpus.SchemaValid)}, backlog: []string{"project/diff"}, want: "whose differences are all owned"},
-		{name: "backlog lists an unknown case", c: schemaDiff(nil), rows: differing, backlog: []string{"project/diff", "project/zz"}, want: `oracle backlog lists "project/zz", which is not a project case`},
+		{name: "backlog lists an unknown case", c: schemaDiff(nil), rows: differing, backlog: []string{"project/diff", "project/zz"}, want: `oracle backlog lists "project/zz", which is not a measured case`},
+		{
+			name: "W3C override case with an undiagnosed row",
+			c: corpus.Case{ID: "w3c/a/b/override", ExpectedSource: "w3c", Schema: &corpus.Schema{
+				Expected: corpus.ExpectedInvalid,
+				Oracle:   map[string]corpus.Provenance{"w3c": {Expected: corpus.ExpectedValid, Reason: "r"}},
+			}},
+			rows: []corpus.Row{row("w3c/a/b/override", "schema", corpus.DotNet, corpus.SchemaValid)},
+			want: "1 rows differ from the project expectation without a differences entry:\nw3c/a/b/override\tschema\tdotnet\tschema-valid (expected invalid)",
+		},
 		{name: "record", c: schemaDiff(map[corpus.Provider]corpus.Difference{corpus.Xerces: {Record: "I-001"}}), rows: differing},
 		{name: "agreeing, unassessed and error rows need none", c: schemaDiff(nil), rows: []corpus.Row{
 			row("project/diff", "schema", corpus.Xerces, corpus.SchemaValid), row("project/diff", "schema", corpus.DotNet, corpus.Error),

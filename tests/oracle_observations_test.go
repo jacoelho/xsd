@@ -16,7 +16,7 @@ import (
 	"github.com/jacoelho/xsd/internal/corpus"
 )
 
-func TestProjectPhasesHaveObservations(t *testing.T) {
+func TestMeasuredPhasesHaveObservations(t *testing.T) {
 	dir := testDir(t)
 	inv := loadInventory(t, dir)
 	obs := loadObservations(t, dir, &inv)
@@ -104,7 +104,7 @@ func indexRows(rows []corpus.Row) map[rowKey]corpus.Row {
 	return out
 }
 
-// requiredRows returns the rows a measured project case has, as the
+// requiredRows returns the rows a measured case has, as the
 // tests/README.md Corpus Contract defines measured: every provider on the
 // schema phase, and on each instance phase every provider whose schema-phase
 // verdict is schema-valid.
@@ -127,36 +127,36 @@ func requiredRows(c *corpus.Case, rows map[rowKey]corpus.Row) []rowKey {
 }
 
 // checkObservationCoverage enforces the oracle rule of the tests/README.md
-// Corpus Contract: every project case has every required row, and every row
-// names a phase of a project case and a provider that phase is measured with.
+// Corpus Contract: every measured case has every required row, and every row
+// names a phase of a measured case and a provider that phase is measured with.
 func checkObservationCoverage(inv *corpus.Inventory, rows []corpus.Row) error {
 	byKey := indexRows(rows)
 	var errs []error
 	allowed := make(map[rowKey]bool, len(rows))
 	for i := range inv.Cases {
 		c := &inv.Cases[i]
-		if c.ExpectedSource != corpus.SourceProject {
+		if !c.Measured() {
 			continue
 		}
 		for _, k := range requiredRows(c, byKey) {
 			allowed[k] = true
 			if _, ok := byKey[k]; !ok {
-				errs = append(errs, fmt.Errorf("project case %q has no row for phase %q provider %s", c.ID, k.phase, k.provider))
+				errs = append(errs, fmt.Errorf("measured case %q has no row for phase %q provider %s", c.ID, k.phase, k.provider))
 			}
 		}
 	}
 	for _, r := range rows {
 		k := rowKey{phaseKey{r.CaseID, r.Phase}, r.Provider}
 		if !allowed[k] {
-			errs = append(errs, fmt.Errorf("row %s names no project phase measured with that provider", k))
+			errs = append(errs, fmt.Errorf("row %s names no phase of a measured case measured with that provider", k))
 		}
 	}
 	return errors.Join(errs...)
 }
 
 // oracleEvidence is what owns a difference: the interpretation records and
-// anchored qualification rows by name, the note allowlist, and the backlog of
-// cases whose differences are not yet owned.
+// anchored qualification rows by name, and the backlog of cases whose
+// differences are not yet owned.
 type oracleEvidence struct {
 	records map[string]string
 	backlog []string
@@ -165,10 +165,10 @@ type oracleEvidence struct {
 // checkDifferences enforces that every row whose validity differs from the
 // project expectation has a differences entry, and that every entry explains
 // such a row: a record or anchored row that exists, lists the case and names
-// the provider, or a note the allowlist names. Instance phases of a case whose
-// schema the project expects invalid have no expectation to differ from. A
-// backlog case is exempt from the ownership requirement, and must still have a
-// row it exempts; the backlog lists only project cases.
+// the provider. Instance phases of a case whose schema the project expects
+// invalid have no expectation to differ from. A backlog case is exempt from the
+// ownership requirement, and must still have a row it exempts; the backlog
+// lists only measured cases.
 func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidence) error {
 	byKey := indexRows(rows)
 	listed := make(map[string]bool, len(ev.backlog))
@@ -178,7 +178,7 @@ func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidenc
 	var errs, undiagnosed []error
 	for i := range inv.Cases {
 		c := &inv.Cases[i]
-		if c.ExpectedSource != corpus.SourceProject {
+		if !c.Measured() {
 			continue
 		}
 		unowned := 0
@@ -209,7 +209,7 @@ func checkDifferences(inv *corpus.Inventory, rows []corpus.Row, ev oracleEvidenc
 		errs = append(errs, uncomparableDifferences(c)...)
 	}
 	for _, id := range slices.Sorted(maps.Keys(listed)) {
-		errs = append(errs, fmt.Errorf("oracle backlog lists %q, which is not a project case", id))
+		errs = append(errs, fmt.Errorf("oracle backlog lists %q, which is not a measured case", id))
 	}
 	if len(undiagnosed) > 0 {
 		errs = append(errs, fmt.Errorf("%d rows differ from the project expectation without a differences entry:\n%w", len(undiagnosed), errors.Join(undiagnosed...)))
@@ -339,7 +339,7 @@ func globMatch(pattern, s string) bool {
 	return strings.HasSuffix(rest, pieces[len(pieces)-1])
 }
 
-// parseOracleBacklog reads tests/oracle-backlog.txt: one project case ID per
+// parseOracleBacklog reads tests/oracle-backlog.txt: one measured case ID per
 // line, sorted and unique, each a measured case with a provider difference
 // that no record owns yet.
 func parseOracleBacklog(data string) ([]string, error) {
