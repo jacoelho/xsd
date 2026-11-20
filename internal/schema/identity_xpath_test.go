@@ -460,7 +460,10 @@ func allocatedBytes(f func()) uint64 {
 func TestMalformedIdentityPathIsRejectedWithoutAllocatingPerSeparator(t *testing.T) {
 	resolver := newIdentityXPathFixture(t, nil)
 	const separators = 100_000
-	const budget = 16 << 10
+	// The smallest heap allocation is 8 bytes, so one allocation per separator
+	// exceeds this bound eightfold. TotalAlloc is process-wide; the slack
+	// absorbs runtime and race-detector allocations made during the parse.
+	const budget = separators
 	branches := "a" + strings.Repeat("|", separators)
 	steps := strings.Repeat("./", separators) + "a b"
 	tests := []struct {
