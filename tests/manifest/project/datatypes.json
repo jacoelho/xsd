@@ -93214,6 +93214,346 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/datatypes/bounds/incomparable-pair-duration-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/incomparable-pair-duration-inclusive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "conditions": [
+          "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires; incomparable values satisfy neither the caption nor the order the constraint names."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/incomparable-pair-duration-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "clause": "minInclusive <= maxInclusive in XML Schema Part 2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-015"
+          },
+          "libxml2": {
+            "record": "I-015"
+          },
+          "xmlschema": {
+            "record": "I-015"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/incomparable-pair-duration-inclusive/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/incomparable-pair-duration-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/incomparable-pair-duration-exclusive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive"
+        ],
+        "conditions": [
+          "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires; incomparable values satisfy neither the caption nor the order the constraint names."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/incomparable-pair-duration-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive",
+          "clause": "minExclusive <= maxExclusive in XML Schema Part 2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-015"
+          },
+          "libxml2": {
+            "record": "I-015"
+          },
+          "xmlschema": {
+            "record": "I-015"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/incomparable-pair-duration-exclusive/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-maxExclusive"
+        ],
+        "conditions": [
+          "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires; incomparable values satisfy neither the caption nor the order the constraint names."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-maxExclusive",
+          "clause": "minInclusive < maxExclusive in XML Schema Part 2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-015"
+          },
+          "xmlschema": {
+            "record": "I-015"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "conditions": [
+          "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires; incomparable values satisfy neither the caption nor the order the constraint names."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "clause": "minInclusive <= maxInclusive in XML Schema Part 2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-015"
+          },
+          "libxml2": {
+            "record": "I-015"
+          },
+          "xmlschema": {
+            "record": "I-015"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-maxInclusive"
+        ],
+        "conditions": [
+          "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires; incomparable values satisfy neither the caption nor the order the constraint names."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-maxInclusive",
+          "clause": "minExclusive < maxInclusive in XML Schema Part 2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-015"
+          },
+          "libxml2": {
+            "record": "I-015"
+          },
+          "xmlschema": {
+            "record": "I-015"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive"
+        ],
+        "conditions": [
+          "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires; incomparable values satisfy neither the caption nor the order the constraint names."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive",
+          "clause": "minExclusive <= maxExclusive in XML Schema Part 2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-015"
+          },
+          "xmlschema": {
+            "record": "I-015"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/comparable-pair-duration-month-and-days",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/comparable-pair-duration-month-and-days",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "conditions": [
+          "The two values are comparable in the partial order, so the pair-consistency constraint holds."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/comparable-pair-duration-month-and-days/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "clause": "minInclusive <= maxInclusive in XML Schema Part 2"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/comparable-pair-duration-month-and-days/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
+        ],
+        "conditions": [
+          "The two values are comparable in the partial order, so the pair-consistency constraint holds."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
+          "clause": "minInclusive <= maxInclusive in XML Schema Part 2"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours/schema.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

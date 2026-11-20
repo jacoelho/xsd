@@ -102,6 +102,12 @@ The principal state machines are deliberately linear or owner-local:
 Use the narrowest authoritative source that answers the question:
 
 1. Explicit requirements, XSD 1.0, XML 1.0, and exported behavior are binding.
+   XSD 1.0 means the 28 October 2004 Second Edition with its approved errata
+   and the corrections `docs/spec/SOURCES.md` adopts. XML 1.0 means the edition
+   XSD 1.0 cites, except that name characters follow the Fifth Edition
+   (26 November 2008) everywhere, including `xs:Name`, `xs:NCName` and the
+   regex `\i` and `\c` classes; the Fifth Edition rule that reads any `1.x`
+   version as 1.0 is not adopted. `docs/spec/SOURCES.md` owns each boundary.
 2. This file owns cross-module architecture: module ownership, boundaries,
    contracts, data flow, state transitions, lifecycle, resource policy, and
    rejected alternatives.

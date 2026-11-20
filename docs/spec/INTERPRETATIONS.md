@@ -620,8 +620,8 @@ wildcard that has no global declaration but a known `xsi:type`. Cases:
 
 ## I-015 — ordered-bound consistency and unordered values
 
-**Status:** selected reading of the operative XSD 1.0 facet-consistency prose;
-processor disagreements remain corpus provenance.
+**Status:** the text does not decide unordered endpoints; the
+[processor tie-break](#processor-tie-break) selects the Xerces-J reading.
 
 The same-step consistency rules for [minInclusive/maxInclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive)
 and [minExclusive/maxExclusive](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minExclusive-less-than-equal-to-maxExclusive)
@@ -629,14 +629,15 @@ prohibit a lower value greater than the upper value. Equal endpoints therefore
 permit both-inclusive and both-exclusive pairs; the latter describes an empty
 value space. Mixed inclusive/exclusive pairs prohibit equality as well.
 
-The rule captions use less-than-or-equal notation, but the operative prose
-prohibits the opposite comparison. For unordered values these formulations are
-not equivalent. The library follows the prose: incomparable endpoints do not
-violate the pair-consistency rule, including finite/NaN pairs for float and
-double, just as with partial temporal orders. This does not make unordered
-instance comparisons succeed. Each bound still tests its own value-space
-predicate, so a mixed finite/NaN pair admits no instance, while a NaN/NaN
-inclusive pair admits NaN through equality.
+The rule captions use less-than-or-equal notation, but the prose prohibits
+the opposite comparison. For unordered values these formulations are not
+equivalent, and the providers split. The library follows Xerces-J and the
+captions: a same-step pair is consistent only when the order relates the lower
+value to the upper value as the caption requires, so incomparable endpoints
+are a schema error. That covers finite/NaN pairs for float and double, a zoned
+and an unzoned `dateTime` within fourteen hours of each other, and `P1Y` with
+`P365D`. Equal endpoints are comparable, so a NaN/NaN inclusive pair stays
+consistent and admits NaN through equality.
 
 Facet-literal admission against the base type, fixed facets, and restriction
 narrowing remain separate obligations. In particular, a bound declared in a
@@ -664,13 +665,20 @@ with .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 - .NET accepts an equal `minExclusive` and `maxInclusive`, or `minInclusive`
   and `maxExclusive`, in one step.
 - xmlschema and libxml2 accept the NaN bound outside the base value space.
+- On a same-step pair of incomparable endpoints xmlschema accepts every case;
+  .NET accepts every case except a finite `minInclusive` with a NaN
+  `maxInclusive`; libxml2 accepts the incomparable `duration` and `dateTime`
+  pairs other than `minInclusive` with `maxExclusive`, and a NaN upper bound,
+  and rejects a NaN lower bound.
 
 Cases: `project/datatypes/bounds/conformance-minexclusive-maxinclusive-equal`,
 `project/datatypes/bounds/conformance-mininclusive-maxexclusive-equal`,
+`project/datatypes/bounds/incomparable-pair-*`,
 `project/datatypes/bounds/inherited-opposing-unordered-nan`,
 `project/datatypes/numeric/nan-ordered-bounds/*`,
 `project/datatypes/temporal/mixed-zone-boundary/*`,
-`project/double-bounds-nan-equal` and
+`project/double-bounds-nan-equal`, `project/double-bounds-nan-lower`,
+`project/double-bounds-nan-upper` and
 `project/runtime-duration-partial-order-strict`.
 
 ## I-016 — recursive ID-ness

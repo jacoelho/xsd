@@ -7159,84 +7159,34 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive",
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ],
-        "conditions": "Selected operative-prose reading of unordered bound consistency; see docs/spec/INTERPRETATIONS.md I-015. A caption expressed as <= does not independently settle incomparable operands."
+        "conditions": "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires, and NaN is incomparable with every other double; see docs/spec/INTERPRETATIONS.md I-015."
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/schema.xsd",
             "role": "principal"
           }
         ],
-        "oracle": {
-          "project": {
-            "expected": "invalid",
-            "reason": "Original expectation incorrectly rejected incomparable endpoints. The operative facet-consistency prose prohibits lower greater than upper; caption notation is qualified by I-015. Instance bound predicates remain independent.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
-          }
-        },
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
-          "clause": "I-015 in docs/spec/INTERPRETATIONS.md (bound consistency with an unordered NaN endpoint); this observation is not a majority-vote oracle"
+          "clause": "minInclusive <= maxInclusive in XML Schema Part 2"
         },
         "differences": {
-          "xerces": {
-            "note": "Xerces-J 2.12.2 on OpenJDK 26.0.1 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
+          "dotnet": {
+            "record": "I-015"
           },
-          "libxml2": {
-            "note": "libxml2 2.9.13 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
+          "xmlschema": {
+            "record": "I-015"
           }
         }
       },
-      "instances": [
-        {
-          "testName": "nan",
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/nan.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
-          "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
-          },
-          "differences": {
-            "dotnet": {
-              "note": ".NET 10.0.9 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
-            },
-            "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: instance assessed valid. No validation error was reported. Disagreement area: float/double NaN ordering against bound facets. This interoperability observation does not replace the project expectation."
-            }
-          }
-        },
-        {
-          "testName": "zero",
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/zero.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
-          "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
-          },
-          "differences": {
-            "dotnet": {
-              "note": ".NET 10.0.9 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
-            },
-            "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: instance assessed valid. No validation error was reported. Disagreement area: float/double NaN ordering against bound facets. This interoperability observation does not replace the project expectation."
-            }
-          }
-        }
-      ],
+      "instances": [],
       "files": [
         {
           "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/schema.xsd",
           "role": "principal"
-        },
-        {
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/nan.xml",
-          "role": "instance"
-        },
-        {
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-lower/zero.xml",
-          "role": "instance"
         }
       ]
     },
@@ -7253,84 +7203,34 @@
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-minInclusive",
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-maxInclusive"
         ],
-        "conditions": "Selected operative-prose reading of unordered bound consistency; see docs/spec/INTERPRETATIONS.md I-015. A caption expressed as <= does not independently settle incomparable operands."
+        "conditions": "A same-step pair of bound facets is consistent only when the order relates the lower value to the upper value as the constraint requires, and NaN is incomparable with every other double; see docs/spec/INTERPRETATIONS.md I-015."
       },
       "schema": {
-        "expected": "valid",
+        "expected": "invalid",
         "documents": [
           {
             "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/schema.xsd",
             "role": "principal"
           }
         ],
-        "oracle": {
-          "project": {
-            "expected": "invalid",
-            "reason": "Original expectation incorrectly rejected incomparable endpoints. The operative facet-consistency prose prohibits lower greater than upper; caption notation is qualified by I-015. Instance bound predicates remain independent.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
-          }
-        },
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive",
-          "clause": "I-015 in docs/spec/INTERPRETATIONS.md (bound consistency with an unordered NaN endpoint); this observation is not a majority-vote oracle"
+          "clause": "minInclusive <= maxInclusive in XML Schema Part 2"
         },
         "differences": {
-          "xerces": {
-            "note": "Xerces-J 2.12.2 on OpenJDK 26.0.1 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
+          "libxml2": {
+            "record": "I-015"
           },
-          "dotnet": {
-            "note": ".NET 10.0.9 reports invalid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
+          "xmlschema": {
+            "record": "I-015"
           }
         }
       },
-      "instances": [
-        {
-          "testName": "nan",
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/nan.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
-          "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
-          },
-          "differences": {
-            "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: instance assessed valid. No validation error was reported. Disagreement area: float/double NaN ordering against bound facets. This interoperability observation does not replace the project expectation."
-            },
-            "libxml2": {
-              "note": "libxml2 2.9.13 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
-            }
-          }
-        },
-        {
-          "testName": "zero",
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/zero.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
-          "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#minInclusive-less-than-equal-to-maxInclusive"
-          },
-          "differences": {
-            "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit roots and file bytes: instance assessed valid. No validation error was reported. Disagreement area: float/double NaN ordering against bound facets. This interoperability observation does not replace the project expectation."
-            },
-            "libxml2": {
-              "note": "libxml2 2.9.13 reports valid in the fresh offline comparison. I-015 follows the operative prohibited-order consistency prose; instance bounds independently require their ordered/equal predicates. A mixed finite/NaN range admits neither witness, while an inclusive NaN/NaN range admits only NaN. The single-bound and equal-pair controls distinguish schema consistency from instance comparison."
-            }
-          }
-        }
-      ],
+      "instances": [],
       "files": [
         {
           "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/schema.xsd",
           "role": "principal"
-        },
-        {
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/nan.xml",
-          "role": "instance"
-        },
-        {
-          "file": "corpus/project/datatypes/numeric/double-bounds-nan-upper/zero.xml",
-          "role": "instance"
         }
       ]
     },

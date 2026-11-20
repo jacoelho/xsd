@@ -17,15 +17,3 @@ project/datatypes/name-fifth-edition-chars	nmtoken-u10000	dotnet
 project/datatypes/name-fifth-edition-chars	nmtoken-u10000	libxml2
 project/datatypes/name-fifth-edition-chars	nmtoken-u10000	xerces
 project/datatypes/name-fifth-edition-chars	nmtoken-u10000	xmlschema
-project/double-bounds-nan-lower	nan	dotnet
-project/double-bounds-nan-lower	nan	xmlschema
-project/double-bounds-nan-lower	schema	libxml2
-project/double-bounds-nan-lower	schema	xerces
-project/double-bounds-nan-lower	zero	dotnet
-project/double-bounds-nan-lower	zero	xmlschema
-project/double-bounds-nan-upper	nan	libxml2
-project/double-bounds-nan-upper	nan	xmlschema
-project/double-bounds-nan-upper	schema	dotnet
-project/double-bounds-nan-upper	schema	xerces
-project/double-bounds-nan-upper	zero	libxml2
-project/double-bounds-nan-upper	zero	xmlschema

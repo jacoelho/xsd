@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:simpleType name="T"><xs:restriction base="xs:dateTime"><xs:minExclusive value="2000-01-01T12:00:00Z"/><xs:maxInclusive value="2000-01-01T20:00:00"/></xs:restriction></xs:simpleType>
+<xs:element name="r" type="T"/>
+</xs:schema>

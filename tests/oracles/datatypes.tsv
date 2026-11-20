@@ -1006,6 +1006,14 @@ project/datatypes/applicability/conformance-union-whitespace	schema	dotnet	schem
 project/datatypes/applicability/conformance-union-whitespace	schema	libxml2	schema-invalid	schema.xsd:4: element simpleType: Schemas parser error : local union type: The facet 'whiteSpace' is not allowed.␊WXS schema schema.xsd failed to compile
 project/datatypes/applicability/conformance-union-whitespace	schema	xerces	schema-invalid	schema.xsd:4:65: cos-applicable-facets: Facet 'whiteSpace' is not allowed by type #AnonType_r.
 project/datatypes/applicability/conformance-union-whitespace	schema	xmlschema	schema-invalid	one or more facets are not applicable, admitted set is {'pattern', 'enumeration'}:␊␊Schema component:␊␊  <xs:restriction xmlns:xs="http://www.w3.org/2001/XMLSchema" base="Base"><xs:whiteSpace value="collapse" /></xs:restriction>␊␊Path: /xs:schema/xs:element/xs:simpleType/xs:restriction␊␊Schema URL: schema.xsd
+project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours	schema	dotnet	schema-valid	
+project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours	schema	libxml2	schema-valid	
+project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours	schema	xerces	schema-valid	
+project/datatypes/bounds/comparable-pair-datetime-unzoned-zoned-beyond-14-hours	schema	xmlschema	schema-valid	
+project/datatypes/bounds/comparable-pair-duration-month-and-days	schema	dotnet	schema-valid	
+project/datatypes/bounds/comparable-pair-duration-month-and-days	schema	libxml2	schema-valid	
+project/datatypes/bounds/comparable-pair-duration-month-and-days	schema	xerces	schema-valid	
+project/datatypes/bounds/comparable-pair-duration-month-and-days	schema	xmlschema	schema-valid	
 project/datatypes/bounds/conformance-datetime-maxexclusive	above	dotnet	invalid	above.xml:1:26: The 'r' element is invalid - The value '2001-02-03T04:05:07Z' is invalid according to its datatype 'DateTime' - The MaxExclusive constraint failed.
 project/datatypes/bounds/conformance-datetime-maxexclusive	above	libxml2	invalid	above.xml:1: element r: Schemas validity error : Element 'r': [facet 'maxExclusive'] The value '2001-02-03T04:05:07Z' must be less than '2001-02-03T04:05:06Z'.
 project/datatypes/bounds/conformance-datetime-maxexclusive	above	xerces	invalid	above.xml:1:28: cvc-maxExclusive-valid: Value '2001-02-03T04:05:07Z' is not facet-valid with respect to maxExclusive '2001-02-03T04:05:06Z' for type '#AnonType_r'.
@@ -1915,6 +1923,30 @@ project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset	schema	do
 project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset	schema	libxml2	schema-valid	
 project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset	schema	xerces	schema-valid	
 project/datatypes/bounds/fixed-minInclusive-time-same-day-other-offset	schema	xmlschema	schema-valid	
+project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned	schema	dotnet	schema-valid	
+project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned	schema	libxml2	schema-valid	
+project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned	schema	xerces	schema-invalid	schema.xsd:2:60: minInclusive-less-than-equal-to-maxInclusive: In the definition of T, minInclusive value = '2000-01-01T12:00:00' must be <= maxInclusive value = '2000-01-01T12:00:00Z'.
+project/datatypes/bounds/incomparable-pair-datetime-unzoned-zoned	schema	xmlschema	schema-valid	
+project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive	schema	dotnet	schema-valid	
+project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive	schema	libxml2	schema-valid	
+project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive	schema	xerces	schema-invalid	schema.xsd:2:60: minExclusive-less-than-maxInclusive: In the definition of T, minExclusive value = '2000-01-01T12:00:00Z' must be < maxInclusive value = '2000-01-01T20:00:00'.
+project/datatypes/bounds/incomparable-pair-datetime-zoned-unzoned-exclusive-inclusive	schema	xmlschema	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-exclusive	schema	dotnet	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-exclusive	schema	libxml2	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-exclusive	schema	xerces	schema-invalid	schema.xsd:2:60: minExclusive-less-than-equal-to-maxExclusive: In the definition of T, minExclusive value = 'P0Y0M365DT0H0M0S' must be <= maxExclusive value = 'P1Y0M0DT0H0M0S'.
+project/datatypes/bounds/incomparable-pair-duration-exclusive	schema	xmlschema	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-inclusive	schema	dotnet	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-inclusive	schema	libxml2	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-inclusive	schema	xerces	schema-invalid	schema.xsd:2:60: minInclusive-less-than-equal-to-maxInclusive: In the definition of T, minInclusive value = 'P1Y0M0DT0H0M0S' must be <= maxInclusive value = 'P0Y0M365DT0H0M0S'.
+project/datatypes/bounds/incomparable-pair-duration-inclusive	schema	xmlschema	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive	schema	dotnet	schema-valid	
+project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive	schema	libxml2	schema-invalid	Schemas parser error : facet 'minInclusive': 'minInclusive' has to be less than 'maxExclusive'.␊WXS schema schema.xsd failed to compile
+project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive	schema	xerces	schema-invalid	schema.xsd:2:60: minInclusive-less-than-maxExclusive: In the definition of T, minInclusive value = 'P0Y1M0DT0H0M0S' must be < maxExclusive value = 'P0Y0M30DT0H0M0S'.
+project/datatypes/bounds/incomparable-pair-duration-inclusive-exclusive	schema	xmlschema	schema-valid	
+project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive	schema	dotnet	schema-valid	
+project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive	schema	libxml2	schema-invalid	Schemas parser error : facet 'maxExclusive': 'maxExclusive' has to be greater than or equal to 'minExclusive'.␊WXS schema schema.xsd failed to compile
+project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive	schema	xerces	schema-invalid	schema.xsd:2:57: minExclusive-less-than-equal-to-maxExclusive: In the definition of T, minExclusive value = 'NaN' must be <= maxExclusive value = '0.0E1'.
+project/datatypes/bounds/incomparable-pair-float-nan-lower-exclusive	schema	xmlschema	schema-valid	
 project/datatypes/bounds/inherited-opposing-exclusive-equality	schema	dotnet	schema-valid	
 project/datatypes/bounds/inherited-opposing-exclusive-equality	schema	libxml2	schema-invalid	schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'minExclusive'] The value '10' must be greater than '10'.
 project/datatypes/bounds/inherited-opposing-exclusive-equality	schema	xerces	schema-invalid	schema.xsd:3:59: cvc-minExclusive-valid: Value '10' is not facet-valid with respect to minExclusive '10.0' for type 'Base'.
