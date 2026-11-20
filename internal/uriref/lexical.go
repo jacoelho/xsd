@@ -1,6 +1,9 @@
 package uriref
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 type byteText interface {
 	~string | ~[]byte
@@ -9,7 +12,7 @@ type byteText interface {
 func scan[T byteText](text T) (characters, escapedLen int, err error) {
 	for i := 0; i < len(text); {
 		token, ok := scanToken(text, i)
-		if !ok || escapedLen > int(^uint(0)>>1)-token.escapedLen {
+		if !ok || escapedLen > math.MaxInt-token.escapedLen {
 			return 0, 0, ErrInvalid
 		}
 		characters += token.characters

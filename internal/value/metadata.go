@@ -173,8 +173,8 @@ func (b *Builder) completedTypeDef(id TypeID) (*typeDef, bool) {
 		return nil, false
 	}
 	if id >= BuiltinTypeCount {
-		i := id - BuiltinTypeCount
-		if uint64(i) >= uint64(len(b.program.complete)) || b.program.complete[i] != completionCommitted {
+		i, ok := userTypeIndex(id, len(b.program.complete))
+		if !ok || b.program.complete[i] != completionCommitted {
 			return nil, false
 		}
 	}

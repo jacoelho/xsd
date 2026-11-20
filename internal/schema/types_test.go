@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"math"
 	"reflect"
 	"strconv"
 	"testing"
@@ -160,9 +161,10 @@ func TestElementIndexIDRejectsAbsentSentinel(t *testing.T) {
 func TestNewUint32Index(t *testing.T) {
 	t.Parallel()
 
-	id, ok := newUint32Index(int(^uint32(0)))
-	if !ok || id != ^uint32(0) {
-		t.Fatalf("NewUint32Index(max uint32) = %d, %v, want max uint32, true", id, ok)
+	largest := min(math.MaxInt, math.MaxUint32)
+	id, ok := newUint32Index(largest)
+	if !ok || uint64(id) != uint64(largest) {
+		t.Fatalf("newUint32Index(%d) = %d, %v, want %d, true", largest, id, ok, largest)
 	}
 	if _, ok := newUint32Index(-1); ok {
 		t.Fatal("negative index should fail")

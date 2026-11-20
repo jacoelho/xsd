@@ -1,6 +1,10 @@
 package schema
 
-import "github.com/jacoelho/xsd/internal/value"
+import (
+	"math"
+
+	"github.com/jacoelho/xsd/internal/value"
+)
 
 const invalidID = ^uint32(0)
 
@@ -131,9 +135,13 @@ const (
 	NoIdentityConstraint IdentityConstraintID = IdentityConstraintID(invalidID)
 )
 
+// maxUint32Index is the largest index that is both an int and a uint32: int
+// binds it on 32-bit platforms, uint32 elsewhere.
+const maxUint32Index = min(math.MaxInt, math.MaxUint32)
+
 // newUint32Index returns n as a uint32 index when it is representable.
 func newUint32Index(n int) (uint32, bool) {
-	if n < 0 || uint64(n) > uint64(^uint32(0)) {
+	if n < 0 || n > maxUint32Index {
 		return 0, false
 	}
 	return uint32(n), true

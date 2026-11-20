@@ -488,7 +488,7 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 		entries := make(map[ElementID]substitutionEntry)
 		for _, id := range raw[ElementID(head)] {
 			var name QName
-			if int(id) < len(names) {
+			if validElementID(id, len(names)) {
 				name = names[id].Name
 			}
 			entries[id] = substitutionEntry{name: name, member: id}
@@ -554,8 +554,8 @@ func TestSubstitutionClosureLimitNeverExceedsTheEntriesAPositionCanAddress(t *te
 	for _, tt := range []struct{ configured, want int }{
 		{configured: 0, want: 0},
 		{configured: 4950, want: 4950},
-		{configured: math.MaxUint32, want: math.MaxUint32},
-		{configured: math.MaxInt, want: math.MaxUint32},
+		{configured: min(math.MaxInt, math.MaxUint32), want: min(math.MaxInt, math.MaxUint32)},
+		{configured: math.MaxInt, want: min(math.MaxInt, math.MaxUint32)},
 	} {
 		if got := substitutionClosureLimit(tt.configured); got != tt.want {
 			t.Fatalf("substitutionClosureLimit(%d) = %d, want %d", tt.configured, got, tt.want)

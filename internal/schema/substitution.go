@@ -266,14 +266,11 @@ func (t substitutionTable) span(head ElementID) (substitutionSpan, bool) {
 	return span, true
 }
 
-// substitutionClosureLimit is maxClosureEntries, capped at the entries a
-// uint32 byName position can address, so the configured limit is the only
-// bound a closure meets.
+// substitutionClosureLimit is maxClosureEntries, capped at maxUint32Index, the
+// largest uint32 byName position, so the configured limit is the only bound a
+// closure meets.
 func substitutionClosureLimit(maxClosureEntries int) int {
-	if _, addressable := newUint32Index(maxClosureEntries); addressable || maxClosureEntries < 0 {
-		return maxClosureEntries
-	}
-	return math.MaxUint32
+	return min(maxClosureEntries, maxUint32Index)
 }
 
 // validNameOrder reports whether byName holds, for every span, a permutation
@@ -449,11 +446,10 @@ func completeSubstitutionPath(path, parents []ElementID, state []uint8, depth []
 }
 
 func substitutionClosureSize(depth []int) (int, error) {
-	maxInt := int(^uint(0) >> 1)
 	total := 0
 	for _, ancestors := range depth {
-		if ancestors > maxInt-total {
-			return 0, substitutionClosureLimitError{Limit: maxInt}
+		if ancestors > math.MaxInt-total {
+			return 0, substitutionClosureLimitError{Limit: math.MaxInt}
 		}
 		total += ancestors
 	}
@@ -593,10 +589,11 @@ func substitutionEffective(head, member elementDecl, mask, typeBlocks Derivation
 }
 
 func elementIndexID(id int) (ElementID, bool) {
-	if id < 0 || uint64(id) >= uint64(invalidID) {
+	runtimeID, ok := newRuntimeID(id)
+	if !ok {
 		return NoElement, false
 	}
-	return ElementID(uint32(id)), true
+	return ElementID(runtimeID), true
 }
 
 func validSubstitutionElementID(elements []elementDecl, id ElementID) bool {

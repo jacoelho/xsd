@@ -1046,6 +1046,8 @@ graph preserves these ownership rules:
 
 - Library, race, lint, static-analysis, fuzz, and benchmark gates address the
   owning Go packages directly.
+- The 32-bit target runs the library tests as linux/386 on linux hosts, the
+  only hosts that execute them, and vets the linux/386 build elsewhere.
 - WASM build/test targets own the Go/JavaScript bridge and matching Go runtime
   support file.
 - Deterministic worker tests remain separate from the browser-level built-WASM

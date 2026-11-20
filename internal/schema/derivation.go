@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"math"
 	"slices"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -1217,11 +1218,10 @@ func markSimpleTypeSeen(seen []uint64, id SimpleTypeID) bool {
 
 func simpleTypeDerivationPairLimit(count int) int {
 	if count <= 0 {
-		return int(^uint(0) >> 1)
+		return math.MaxInt
 	}
-	maxInt := int(^uint(0) >> 1)
-	if count > maxInt/count {
-		return maxInt
+	if count > math.MaxInt/count {
+		return math.MaxInt
 	}
 	return count * count
 }
