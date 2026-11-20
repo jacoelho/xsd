@@ -21,12 +21,12 @@ the violated contract, not preserve incidental control flow.
 ## Files
 
 - `manifest/`: the hand-written inventory, the source of truth for cases, expected results and paths. `manifest/index.json` holds the header and the explicit, ordered shard list; `internal/corpus` concatenates the shards in that order and rejects a case filed in a shard other than the one `corpus.ShardName` assigns by upstream test set or project area.
-- `oracles/`: the measured cross-validator observations, written only by `make oracle-measure` and never edited by hand. Each project shard has one observation file of sorted rows, and `oracles/profile.json` records the provider versions, the digest of the oracle image inputs under `tools/oracles` and the date of the measurement. A partial measurement keeps the profile and must match it.
+- `oracles/`: the measured cross-validator observations, written only by `make oracle-measure` and never edited by hand. Each project shard has one observation file of sorted rows, the measured W3C cases share `oracles/w3c.tsv`, and `oracles/profile.json` records the provider versions, the digest of the oracle image inputs under `tools/oracles` and the date of the measurement. A partial measurement keeps the profile and must match it.
 - `unsupported.txt`: sorted allowlist of unsupported-feature skips.
 - `harness_test.go`: Go test runner for this corpus.
 - `harness_manifest_test.go`: verifies the manifest closure: every referenced file exists and every corpus file is referenced.
 - `oracle_observations_test.go`: verifies the oracle rules of the [Corpus Contract](#corpus-contract) against the observations.
-- `oracle-backlog.txt`: sorted, unique IDs of measured project cases with a provider difference that no record owns yet.
+- `oracle-backlog.txt`: sorted, unique IDs of measured cases with a provider difference that no record owns yet.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
 - `corpus/xerces-j`: selected Xerces-J XSD/XML validation fixtures.
@@ -133,8 +133,8 @@ independent Python xmlschema result.
    specification, processor, source-closure or harness differences before
    changing behavior.
 5. Record measured results with `make oracle-measure ORACLE_CASES='<case-id>...'`
-   for every added or changed project case (without `ORACLE_CASES` it
-   re-measures every project case), record each difference and derive
+   for every added or changed measured case (without `ORACLE_CASES` it
+   re-measures every measured case), record each difference and derive
    expectations as the [Corpus Contract](#corpus-contract) defines.
 
 Historical releases and modified provider copies are separate diagnostic
@@ -168,12 +168,17 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   limitation, and an `error` verdict reads as `blocked`. None of the last three
   is a validity. Rows record observations, never expectations: a measured
   disagreement never overwrites the project expectation.
-- A project case is measured when its schema phase has a row for each of
+- The measured cases are every project case and every W3C case with a phase
+  whose `oracle.w3c` expectation differs from its effective `expected`: the
+  cases where the corpus departs from the upstream result, so the providers'
+  results on them need an owner. Other W3C cases and the Xerces-J cases have
+  no rows. `corpus.Case.Measured` is the one membership predicate.
+- A case is measured when its schema phase has a row for each of
   `xerces`, `dotnet`, `xmlschema` and `libxml2`, and each instance phase has a
   row for every provider whose schema-phase verdict is `schema-valid`, and for
   no other; a provider that rejected or could not run the schema has no
   instance rows. The measurement command produces exactly these rows, and
-  every project case is measured. `TestProjectPhasesHaveObservations` enforces
+  every measured case has them. `TestMeasuredPhasesHaveObservations` enforces
   the rule and rejects rows that name no such phase and provider.
 - A row whose validity differs from the phase's project expectation has an
   entry under the phase's `differences`, keyed by provider. Instance phases of
@@ -191,10 +196,14 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   owns that: a change that adds or edits a `record` entry confirms the record
   describes the provider's behaviour on the case.
   The test fails when the backlog is unsorted, lists a case that is not a
-  project case, or lists a case whose differences are all owned. The backlog
+  measured case, or lists a case whose differences are all owned. The backlog
   only shrinks: a new case is never listed, and a change that modifies a listed
   case owns its differences and removes it from the list, which review checks
-  because the test cannot tell a modified case from an untouched one.
+  because the test cannot tell a modified case from an untouched one. The one
+  exception is a W3C override that neither specification text nor an adopted
+  correction decides, such as one resting on a selected reading: it does not
+  outrank the accepted W3C expectation, so its provider differences are not
+  owned and the case stays listed until its expectation is reviewed.
 - Each schema or instance `expected` is the effective project expectation,
   derived from the published specifications, approved corrections and
   documented qualifications. Provider agreement is diagnostic evidence, not a
@@ -206,10 +215,11 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   without overriding it.
   When a project expectation corrects an upstream W3C result,
   `schema.oracle.w3c` or `instance.oracle.w3c` records the original expectation,
-  reason, and specification reference. This provenance is explanatory; consumers do not
+  reason, and specification reference; an entry whose expectation equals the
+  effective one corrects nothing and is rejected. This provenance is explanatory; consumers do not
   merge it into the effective expectation or infer a Xerces-J result.
   A schema or instance's `oracle.project` likewise records a corrected original project
-  expectation. Existing `internalExpected` values remain historical extraction
+  expectation, which also differs from the effective one. Existing `internalExpected` values remain historical extraction
   metadata. A legacy test name containing `valid` or `invalid` is not an oracle;
   preserve its identity when correcting `expected`.
 - This directory contains no Java classes, jars, or shell scripts.
@@ -233,7 +243,7 @@ go test ./tests -run '^TestHarness/w3c'
 Check the observations against the inventory:
 
 ```sh
-go test ./tests -run '^(TestProjectPhasesHaveObservations|TestObservedDifferencesAreDiagnosed)$'
+go test ./tests -run '^(TestMeasuredPhasesHaveObservations|TestObservedDifferencesAreDiagnosed)$'
 ```
 
 ## Runner Contract

@@ -142,6 +142,23 @@ func (c *Case) Phases() []Phase {
 	return phases
 }
 
+// Measured reports whether the oracle observation contract of the
+// tests/README.md Corpus Contract covers c: c is a project case, or a W3C case
+// with a phase whose effective expectation differs from its oracle.w3c
+// expectation.
+func (c *Case) Measured() bool {
+	switch c.ExpectedSource {
+	case SourceProject:
+		return true
+	case SourceW3C:
+		return slices.ContainsFunc(c.Phases(), func(p Phase) bool {
+			original, ok := p.Oracle[SourceW3C]
+			return ok && original.Expected != p.Expected
+		})
+	}
+	return false
+}
+
 // ShardName returns the inventory shard that owns caseID: W3C cases by upstream
 // test set, with the NIST datatype set split by its atomic, list and union
 // groups to bound file size; Xerces-J cases together; project cases by their
@@ -242,8 +259,9 @@ func loadShard(fsys fs.FS, name string) ([]Case, error) {
 // ValidateCases checks the case invariants the tests/README.md Corpus Contract
 // states: unique case IDs prefixed by their expected source, known expected
 // values, a schema phase with at least one root, unique schema roots and
-// instance names, an instance file per instance, and well-formed provenance,
-// rules and differences.
+// instance names, an instance file per instance, well-formed provenance whose
+// original expectation differs from the effective one, and well-formed rules
+// and differences.
 func ValidateCases(cases []Case) error {
 	ids := make(map[string]bool, len(cases))
 	for i := range cases {
@@ -330,6 +348,8 @@ func validatePhase(p *Phase) error {
 			return fmt.Errorf("unknown oracle key %q", key)
 		case !entry.Expected.Known():
 			return fmt.Errorf("oracle %q has unknown expected value %q", key, entry.Expected)
+		case entry.Expected == p.Expected:
+			return fmt.Errorf("oracle %q expectation %q equals the effective expectation, so it corrects nothing", key, entry.Expected)
 		case blank(entry.Reason):
 			return fmt.Errorf("oracle %q has no reason", key)
 		}

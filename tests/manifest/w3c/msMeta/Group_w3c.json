@@ -1971,6 +1971,14 @@
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          }
         }
       },
       "instances": [
@@ -3083,6 +3091,14 @@
             "expected": "valid",
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
           }
         }
       },
@@ -4197,6 +4213,14 @@
             "expected": "valid",
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
           }
         }
       },
@@ -5323,6 +5347,14 @@
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          }
         }
       },
       "instances": [
@@ -6447,6 +6479,14 @@
             "expected": "valid",
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
           }
         }
       },

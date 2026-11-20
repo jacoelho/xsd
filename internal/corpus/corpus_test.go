@@ -61,6 +61,8 @@ func TestLoadInventoryRejectsInvalidCases(t *testing.T) {
 		{name: "duplicate schema document", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"s.xsd"},{"file":"s.xsd"}]}}`, want: `duplicates schema document "s.xsd"`},
 		{name: "provider oracle entry", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"xerces":{"expected":"valid","reason":"r"}}}}`, want: `unknown oracle key "xerces"`},
 		{name: "oracle without reason", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"w3c":{"expected":"invalid","reason":" "}}}}`, want: `oracle "w3c" has no reason`},
+		{name: "w3c oracle equal to the effective expectation", w3c: `{"id":"w3c/msMeta/Regex_w3c.xml/g","expectedSource":"w3c","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"w3c":{"expected":"valid","reason":"retained"}}}}`, want: `phase "schema": oracle "w3c" expectation "valid" equals the effective expectation`},
+		{name: "project oracle equal to the effective expectation", project: `{"id":"project/a","expectedSource":"project","instances":[{"file":"i.xml","testName":"i","expected":"invalid","oracle":{"project":{"expected":"invalid","reason":"r"}}}]}`, want: `phase "i": oracle "project" expectation "invalid" equals the effective expectation`},
 		{name: "oracle status", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"project":{"status":"blocked","reason":"r"}}}}`, want: `oracle "project" has unknown expected value ""`},
 		{name: "rule without specRef", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","rule":{"clause":"c"}}}`, want: "rule has no specRef"},
 		{name: "difference for unknown provider", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotNet":{"record":"I-001"}}}}`, want: `difference for unknown provider "dotNet"`},
@@ -76,6 +78,34 @@ func TestLoadInventoryRejectsInvalidCases(t *testing.T) {
 			_, err := LoadInventory(inventoryFS(tt.project, tt.w3c))
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("LoadInventory() error = %v, want containing %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestCaseMeasured(t *testing.T) {
+	override := func(original Expectation) map[string]Provenance {
+		return map[string]Provenance{SourceW3C: {Expected: original, Reason: "r"}}
+	}
+	for _, tt := range []struct {
+		name string
+		c    Case
+		want bool
+	}{
+		{name: "project case", c: Case{ExpectedSource: SourceProject}, want: true},
+		{name: "W3C case without override", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedValid}}, want: false},
+		{name: "W3C schema override", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedInvalid, Oracle: override(ExpectedValid)}}, want: true},
+		{name: "W3C instance override", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedValid}, Instances: []Instance{
+			{TestName: "a", Expected: ExpectedValid},
+			{TestName: "b", Expected: ExpectedInvalid, Oracle: override(ExpectedValid)},
+		}}, want: true},
+		{name: "W3C override equal to the effective expectation", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedValid, Oracle: override(ExpectedValid)}}, want: false},
+		{name: "W3C case with a project correction only", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedInvalid, Oracle: map[string]Provenance{SourceProject: {Expected: ExpectedValid, Reason: "r"}}}}, want: false},
+		{name: "Xerces-J case with a W3C-keyed override", c: Case{ExpectedSource: SourceXercesJ, Schema: &Schema{Expected: ExpectedInvalid, Oracle: override(ExpectedValid)}}, want: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.c.Measured(); got != tt.want {
+				t.Fatalf("Measured() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -127,6 +157,7 @@ func observationFS(rows string) fstest.MapFS {
 	fsys := inventoryFS(validProjectCase, validW3CCase)
 	fsys["oracles/profile.json"] = &fstest.MapFile{Data: []byte(testProfile)}
 	fsys["oracles/top-level.tsv"] = &fstest.MapFile{Data: []byte(rows)}
+	fsys["oracles/w3c.tsv"] = &fstest.MapFile{}
 	return fsys
 }
 
@@ -182,7 +213,8 @@ func TestLoadObservationsRejectsBadRows(t *testing.T) {
 		{name: "unsorted", rows: "project/a\tschema\txerces\tschema-valid\t\nproject/a\tschema\tdotnet\tschema-valid\t\n", want: "line 2 is not sorted"},
 		{name: "duplicate", rows: strings.Repeat("project/a\tschema\txerces\tschema-valid\t\n", 2), want: "line 2 is not sorted after line 1, or repeats"},
 		{name: "other shard", rows: "project/area/a\tschema\txerces\tschema-valid\t\n", want: `case "project/area/a" belongs in "oracles/area.tsv"`},
-		{name: "non-project case", rows: "xerces-j/a\tschema\txerces\tschema-valid\t\n", want: `case "xerces-j/a" has no observation file: case "xerces-j/a" is not a project case`},
+		{name: "W3C case", rows: "w3c/msMeta/Regex_w3c.xml/g\tschema\txerces\tschema-valid\t\n", want: `case "w3c/msMeta/Regex_w3c.xml/g" belongs in "oracles/w3c.tsv"`},
+		{name: "Xerces-J case", rows: "xerces-j/a\tschema\txerces\tschema-valid\t\n", want: `case "xerces-j/a" has no observation file: case "xerces-j/a" is neither a project nor a W3C case`},
 		{name: "unknown verdict", rows: "project/a\tschema\txerces\taccepted\t\n", want: `unknown verdict "accepted"`},
 		{name: "unknown provider", rows: "project/a\tschema\tsaxon\tvalid\t\n", want: `unknown provider "saxon"`},
 		{name: "field count", rows: "project/a\tschema\txerces\tvalid\n", want: "row has 4 fields, want 5"},

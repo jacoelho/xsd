@@ -8264,7 +8264,12 @@
               "specification": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
             }
           },
-          "errorCode": "validation.attribute"
+          "errorCode": "validation.attribute",
+          "differences": {
+            "xmlschema": {
+              "record": "I-008"
+            }
+          }
         }
       ],
       "files": [

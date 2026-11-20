@@ -1,11 +1,12 @@
-// Command measure re-measures project corpus cases with tools/oracles/run.sh
-// and rewrites their rows in tests/oracles.
+// Command measure runs tools/oracles/run.sh on the corpus cases the
+// observation contract covers, as corpus.Case.Measured selects them, and
+// rewrites their rows in tests/oracles.
 //
 // Usage, from the repository root:
 //
 //	go run ./tools/oracles/measure [-j N] [-cache DIR] [case-id...]
 //
-// Without case IDs it measures every project case and rewrites every
+// Without case IDs it measures every such case and rewrites every
 // observation file and the profile. With case IDs it replaces only those
 // cases' rows and keeps the profile, whose image digest and provider versions
 // the run must match.
@@ -236,30 +237,30 @@ func cachePath(dir string) (string, error) {
 	return filepath.Join(base, "xsd-oracles-measure"), nil
 }
 
-// selectCases returns the project cases named by ids, or every project case
-// when ids is empty, and whether the selection is every project case.
+// selectCases returns the measured cases named by ids, or every measured case
+// when ids is empty, and whether the selection is every measured case.
 func selectCases(inv *corpus.Inventory, ids []string) ([]*corpus.Case, bool, error) {
 	byID := make(map[string]*corpus.Case)
-	var project []*corpus.Case
+	var measured []*corpus.Case
 	for i := range inv.Cases {
 		c := &inv.Cases[i]
-		if c.ExpectedSource == corpus.SourceProject {
+		if c.Measured() {
 			byID[c.ID] = c
-			project = append(project, c)
+			measured = append(measured, c)
 		}
 	}
 	if len(ids) == 0 {
-		return project, true, nil
+		return measured, true, nil
 	}
 	selected := make([]*corpus.Case, 0, len(ids))
 	for _, id := range slices.Compact(slices.Sorted(slices.Values(ids))) {
 		c, ok := byID[id]
 		if !ok {
-			return nil, false, fmt.Errorf("%q is not a project case", id)
+			return nil, false, fmt.Errorf("%q is not a measured case", id)
 		}
 		selected = append(selected, c)
 	}
-	return selected, len(selected) == len(project), nil
+	return selected, len(selected) == len(measured), nil
 }
 
 // buildImage builds the image from exactly inputs, sent as the build context
@@ -631,8 +632,9 @@ func providerVersions(results map[string]caseResult) (map[corpus.Provider]string
 	return versions, nil
 }
 
-// unmeasuredRows returns the existing rows of every project case of inv not in
-// results, dropping rows of cases inv no longer holds. The
+// unmeasuredRows returns the existing rows of every measured case of inv not
+// in results, dropping rows of cases inv no longer holds or no longer measures.
+// The
 // profile they come from must name image digest and every version in versions.
 // It reads the tree without writing to it, so a refused run leaves it unchanged.
 func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest string, versions map[corpus.Provider]string) ([]corpus.Row, error) {
@@ -645,24 +647,24 @@ func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest
 		return nil, err
 	}
 	if obs.Profile.Image != digest {
-		return nil, fmt.Errorf("image inputs are %s in %s but %s now; measure every project case", obs.Profile.Image, corpus.ProfilePath, digest)
+		return nil, fmt.Errorf("image inputs are %s in %s but %s now; measure every case", obs.Profile.Image, corpus.ProfilePath, digest)
 	}
 	for _, p := range corpus.Providers() {
 		if v, reported := versions[p]; reported && obs.Profile.Providers[p] != v {
-			return nil, fmt.Errorf("%s is %q in %s but %q now; measure every project case", p, obs.Profile.Providers[p], corpus.ProfilePath, v)
+			return nil, fmt.Errorf("%s is %q in %s but %q now; measure every case", p, obs.Profile.Providers[p], corpus.ProfilePath, v)
 		}
 	}
-	project := projectCaseIDs(inv)
+	members := measuredCaseIDs(inv)
 	return slices.DeleteFunc(obs.Rows, func(r corpus.Row) bool {
-		_, measured := results[r.CaseID]
-		return measured || !project[r.CaseID]
+		_, remeasured := results[r.CaseID]
+		return remeasured || !members[r.CaseID]
 	}), nil
 }
 
-func projectCaseIDs(inv *corpus.Inventory) map[string]bool {
+func measuredCaseIDs(inv *corpus.Inventory) map[string]bool {
 	ids := make(map[string]bool, len(inv.Cases))
 	for i := range inv.Cases {
-		if inv.Cases[i].ExpectedSource == corpus.SourceProject {
+		if inv.Cases[i].Measured() {
 			ids[inv.Cases[i].ID] = true
 		}
 	}
@@ -670,8 +672,9 @@ func projectCaseIDs(inv *corpus.Inventory) map[string]bool {
 }
 
 // recordedObservations returns the profile and every observation file of inv
-// in memory. A project shard with no observation file, one added since the
-// last measurement, reads as an empty file: its cases have no rows to keep.
+// in memory. An observation file that does not exist, one whose shard was
+// added since the last measurement, reads as an empty file: its cases have no
+// rows to keep.
 func recordedObservations(inv *corpus.Inventory) (fs.FS, error) {
 	tree := os.DirFS("tests")
 	profile, err := fs.ReadFile(tree, corpus.ProfilePath)
