@@ -232,7 +232,10 @@ A physical `xsi:schemaLocation` is assessed only as a list of anyURI, and
 `xsi:noNamespaceSchemaLocation` as one anyURI, on assessed elements. The
 attribute's type makes any item count valid and no constraint records an
 even-count rule; Xerces-J, .NET, xmlschema and libxml2 accept an odd count
-(corpus case `xsi-schema-location-hint-syntax`). Hints on skip-processed content
+(corpus case `xsi-schema-location-hint-syntax`). An item is still an anyURI:
+`%zz` is not, since the escaping procedure leaves `%` in place and
+[RFC 2396 §2.4.1](https://www.rfc-editor.org/rfc/rfc2396#section-2.4.1) admits
+it only before two hexadecimal digits. Hints on skip-processed content
 are not assessed, consistent with `xsi:nil` and `xsi:type` being ignored there.
 An element whose start fails fatally before attribute assessment gets no hint
 diagnostic.
@@ -270,6 +273,9 @@ below, so processor results do not. Observed with Xerces-J 2.12.2, .NET
   `@xsi:nil` fields by spelling, compares an `@xsi:schemaLocation` field as a
   string that equals no anyURI list, and does not reject an invalid anyURI item
   in `xsi:schemaLocation`.
+- .NET, xmlschema and libxml2 accept the item `%zz` in `xsi:schemaLocation` and
+  `xsi:noNamespaceSchemaLocation`, also on an unknown element that a lax
+  wildcard admits; Xerces-J rejects it.
 - .NET and libxml2 select no node for an `@xsi:*` field, so a key on one reports
   a missing field and a unique constraint on one never collides.
 - .NET rejects an unqualified local attribute named `nil` in a schema whose
@@ -287,8 +293,10 @@ Cases: `project/builtin-xsi-absent-defaults-no-intrinsic-replay`,
 `project/builtin-xsi-local-nil-qualified`, `project/builtin-xsi-local-nil-unqualified`,
 `project/builtin-xsi-physical-hint-list-key`, `project/builtin-xsi-physical-nil-key`,
 `project/builtin-xsi-physical-type-unique`,
-`project/builtin-xsi-present-fixed-value-exemption` and
-`project/builtin-xsi-unknown-instance-skip`.
+`project/builtin-xsi-present-fixed-value-exemption`,
+`project/builtin-xsi-unknown-instance-skip`,
+`project/xsi-schema-location-hint-syntax` and
+`project/xsi-schema-location-hint-lax-unknown`.
 
 ## I-008 — prohibited attribute use with fixed
 
@@ -356,6 +364,10 @@ libxml2 2.9.13:
   prohibited item.
 - libxml2 rejects an inline simple type under a prohibited item, which the
   schema for schemas admits.
+- Xerces-J, .NET, xmlschema and libxml2 apply xmlns Not Allowed
+  ([no-xmlns](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#no-xmlns)),
+  a constraint on attribute declaration components, to a prohibited item named
+  `xmlns` in a complex type or an attribute group.
 - Xerces-J and libxml2 reject the prohibited XSI references
   ([I-006](#i-006--xsdxsi-schema-references)), and .NET selects no node for an
   `@xsi:*` field ([I-007](#i-007--xsi-attribute-uses-and-psvi-contributions)).
@@ -366,8 +378,11 @@ Cases: `project/builtin-xsi-prohibited-fixed-no-use`,
 `project/prohibited-no-component-invalid-inline-type`,
 `project/prohibited-no-component-missing-xsd-type-prohibited`,
 `project/prohibited-no-component-qualified-xsi-local`,
-`project/prohibited-no-component-reference-fixed-mismatch-prohibited` and
-`project/prohibited-no-component-valid-inline-type`.
+`project/prohibited-no-component-reference-fixed-mismatch-prohibited`,
+`project/prohibited-no-component-valid-inline-type`,
+`project/prohibited-no-component-xmlns-name-prohibited`,
+`project/schema-syntax/xmlns-attribute-name/attribute-group-prohibited` and
+`project/schema-syntax/xmlns-attribute-name/local-padded-name-prohibited`.
 
 ## I-009 — fixed attribute-use values
 
@@ -495,7 +510,7 @@ does not mean arbitrary processor choice.
 | <a id="bounds"></a>Bounds | Repeated equal exclusive endpoints have explicit allowance; do not substitute generic instance validity. A `minExclusive` or `maxExclusive` equal to the effective same facet of the base is admitted without base value-space membership, so the base's digit and enumeration facets and its bounds of that same facet do not apply to it. The valid-restriction clauses still compare it with the base's other bounds (`project/datatypes/bounds/exclusive-equal-maxExclusive-empty-base`), and the base pattern still applies to its spelling, as for every facet literal (`project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern`). Restatement equality is value equality: for `time` the equality of the Time midnight boundary above, and for `duration` value identity (Duration equality and order above). A `time` literal with the value of the base facet restates it on whatever day its spelling places it, so the base's enumeration does not apply to it (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day-outside-base-enumeration`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day-outside-base-enumeration` valid, as Xerces-J and .NET find; xmlschema and libxml2 reject them). The same-side clause of the Time midnight boundary still orders the restatement against the base bound by un-wrapped time: one spelled on the day that does not loosen the base is admitted (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling`, `project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day`), and one spelled on the day that loosens it is rejected (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day`, `project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day-negative-offset`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-earlier-day`), where Xerces-J accepts it. Incomparable restriction endpoints need their actual prohibited-comparison wording. Inherited opposite lower-bound kinds retain the same-datatype versus same-step scope question; no blanket rewrite/rejection follows. Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13 on `project/datatypes/bounds/exclusive-equal-*`: libxml2 requires a derived `minExclusive` or `maxExclusive` to lie strictly inside the same facet of the base, so it rejects every restatement, and also applies the base's enumeration and digit facets to it; xmlschema applies the base's enumeration, `totalDigits` and `fractionDigits` to a restatement, and does not take a `dateTime` restatement written in another timezone as equal; .NET does not compare a derived bound with a base bound of another kind (a `maxExclusive` or `minInclusive` against the base `minExclusive`) and does not apply the base pattern to a facet literal; Xerces-J applies clause 4 only through base value-space membership, so a restatement that empties the range passes, and it accepts the `time` restatements spelled on the day that loosens the base. |
 | URI / language / precision | No implicit percent decoding, case folding, normalization or absolutization establishes anyURI equality. No modern language registry rejection follows from its historical pattern. [Double extrema, overflow and documented precision](SOURCES.md#floating-point-source-versions) remain separately qualified. |
 | <a id="entity-member-selection"></a>ENTITY member selection / [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) | Full later ENTITY-context assessment is not adopted. In an `ENTITY|string` union a lexical NCName such as `missing` cannot prove normative string fallback: the later [Datatype Valid](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#cvc-datatype-valid) and [String Valid](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-simple-type) rules separate datatype-valid member selection from ENTITY assessment against document declarations. The current unsupported ENTITY result occurs before facets, so making it immediately terminal could suppress legitimate fallback after an enclosing list or restricted union fails its datatype rules. A complete phase change would need nested value propagation and explicit facet-literal construction semantics; it is not selected under the DTD-unsupported contract. Conformance fallback witnesses use a non-NCName; NCName observations remain qualified evidence without conformance credit. |
-| <a id="observation-product-modality"></a>Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. A finite `minOccurs` or `maxOccurs` above 4294967295 is a library resource limit, the runtime `uint32` cap of [resource limits](../RESOURCE_LIMITS.md), not a validity rule: nonNegativeInteger admits it. `project/architecture-maxoccurs-above-uint32-is-schema-limit` (`maxOccurs="4294967296"`) is accepted by .NET 10.0.14 and xmlschema 4.3.2; `project/architecture-minoccurs-above-uint32-is-schema-limit` (`minOccurs="4294967296"`) is accepted by .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13. Xerces-J 2.12.2 rejects both at its own `int` limit, and libxml2 rejects the `maxOccurs` case. |
+| <a id="observation-product-modality"></a>Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. A finite `minOccurs` or `maxOccurs` above 4294967295 is a library resource limit, the runtime `uint32` cap of [resource limits](../RESOURCE_LIMITS.md), not a validity rule: nonNegativeInteger admits it. `project/architecture-maxoccurs-above-uint32-is-schema-limit` (`maxOccurs="4294967296"`) is accepted by .NET 10.0.14 and xmlschema 4.3.2; `project/architecture-minoccurs-above-uint32-is-schema-limit` (`minOccurs="4294967296"`) is accepted by .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13. Xerces-J 2.12.2 rejects both at its own `int` limit, and libxml2 rejects the `maxOccurs` case. An XML version other than `1.0` is a product exclusion (`unsupported.xml_version`, [I-020](#i-020--xml-name-characters-follow-the-fifth-edition)), not invalidity: the `xml-1-1` instance of `project/xml/opt-out-instance-forms` is valid, as Xerces-J, xmlschema and libxml2 find, and .NET rejects the version number `1.1`. A `maxLength` above 4294967295 and a pattern whose compiled form exceeds the fixed compile bounds of [resource limits](../RESOURCE_LIMITS.md) are library resource limits too: xmlschema and libxml2 accept `project/schema-syntax/facet-values/maxlength-above-uint32`, and Xerces-J, .NET, xmlschema and libxml2 accept `project/schema-syntax/facet-values/pattern-above-compile-limit`. Below the limit, Xerces-J rejects `maxLength` and `maxOccurs` of 4294967295 at its `int` limit and libxml2 rejects that `maxOccurs`, which the library admits (`project/schema-syntax/facet-values/maxlength-uint32`, `project/schema-syntax/occurrence-values/max-uint32`). `project/architecture-derived-model-particles-exceed-dependency-budget` exceeds `MaxSchemaDependencySteps`, a library resource limit; xmlschema and libxml2 accept it. |
 
 Required XSD 1.0 result, WG interpretation, XSD 1.1 change, processor choice,
 unspecified behavior and unavailable observation remain distinct evidence
@@ -595,6 +610,13 @@ routes waives wildcard namespace matching or loads schemas from instance hints
 or network URLs. The library reports assessment failures without exposing a
 PSVI validity property; failure is not a claim that every enclosing laxly
 assessed item has the PSVI value `invalid`.
+
+Xerces-J 2.12.2 gives the project result in every case listed. .NET 10.0.14
+accepts, with a warning, an element under a lax wildcard whose `xsi:type` names
+no type or an abstract type. libxml2 2.9.13 rejects an element under a strict
+wildcard that has no global declaration but a known `xsi:type`. Cases:
+`project/elements/xsi-type-boundaries/wildcard-strict-type-assessment` and
+`project/elements/xsi-type-boundaries/wildcard-lax-type-assessment`.
 
 ## I-015 — ordered-bound consistency and unordered values
 
@@ -843,7 +865,8 @@ non-nillable declaration, except that it treats an element under a lax
 wildcard with `xsi:type` as nillable, accepting it empty and rejecting it with
 content. libxml2 2.9.13 also does not assess an undeclared
 validation root through `xsi:type` and rejects it. Cases:
-`project/elements/xsi-nil-without-declaration`.
+`project/elements/xsi-nil-without-declaration` and, for libxml2's undeclared
+root, `project/namespace-undeclared-root-can-be-assessed-by-xsi-type`.
 
 ## I-019 — schema document identity is the resolved location
 
@@ -1215,6 +1238,17 @@ declarations whose types are distinct, anonymous or named, including
 `project/content-models/edc-same-declaration/local-different-named-types`;
 Xerces-J 2.12.2 rejects each.
 
+[§3.8.6](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#coss-modelGroup)
+requires that "all model groups" satisfy the rule, and the {model group} of a
+named model group definition is one whether or not any complex type refers to
+it, so a named group whose declarations conflict is invalid unreferenced. The
+text decides the scope, so processor results do not. Xerces-J 2.12.2, .NET
+10.0.14 and xmlschema 4.3.2 reject such a group only once a complex type refers
+to it, and accept it unreferenced, with named or anonymous types, directly or
+in a nested compositor (`project/content-models/edc-group-definition/unreferenced-*`).
+libxml2 2.9.13 accepts it referenced as well
+(`project/content-models/edc-group-definition/referenced-conflicting-types`).
+
 ## I-027 — derivation control and actual substitution groups
 
 **Status:** published XSD 1.0 rules; the text decides each case except union
@@ -1293,6 +1327,9 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 
 - Xerces-J keeps abstract declarations in implicit containment and in the
   clause 2.1 choice, and agrees with the project otherwise.
+- .NET and xmlschema accept an `xsi:type` that names a member of the declared
+  union type on an element with `block="restriction"`
+  (`project/elements/xsi-type-boundaries/union-list-member-versus-item`).
 - .NET ignores type {prohibited substitutions} for substitution, checks element
   blocks per affiliation link instead of against the head being substituted,
   ignores the element block set under `xsi:type` when the declared type is a
@@ -1725,14 +1762,27 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 - Xerces-J compares values and gives the project result in every case listed.
 - .NET equates `P1Y` and `P365D`, and supplies the declaration's default
   instead of an empty use default.
+- When a referenced declaration has a default, .NET takes it as the use's
+  value constraint and ignores a default or fixed written on the reference: it
+  does not check
+  that fixed value against the type or enforce it on instances, does not treat
+  a base use fixed only by its reference as fixed under restriction or
+  extension, supplies the declaration's default to an absent attribute in
+  identity fields, and accepts an absent required attribute whose declaration
+  has a default.
 - xmlschema compares spellings, both between schema constraints and for a QName
   instance value against a declaration's fixed QName.
+- xmlschema accepts a default on a reference to a fixed declaration, and
+  resolves the prefix of a reference's fixed QName in the instance element's
+  namespace scope instead of the reference's.
 - .NET, xmlschema and libxml2 compare a string fixed value after the `xsi:type`
   token normalization.
 - libxml2 ignores `fixed` on an attribute reference at instance time (a
   reference with `fixed="b"` accepts `a="other"`, the equivalent local
-  declaration rejects it), ignores an empty fixed use and a mismatched fixed
-  use, compares no fixed values between declarations, uses and restrictions,
+  declaration rejects it), does not check a reference's fixed value against
+  the type or against a fixed declaration, does not treat a use fixed only by
+  its reference as fixed under restriction, ignores an empty fixed use and a
+  mismatched fixed use, compares no fixed values between declarations, uses and restrictions,
   and compares element fixed values by spelling.
 
 Cases: `project/attributes/conformance-global-fixed-qname`,
@@ -1742,6 +1792,7 @@ Cases: `project/attributes/conformance-global-fixed-qname`,
 `project/attributes/continuation-use-fixed-*`,
 `project/attributes/fixed-value-space-attribute-reference/*`,
 `project/attributes/fixed-value-space-attribute-restriction/*`,
+`project/attributes/use-value-constraint/*`,
 `project/content-models/fixed-value-space-element-restriction/*`,
 `project/content-models/properties-fixed-value-controls`,
 `project/content-models/properties-fixed-value-opponent`,
@@ -1839,6 +1890,14 @@ normalization, stay inside one list item, are not stripped from an integer and
 are character content in element-only content. A list's whiteSpace is collapse,
 and its pattern applies to the collapsed literal.
 
+The same normalized value governs attributes of schema documents, which are
+assessed against the schema for schemas. Its `NCName`, `QName`, `anyURI`,
+`boolean`, `nonNegativeInteger` and `allNNI` attributes and its NMTOKEN
+enumerations (`form`, `use`, `processContents`, the `whiteSpace` facet value)
+collapse, so ` e ` names the declaration `e`, ` +02 ` is the occurrence 2 and
+` true ` is true, while a U+00A0 around a name or a number survives and makes
+the value invalid.
+
 For a union, [whiteSpace](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#rf-whiteSpace)
 "does not apply directly; however, the normalization behavior of ·union· types
 is controlled by the value of whiteSpace on that one of the ·memberTypes·
@@ -1860,14 +1919,35 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   white space in integers and in element-only content.
 - xmlschema and libxml2 preserve a `string` member's value, as the project does.
 
+On schema-document attributes:
+
+- Xerces-J accepts two global element declarations whose names differ only by
+  surrounding spaces.
+- .NET rejects a padded `maxOccurs`, a padded `whiteSpace` facet value and a
+  padded import `namespace` that matches the imported targetNamespace only
+  after collapse.
+- xmlschema rejects a padded `maxOccurs` and `processContents`, keeps a padded
+  type name uncollapsed so a reference to it does not resolve, accepts a padded
+  duplicate attribute use, a padded `fixed="true"` facet restricted by a
+  derived type, and a padded `xmlns` attribute name, and accepts a name and an
+  occurrence padded with U+00A0.
+- libxml2 rejects padded occurrence, QName, anyURI, boolean, token and
+  `whiteSpace` values, keeps a padded type name uncollapsed, and accepts the
+  padded duplicate declarations, the padded fixed facet and a padded `xmlns`
+  attribute name.
+
 Cases: `project/datatypes/lists/conformance-whole-list-pattern-multiple-items`,
 `project/datatypes/lists/xml10-whitespace-boundaries/*`,
 `project/datatypes/unions/outer-pattern-member-order/*`,
 `project/datatypes/whitespace/conformance-collapse-value-consumer`,
 `project/union-pattern-after-collapse-rejects`, `project/union-pattern-after-collapse-rejects-string-member`, `project/union-pattern-applies-after-normalization-newline`, `project/union-pattern-whitespace-normalization`, `project/union-whitespace-collapse-runtime`,
 `project/integer-non-xml-whitespace`,
-`project/structures-empty-and-element-only-character-items` and
-`project/content-models/contrasts-mixed-priority-outer-absent-inner-absent`.
+`project/structures-empty-and-element-only-character-items`,
+`project/content-models/contrasts-mixed-priority-outer-absent-inner-absent`,
+`project/schema-syntax/attribute-values/padded-*`,
+`project/schema-syntax/attribute-values/nbsp-padded-*`,
+`project/schema-syntax/facet-values/whitespace-padded-mode` and
+`project/schema-syntax/xmlns-attribute-name/local-padded-name*`.
 
 ## I-034 — regular expressions follow the XSD grammar over characters
 
@@ -2162,6 +2242,14 @@ decide these shapes:
   whitespace-only value that collapses to the empty string is admitted.
 - `schema/@id` is an `xs:ID`, checked after whitespace collapse.
 - `minOccurs` and `maxOccurs` are `xs:nonNegativeInteger`, so `+01` is admitted.
+- A facet's `fixed` is an `xs:boolean`.
+- A top-level `xs:group` holds one `all`, `choice` or `sequence`, and an
+  `xs:notation` carries `public` or `system`: under
+  [Notation Declaration Correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#n-props-correct)
+  each identifier is "Optional if" the other "is present".
+- `xs:schema` has no `defaultAttributes` or `xpathDefaultNamespace` attribute,
+  and the XSD 1.0 built-in type definitions include no `xs:anyAtomicType`, so a
+  reference to it fails `src-resolve`.
 
 [Single Facet Value](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#src-single-facet-value)
 forbids repeating a facet other than `pattern` and `enumeration` in one step,
@@ -2176,7 +2264,12 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   empty `block` or `final` on a local complexType, validates `schema/@id` before
   collapsing it, and rejects the whitespace-only notation identifiers as invalid
   URIs.
-- libxml2 admits duplicate facets and rejects `minOccurs="+01"`.
+- libxml2 admits duplicate facets, a facet `fixed` that is not a boolean, the
+  XSD 1.1 `defaultAttributes` and `xpathDefaultNamespace` attributes, a
+  top-level `xs:group` with no model group and an `xs:notation` with neither
+  `public` nor `system`, and rejects a `+` sign in `minOccurs`, as in `+01`
+  and ` +02 `.
+- xmlschema resolves `xs:anyAtomicType` in an XSD 1.0 schema.
 
 Cases: `project/datatypes/facets/conformance-*-prohibited-fixed-*`,
 `project/datatypes/facets/conformance-duplicate-*`,
@@ -2188,8 +2281,15 @@ Cases: `project/datatypes/facets/conformance-*-prohibited-fixed-*`,
 `project/datatypes/notation/envelopes-identifier-system-space-only`,
 `project/content-models/continuation-local-complextype-block-empty-forbidden`,
 `project/content-models/continuation-local-complextype-final-empty-forbidden`,
-`project/content-models/dispatch-source-default-and-alias` and
-`project/composition/conformance-schema-header-id-collapsed`.
+`project/content-models/dispatch-source-default-and-alias`,
+`project/composition/conformance-schema-header-id-collapsed`,
+`project/schema-syntax/xsd11-vocabulary/*`,
+`project/schema-syntax/required-children/group-missing-model-group`,
+`project/schema-syntax/required-children/notation-missing-public-and-system`,
+`project/schema-syntax/attribute-values/facet-fixed-not-boolean*`,
+`project/schema-syntax/attribute-values/simple-type-final-extension`,
+`project/schema-syntax/occurrence-values/value-equal-spellings-equal` and
+`project/schema-syntax/facet-repetition/simple-content-maxlength-twice`.
 
 ## I-040 — direct NOTATION use
 
@@ -2374,4 +2474,5 @@ Cases: `project/namespaces/exact-uri-identity/attributes`,
 | [Complex type mapping §3.4.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type): complexContent `mixed` overrides complexType `mixed`, and the facets of a simple-content restriction of a mixed base restrict its content type, also beside an inline simpleType | libxml2 2.9.13 uses complexType `mixed` and does not apply those facets; xmlschema 4.3.2 accepts U+00A0 as white space in element-only content | `project/content-models/contrasts-mixed-priority-outer-true-inner-false`, `project/content-models/contrasts-mixed-nested-simple-integer`, `project/simplecontent-restriction-mixed-emptiable-base` |
 | [e-props-correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct) clause 2 against an inherited type; cvc-elt clause 5.1.2 with a substitution member as governing declaration | xmlschema 4.3.2 skips a default's check against an inherited type and does not supply a substitution member's own default to identity fields | `project/content-models/substitution-boundaries/inherited-type-invalid-default`, `project/content-models/substitution-member-constraints/default` |
 | [cvc-elt](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt) clause 5.1: a value constraint applies when "the item has neither element nor character [children]"; comments, processing instructions and an empty CDATA section supply no character, so the default applies | libxml2 2.9.13 treats an empty CDATA section as content | `project/elements/default-ignored-markup` |
+| [Particle Correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#p-props-correct) clause 2.1: {min occurs} is not greater than {max occurs}, and an absent `minOccurs` maps to 1 | .NET 10.0.14 accepts `maxOccurs="0"` without `minOccurs` on an element or a sequence | `project/schema-syntax/occurrence-values/max-zero-default-min`, `project/schema-syntax/occurrence-values/sequence-max-zero-default-min` |
 | [cvc-identity-constraint](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint) clause 4.2.1: for a key "every member of the ·target node set· is also a member of the ·qualified node set·", in every scope, including a selector `.` on a recursive element | xmlschema 4.3.2 accepts a missing key field on an outer or middle element whose descendant repeats the key | `project/identity/selector-self-key-recursive-scopes` |

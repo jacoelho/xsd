@@ -853,16 +853,16 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 on the current fixture: schema rejected. org.xml.sax.SAXParseException; systemId: file://tests/corpus/project/attributes/prohibited-no-component/xmlns-name-prohibited.xsd; lineNumber: 1; columnNumber: 234; no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 1 instance runs were blocked by schema rejection and were not assessed."
+            "record": "I-008"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.9 on the current fixture: schema rejected. System.Xml.Schema.XmlSchemaException: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 1 instance runs were blocked by schema rejection and were not assessed."
+            "record": "I-008"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on the current fixture: schema rejected. an attribute name must be different from 'xmlns': The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 1 instance runs were blocked by schema rejection and were not assessed."
+            "record": "I-008"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 on the current fixture: schema rejected. Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'name': The value of the attribute must not match 'xmlns'. The project expectation follows its documented XSD 1.0 policy and selected WG corrections; this observation is not a majority-vote oracle. Its 1 instance runs were blocked by schema rejection and were not assessed."
+            "record": "I-008"
           }
         }
       },
@@ -13975,7 +13975,7 @@
           },
           "differences": {
             "libxml2": {
-              "note": "Measured offline with native libxml2 2.9.13 on the unchanged explicit schema and instance bytes: the instance was rejected because no global '{urn:test}doc' element declaration is available. This native validation entrypoint requires a declared validation root, so the result does not isolate xsi:type admission. The project admits an undeclared root through a known explicit xsi:type; this measured entrypoint disagreement does not change that expectation. A separate declared-root diagnostic schema still rejected this whitespace-padded QName, while Xerces-J, .NET and xmlschema accepted that control; the original packet fails at root declaration lookup first."
+              "record": "I-018"
             }
           }
         },
@@ -13988,7 +13988,7 @@
           },
           "differences": {
             "libxml2": {
-              "note": "Measured offline with native libxml2 2.9.13 on the unchanged explicit schema and instance bytes: the instance was rejected because no global '{urn:test}doc' element declaration is available. This native validation entrypoint requires a declared validation root, so the result does not isolate xsi:type admission. The project admits an undeclared root through a known explicit xsi:type; this measured entrypoint disagreement does not change that expectation."
+              "record": "I-018"
             }
           }
         },
@@ -15771,10 +15771,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with tools/oracles/run.sh on the unchanged schema bytes (Xerces-J 2.12.2, .NET 10.0.14, Python xmlschema 4.3.2, libxml2 2.9.13). xmlschema assessed the schema valid and warned that it cannot verify the content model due to its maximum recursion depth. Disagreement area: project finite compilation resource limit (not XSD invalidity). This observation does not replace the project expectation."
+            "record": "observation-product-modality"
           },
           "libxml2": {
-            "note": "Observed offline with tools/oracles/run.sh on the unchanged schema bytes (Xerces-J 2.12.2, .NET 10.0.14, Python xmlschema 4.3.2, libxml2 2.9.13). libxml2 assessed the schema valid. Disagreement area: project finite compilation resource limit (not XSD invalidity). This observation does not replace the project expectation."
+            "record": "observation-product-modality"
           }
         }
       },
@@ -29038,13 +29038,13 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             },
             "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             }
           }
         },
@@ -29059,13 +29059,13 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             },
             "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             }
           }
         }
@@ -29153,13 +29153,13 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. It reports the warning \"Could not find schema information for the element 'urn:o:x'\". The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             },
             "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the xsi:schemaLocation list-of-anyURI type (any item count; each item a valid anyURI); this observation is not a majority-vote oracle."
+              "record": "I-007"
             }
           }
         }

@@ -71409,7 +71409,7 @@
           },
           "differences": {
             "libxml2": {
-              "note": "Measured offline with native libxml2 2.9.13 on the unchanged explicit closure: instance assessed invalid. cvc-assess-elt1.2 permits strict assessment through a known xsi:type without an element declaration. sic-e-outcome rejects a mustFind child only when its validity is notKnown; these fully assessed valid type controls need no global child declaration. This entrypoint instead demands the declaration."
+              "record": "I-014"
             }
           }
         },
@@ -71470,7 +71470,7 @@
           },
           "differences": {
             "libxml2": {
-              "note": "Measured offline with native libxml2 2.9.13 on the unchanged explicit closure: instance assessed invalid. cvc-assess-elt1.2 permits strict assessment through a known xsi:type without an element declaration. sic-e-outcome rejects a mustFind child only when its validity is notKnown; these fully assessed valid type controls need no global child declaration. This entrypoint instead demands the declaration."
+              "record": "I-014"
             }
           }
         },
@@ -71637,7 +71637,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Measured offline with .NET10.0.9 on the unchanged explicit closure: instance assessed valid. The printed2004 lax fallback leaves type-existence checking unclear. Selected WG correction4299 requires physical xsi:type to resolve even without an element declaration. This is a documented correction difference (I-014), not an unqualified2004 conformance claim."
+              "record": "I-014"
             }
           }
         },
@@ -71666,7 +71666,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Measured offline with .NET10.0.9 on the unchanged explicit closure: instance assessed valid. A known xsi:type supplies the local type assessment route under cvc-assess-elt1.2; cvc-type2 requires a complex actual type to be nonabstract. Lax wildcard matching does not permit ignoring this resolved abstract type."
+              "record": "I-014"
             }
           }
         },
@@ -72278,10 +72278,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Measured offline with .NET10.0.9 on the unchanged explicit closure: instance assessed valid. Selecting a list member of an unconstrained union still uses the simple derivation relation. Restriction blocking disallows that selection under cvc-elt4.3 and cos-st-derived-ok2.1; identity is separately valid."
+              "record": "I-027"
             },
             "xmlschema": {
-              "note": "Measured offline with Python xmlschema.XMLSchema10 4.3.2 on the unchanged explicit closure: instance assessed valid. Selecting a list member of an unconstrained union still uses the simple derivation relation. Restriction blocking disallows that selection under cvc-elt4.3 and cos-st-derived-ok2.1; identity is separately valid."
+              "record": "I-027"
             }
           }
         },
