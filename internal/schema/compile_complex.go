@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 
@@ -220,8 +219,7 @@ func (c *compiler) compileExplicitContent(ctx *schemaSetDocument, modelNode *sch
 // published content variety. Empty content has no executable particles; a
 // mixed empty variety retains the synthetic text-permitting model flag. A new
 // model keeps the source of the model it replaces; owner, the complex type
-// node, is the source of a model that has none, a copy of the builtin
-// anyType model.
+// node, is the source of the model made for noContentModel.
 func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexContentVariety, owner *schemaNode) (contentModelID, error) {
 	if id == noContentModel {
 		return c.addModel(contentModelNode{Kind: modelEmpty, Mixed: kind.Mixed()}, owner)
@@ -237,13 +235,13 @@ func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexC
 			!model.Mixed {
 			return id, nil
 		}
-		return c.addModel(contentModelNode{Kind: modelEmpty}, cmp.Or(c.modelSources[id], owner))
+		return c.addModel(contentModelNode{Kind: modelEmpty}, c.modelSources[id])
 	}
 	if model.Mixed == kind.Mixed() {
 		return id, nil
 	}
 	model.Mixed = kind.Mixed()
-	return c.addModel(model, cmp.Or(c.modelSources[id], owner))
+	return c.addModel(model, c.modelSources[id])
 }
 
 func (c *compiler) compileComplexType(ctx *schemaSetDocument, n *schemaNode, name QName) (complexTypeMetadata, error) {
