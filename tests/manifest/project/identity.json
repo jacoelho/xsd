@@ -6871,7 +6871,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -6944,7 +6944,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7017,7 +7017,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7090,7 +7090,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7163,7 +7163,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7236,7 +7236,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7309,7 +7309,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7382,7 +7382,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7455,7 +7455,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7528,7 +7528,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7601,7 +7601,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7674,7 +7674,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7747,7 +7747,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7820,7 +7820,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7893,7 +7893,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -7966,7 +7966,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8039,7 +8039,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8112,7 +8112,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8185,7 +8185,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8258,7 +8258,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8331,7 +8331,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8404,7 +8404,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8477,7 +8477,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8550,7 +8550,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8623,7 +8623,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8696,7 +8696,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8769,7 +8769,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8842,7 +8842,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8915,7 +8915,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -8988,7 +8988,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9061,7 +9061,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9134,7 +9134,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9207,7 +9207,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9280,7 +9280,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9353,7 +9353,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9426,7 +9426,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9499,7 +9499,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9572,7 +9572,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9645,7 +9645,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9718,7 +9718,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9791,7 +9791,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9864,7 +9864,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -9937,7 +9937,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10010,7 +10010,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10083,7 +10083,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10156,7 +10156,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10229,7 +10229,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10302,7 +10302,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10375,7 +10375,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10448,7 +10448,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10521,7 +10521,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10594,7 +10594,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10667,7 +10667,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10740,7 +10740,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10813,7 +10813,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10886,7 +10886,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -10959,7 +10959,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -11032,7 +11032,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -11105,7 +11105,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -11178,7 +11178,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:7: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -11887,7 +11887,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -11964,7 +11964,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12041,7 +12041,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12118,7 +12118,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12195,7 +12195,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12272,7 +12272,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12349,7 +12349,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12426,7 +12426,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12503,7 +12503,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12580,7 +12580,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12657,7 +12657,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12734,7 +12734,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12811,7 +12811,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12888,7 +12888,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -12965,7 +12965,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13042,7 +13042,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13119,7 +13119,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13196,7 +13196,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13273,7 +13273,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13350,7 +13350,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13427,7 +13427,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13504,7 +13504,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13581,7 +13581,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13658,7 +13658,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13735,7 +13735,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13812,7 +13812,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13889,7 +13889,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -13966,7 +13966,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14043,7 +14043,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14120,7 +14120,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14197,7 +14197,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14274,7 +14274,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14351,7 +14351,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14428,7 +14428,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14505,7 +14505,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14582,7 +14582,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14659,7 +14659,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14736,7 +14736,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14813,7 +14813,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14890,7 +14890,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -14967,7 +14967,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15044,7 +15044,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15121,7 +15121,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15198,7 +15198,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15275,7 +15275,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15352,7 +15352,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15429,7 +15429,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15506,7 +15506,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15583,7 +15583,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15660,7 +15660,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15737,7 +15737,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15814,7 +15814,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15891,7 +15891,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -15968,7 +15968,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -16045,7 +16045,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -16122,7 +16122,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -16199,7 +16199,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -16276,7 +16276,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -16353,7 +16353,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -16430,7 +16430,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -17181,7 +17181,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. principal.xsd:3:101: The 'urn:p:k' identity constraint is not declared. The project expectation follows Structures 3.11.1, 3.11.2 and QName resolution (Schema Document) with the IDS-Q001 clarification in docs/spec/INTERPRETATIONS.md and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -17278,7 +17278,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         }
@@ -17345,7 +17345,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -17432,7 +17432,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         }
@@ -17499,7 +17499,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -17586,7 +17586,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         }
@@ -17653,7 +17653,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -17740,7 +17740,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         }
@@ -17807,7 +17807,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -17894,7 +17894,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         }
@@ -17961,7 +17961,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18048,7 +18048,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         }
@@ -18105,7 +18105,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. principal.xsd:3:155: The 'urn:p:k' identity constraint is not declared. The project expectation follows Structures 3.11.1, 3.11.2 and QName resolution (Schema Document) with the IDS-Q001 clarification in docs/spec/INTERPRETATIONS.md and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -18192,7 +18192,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18269,7 +18269,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18346,7 +18346,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18423,7 +18423,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18500,7 +18500,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18577,7 +18577,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18654,7 +18654,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18731,7 +18731,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18808,7 +18808,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18885,7 +18885,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -18962,7 +18962,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19029,7 +19029,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. principal.xsd:3:167: The 'urn:p:k' identity constraint is not declared. The project expectation follows Structures 3.11.1, 3.11.2 and QName resolution (Schema Document) with the IDS-Q001 clarification in docs/spec/INTERPRETATIONS.md and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -19116,7 +19116,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19193,7 +19193,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19270,7 +19270,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19347,7 +19347,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19424,7 +19424,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19501,7 +19501,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19578,7 +19578,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19655,7 +19655,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19732,7 +19732,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19809,7 +19809,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19886,7 +19886,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -19953,7 +19953,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. principal.xsd:3:149: The 'urn:p:k' identity constraint is not declared. The project expectation follows Structures 3.11.1, 3.11.2 and QName resolution (Schema Document) with the IDS-Q001 clarification in docs/spec/INTERPRETATIONS.md and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -20040,7 +20040,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20117,7 +20117,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20194,7 +20194,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20271,7 +20271,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20348,7 +20348,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20425,7 +20425,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20502,7 +20502,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20579,7 +20579,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20656,7 +20656,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20733,7 +20733,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20810,7 +20810,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -20877,7 +20877,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. principal.xsd:3:149: The 'urn:p:k' identity constraint is not declared. The project expectation follows Structures 3.11.1, 3.11.2 and QName resolution (Schema Document) with the IDS-Q001 clarification in docs/spec/INTERPRETATIONS.md and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -20964,7 +20964,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21041,7 +21041,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21118,7 +21118,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21195,7 +21195,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21272,7 +21272,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21349,7 +21349,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21426,7 +21426,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21503,7 +21503,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21580,7 +21580,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21657,7 +21657,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21734,7 +21734,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -21800,7 +21800,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. principal.xsd:3:181: The 'urn:p:k' identity constraint is not declared. The project expectation follows Structures 3.11.1, 3.11.2 and QName resolution (Schema Document) with the IDS-Q001 clarification in docs/spec/INTERPRETATIONS.md and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -22500,7 +22500,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -22577,7 +22577,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:q:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -22654,7 +22654,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -22731,7 +22731,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:q:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -22808,7 +22808,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -22885,7 +22885,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:q:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -22962,7 +22962,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23039,7 +23039,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:q:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23116,7 +23116,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23193,7 +23193,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:q:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23270,7 +23270,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:p:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23347,7 +23347,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:q:r_g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23424,7 +23424,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23501,7 +23501,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23578,7 +23578,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23655,7 +23655,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23732,7 +23732,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23809,7 +23809,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23886,7 +23886,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -23963,7 +23963,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24040,7 +24040,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24117,7 +24117,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24194,7 +24194,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24271,7 +24271,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24348,7 +24348,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24425,7 +24425,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24502,7 +24502,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24579,7 +24579,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24656,7 +24656,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24733,7 +24733,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24810,7 +24810,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24887,7 +24887,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -24964,7 +24964,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25041,7 +25041,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25118,7 +25118,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25195,7 +25195,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25272,7 +25272,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25349,7 +25349,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25426,7 +25426,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25503,7 +25503,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25580,7 +25580,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25657,7 +25657,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25734,7 +25734,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25811,7 +25811,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25888,7 +25888,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -25965,7 +25965,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26042,7 +26042,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26119,7 +26119,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26196,7 +26196,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26273,7 +26273,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26350,7 +26350,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26427,7 +26427,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26504,7 +26504,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26581,7 +26581,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26658,7 +26658,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26735,7 +26735,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26812,7 +26812,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26889,7 +26889,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -26966,7 +26966,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -27043,7 +27043,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -27804,7 +27804,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:5: The Keyref 'x' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -27900,7 +27900,7 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.11.1 and Identity-constraint Definition Properties Correct clause 1."
+            "record": "ids-q001"
           }
         }
       },
@@ -27953,7 +27953,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         },
@@ -28127,7 +28127,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. a.xsd:3:99: The 'urn:a:k' identity constraint is not declared. The project expectation follows Structures 3.11.1 and src-include clause 3.2."
+            "record": "I-031"
           }
         }
       },
@@ -28221,7 +28221,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. keyref-no-value.xml:1:2: The Keyref 'urn:a:g' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         }
@@ -28329,7 +28329,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         },
@@ -28403,7 +28403,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. descendant-key-match.xml:1:2: The Keyref 'root' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3 and Identity-constraint Table (3.11.5)."
+              "record": "I-031"
             }
           }
         },
@@ -28437,7 +28437,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. no-reference.xml:1:2: The Keyref 'root' cannot find the referred key or unique in scope. The project expectation follows Identity-constraint Satisfied clause 4.3."
+              "record": "I-031"
             }
           }
         }
@@ -28522,7 +28522,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. .NET reports the duplicate when the same schema is written with targetNamespace instead of being included, so it does not apply identity constraints of a chameleon-included document. The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal."
+              "record": "I-031"
             }
           }
         },
@@ -28546,7 +28546,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. .NET reports the duplicate when the same schema is written with targetNamespace instead of being included, so it does not apply identity constraints of a chameleon-included document. The project expectation follows Identity-constraint Satisfied clause 4.2: the wildcard selector selects both qualified items, whose key fields are equal."
+              "record": "I-031"
             }
           }
         }

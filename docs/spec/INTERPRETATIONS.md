@@ -466,7 +466,7 @@ Fixture outcomes remain in the corpus manifest.
 | Complex-type annotations | Structures [type annotations](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#ct-annotations), [XML mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type) and [absence convention](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-null): required annotation set versus absent no-annotation mapping. Do not invent an annotation, equate absence with empty or reject an otherwise admitted constructor to conceal it. |
 | Element validity outcome connective | [Element validity outcome](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-validity) lacks the connective between nested declaration/type-route clauses. Ordinary applicable-route readings remain conditional; no approved AND/OR repair or blanket rejection follows. Descendant and assessment-attempted conditions remain independent. |
 | IBS-Q001 — root ID eligibility and successful declaration validation | [Eligibility](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#key-eas) depends on successful declaration validation; [bindings](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#iib-binding) use ID-valued attributes/children, while [cvc-id](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-id) forbids empty bindings. A directly ID-typed root's own value can create an ownerless key conditional on that same success. Preserve the success/contribution question; invent no phase, root-self owner or blanket ID-element rejection. An independently eligible IDREF can create an unambiguously empty binding. |
-| <a id="ids-q001"></a>IDS-Q001 — identity-component resolution | The later `src-resolve` list repairs the omitted identity-component kind. Adopt that clarification, already implemented: keyrefs resolve to supplied key/unique definitions; wrong category, missing target, arity and tuple checks remain. Existing `idH035` protects keyref-to-keyref rejection. No new indexing algorithm follows. |
+| <a id="ids-q001"></a>IDS-Q001 — identity-component resolution | The later `src-resolve` list repairs the omitted identity-component kind. Adopt that clarification, already implemented: keyrefs resolve to supplied key/unique definitions; wrong category, missing target, arity and tuple checks remain. Existing `idH035` protects keyref-to-keyref rejection. No new indexing algorithm follows. Xerces-J accepts a global keyref whose `refer` names a keyref declared in a named model group, while .NET, xmlschema and libxml2 reject it (`project/identity/keyref-refer-resolution/refer-category/global-keyref-refers-keyref-in-group`). |
 | Selector/field XPath spelling | [Selector](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-selector-xpath)/[field](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#c-fields-xpaths) components allow whitespace/expanded axes more broadly than normative Appendix A patterns. Distinct component and XML-representation phases must both be reconciled; component permission alone does not prove XML spelling admission. |
 | Empty `xml:lang` in documentation | Dated [documentation mapping](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#element-documentation) and XML Second Edition support nonempty xml:lang; Appendix A imports an XML declaration. The 2009 revision of xml.xsd allows empty but does not establish the 2004 imported body. Preserve source selection, not generic XML rejection or automatic later-version acceptance. |
 | CMP-Q001 — empty import namespace | An [import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import) with present-empty namespace has anyURI syntax, and no Structures constraint names it, so the text alone is doubtful. Accepted W3C `msMeta/Schema_w3c.xml` schZ014_a, a schema without targetNamespace whose only child is `<xsd:import namespace=""/>`, expects invalid (accepted 2006-07-16), and that expectation decides it, as its sibling schZ014_b decides the empty targetNamespace in [I-041](#i-041--empty-target-namespace): a present `namespace` whose collapsed value is empty is a schema error, used or not. Empty is not absent; ordinary obtained-referent matching still applies. Observed on the same document (`project/namespace-schema-import-namespace-cannot-be-empty`): Xerces-J 2.12.2 and libxml2 2.9.13 accept, .NET 10.0.14 rejects the empty value and xmlschema 4.3.2 rejects it under its absent-namespace rule. With a targetNamespace present, Xerces-J, xmlschema and libxml2 accept and only .NET rejects. |
@@ -1777,8 +1777,12 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   resolves to it, and loses the unrelated entries of a conflicting child.
 - .NET never consults child tables: keyrefs fail against keys bound on
   descendants, and a keyref on an element without its own referenced constraint
-  reports no key in scope even with no rows. It ignores a keyref transformed by
-  a chameleon include. The same schema in its own namespace makes .NET reject.
+  reports no key in scope even with no rows. It does consult the table of an
+  ancestor, so it accepts a keyref value that only an ancestor's key holds.
+  It does not apply the identity constraints of a chameleon-included document:
+  it checks neither their keys nor their keyrefs, and reports a `refer` in the
+  including document that names one as not declared. The same schema in its
+  own namespace makes .NET reject.
 - libxml2 counts a local and an inherited entry as two matches, so conflicting
   child entries defeat a local entry. When two conflicting descendant entries
   precede another child's equal entry, it keeps them and reports more than one
@@ -1792,7 +1796,9 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 Cases: `project/identity/joins-key-tables`, `project/identity/joins-unique-tables`,
 `project/chameleon-defaults-and-identity`, `project/structures-field-cardinality-keyref`,
 `project/structures-key-nillable-field-true`, `project/structures-recursive-key-tables-*`
-and, for xmlschema's checks of incomplete keyref rows, `project/identity/joins-keyref-three-fields`.
+`project/identity/chameleon-xpath-name-tests`,
+`project/identity/keyref-refer-resolution/*` and, for xmlschema's checks of
+incomplete keyref rows, `project/identity/joins-keyref-three-fields`.
 
 ## I-032 — identity XPath node-sets
 
