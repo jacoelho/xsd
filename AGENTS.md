@@ -47,9 +47,9 @@ path remains; and every remaining follow-up is reported to the user.
   mandatory [cross-validator comparison](tests/README.md#cross-validator-diagnosis)
   procedure.
 - Format changed Go files with `gofmt` and run `git diff --check`.
-- Before completion run `make test`, `make race`, `make wasm-test`,
-  `make web-test`, `make browser-test`, `make fuzz-smoke`, `make bench-smoke`,
-  `make staticcheck`, and `make lint`.
+- Before completion run `make test`, `make test-32bit`, `make race`,
+  `make wasm-test`, `make web-test`, `make browser-test`, `make fuzz-smoke`,
+  `make bench-smoke`, `make staticcheck`, and `make lint`.
 - For changed validation, namespace, stream, derivation, or content-model hot
   paths, compare `-benchmem` results against the pre-change tree with
   `benchstat` (`-count` of at least 10, runs serialized); use the

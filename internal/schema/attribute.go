@@ -503,7 +503,7 @@ func validateAttributeUseRuntime(
 	if names == nil || !names.ValidQName(use.Name) || !ok {
 		return false, errors.New("attribute use references invalid name or type")
 	}
-	slot, ok := uint32Index(i)
+	slot, ok := newUint32Index(i)
 	if !ok {
 		return false, errors.New("attribute use slot is invalid")
 	}
@@ -511,13 +511,6 @@ func validateAttributeUseRuntime(
 		return false, errors.New("attribute use index does not match use slice")
 	}
 	return carriesID, nil
-}
-
-func uint32Index(i int) (uint32, bool) {
-	if i < 0 || uint64(i) > uint64(invalidID) {
-		return 0, false
-	}
-	return uint32(i), true
 }
 
 // validateAttributeWildcardDerivation validates a derived use-set wildcard's

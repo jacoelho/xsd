@@ -27,6 +27,21 @@ func TestSchemaParseStateDiscardsSchemaTextAfterAdmission(t *testing.T) {
 	}
 }
 
+func TestSchemaDocumentNodeRejectsIDsPastTheArena(t *testing.T) {
+	t.Parallel()
+
+	root := &schemaNode{}
+	doc := &schemaDocument{root: root, arena: []*schemaNode{root}}
+	for _, id := range []schemaNodeID{1, 1 << 31, ^schemaNodeID(0)} {
+		if got := doc.node(id); got != nil {
+			t.Fatalf("node(%d) = %p, want nil", id, got)
+		}
+	}
+	if got := doc.node(0); got != root {
+		t.Fatalf("node(0) = %p, want root %p", got, root)
+	}
+}
+
 func TestNormalizeSchemaAttributeUsesExpandedNamespaceDeclarationIdentity(t *testing.T) {
 	t.Parallel()
 

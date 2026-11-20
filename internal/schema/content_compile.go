@@ -135,7 +135,7 @@ func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compi
 // them.
 type contentModelUPACheck struct {
 	compiler contentModelCompiler
-	seen     []int
+	seen     []uint64
 }
 
 func newContentModelUPACheck(
@@ -147,15 +147,15 @@ func newContentModelUPACheck(
 ) *contentModelUPACheck {
 	return &contentModelUPACheck{
 		compiler: newContentModelCompiler(names, rt, 0, work, analysis),
-		seen:     make([]int, count),
+		seen:     make([]uint64, count),
 	}
 }
 
 func (u *contentModelUPACheck) checkModel(id contentModelID) error {
-	return u.compiler.checkContentModelUPA(id, u.seen, int(id)+1)
+	return u.compiler.checkContentModelUPA(id, u.seen, uint64(id)+1)
 }
 
-func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []int, tag int) error {
+func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []uint64, tag uint64) error {
 	if err := c.work.spend(1); err != nil {
 		return err
 	}
@@ -444,7 +444,7 @@ func (c *elementDeclarationConsistencyChecker) hasNamedType(typ TypeID) (bool, e
 	return scope == declarationScopeGlobal && ok && bound == typ, nil
 }
 
-func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, model contentModelNode, seen []int, tag int) (bool, error) {
+func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, model contentModelNode, seen []uint64, tag uint64) (bool, error) {
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
@@ -469,7 +469,7 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, mod
 	return false, nil
 }
 
-func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle contentParticle, seen []int, tag int) (bool, error) {
+func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle contentParticle, seen []uint64, tag uint64) (bool, error) {
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}

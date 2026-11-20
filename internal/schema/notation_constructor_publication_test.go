@@ -45,7 +45,7 @@ func TestPublicationChecksCanonicalNotationConstructorEdges(t *testing.T) {
 			if published != nil {
 				t.Fatal("publishSchema() published a bare NOTATION constructor edge")
 			}
-			if c.rt.valueBuilder == nil || len(c.rt.SimpleTypes) <= int(id) {
+			if c.rt.valueBuilder == nil || !validSimpleTypeID(id, len(c.rt.SimpleTypes)) {
 				t.Fatal("publishSchema() consumed the rejected build")
 			}
 		})

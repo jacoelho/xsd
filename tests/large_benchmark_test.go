@@ -725,7 +725,7 @@ func envInt64(t *testing.T, name string, def int64) int64 {
 func envInt(t *testing.T, name string, def int) int {
 	t.Helper()
 	n := envInt64(t, name, int64(def))
-	if n > int64(^uint(0)>>1) {
+	if n > math.MaxInt {
 		t.Fatalf("%s is too large", name)
 	}
 	return int(n)

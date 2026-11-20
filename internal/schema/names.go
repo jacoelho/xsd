@@ -443,15 +443,17 @@ func (n *nameTable) checkLimit(need int) error {
 }
 
 func nextNamespaceID(n int) (namespaceID, error) {
-	if n < 0 || uint64(n) >= uint64(invalidID) {
+	id, ok := newRuntimeID(n)
+	if !ok {
 		return 0, errNamespaceLimit
 	}
-	return namespaceID(n), nil
+	return namespaceID(id), nil
 }
 
 func nextLocalNameID(n int) (localNameID, error) {
-	if n < 0 || uint64(n) >= uint64(invalidID) {
+	id, ok := newRuntimeID(n)
+	if !ok {
 		return 0, errLocalNameLimit
 	}
-	return localNameID(n), nil
+	return localNameID(id), nil
 }

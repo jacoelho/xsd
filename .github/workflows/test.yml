@@ -60,8 +60,8 @@ jobs:
           - name: Lint
             run: make lint
 
-          - name: 32-bit vet
-            run: make vet-32bit
+          - name: 32-bit tests
+            run: make test-32bit
 
       - run: npm ci --prefix web/js
 

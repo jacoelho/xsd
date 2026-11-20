@@ -651,7 +651,7 @@ func (f compiledModelFixture) build() *schemaBuild {
 	rs := fixtureMapSlice(f.elementRestrictions)
 	b.Elements = fixtureElements(names, rs)
 	for id, typ := range f.elementTypes {
-		if int(id) >= len(b.Elements) {
+		if !validUint32Index(uint32(id), len(b.Elements)) {
 			b.Elements = append(b.Elements, make([]elementDecl, int(id)+1-len(b.Elements))...)
 		}
 		b.Elements[id].Type = typ

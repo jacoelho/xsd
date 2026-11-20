@@ -8,12 +8,19 @@ BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
 export GOBIN := $(BIN)
 
 .PHONY: test
-test: vet-32bit
+test:
 	go test ./...
 
-.PHONY: vet-32bit
-vet-32bit:
+# Only linux hosts execute 386 binaries (darwin dropped 386 in Go 1.15), so other
+# hosts vet the linux/386 build instead of running it.
+.PHONY: test-32bit
+test-32bit:
+ifeq ($(shell go env GOHOSTOS),linux)
+	GOARCH=386 CGO_ENABLED=0 go test ./...
+else
+	@echo "test-32bit: host is not linux, vetting linux/386 instead of running its tests"
 	GOOS=linux GOARCH=386 go vet ./...
+endif
 
 .PHONY: race
 race:

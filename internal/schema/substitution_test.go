@@ -488,7 +488,7 @@ func fixtureSubstitutions(names []elementDecl, raw map[ElementID][]ElementID, ef
 		entries := make(map[ElementID]substitutionEntry)
 		for _, id := range raw[ElementID(head)] {
 			var name QName
-			if int(id) < len(names) {
+			if validElementID(id, len(names)) {
 				name = names[id].Name
 			}
 			entries[id] = substitutionEntry{name: name, member: id}

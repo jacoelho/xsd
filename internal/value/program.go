@@ -142,7 +142,7 @@ func (b *Builder) Reserve() (TypeID, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return NoType, ErrMetadata
 	}
-	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) || uint64(len(b.program.types)) > uint64(maxUserTypeIndex) {
+	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) {
 		return NoType, ErrLimit
 	}
 	if b.prepaidSlots == 0 {
@@ -254,7 +254,7 @@ func (b *Builder) prepareType(id TypeID, spec TypeSpec) (int, error) {
 		return 0, err
 	}
 	b.program.types[i].dependencyDepth = coreDepth
-	return int(i), nil
+	return i, nil
 }
 
 // constructionLimits returns the limits of every builder evaluation, all
@@ -272,12 +272,12 @@ func (b *Builder) literalBudget() (evaluationBudget, error) {
 	return newEvaluationBudget(b.constructionLimits())
 }
 
-func (b *Builder) reservedTypeIndex(id TypeID) (TypeID, error) {
-	if b == nil || b.program == nil || b.program.sealed || id < BuiltinTypeCount {
+func (b *Builder) reservedTypeIndex(id TypeID) (int, error) {
+	if b == nil || b.program == nil || b.program.sealed {
 		return 0, ErrMetadata
 	}
-	i := id - BuiltinTypeCount
-	if uint64(i) >= uint64(len(b.program.types)) || b.program.complete[i] != completionReserved {
+	i, ok := userTypeIndex(id, len(b.program.types))
+	if !ok || b.program.complete[i] != completionReserved {
 		return 0, ErrMetadata
 	}
 	return i, nil
@@ -429,12 +429,22 @@ type Program struct {
 	sealed   bool
 }
 
-const maxUserTypeIndex = ^TypeID(0) - BuiltinTypeCount
-
+// userTypeID returns the ID of the user type at index. Reserve admits index
+// only while BuiltinTypeCount+index+1 <= maxTypes, a uint32 count, so the ID
+// is below NoType.
 func userTypeID(index int) TypeID {
-	// The builder checks the index against maxUserTypeIndex before every call.
-	//nolint:gosec // the checked index is narrowed to the stable TypeID range.
+	//nolint:gosec // Reserve's maxTypes bound keeps BuiltinTypeCount+index within TypeID.
 	return BuiltinTypeCount + TypeID(index)
+}
+
+// userTypeIndex returns the index of user type id in a table of n user types.
+// It reports false for builtin IDs and for IDs past the table, and the index
+// is meaningful only when it reports true.
+func userTypeIndex(id TypeID, n int) (int, bool) {
+	// A builtin ID wraps past every slice length, so one comparison rejects it.
+	i := uint64(id) - uint64(BuiltinTypeCount)
+	//nolint:gosec // n is a slice length, and the index is read only when i < n; a branching form exceeds typeDef's inlining budget.
+	return int(i), i < uint64(n)
 }
 
 func typeSpecStorage(spec TypeSpec) (uint64, bool) {
@@ -585,12 +595,9 @@ func newBoundValue(atom atomicValue, normalized string) (boundValue, error) {
 }
 
 func (p *Program) typeDef(id TypeID) (*typeDef, bool) {
-	if id < BuiltinTypeCount {
+	i, ok := userTypeIndex(id, len(p.types))
+	if !ok {
 		return builtinTypeDef(id)
-	}
-	i := id - BuiltinTypeCount
-	if uint64(i) >= uint64(len(p.types)) {
-		return nil, false
 	}
 	if len(p.complete) != 0 && p.complete[i] == completionReserved {
 		return nil, false

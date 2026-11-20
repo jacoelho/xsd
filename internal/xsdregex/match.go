@@ -1,6 +1,7 @@
 package xsdregex
 
 import (
+	"math"
 	"math/bits"
 	"unicode/utf8"
 )
@@ -60,7 +61,7 @@ func resetRetained[T any](values []T, maxCapacity int) []T {
 }
 
 func retainedStateLimit(maxRetainedRunes int) int {
-	if maxRetainedRunes > (int(^uint(0)>>1)-2)/2 {
+	if maxRetainedRunes > (math.MaxInt-2)/2 {
 		return 0
 	}
 	return 2 * (maxRetainedRunes + 1)

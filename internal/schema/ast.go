@@ -24,7 +24,7 @@ type schemaDocument struct {
 }
 
 func (d *schemaDocument) node(id schemaNodeID) *schemaNode {
-	if d == nil || int(id) >= len(d.arena) {
+	if d == nil || !validUint32Index(uint32(id), len(d.arena)) {
 		return nil
 	}
 	return d.arena[id]
@@ -229,10 +229,11 @@ func unsupportedSchemaFeature(feature xmlstream.UnsupportedFeature, err error) e
 }
 
 func schemaNodeIDFor(index int) (schemaNodeID, error) {
-	if index < 0 || uint64(index) > uint64(^schemaNodeID(0)) {
+	id, ok := newUint32Index(index)
+	if !ok {
 		return 0, errors.New("schema node ID space exhausted")
 	}
-	return schemaNodeID(index), nil
+	return schemaNodeID(id), nil
 }
 
 func (n *schemaSyntaxNode) attr(local string) (string, bool) {
