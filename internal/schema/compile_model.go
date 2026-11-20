@@ -394,7 +394,6 @@ func (c *compiler) complexTypeReachableModels() ([]bool, error) {
 	return reached, nil
 }
 
-// markReachedModel marks id reached and queues it unless it already was.
 func markReachedModel(reached []bool, pending []contentModelID, id contentModelID) []contentModelID {
 	if reached[id] {
 		return pending
