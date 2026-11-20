@@ -82332,7 +82332,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '10' must be less than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           }
         }
       },
@@ -82415,7 +82415,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '10.00' must be less than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82456,7 +82456,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '10' must be less than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82532,7 +82532,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '10' must be less than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82646,7 +82646,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82686,7 +82686,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '2000-01-01' must be less than '2000-01-01'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82726,7 +82726,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value 'NaN' must be less than 'NaN'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82766,7 +82766,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '10' must be greater than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           }
         }
       },
@@ -82849,7 +82849,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '10.00' must be greater than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82890,7 +82890,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '10' must be greater than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -82966,7 +82966,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '10' must be greater than '10'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -83044,7 +83044,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -83120,7 +83120,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '2000-01-01' must be greater than '2000-01-01'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -83160,7 +83160,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value 'NaN' must be greater than 'NaN'. The project expectation follows the minExclusive and maxExclusive definitions, which admit a value equal to the same facet of the base type; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -83200,10 +83200,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: the number of digits has to be lesser or equal than 1: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"10\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'totalDigits'] The value '10' has more digits than are allowed ('1'). The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           }
         }
       },
@@ -83272,10 +83272,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: the number of fraction digits has to be lesser or equal than 0: Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"0.5\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'fractionDigits'] The value '0.5' has more fractional digits than are allowed ('0'). The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           }
         }
       },
@@ -83344,10 +83344,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value must be one of [Decimal('1'), Decimal('2')]: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"3\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '3' must be less than '3'. The project expectation follows the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed."
+            "record": "bounds"
           }
         }
       },
@@ -83417,7 +83417,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the equality allowance for exclusive bounds together with the project reading that base patterns constrain facet literal spellings; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -83594,10 +83594,10 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows clause 4 of the maxExclusive valid restriction constraint, which applies even when the {value} equals the same facet of the base; this observation is not a majority-vote oracle. Diagnosis: Xerces-J applies clause 4 only through base value-space membership. It rejects exclusive-equal-maxExclusive-over-minExclusive, where 10 is no restatement, but here waives membership because 10 equals the base maxExclusive and never compares 10 with the parent minExclusive. Clause 4 is stated without that waiver, so the specification is not doubtful and the tie-break does not apply."
+            "record": "bounds"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows clause 4 of the maxExclusive valid restriction constraint, which applies even when the {value} equals the same facet of the base; this observation is not a majority-vote oracle. Diagnosis: .NET has no maxExclusive-against-parent-minExclusive comparison; it also accepts exclusive-equal-maxExclusive-over-minExclusive, while it rejects the mirror exclusive-equal-minExclusive-empty-base citing the corresponding minExclusive clause. Clause 4 is stated without exception, so the specification is not doubtful and the tie-break does not apply."
+            "record": "bounds"
           }
         }
       },
@@ -83638,7 +83638,7 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows clause 4 of the minExclusive valid restriction constraint, which applies even when the {value} equals the same facet of the base; this observation is not a majority-vote oracle. Diagnosis: Xerces-J applies clause 4 only through base value-space membership. It rejects exclusive-equal-minExclusive-over-maxExclusive, where 10 is no restatement, but here waives membership because 10 equals the base minExclusive and never compares 10 with the parent maxExclusive. Clause 4 is stated without that waiver, so the specification is not doubtful and the tie-break does not apply."
+            "record": "bounds"
           }
         }
       },
@@ -83778,7 +83778,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '-0' must be less than '0'. The project expectation follows the float definition, whose value space has only one zero, and the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed. Diagnosis: libxml2 2.9.13 applies no equality allowance to exclusive bounds: it also rejects the same-spelling restatement in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain, so this rejection is that provider gap, not a reading of the rule under test."
+            "record": "bounds"
           }
         }
       },
@@ -83897,7 +83897,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '0' must be greater than '-0'. The project expectation follows the float definition, whose value space has only one zero, and the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. Diagnosis: libxml2 2.9.13 applies no equality allowance to exclusive bounds: it also rejects the same-spelling restatement in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain, so this rejection is that provider gap, not a reading of the rule under test."
+            "record": "bounds"
           }
         }
       },
@@ -83966,7 +83966,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '2000-01-01T01:00:00+01:00' must be less than '2000-01-01T00:00:00Z'. The project expectation follows the dateTime order, which compares timezoned values as instants, and the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. Diagnosis: libxml2 2.9.13 applies no equality allowance to exclusive bounds: it also rejects the same-spelling restatement in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain, so this rejection is that provider gap, not a reading of the rule under test."
+            "record": "bounds"
           }
         }
       },
@@ -84071,10 +84071,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value has to be greater than DateTime10(2000, 1, 1, 0, 0, 0, tzinfo=Timezone(datetime.timedelta(0))): Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"1999-12-31T23:00:00-01:00\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclus The project expectation follows the dateTime order, which compares timezoned values as instants, and the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. Diagnosis: xmlschema 4.3.2 accepts the same-spelling restatement exclusive-equal-minExclusive-dateTime and the maxExclusive mirror exclusive-equal-maxExclusive-dateTime-timezone, so its rejection here is a provider defect in recognising a minExclusive restatement written in another timezone; the dateTime order compares both spellings as the same instant."
+            "record": "bounds"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '1999-12-31T23:00:00-01:00' must be greater than '2000-01-01T00:00:00Z'. The project expectation follows the dateTime order, which compares timezoned values as instants, and the minExclusive and maxExclusive definitions, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. Diagnosis: libxml2 2.9.13 applies no equality allowance to exclusive bounds: it also rejects the same-spelling restatement in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain, so this rejection is that provider gap, not a reading of the rule under test."
+            "record": "bounds"
           }
         }
       },
@@ -84179,7 +84179,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '2000-01-01T00:00:00Z' must be greater than '2000-01-01T00:00:00Z'. The project expectation follows the minExclusive definition, under which equality with the same facet of the base suffices without base value-space membership; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. Diagnosis: libxml2 2.9.13 applies no equality allowance to exclusive bounds: it also rejects the same-spelling restatement in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain, so this rejection is that provider gap, not a reading of the rule under test."
+            "record": "bounds"
           }
         }
       },
@@ -84313,7 +84313,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'maxExclusive'] The value '23:00:00-02:00' must be less than '23:00:00-02:00'. The project expectation follows the maxExclusive definition, under which a literal equal to the same facet of the base suffices without base value-space membership, with equality in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 has no equality allowance for exclusive bounds and rejects every restated exclusive bound, as in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain."
+            "record": "bounds"
           }
         }
       },
@@ -84462,7 +84462,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '23:00:00Z' must be greater than '01:00:00+02:00'. The project expectation follows the minExclusive definition, under which a literal equal to the same facet of the base suffices without base value-space membership, with equality in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00. The restated literal is still subject to the clause of the minExclusive valid-restriction constraint that relates it to the same facet side of the base, which orders time bounds by their timezone-normalized time before it is wrapped into one day: W3C msMeta/DataTypes_w3c.xml/time_maxInclusive007_119 expects a derived maxInclusive 12:00:00-14:00 under a base maxInclusive 12:00:00-10:00 to be invalid. Every other relation uses the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed. libxml2 has no equality allowance for exclusive bounds and rejects every restated exclusive bound, as in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain."
+            "record": "bounds"
           }
         }
       },
@@ -84547,7 +84547,7 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the Same-side restriction clauses of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -85516,7 +85516,7 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the Same-side restriction clauses of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
@@ -85557,10 +85557,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value must be one of [Time(0, 30, 0, tzinfo=Timezone(datetime.timedelta(0)))]: Schema component: <xs:maxExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"01:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:maxExclusive Schema URL: file://schema.xsd  The project expectation follows the maxExclusive definition, under which a literal equal to the same facet of the base suffices without base value-space membership, with equality in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00, so the base enumeration does not apply to it; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. xmlschema equates time values on the day a timezone offset moves them to, so it does not take the literal for the base facet and checks it against the base enumeration; Xerces-J compares timezone-normalized times of day, which the project follows."
+            "record": "bounds"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element maxExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}maxExclusive': [facet 'enumeration'] The value '01:00:00Z' is not an element of the set {'00:30:00Z'}. The project expectation follows the maxExclusive definition, under which a literal equal to the same facet of the base suffices without base value-space membership, with equality in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00, so the base enumeration does not apply to it; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 has no equality allowance for exclusive bounds and rejects every restated exclusive bound, as in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain. libxml2 carries a negative-offset time such as 23:00:00-02:00 into the next day but wraps a positive-offset time such as 01:00:00+02:00 or 00:00:00+01:00 within its day, so neither reading explains its results across the time cases; Xerces-J compares timezone-normalized times of day, which the project follows."
+            "record": "bounds"
           }
         }
       },
@@ -85630,10 +85630,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. invalid restriction: value must be one of [Time(23, 30, 0, tzinfo=Timezone(datetime.timedelta(0)))]: Schema component: <xs:minExclusive xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" value=\"23:00:00Z\" /> Path: /xs:schema/xs:simpleType[2]/xs:restriction/xs:minExclusive Schema URL: file://schema.xsd  The project expectation follows the minExclusive definition, under which a literal equal to the same facet of the base suffices without base value-space membership, with equality in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00, so the base enumeration does not apply to it; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. xmlschema equates time values on the day a timezone offset moves them to, so it does not take the literal for the base facet and checks it against the base enumeration; Xerces-J compares timezone-normalized times of day, which the project follows."
+            "record": "bounds"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element minExclusive: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}minExclusive': [facet 'minExclusive'] The value '23:00:00Z' must be greater than '01:00:00+02:00'. The project expectation follows the minExclusive definition, under which a literal equal to the same facet of the base suffices without base value-space membership, with equality in the time value space of the Time midnight row of docs/spec/INTERPRETATIONS.md: a value is its timezone-normalized time of day, the day that the hour 24, a second 60 or a timezone offset moves it to is not part of the value, and 24:00:00 is midnight, the value of 00:00:00, so the base enumeration does not apply to it; this observation is not a majority-vote oracle. Its 2 instance runs were blocked by schema rejection and were not assessed. libxml2 has no equality allowance for exclusive bounds and rejects every restated exclusive bound, as in exclusive-equal-maxExclusive-plain and exclusive-equal-minExclusive-plain. libxml2 carries a negative-offset time such as 23:00:00-02:00 into the next day but wraps a positive-offset time such as 01:00:00+02:00 or 00:00:00+01:00 within its day, so neither reading explains its results across the time cases; Xerces-J compares timezone-normalized times of day, which the project follows."
+            "record": "bounds"
           }
         }
       },
@@ -89762,7 +89762,7 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the Same-side restriction clauses of the Time midnight row of docs/spec/INTERPRETATIONS.md; this observation is not a majority-vote oracle."
+            "record": "bounds"
           }
         }
       },
