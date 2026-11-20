@@ -1,0 +1,204 @@
+w3c/msMeta/Additional_w3c.xml/addB099	schema	dotnet	schema-valid	
+w3c/msMeta/Additional_w3c.xml/addB099	schema	libxml2	schema-invalid	addB099.xsd:21: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'maxOccurs': The value '12678967543234' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.
+w3c/msMeta/Additional_w3c.xml/addB099	schema	xerces	schema-invalid	addB099.xsd:21:78: s4s-att-invalid-value: Invalid attribute value for 'minOccurs' in element 'group'. Recorded reason: cvc-datatype-valid.1.2.1: '12678967543233' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Additional_w3c.xml/addB099	schema	xmlschema	schema-valid	
+w3c/msMeta/Additional_w3c.xml/addB194	schema	dotnet	schema-valid	
+w3c/msMeta/Additional_w3c.xml/addB194	schema	libxml2	schema-valid	warning: addB194.xsd:2: namespace warning : xmlns: URI rfagbypsLBwfcvpjqnekzhwpmrxvdsdylfnsdvxwLBiantuyukpmijseeuqopeemzw is not absolute␊hema' xmlns='rfagbypsLBwfcvpjqnekzhwpmrxvdsdylfnsdvxwLBiantuyukpmijseeuqopeemzw'␊                                                                               ^
+w3c/msMeta/Additional_w3c.xml/addB194	schema	xerces	schema-valid	
+w3c/msMeta/Additional_w3c.xml/addB194	schema	xmlschema	schema-valid	
+w3c/msMeta/Attribute_w3c.xml/attP031	attP031.i	dotnet	invalid	attP031.xml:3:10: The 'http://xsdtesting:att' attribute is not declared.
+w3c/msMeta/Attribute_w3c.xml/attP031	attP031.i	libxml2	invalid	attP031.xml:3: element elem: Schemas validity error : Element '{http://xsdtesting}elem', attribute '{http://xsdtesting}att': The attribute '{http://xsdtesting}att' is not allowed.
+w3c/msMeta/Attribute_w3c.xml/attP031	attP031.i	xerces	invalid	attP031.xml:3:22: cvc-complex-type.3.2.2: Attribute 'x:att' is not allowed to appear in element 'x:elem'.
+w3c/msMeta/Attribute_w3c.xml/attP031	attP031.i	xmlschema	valid	
+w3c/msMeta/Attribute_w3c.xml/attP031	schema	dotnet	schema-valid	warning: attP031.xsd:4:4: The 'http://xsdtesting:att' attribute is ignored, because the value of 'prohibited' for attribute use only prevents inheritance of an identically named attribute from the base type definition.
+w3c/msMeta/Attribute_w3c.xml/attP031	schema	libxml2	schema-valid	
+w3c/msMeta/Attribute_w3c.xml/attP031	schema	xerces	schema-valid	
+w3c/msMeta/Attribute_w3c.xml/attP031	schema	xmlschema	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupF009v	groupF009v.v	dotnet	valid	
+w3c/msMeta/Group_w3c.xml/groupF009v	groupF009v.v	xmlschema	valid	
+w3c/msMeta/Group_w3c.xml/groupF009v	schema	dotnet	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupF009v	schema	libxml2	schema-invalid	groupF009.xsd:18: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'maxOccurs': The value '999999999999999' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.␊WXS schema groupF009.xsd failed to compile
+w3c/msMeta/Group_w3c.xml/groupF009v	schema	xerces	schema-invalid	groupF009.xsd:18:68: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'group'. Recorded reason: cvc-datatype-valid.1.2.1: '999999999999999' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Group_w3c.xml/groupF009v	schema	xmlschema	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupH009v	groupH009v.v	dotnet	valid	
+w3c/msMeta/Group_w3c.xml/groupH009v	groupH009v.v	xmlschema	valid	
+w3c/msMeta/Group_w3c.xml/groupH009v	schema	dotnet	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupH009v	schema	libxml2	schema-invalid	groupH009.xsd:31: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'maxOccurs': The value '999999999999999' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.␊WXS schema groupH009.xsd failed to compile
+w3c/msMeta/Group_w3c.xml/groupH009v	schema	xerces	schema-invalid	groupH009.xsd:31:68: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'group'. Recorded reason: cvc-datatype-valid.1.2.1: '999999999999999' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Group_w3c.xml/groupH009v	schema	xmlschema	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupJ009v	groupJ009v.v	dotnet	valid	
+w3c/msMeta/Group_w3c.xml/groupJ009v	groupJ009v.v	xmlschema	valid	
+w3c/msMeta/Group_w3c.xml/groupJ009v	schema	dotnet	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupJ009v	schema	libxml2	schema-invalid	groupJ009.xsd:5: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'maxOccurs': The value '99999999999' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.␊WXS schema groupJ009.xsd failed to compile
+w3c/msMeta/Group_w3c.xml/groupJ009v	schema	xerces	schema-invalid	groupJ009.xsd:5:62: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'group'. Recorded reason: cvc-datatype-valid.1.2.1: '99999999999' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Group_w3c.xml/groupJ009v	schema	xmlschema	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupL009v	groupL009v.v	dotnet	valid	
+w3c/msMeta/Group_w3c.xml/groupL009v	groupL009v.v	xmlschema	valid	
+w3c/msMeta/Group_w3c.xml/groupL009v	schema	dotnet	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupL009v	schema	libxml2	schema-invalid	groupL009.xsd:5: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'maxOccurs': The value '99999999999999' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.␊WXS schema groupL009.xsd failed to compile
+w3c/msMeta/Group_w3c.xml/groupL009v	schema	xerces	schema-invalid	groupL009.xsd:5:65: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'group'. Recorded reason: cvc-datatype-valid.1.2.1: '99999999999999' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Group_w3c.xml/groupL009v	schema	xmlschema	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupN009v	groupN009v.v	dotnet	valid	
+w3c/msMeta/Group_w3c.xml/groupN009v	groupN009v.v	xmlschema	valid	
+w3c/msMeta/Group_w3c.xml/groupN009v	schema	dotnet	schema-valid	
+w3c/msMeta/Group_w3c.xml/groupN009v	schema	libxml2	schema-invalid	groupN009.xsd:14: element group: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}group', attribute 'maxOccurs': The value '99999999999999' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.␊WXS schema groupN009.xsd failed to compile
+w3c/msMeta/Group_w3c.xml/groupN009v	schema	xerces	schema-invalid	groupN009.xsd:14:65: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'group'. Recorded reason: cvc-datatype-valid.1.2.1: '99999999999999' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Group_w3c.xml/groupN009v	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ001	particlesZ001.i	libxml2	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ001	schema	dotnet	schema-invalid	particlesZ001.xsd:11:3: Invalid particle derivation by restriction - 'The derived element element at (16, 7) is not a valid restriction of the base choice particle at (5, 5) according to Elt:All/Choice/Sequence -- RecurseAsIfGroup.'.
+w3c/msMeta/Particles_w3c.xml/particlesZ001	schema	libxml2	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ001	schema	xerces	schema-invalid	particlesZ001.xsd:11:33: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+w3c/msMeta/Particles_w3c.xml/particlesZ001	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="Derived">␊      <xs:complexContent>␊          <xs:restriction base="a:Base">␊              <xs:sequence>␊                  <xs:element name="annotation" minOccurs="0" />␊                  <xs:element name="element" minOccurs="0" maxOccurs="unbounded" />␊              </xs:sequence>␊          </xs:restriction>␊      </xs:complexContent>␊  </xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: particlesZ001.xsd
+w3c/msMeta/Particles_w3c.xml/particlesZ007	particlesZ007.i	dotnet	invalid	particlesZ007.xml:6:2: The xsi:type attribute value 'http://www.w3.org/2001/XMLSchema:string' is not valid for the element 'all', either because it is not a type validly derived from the type in the schema, or because it has xsi:type derivation blocked.
+w3c/msMeta/Particles_w3c.xml/particlesZ007	particlesZ007.i	libxml2	invalid	particlesZ007.xml:6: element all: Schemas validity error : Element 'all', attribute '{http://www.w3.org/2001/XMLSchema-instance}type': The type definition '{http://www.w3.org/2001/XMLSchema}string', specified by xsi:type, is blocked or not validly derived from the type definition of the element declaration.
+w3c/msMeta/Particles_w3c.xml/particlesZ007	particlesZ007.i	xerces	invalid	particlesZ007.xml:6:28: cvc-elt.4.3: Type 'xsd:string' is not validly derived from the type definition, 'all-ct', of element 'all'.
+w3c/msMeta/Particles_w3c.xml/particlesZ007	particlesZ007.i	xmlschema	error	OverflowError after 0 validation error(s): year overflow
+w3c/msMeta/Particles_w3c.xml/particlesZ007	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ007	schema	libxml2	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ007	schema	xerces	schema-valid	warning: particlesZ007.xsd:80:39: FacetsContradict: For simpleType definition '#AnonType_int-str', the enumeration value '123456789a' contradicts with value of 'maxLength' facet.
+w3c/msMeta/Particles_w3c.xml/particlesZ007	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ033_a	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ033_a	schema	libxml2	schema-invalid	particlesZ033_a.xsd:6: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'maxOccurs': The value '79228162514264337593543950335' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.
+w3c/msMeta/Particles_w3c.xml/particlesZ033_a	schema	xerces	schema-invalid	particlesZ033_a.xsd:6:115: s4s-att-invalid-value: Invalid attribute value for 'minOccurs' in element 'element'. Recorded reason: cvc-datatype-valid.1.2.1: '79228162514244337593543950335' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Particles_w3c.xml/particlesZ033_a	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ033_d	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ033_d	schema	libxml2	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ033_d	schema	xerces	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ033_d	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ035_a	particlesZ035_a.i	dotnet	invalid	particlesZ035_a.xml:1026:36: The element 'doc' has invalid child element 'blah'. List of possible elements expected: 'e1, e3, e4'.
+w3c/msMeta/Particles_w3c.xml/particlesZ035_a	particlesZ035_a.i	xmlschema	invalid	line None: Unexpected child with tag 'blah' at position 10125. (path /doc)
+w3c/msMeta/Particles_w3c.xml/particlesZ035_a	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ035_a	schema	libxml2	schema-invalid	particlesZ035_a.xsd:13: element choice: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}choice', attribute 'maxOccurs': The value '100000000000' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'.␊WXS schema particlesZ035_a.xsd failed to compile
+w3c/msMeta/Particles_w3c.xml/particlesZ035_a	schema	xerces	schema-invalid	particlesZ035_a.xsd:13:58: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'choice'. Recorded reason: cvc-datatype-valid.1.2.1: '100000000000' is not a valid value for 'nonNegativeInteger'.
+w3c/msMeta/Particles_w3c.xml/particlesZ035_a	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	particlesZ036_b1.i	dotnet	invalid	particlesZ036_b1.xml:1671:2: The element 'doc' has invalid child element 'b'. List of possible elements expected: 'a'. Content model validation resulted in a large number of states, possibly due to large occurrence ranges. Therefore, content model may not be validated accurately.
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	particlesZ036_b1.i	libxml2	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	particlesZ036_b1.i	xerces	error	exit 1:  at org.apache.xerces.impl.xs.models.CMBuilder.multiNodes(Unknown Source)  at org.apache.xerces.impl.xs.models.CMBuilder.multiNodes(Unknown Source)  at org.apache.xerces.impl.xs.models.CMBuilder.multiNodes(Unknown Source) 
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	particlesZ036_b1.i	xmlschema	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	schema	libxml2	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	schema	xerces	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b1	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	particlesZ036_b2.i	dotnet	invalid	particlesZ036_b2.xml:157:2: The element 'doc' has invalid child element 'b'. List of possible elements expected: 'a'. Content model validation resulted in a large number of states, possibly due to large occurrence ranges. Therefore, content model may not be validated accurately.
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	particlesZ036_b2.i	libxml2	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	particlesZ036_b2.i	xerces	error	exit 1:  at org.apache.xerces.impl.xs.models.CMBuilder.expandContentModel(Unknown Source)  at org.apache.xerces.impl.xs.models.CMBuilder.buildSyntaxTree(Unknown Source)  at org.apache.xerces.impl.xs.models.CMBuilder.buildSyntaxTree(Unknown Source) 
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	particlesZ036_b2.i	xmlschema	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	schema	libxml2	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	schema	xerces	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_b2	schema	xmlschema	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	particlesZ036_c.v	dotnet	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	particlesZ036_c.v	libxml2	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	particlesZ036_c.v	xerces	error	exit 1:  at org.apache.xerces.impl.xs.models.CMBuilder.multiNodes(Unknown Source)  at org.apache.xerces.impl.xs.models.CMBuilder.multiNodes(Unknown Source)  at org.apache.xerces.impl.xs.models.CMBuilder.expandContentModel(Unknown Source) 
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	particlesZ036_c.v	xmlschema	valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	schema	dotnet	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	schema	libxml2	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	schema	xerces	schema-valid	
+w3c/msMeta/Particles_w3c.xml/particlesZ036_c	schema	xmlschema	schema-valid	
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	HighSurrogates.i	dotnet	invalid	HighSurrogates.xml:1:111: The 'value' attribute is invalid - The value '' is invalid according to its datatype 'String' - The Pattern constraint failed.
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	HighSurrogates.i	libxml2	invalid	HighSurrogates.xml:1: element doc: Schemas validity error : Element 'doc', attribute 'value': [facet 'pattern'] The value '' is not accepted by the pattern '\p{IsHighSurrogates}+'.
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	HighSurrogates.i	xmlschema	invalid	line None: attribute value='': value doesn't match any pattern of ['\\p{IsHighSurrogates}+'] (path /doc)
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	schema	dotnet	schema-valid	
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	schema	libxml2	schema-valid	
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	schema	xerces	schema-invalid	HighSurrogates.xsd:4:44: InvalidRegex: Pattern value '\p{IsHighSurrogates}+' is not a valid regular expression. The reported error was: 'Unknown property.'.
+w3c/msMeta/Regex_w3c.xml/HighSurrogates	schema	xmlschema	schema-valid	
+w3c/msMeta/Regex_w3c.xml/reM77	reM77.i	dotnet	invalid	reM77.xml:9:13: The 'att' attribute is invalid - The value '' is invalid according to its datatype 'String' - The Pattern constraint failed.
+w3c/msMeta/Regex_w3c.xml/reM77	reM77.i	libxml2	invalid	reM77.xml:9: element elem: Schemas validity error : Element 'elem', attribute 'att': [facet 'pattern'] The value '' is not accepted by the pattern '\p{IsLowSurrogates}?'.
+w3c/msMeta/Regex_w3c.xml/reM77	reM77.i	xmlschema	invalid	line None: attribute att='\ue000': value doesn't match any pattern of ['\\p{IsLowSurrogates}?'] (path /doc/elem)
+w3c/msMeta/Regex_w3c.xml/reM77	schema	dotnet	schema-valid	
+w3c/msMeta/Regex_w3c.xml/reM77	schema	libxml2	schema-valid	
+w3c/msMeta/Regex_w3c.xml/reM77	schema	xerces	schema-invalid	reM77.xsd:20:47: InvalidRegex: Pattern value '\p{IsLowSurrogates}?' is not a valid regular expression. The reported error was: 'Unknown property.'.
+w3c/msMeta/Regex_w3c.xml/reM77	schema	xmlschema	schema-valid	
+w3c/msMeta/Regex_w3c.xml/reN75	reN75.i	dotnet	invalid	reN75.xml:9:27: The 'elem' element is invalid - The value '&힣' is invalid according to its datatype 'Regex' - The Pattern constraint failed.
+w3c/msMeta/Regex_w3c.xml/reN75	reN75.i	libxml2	invalid	reN75.xml:9: element elem: Schemas validity error : Element 'elem': [facet 'pattern'] The value '&힣' is not accepted by the pattern '\p{IsHighSurrogates}'.
+w3c/msMeta/Regex_w3c.xml/reN75	reN75.i	xmlschema	invalid	line None: value doesn't match any pattern of ['\\p{IsHighSurrogates}'] (path /doc/elem)
+w3c/msMeta/Regex_w3c.xml/reN75	schema	dotnet	schema-valid	
+w3c/msMeta/Regex_w3c.xml/reN75	schema	libxml2	schema-valid	
+w3c/msMeta/Regex_w3c.xml/reN75	schema	xerces	schema-invalid	reN75.xsd:18:43: InvalidRegex: Pattern value '\p{IsHighSurrogates}' is not a valid regular expression. The reported error was: 'Unknown property.'.
+w3c/msMeta/Regex_w3c.xml/reN75	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE056	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE056	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE056	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE056	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE056	stE056.i	dotnet	invalid	stE056.xml:1:14: The value of the 'root' element does not equal its fixed value.
+w3c/msMeta/SimpleType_w3c.xml/stE056	stE056.i	libxml2	invalid	stE056.xml:1: element root: Schemas validity error : Element 'root': The actual value '25.94' does not match the fixed value constraint '25.9421'.
+w3c/msMeta/SimpleType_w3c.xml/stE056	stE056.i	xerces	invalid	stE056.xml:1:19: cvc-elt.5.2.2.2.2: The value '25.94' of element 'root' does not match the {value constraint} value '25.9421'.
+w3c/msMeta/SimpleType_w3c.xml/stE056	stE056.i	xmlschema	invalid	line None: must have the fixed value '25.9421' (path /root)
+w3c/msMeta/SimpleType_w3c.xml/stE057	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	stE057.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	stE057.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	stE057.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE057	stE057.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	stE058.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	stE058.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	stE058.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE058	stE058.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	stE059.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	stE059.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	stE059.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE059	stE059.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	stE060.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	stE060.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	stE060.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE060	stE060.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	stE061.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	stE061.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	stE061.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE061	stE061.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	stE062.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	stE062.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	stE062.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE062	stE062.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE063	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE063	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE063	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE063	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE063	stE063.i	dotnet	invalid	stE063.xml:1:19: The value of the 'root' element does not equal its fixed value.
+w3c/msMeta/SimpleType_w3c.xml/stE063	stE063.i	libxml2	invalid	stE063.xml:1: element root: Schemas validity error : Element 'root': The actual value 'abcd edfgh' does not match the fixed value constraint 'abcd edfgh '.
+w3c/msMeta/SimpleType_w3c.xml/stE063	stE063.i	xerces	invalid	stE063.xml:1:24: cvc-elt.5.2.2.2.2: The value 'abcd edfgh' of element 'root' does not match the {value constraint} value 'abcd edfgh '.
+w3c/msMeta/SimpleType_w3c.xml/stE063	stE063.i	xmlschema	invalid	line None: must have the fixed value 'abcd edfgh ' (path /root)
+w3c/msMeta/SimpleType_w3c.xml/stE064	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	stE064.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	stE064.v	libxml2	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	stE064.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE064	stE064.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	schema	xerces	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	schema	xmlschema	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	stE065.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	stE065.v	libxml2	invalid	stE065.xml:1: element root: Schemas validity error : Element 'root': The actual value 'abcd edfgh' does not match the fixed value constraint 'abcd edfgh '.
+w3c/msMeta/SimpleType_w3c.xml/stE065	stE065.v	xerces	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE065	stE065.v	xmlschema	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE072	schema	dotnet	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE072	schema	libxml2	schema-valid	
+w3c/msMeta/SimpleType_w3c.xml/stE072	schema	xerces	schema-invalid	stE072.xsd:9:36: e-props-correct.5: A {value constraint} must not be present on element 'root', because the element's {type definition} or {type definition}'s {content type} is ID, or is derived from ID.
+w3c/msMeta/SimpleType_w3c.xml/stE072	schema	xmlschema	schema-invalid	xs:ID or a type derived from xs:ID cannot have a fixed value:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="root" fixed="a">␊      <xs:simpleType>␊          <xs:union memberTypes="xs:gYearMonth xs:ID xs:long" />␊      </xs:simpleType>␊  </xs:element>␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: stE072.xsd
+w3c/msMeta/SimpleType_w3c.xml/stE072	stE072.v	dotnet	valid	
+w3c/msMeta/SimpleType_w3c.xml/stE072	stE072.v	libxml2	valid	

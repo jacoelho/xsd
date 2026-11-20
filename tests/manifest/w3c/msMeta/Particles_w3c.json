@@ -30021,6 +30021,11 @@
             "reason": "RecurseAsIfGroup compares the unchanged element particle 0..unbounded through a synthetic unit choice to the matching base element branch 1..1. RecurseLax requires member restriction, which fails both bounds. The upstream record distinguishes invalid XSD 1.0 from valid XSD 1.1 instances; its unversioned schema-valid label is preserved here.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseAsIfGroup"
           }
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
         }
       },
       "instances": [
@@ -30195,6 +30200,20 @@
             "expected": "valid",
             "reason": "Type no directly uses builtin NOTATION as a union member without an enumerated restriction, contrary to enumeration-required-notation. It is referenced through all, all-ct and root/all; selecting another member does not legalize that declaration. Preserve the upstream valid label as provenance.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#enumeration-required-notation"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
           }
         }
       },
@@ -30962,6 +30981,14 @@
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          }
         }
       },
       "files": [
@@ -31027,6 +31054,20 @@
             "expected": "valid",
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "libxml2": {
+            "record": "observation-product-modality"
+          },
+          "xerces": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
           }
         }
       },
@@ -31316,6 +31357,14 @@
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          }
         }
       },
       "instances": [
@@ -31406,6 +31455,20 @@
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "libxml2": {
+            "record": "observation-product-modality"
+          },
+          "xerces": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          }
         }
       },
       "instances": [
@@ -31455,6 +31518,20 @@
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "libxml2": {
+            "record": "observation-product-modality"
+          },
+          "xerces": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          }
         }
       },
       "instances": [
@@ -31503,6 +31580,20 @@
             "expected": "valid",
             "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "libxml2": {
+            "record": "observation-product-modality"
+          },
+          "xerces": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
           }
         }
       },

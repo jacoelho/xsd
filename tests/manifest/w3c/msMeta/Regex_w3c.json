@@ -1628,7 +1628,18 @@
           {
             "file": "corpus/w3c/msData/regex/HighSurrogates.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-034"
+          },
+          "libxml2": {
+            "record": "I-034"
+          },
+          "xmlschema": {
+            "record": "I-034"
+          }
+        }
       },
       "instances": [
         {
@@ -74196,7 +74207,18 @@
           {
             "file": "corpus/w3c/msData/regex/reM77.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-034"
+          },
+          "libxml2": {
+            "record": "I-034"
+          },
+          "xmlschema": {
+            "record": "I-034"
+          }
+        }
       },
       "instances": [
         {
@@ -78046,7 +78068,18 @@
           {
             "file": "corpus/w3c/msData/regex/reN75.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-034"
+          },
+          "libxml2": {
+            "record": "I-034"
+          },
+          "xmlschema": {
+            "record": "I-034"
+          }
+        }
       },
       "instances": [
         {

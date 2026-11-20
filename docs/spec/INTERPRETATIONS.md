@@ -329,8 +329,10 @@ it without checking the discarded fixed value or datatype. Intrinsic XSI
 attributes retain their independent instance rules and also receive no
 synthesized value from the discarded item.
 
-W3C `msMeta/Attribute_w3c.xml/attP031` marks its instance valid even though the
+W3C `w3c/msMeta/Attribute_w3c.xml/attP031` marks its instance valid even though the
 actual attribute has only a prohibited fixed source item and no wildcard.
+Xerces-J, .NET and libxml2 reject the instance; xmlschema accepts it, keeping
+the prohibited item as a declaration.
 The corpus expects invalid under the published mapping and preserves the
 original valid result in `instance.oracle.w3c`, with its reason and source.
 The upstream result is interoperability evidence, not replacement normative
@@ -510,7 +512,7 @@ does not mean arbitrary processor choice.
 | <a id="bounds"></a>Bounds | Repeated equal exclusive endpoints have explicit allowance; do not substitute generic instance validity. A `minExclusive` or `maxExclusive` equal to the effective same facet of the base is admitted without base value-space membership, so the base's digit and enumeration facets and its bounds of that same facet do not apply to it. The valid-restriction clauses still compare it with the base's other bounds (`project/datatypes/bounds/exclusive-equal-maxExclusive-empty-base`), and the base pattern still applies to its spelling, as for every facet literal (`project/datatypes/bounds/exclusive-equal-maxExclusive-outside-base-pattern`). Restatement equality is value equality: for `time` the equality of [I-045](#i-045--a-time-value-is-its-timezone-normalized-time-of-day), and for `duration` value identity (Duration equality and order above). A `time` literal with the value of the base facet restates it on whatever day its spelling places it, so the base's enumeration does not apply to it (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day-outside-base-enumeration`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day-outside-base-enumeration` valid, as Xerces-J and .NET find; xmlschema and libxml2 reject them). The same-side clause of [I-049](#i-049--same-side-restriction-clauses-order-time-bounds-by-un-wrapped-time) still orders the restatement against the base bound by un-wrapped time: one spelled on the day that does not loosen the base is admitted (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-same-spelling`, `project/datatypes/bounds/exclusive-equal-maxExclusive-time-earlier-day`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-later-day`), and one spelled on the day that loosens it is rejected (`project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day`, `project/datatypes/bounds/exclusive-equal-maxExclusive-time-later-day-negative-offset`, `project/datatypes/bounds/exclusive-equal-minExclusive-time-earlier-day`), where Xerces-J accepts it. Incomparable restriction endpoints need their actual prohibited-comparison wording. Inherited opposite lower-bound kinds retain the same-datatype versus same-step scope question; no blanket rewrite/rejection follows. Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13 on `project/datatypes/bounds/exclusive-equal-*`: libxml2 requires a derived `minExclusive` or `maxExclusive` to lie strictly inside the same facet of the base, so it rejects every restatement, and also applies the base's enumeration and digit facets to it; xmlschema applies the base's enumeration, `totalDigits` and `fractionDigits` to a restatement, and does not take a `dateTime` restatement written in another timezone as equal; .NET does not compare a derived bound with a base bound of another kind (a `maxExclusive` or `minInclusive` against the base `minExclusive`) and does not apply the base pattern to a facet literal; Xerces-J applies clause 4 only through base value-space membership, so a restatement that empties the range passes, and it accepts the `time` restatements spelled on the day that loosens the base. |
 | URI / language / precision | No implicit percent decoding, case folding, normalization or absolutization establishes anyURI equality. No modern language registry rejection follows from its historical pattern. [Double extrema, overflow and documented precision](SOURCES.md#floating-point-source-versions) remain separately qualified. |
 | <a id="entity-member-selection"></a>ENTITY member selection / [10662](https://www.w3.org/Bugs/Public/show_bug.cgi?id=10662) | Full later ENTITY-context assessment is not adopted. In an `ENTITY|string` union a lexical NCName such as `missing` cannot prove normative string fallback: the later [Datatype Valid](https://www.w3.org/TR/2012/REC-xmlschema11-2-20120405/datatypes.html#cvc-datatype-valid) and [String Valid](https://www.w3.org/TR/2012/REC-xmlschema11-1-20120405/#cvc-simple-type) rules separate datatype-valid member selection from ENTITY assessment against document declarations. The current unsupported ENTITY result occurs before facets, so making it immediately terminal could suppress legitimate fallback after an enclosing list or restricted union fails its datatype rules. A complete phase change would need nested value propagation and explicit facet-literal construction semantics; it is not selected under the DTD-unsupported contract. Conformance fallback witnesses use a non-NCName; NCName observations remain qualified evidence without conformance credit. |
-| <a id="observation-product-modality"></a>Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. A finite `minOccurs` or `maxOccurs` above 4294967295 is a library resource limit, the runtime `uint32` cap of [resource limits](../RESOURCE_LIMITS.md), not a validity rule: nonNegativeInteger admits it. `project/architecture-maxoccurs-above-uint32-is-schema-limit` (`maxOccurs="4294967296"`) is accepted by .NET 10.0.14 and xmlschema 4.3.2; `project/architecture-minoccurs-above-uint32-is-schema-limit` (`minOccurs="4294967296"`) is accepted by .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13. Xerces-J 2.12.2 rejects both at its own `int` limit, and libxml2 rejects the `maxOccurs` case. An XML version other than `1.0` is a product exclusion (`unsupported.xml_version`, [I-020](#i-020--xml-name-characters-follow-the-fifth-edition)), not invalidity: the `xml-1-1` instance of `project/xml/opt-out-instance-forms` is valid, as Xerces-J, xmlschema and libxml2 find, and .NET rejects the version number `1.1`. A `maxLength` above 4294967295 and a pattern whose compiled form exceeds the fixed compile bounds of [resource limits](../RESOURCE_LIMITS.md) are library resource limits too: xmlschema and libxml2 accept `project/schema-syntax/facet-values/maxlength-above-uint32`, and Xerces-J, .NET, xmlschema and libxml2 accept `project/schema-syntax/facet-values/pattern-above-compile-limit`. Below the limit, Xerces-J rejects `maxLength` and `maxOccurs` of 4294967295 at its `int` limit and libxml2 rejects that `maxOccurs`, which the library admits (`project/schema-syntax/facet-values/maxlength-uint32`, `project/schema-syntax/occurrence-values/max-uint32`). `project/architecture-derived-model-particles-exceed-dependency-budget` exceeds `MaxSchemaDependencySteps`, a library resource limit; xmlschema and libxml2 accept it. |
+| <a id="observation-product-modality"></a>Observation / product / modality | Missing public canonical/PSVI/component output is unobservable, not covered. Product exclusions and resource/precision refusals are not datatype-invalid oracles. Compatibility recommendations, discouraged constructs and generic error/recovery permissions do not waive explicit must/conformance requirements or create rejection rules. A finite `minOccurs` or `maxOccurs` above 4294967295 is a library resource limit, the runtime `uint32` cap of [resource limits](../RESOURCE_LIMITS.md), not a validity rule: nonNegativeInteger admits it. `project/architecture-maxoccurs-above-uint32-is-schema-limit` (`maxOccurs="4294967296"`) is accepted by .NET 10.0.14 and xmlschema 4.3.2; `project/architecture-minoccurs-above-uint32-is-schema-limit` (`minOccurs="4294967296"`) is accepted by .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13. Xerces-J 2.12.2 rejects both at its own `int` limit, and libxml2 rejects the `maxOccurs` case. An XML version other than `1.0` is a product exclusion (`unsupported.xml_version`, [I-020](#i-020--xml-name-characters-follow-the-fifth-edition)), not invalidity: the `xml-1-1` instance of `project/xml/opt-out-instance-forms` is valid, as Xerces-J, xmlschema and libxml2 find, and .NET rejects the version number `1.1`. A `maxLength` above 4294967295 and a pattern whose compiled form exceeds the fixed compile bounds of [resource limits](../RESOURCE_LIMITS.md) are library resource limits too: xmlschema and libxml2 accept `project/schema-syntax/facet-values/maxlength-above-uint32`, and Xerces-J, .NET, xmlschema and libxml2 accept `project/schema-syntax/facet-values/pattern-above-compile-limit`. Below the limit, Xerces-J rejects `maxLength` and `maxOccurs` of 4294967295 at its `int` limit and libxml2 rejects that `maxOccurs`, which the library admits (`project/schema-syntax/facet-values/maxlength-uint32`, `project/schema-syntax/occurrence-values/max-uint32`). `project/architecture-derived-model-particles-exceed-dependency-budget` exceeds `MaxSchemaDependencySteps`, a library resource limit; xmlschema and libxml2 accept it. The W3C cases whose valid expectation the corpus replaces by such a refusal are measured on the same terms. `w3c/msMeta/Additional_w3c.xml/addB099`, `w3c/msMeta/Group_w3c.xml/groupF009v`, `w3c/msMeta/Group_w3c.xml/groupH009v`, `w3c/msMeta/Group_w3c.xml/groupJ009v`, `w3c/msMeta/Group_w3c.xml/groupL009v`, `w3c/msMeta/Group_w3c.xml/groupN009v`, `w3c/msMeta/Particles_w3c.xml/particlesZ033_a` and `w3c/msMeta/Particles_w3c.xml/particlesZ035_a` have a `minOccurs` or `maxOccurs` above 4294967295: .NET and xmlschema accept them, and Xerces-J and libxml2 reject the value as not a valid `nonNegativeInteger` at their own integer limits. `w3c/msMeta/Particles_w3c.xml/particlesZ033_d` exceeds the content-model DFA state limit, and `w3c/msMeta/Particles_w3c.xml/particlesZ036_b1`, `w3c/msMeta/Particles_w3c.xml/particlesZ036_b2` and `w3c/msMeta/Particles_w3c.xml/particlesZ036_c` exceed `MaxContentModelAnalysisSteps`; Xerces-J, .NET, xmlschema and libxml2 accept all four schemas, and Xerces-J then fails in its content-model builder on the instances of the three `particlesZ036` cases, so it gives no instance verdict. |
 
 Required XSD 1.0 result, WG interpretation, XSD 1.1 change, processor choice,
 unspecified behavior and unavailable observation remain distinct evidence
@@ -1416,6 +1418,16 @@ agree on these cases except that libxml2 accepts two equal `##other` wildcards
 that compete across a nested sequence
 (`project/content-models/attribution/nested-sequence-tail/*`).
 
+Under
+[RecurseAsIfGroup](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-RecurseAsIfGroup)
+the derived element particle `element` of
+`w3c/msMeta/Particles_w3c.xml/particlesZ001`, 0..unbounded, is wrapped in a
+choice of range 1..1 and compared by RecurseLax with the base choice, whose
+`element` branch is 1..1; Occurrence Range OK fails, so the schema is invalid.
+The accepted W3C expectation is valid, but the test's title calls it an
+invalid restriction that becomes valid in XSD 1.1. Xerces-J, .NET and xmlschema
+reject it; libxml2 accepts it.
+
 **Single-member all groups (rule P).** Clause 2.2 of Particle Valid
 (Restriction) calls a group with one member pointless, and its prose names the
 particle's range for `sequence` and `choice` but not for `all`, so whether an
@@ -2024,7 +2036,13 @@ escapes exist: [24] `SingleCharEsc ::= '\' [nrt\|.?*+(){}#x2D#x5B#x5D#x5E]`
 admits no `\q`, and no other escape production does. The category names of
 [35] are `C` and `Cc`, `Cf`, `Co`, `Cn`, and the grammar notes that "the
 properties mentioned above exclude the Cs property", so `\p{Cs}` is not a
-category escape. Block names come from the printed table ([36]).
+category escape. Block names come from the printed table ([36]), whose note
+says "The blocks mentioned above exclude the HighSurrogates, LowSurrogates and
+HighPrivateUseSurrogates blocks", so `\p{IsHighSurrogates}`,
+`\p{IsLowSurrogates}` and `\p{IsHighPrivateUseSurrogates}` name no block. The
+accepted W3C tests `w3c/msMeta/Regex_w3c.xml/HighSurrogates`,
+`w3c/msMeta/Regex_w3c.xml/reM77` and `w3c/msMeta/Regex_w3c.xml/reN75` expect
+patterns using them to be valid; the note outranks them.
 
 Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 
@@ -2036,6 +2054,8 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
   supplementary range is rejected as reversed. Its `.` matches CR, its `\s` is
   Unicode, and it admits `[a]]` and `[a[b]]`.
 - xmlschema uses Python `\s` and `\w`.
+- .NET, xmlschema and libxml2 admit the surrogate block names; Xerces-J
+  rejects them as unknown properties.
 - libxml2 reads a single character followed by `-[` as a range start, so it
   rejects subtraction from a group that ends with a single character
   (`[a-z-[aeiou]]` works). It rejects empty repetitions of a nullable atom and
@@ -2374,9 +2394,14 @@ published 1.0 erratum, and is not adopted.
 
 Observed: Xerces-J 2.12.2 and .NET 10.0.14 reject a facet-free or pattern-only
 restriction and a raw element type but accept NOTATION as a list item or union
-member. xmlschema 4.3.2 and libxml2 2.9.13 accept all five shapes.
+member. xmlschema 4.3.2 and libxml2 2.9.13 accept all five shapes. So Xerces-J,
+.NET, xmlschema and libxml2 accept stE056 through stE065 and
+`w3c/msMeta/Particles_w3c.xml/particlesZ007`, whose union `no` has
+`xs:NOTATION` as a member.
 
-Cases: `project/datatypes/notation/envelopes-constructor-alias-no-enum`, `project/datatypes/notation/envelopes-constructor-list-raw-item`, `project/datatypes/notation/envelopes-constructor-pattern-no-enum`, `project/datatypes/notation/envelopes-constructor-raw-element` and `project/datatypes/notation/envelopes-constructor-union-raw-member`.
+Cases: `w3c/msMeta/SimpleType_w3c.xml/stE056`, `w3c/msMeta/SimpleType_w3c.xml/stE057`, `w3c/msMeta/SimpleType_w3c.xml/stE058`, `w3c/msMeta/SimpleType_w3c.xml/stE059`, `w3c/msMeta/SimpleType_w3c.xml/stE060`, `w3c/msMeta/SimpleType_w3c.xml/stE061`, `w3c/msMeta/SimpleType_w3c.xml/stE062`, `w3c/msMeta/SimpleType_w3c.xml/stE063`, `w3c/msMeta/SimpleType_w3c.xml/stE064`, `w3c/msMeta/SimpleType_w3c.xml/stE065`,
+`w3c/msMeta/Particles_w3c.xml/particlesZ007`,
+`project/datatypes/notation/envelopes-constructor-alias-no-enum`, `project/datatypes/notation/envelopes-constructor-list-raw-item`, `project/datatypes/notation/envelopes-constructor-pattern-no-enum`, `project/datatypes/notation/envelopes-constructor-raw-element` and `project/datatypes/notation/envelopes-constructor-union-raw-member`.
 
 ## I-041 — empty target namespace
 

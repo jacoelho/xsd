@@ -3725,7 +3725,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE056.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -3773,7 +3787,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE057.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -3821,7 +3849,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE058.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -3869,7 +3911,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE059.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -3917,7 +3973,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE060.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -3965,7 +4035,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE061.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -4013,7 +4097,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE062.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -4061,7 +4159,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE063.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -4109,7 +4221,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE064.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
@@ -4157,7 +4283,21 @@
           {
             "file": "corpus/w3c/msData/simpleType/stE065.xsd"
           }
-        ]
+        ],
+        "differences": {
+          "dotnet": {
+            "record": "I-040"
+          },
+          "libxml2": {
+            "record": "I-040"
+          },
+          "xerces": {
+            "record": "I-040"
+          },
+          "xmlschema": {
+            "record": "I-040"
+          }
+        }
       },
       "instances": [
         {
