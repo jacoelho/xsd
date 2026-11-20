@@ -1479,7 +1479,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. Version number '1.1' is invalid. Line 1, position 16. The project expectation follows XML 1.0; the allowlist records each opt-out code; this observation is not a majority-vote oracle."
+              "record": "observation-product-modality"
             }
           }
         },

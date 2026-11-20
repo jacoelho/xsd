@@ -29,4 +29,3 @@ project/double-bounds-nan-upper	schema	dotnet
 project/double-bounds-nan-upper	schema	xerces
 project/double-bounds-nan-upper	zero	libxml2
 project/double-bounds-nan-upper	zero	xmlschema
-project/xml/opt-out-instance-forms	xml-1-1	dotnet
