@@ -1,16 +1,3 @@
-project/content-models/edc-group-definition/referenced-conflicting-types	schema	libxml2
-project/content-models/edc-group-definition/unreferenced-anonymous-types	schema	dotnet
-project/content-models/edc-group-definition/unreferenced-anonymous-types	schema	libxml2
-project/content-models/edc-group-definition/unreferenced-anonymous-types	schema	xerces
-project/content-models/edc-group-definition/unreferenced-anonymous-types	schema	xmlschema
-project/content-models/edc-group-definition/unreferenced-conflicting-types	schema	dotnet
-project/content-models/edc-group-definition/unreferenced-conflicting-types	schema	libxml2
-project/content-models/edc-group-definition/unreferenced-conflicting-types	schema	xerces
-project/content-models/edc-group-definition/unreferenced-conflicting-types	schema	xmlschema
-project/content-models/edc-group-definition/unreferenced-nested-conflict	schema	dotnet
-project/content-models/edc-group-definition/unreferenced-nested-conflict	schema	libxml2
-project/content-models/edc-group-definition/unreferenced-nested-conflict	schema	xerces
-project/content-models/edc-group-definition/unreferenced-nested-conflict	schema	xmlschema
 project/datatypes/name-fifth-edition-chars	initial-u0132	dotnet
 project/datatypes/name-fifth-edition-chars	initial-u0132	libxml2
 project/datatypes/name-fifth-edition-chars	initial-u0132	xerces

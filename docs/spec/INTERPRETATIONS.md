@@ -1231,6 +1231,17 @@ declarations whose types are distinct, anonymous or named, including
 `project/content-models/edc-same-declaration/local-different-named-types`;
 Xerces-J 2.12.2 rejects each.
 
+[§3.8.6](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#coss-modelGroup)
+requires that "all model groups" satisfy the rule, and the {model group} of a
+named model group definition is one whether or not any complex type refers to
+it, so a named group whose declarations conflict is invalid unreferenced. The
+text decides the scope, so processor results do not. Xerces-J 2.12.2, .NET
+10.0.14 and xmlschema 4.3.2 reject such a group only once a complex type refers
+to it, and accept it unreferenced, with named or anonymous types, directly or
+in a nested compositor (`project/content-models/edc-group-definition/unreferenced-*`).
+libxml2 2.9.13 accepts it referenced as well
+(`project/content-models/edc-group-definition/referenced-conflicting-types`).
+
 ## I-027 — derivation control and actual substitution groups
 
 **Status:** published XSD 1.0 rules; the text decides each case except union

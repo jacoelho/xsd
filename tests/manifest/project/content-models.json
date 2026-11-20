@@ -26333,16 +26333,16 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: Xerces-J rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on complex type content models only, not on the model group of an unreferenced named group definition."
+            "record": "I-026"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: .NET rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on compiled complex type content models only, not on the model group of an unreferenced named group definition."
+            "record": "I-026"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: xmlschema rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); XsdGlobals runs check_model only over XsdComplexType content, so the model group of an unreferenced named group definition is never checked."
+            "record": "I-026"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading."
+            "record": "I-026"
           }
         }
       },
@@ -26383,16 +26383,16 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: Xerces-J rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on complex type content models only, not on the model group of an unreferenced named group definition."
+            "record": "I-026"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: .NET rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on compiled complex type content models only, not on the model group of an unreferenced named group definition."
+            "record": "I-026"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: xmlschema rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); XsdGlobals runs check_model only over XsdComplexType content, so the model group of an unreferenced named group definition is never checked."
+            "record": "I-026"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading."
+            "record": "I-026"
           }
         }
       },
@@ -26433,16 +26433,16 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: Xerces-J rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on complex type content models only, not on the model group of an unreferenced named group definition."
+            "record": "I-026"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: .NET rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); it checks EDC on compiled complex type content models only, not on the model group of an unreferenced named group definition."
+            "record": "I-026"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: xmlschema rejects a conflicting group once a complex type references it (project/content-models/edc-group-definition/referenced-conflicting-types); XsdGlobals runs check_model only over XsdComplexType content, so the model group of an unreferenced named group definition is never checked."
+            "record": "I-026"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading."
+            "record": "I-026"
           }
         }
       },
@@ -26748,7 +26748,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Structures 3.8.6 Element Declarations Consistent, a constraint on every model group, which src-model_group_defn applies to the model group of each named group definition whether or not it is referenced; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 also accepts project/content-models/edc-same-declaration/local-different-named-types, two local declarations of one name with the different named types xs:string and xs:int in one complex type, so it reports no Element Declarations Consistent violation in these fixtures; its acceptance is not evidence about the declaration-counting reading."
+            "record": "I-026"
           }
         }
       },
