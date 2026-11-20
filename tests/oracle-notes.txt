@@ -1,5 +1,3 @@
-project/architecture-derived-model-particles-exceed-dependency-budget	schema	libxml2
-project/architecture-derived-model-particles-exceed-dependency-budget	schema	xmlschema
 project/content-models/edc-group-definition/referenced-conflicting-types	schema	libxml2
 project/content-models/edc-group-definition/unreferenced-anonymous-types	schema	dotnet
 project/content-models/edc-group-definition/unreferenced-anonymous-types	schema	libxml2
@@ -50,19 +48,4 @@ project/elements/xsi-type-boundaries/wildcard-lax-type-assessment	abstract-type	
 project/elements/xsi-type-boundaries/wildcard-lax-type-assessment	unknown-type	dotnet
 project/elements/xsi-type-boundaries/wildcard-strict-type-assessment	known-integer	libxml2
 project/elements/xsi-type-boundaries/wildcard-strict-type-assessment	required-present	libxml2
-project/namespace-undeclared-root-can-be-assessed-by-xsi-type	valid-whitespace-padded-type	libxml2
-project/namespace-undeclared-root-can-be-assessed-by-xsi-type	valid-xsi-type	libxml2
-project/prohibited-no-component-xmlns-name-prohibited	schema	dotnet
-project/prohibited-no-component-xmlns-name-prohibited	schema	libxml2
-project/prohibited-no-component-xmlns-name-prohibited	schema	xerces
-project/prohibited-no-component-xmlns-name-prohibited	schema	xmlschema
 project/xml/opt-out-instance-forms	xml-1-1	dotnet
-project/xsi-schema-location-hint-lax-unknown	invalid-item	dotnet
-project/xsi-schema-location-hint-lax-unknown	invalid-item	libxml2
-project/xsi-schema-location-hint-lax-unknown	invalid-item	xmlschema
-project/xsi-schema-location-hint-syntax	invalid-no-namespace-uri	dotnet
-project/xsi-schema-location-hint-syntax	invalid-no-namespace-uri	libxml2
-project/xsi-schema-location-hint-syntax	invalid-no-namespace-uri	xmlschema
-project/xsi-schema-location-hint-syntax	invalid-uri-field	dotnet
-project/xsi-schema-location-hint-syntax	invalid-uri-field	libxml2
-project/xsi-schema-location-hint-syntax	invalid-uri-field	xmlschema
