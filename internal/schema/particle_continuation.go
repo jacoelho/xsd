@@ -5,11 +5,10 @@ import (
 	"slices"
 )
 
-// continuationSets holds the particles of one particle that compete with the
-// particles after it in a sequence (cos-nonambig), as two shared slices: the
-// start particles of its group when the particle repeats, and the
-// continuation set of its model or, for a repeated element or wildcard, the
-// particle itself. Callers must not write either slice.
+// continuationSets lists the particles inside one sequence member that can
+// meet the members after it, which Unique Particle Attribution
+// (cos-nonambig) checks. Both slices are shared with the analysis cache, so
+// callers must not write either slice.
 type continuationSets [2][]contentParticle
 
 // ParticleContinuations returns the continuation sets of particles[i].
