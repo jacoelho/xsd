@@ -32448,6 +32448,558 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The mixed extension D adds only an attribute, so its ·effective content· is the synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not empty, and its {content type} is the 1..1 sequence of the base particle and that empty sequence (clause 3.2.3). Particle Valid (Restriction) clause 2.2 ignores the empty sequence but tests the declared sequence for pointlessness only as declared, with two members, so a restriction of D compares against a sequence."
+        ],
+        "description": "A choice restricts a mixed attribute-only extension of a repeated choice type: choice restriction of a sequence is forbidden."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "clause": "2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The element-only extension D adds only an attribute, so its ·effective content· is empty and its {content type} is the base {content type} (§3.4.2 complex content clause 3.2.1); a restriction of D compares against the base particle."
+        ],
+        "description": "A choice restricts an element-only attribute-only extension of a repeated choice type."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "3.2.1"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-choice-restriction-unmixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The mixed extension D adds only an attribute, so its ·effective content· is the synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not empty, and its {content type} is the 1..1 sequence of the base particle and that empty sequence (clause 3.2.3). Particle Valid (Restriction) clause 2.2 ignores the empty sequence but tests the declared sequence for pointlessness only as declared, with two members, so a restriction of D compares against a sequence."
+        ],
+        "description": "A copy of the base choice restricts a mixed attribute-only extension of that choice type: choice restriction of a sequence is forbidden."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "clause": "2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The element-only extension D adds only an attribute, so its ·effective content· is empty and its {content type} is the base {content type} (§3.4.2 complex content clause 3.2.1); a restriction of D compares against the base particle."
+        ],
+        "description": "A copy of the base choice restricts an element-only attribute-only extension of that choice type."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "3.2.1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-same-choice-restriction-unmixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The mixed extension D adds only an attribute, so its ·effective content· is the synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not empty, and its {content type} is the 1..1 sequence of the base particle and that empty sequence (clause 3.2.3). Particle Valid (Restriction) clause 2.2 ignores the empty sequence but tests the declared sequence for pointlessness only as declared, with two members, so a restriction of D compares against a sequence. A derived 1..1 sequence with one member is pointless and reduces to that choice."
+        ],
+        "description": "A sequence of one choice restricts a mixed attribute-only extension of a repeated choice type: the pointless sequence reduces to the choice."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "clause": "2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-wrapper-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The mixed extension D adds only an attribute, so its ·effective content· is the synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not empty, and its {content type} is the 1..1 sequence of the base particle and that empty sequence (clause 3.2.3). Particle Valid (Restriction) clause 2.2 ignores the empty sequence but tests the declared sequence for pointlessness only as declared, with two members, so a restriction of D compares against a sequence. A derived sequence declared with a choice and an empty sequence keeps its two members, the choice restricts the base choice, and both empty sequences are ignored."
+        ],
+        "description": "A sequence of a choice and an empty sequence restricts a mixed attribute-only extension of a repeated choice type."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "3.2.3"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/choice-base-sequence-pair-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The mixed extension D adds only an attribute, so its ·effective content· is the synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not empty, and its {content type} is the 1..1 sequence of the base particle and that empty sequence (clause 3.2.3). Particle Valid (Restriction) clause 2.2 ignores the empty sequence but tests the declared sequence for pointlessness only as declared, with two members, so a restriction of D compares against a sequence."
+        ],
+        "description": "A sequence 0..3 restricts a mixed attribute-only extension of a repeated sequence type: its range is not within the 1..1 range of the extension's sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "clause": "1"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The element-only extension D adds only an attribute, so its ·effective content· is empty and its {content type} is the base {content type} (§3.4.2 complex content clause 3.2.1); a restriction of D compares against the base particle."
+        ],
+        "description": "A sequence 0..3 restricts an element-only attribute-only extension of a repeated sequence type."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "3.2.1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-bounded-restriction-unmixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The mixed extension D adds only an attribute, so its ·effective content· is the synthetic empty sequence (§3.4.2 complex content clause 2.1.4), which is not empty, and its {content type} is the 1..1 sequence of the base particle and that empty sequence (clause 3.2.3). Particle Valid (Restriction) clause 2.2 ignores the empty sequence but tests the declared sequence for pointlessness only as declared, with two members, so a restriction of D compares against a sequence."
+        ],
+        "description": "A copy of the base sequence restricts a mixed attribute-only extension of that sequence type: its range is not within the 1..1 range of the extension's sequence."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "clause": "1"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "The element-only extension D adds only an attribute, so its ·effective content· is empty and its {content type} is the base {content type} (§3.4.2 complex content clause 3.2.1); a restriction of D compares against the base particle."
+        ],
+        "description": "A copy of the base sequence restricts an element-only attribute-only extension of that sequence type."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "3.2.1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/sequence-base-same-restriction-unmixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "D extends xs:anyType with only an attribute. Mixed, its {content type} is the 1..1 sequence of xs:anyType's particle and the synthetic empty sequence (§3.4.2 complex content clauses 2.1.4 and 3.2.3), so sequence(a, b) must map both members into the one wildcard-holding member of that sequence (Recurse). Element-only, D takes xs:anyType's {content type} (clause 3.2.1), whose lax ##any wildcard 0..unbounded admits sequence(a, b) (NSRecurseCheckCardinality). D's base is not xs:anyType, so the ur-type exemption of Derivation Valid (Restriction, Complex) clause 5.1 does not apply."
+        ],
+        "description": "An element-only sequence(a, b) restricts a mixed attribute-only extension of xs:anyType: both members cannot map to its one wildcard-holding member."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "clause": "2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "D extends xs:anyType with only an attribute. Mixed, its {content type} is the 1..1 sequence of xs:anyType's particle and the synthetic empty sequence (§3.4.2 complex content clauses 2.1.4 and 3.2.3), so sequence(a, b) must map both members into the one wildcard-holding member of that sequence (Recurse). Element-only, D takes xs:anyType's {content type} (clause 3.2.1), whose lax ##any wildcard 0..unbounded admits sequence(a, b) (NSRecurseCheckCardinality). D's base is not xs:anyType, so the ur-type exemption of Derivation Valid (Restriction, Complex) clause 5.1 does not apply."
+        ],
+        "description": "A mixed sequence(a, b) restricts a mixed attribute-only extension of xs:anyType: both members cannot map to its one wildcard-holding member."
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "clause": "2"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-mixed.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict"
+        ],
+        "conditions": [
+          "D extends xs:anyType with only an attribute. Mixed, its {content type} is the 1..1 sequence of xs:anyType's particle and the synthetic empty sequence (§3.4.2 complex content clauses 2.1.4 and 3.2.3), so sequence(a, b) must map both members into the one wildcard-holding member of that sequence (Recurse). Element-only, D takes xs:anyType's {content type} (clause 3.2.1), whose lax ##any wildcard 0..unbounded admits sequence(a, b) (NSRecurseCheckCardinality). D's base is not xs:anyType, so the ur-type exemption of Derivation Valid (Restriction, Complex) clause 5.1 does not apply."
+        ],
+        "description": "An element-only sequence(a, b) restricts an element-only attribute-only extension of xs:anyType."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-type",
+          "clause": "3.2.1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/type-derivation/extension-content/mixed-attribute-extension/anytype-base-sequence-restriction-unmixed.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

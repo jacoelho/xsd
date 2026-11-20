@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="a"/>
+  <xs:element name="b"/>
+  <xs:complexType name="B" mixed="true"><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="a"/><xs:element ref="b"/></xs:choice></xs:complexType>
+  <xs:complexType name="D"><xs:complexContent mixed="true"><xs:extension base="B"><xs:attribute name="x"/></xs:extension></xs:complexContent></xs:complexType>
+  <xs:complexType name="R"><xs:complexContent mixed="true"><xs:restriction base="D"><xs:sequence><xs:choice minOccurs="0" maxOccurs="unbounded"><xs:element ref="a"/></xs:choice><xs:sequence/></xs:sequence><xs:attribute name="x"/></xs:restriction></xs:complexContent></xs:complexType>
+  <xs:element name="r" type="R"/>
+</xs:schema>

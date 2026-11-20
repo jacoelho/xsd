@@ -1458,6 +1458,28 @@ an `all` group, the sequence violates
 [All Group Limited](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-all-limited)
 clause 1.2. Xerces-J and libxml2 reject it; .NET and xmlschema accept it
 (`project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`).
+
+The same clause 3.2.3 sequence is the {content type} of a mixed extension
+that adds only attributes to a base that is not empty, xs:anyType included, so
+a restriction of such a type compares against a 1..1 sequence of the base
+particle and an empty sequence. Particle Valid (Restriction) clause 2.2 ignores
+the empty sequence but decides pointlessness on the declared sequence, which
+has two members (the declared pointless groups rule above), so the comparison
+keeps the sequence: a repeated choice, even a copy of the base choice or a
+choice reduced from a pointless derived sequence, may not restrict it
+(Choice:Sequence is forbidden), a sequence with a range other than 1..1 may
+not, and a sequence of a choice and an empty sequence may. Over xs:anyType,
+`sequence(a, b)` cannot map both members into the one member that holds the
+wildcard (Recurse), and the ur-type exemption of clause 5.1 does not apply
+because the base is the extension. The element-only extension of the same base
+takes the base {content type} (clause 3.2.1) and accepts every one of these
+restrictions. The text decides these, and Xerces-J agrees on every case. .NET
+and libxml2 accept every restriction; xmlschema rejects a restriction of an
+element-only repeated choice by a narrower choice, which the text admits,
+rejects the sequence of a choice and an empty sequence, and accepts every
+invalid restriction except a narrower choice of the mixed extension. Cases:
+`project/content-models/type-derivation/extension-content/mixed-attribute-extension/*`.
+
 An `all` group with no members is empty explicit content (clause 2.1.2), so
 in a mixed type its particle is that synthetic empty sequence, not an `all`
 group: a mixed extension with an empty `all` extends a mixed sequence type,
@@ -1556,6 +1578,7 @@ Cases: `project/content-models/contrasts-particle-*`,
 `project/content-models/type-derivation/extension-content/mixed-empty-extension-all-base`,
 `project/content-models/type-derivation/extension-content/mixed-empty-all-extension`,
 `project/content-models/type-derivation/extension-content/mixed-empty-all-base`,
+`project/content-models/type-derivation/extension-content/mixed-attribute-extension/*`,
 `project/content-models/type-derivation/simple-base-mixed-extension-*`,
 `project/content-models/type-derivation/urtype-content/*`,
 `project/content-models/wildcard-restriction-*`,
