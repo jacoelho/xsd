@@ -4592,6 +4592,14 @@
             "reason": "Original W3C expectation is valid; the test title itself notes the schema is possibly invalid in XSD 1.0. Under I-016 a union with an xs:ID member carries ID, so the element value constraint fixed=\"a\" violates e-props-correct.5 (W3C bug 10662; XSD 1.1 recursive ID-ness).",
             "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct"
           }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-016"
+          },
+          "libxml2": {
+            "record": "I-016"
+          }
         }
       },
       "instances": [
