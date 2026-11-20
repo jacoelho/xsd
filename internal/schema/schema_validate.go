@@ -832,7 +832,7 @@ func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, e
 		return xsderrors.InternalInvariant(label + err.Error())
 	}
 	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
-	if err := validateValueConstraintQNameContext(application, vc.qnameContext, vc.ResolvedNames); err != nil {
+	if err := validateResolvedNameProof(application, vc.ResolvedNames); err != nil {
 		return xsderrors.InternalInvariant(label + err.Error())
 	}
 	return nil

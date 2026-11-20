@@ -17,7 +17,6 @@ import (
 // union, never the member that accepted the text; publication rejects a
 // member-typed cache even when that member accepts the same lexical value.
 type valueConstraint struct {
-	qnameContext  *valueConstraintQNameContext
 	Lexical       string
 	Canonical     string
 	ResolvedNames []resolvedValueName
@@ -123,10 +122,9 @@ type valueConstraintValidation struct {
 // ValueConstraintRead exposes prevalidated default/fixed value data to
 // validation without exposing compiler-owned pointer storage.
 type ValueConstraintRead struct {
-	qnameContext *valueConstraintQNameContext
-	application  string
-	canonical    string
-	value        valuepkg.Value
+	application string
+	canonical   string
+	value       valuepkg.Value
 }
 
 // newValueConstraintRead returns the immutable validation read projection for
@@ -146,9 +144,7 @@ func newValueConstraintReadFromConstraint(vc *valueConstraint) (ValueConstraintR
 		return ValueConstraintRead{}, false
 	}
 	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
-	read := newValueConstraintRead(application, vc.Canonical, vc.Value)
-	read.qnameContext = cloneValueConstraintQNameContext(vc.qnameContext)
-	return read, true
+	return newValueConstraintRead(application, vc.Canonical, vc.Value), true
 }
 
 func valueConstraintApplication(lexical, canonical string, value valuepkg.Value) string {
@@ -173,12 +169,6 @@ func (v ValueConstraintRead) CanonicalText() string {
 // Value returns the cached canonical value.
 func (v ValueConstraintRead) Value() valuepkg.Value {
 	return v.value
-}
-
-// ResolveQName resolves a QName in the schema namespace context captured for
-// this constraint. It is repeatable and does not consume proof entries.
-func (v ValueConstraintRead) ResolveQName(lexical string) (valuepkg.ExpandedName, bool) {
-	return v.qnameContext.ResolveQName(lexical)
 }
 
 // ElementValueConstraints exposes prevalidated default/fixed values attached to
@@ -283,7 +273,6 @@ func resolvedValueNameLexicalParts(lexical string) lex.QNameParts {
 // constraintIdentity is the equality projection used when runtime rules
 // must prove that an inherited value constraint was preserved unchanged.
 type constraintIdentity struct {
-	qnameContext  *valueConstraintQNameContext
 	Lexical       string
 	Canonical     string
 	ResolvedNames []resolvedValueName
@@ -302,7 +291,6 @@ func newValueConstraintIdentity(vc *valueConstraint) constraintIdentity {
 		Lexical:       vc.Lexical,
 		Canonical:     vc.Canonical,
 		Value:         vc.Value,
-		qnameContext:  vc.qnameContext,
 		Present:       true,
 	})
 }
@@ -317,9 +305,6 @@ func valueConstraintIdentityEqual(a, b constraintIdentity) bool {
 		return true
 	}
 	if a.Lexical != b.Lexical || a.Canonical != b.Canonical || !slices.Equal(a.ResolvedNames, b.ResolvedNames) {
-		return false
-	}
-	if !equalValueConstraintQNameContexts(a.qnameContext, b.qnameContext) {
 		return false
 	}
 	if a.Value.Type() == valuepkg.NoType || b.Value.Type() == valuepkg.NoType {
@@ -465,6 +450,25 @@ func validateValueConstraintShape(rt *schemaBuild, vc valueConstraintValidation,
 	}
 	if vc.Value.CanonicalText() != vc.Canonical {
 		return errors.New("canonical value mismatch")
+	}
+	return nil
+}
+
+// validateResolvedNameProof checks that each proof entry is a valid QName
+// field of the application text. Membership only: a union retry can record one
+// field more than once.
+func validateResolvedNameProof(application string, names []resolvedValueName) error {
+	fields := make(map[string]struct{})
+	for field := range lex.XMLFieldsSeq(application) {
+		fields[field] = struct{}{}
+	}
+	for _, entry := range names {
+		if _, ok := fields[entry.Lexical]; !ok {
+			return errors.New("resolved name proof is not used by the value constraint")
+		}
+		if !resolvedValueNameLexicalParts(entry.Lexical).Valid {
+			return errors.New("resolved name proof is not a valid QName")
+		}
 	}
 	return nil
 }

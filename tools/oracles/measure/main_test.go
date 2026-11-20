@@ -75,6 +75,34 @@ func TestRecordMeasuresACaseOfAShardWithNoObservationFile(t *testing.T) {
 	}
 }
 
+func TestRecordPartialRunDropsRowsOfRemovedCases(t *testing.T) {
+	t.Chdir(t.TempDir())
+	const keptRow = "project/a\tschema\txerces\tschema-valid\t\n"
+	writeTestTree(t, map[string]string{
+		corpus.IndexPath:                  `{"version":"2.0","specification":"XSD 1.0","shards":["project/top-level"]}`,
+		"manifest/project/top-level.json": `{"cases":[{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"a.xsd"}]}},{"id":"project/renamed","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"r.xsd"}]}}]}`,
+		corpus.ProfilePath:                `{"providers":{"xerces":"Xerces-J 2.12.2","dotnet":".NET 10.0.14","xmlschema":"xmlschema 4.3.2","libxml2":"libxml2 2.9.13"},"date":"2026-11-19","image":"` + testDigest + `"}`,
+		"oracles/top-level.tsv":           keptRow + "project/old-name\tschema\txerces\tschema-valid\t\n",
+	})
+	inv, err := corpus.LoadInventory(os.DirFS("tests"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	measured := corpus.Row{CaseID: "project/renamed", Phase: corpus.SchemaPhase, Provider: corpus.Xerces, Verdict: corpus.SchemaValid}
+	results := map[string]caseResult{"project/renamed": {
+		versions: map[corpus.Provider]string{corpus.Xerces: "Xerces-J 2.12.2"},
+		rows:     []corpus.Row{measured},
+	}}
+
+	if err := record(&inv, results, false, testDigest); err != nil {
+		t.Fatalf("record() error = %v", err)
+	}
+
+	if got, want := readTestTree(t, "oracles/top-level.tsv"), keptRow+measured.String()+"\n"; got != want {
+		t.Fatalf("oracles/top-level.tsv = %q, want %q", got, want)
+	}
+}
+
 func TestRecordRefusesAPartialRunAgainstAnotherProfileWithoutWriting(t *testing.T) {
 	tests := []struct {
 		name     string

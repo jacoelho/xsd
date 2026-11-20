@@ -41,20 +41,16 @@ func TestAttributeUseRead(t *testing.T) {
 	fixed := &valueConstraint{
 		Lexical: "p:item", Canonical: "{urn:fixed}item", Value: fixedValue,
 		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:fixed", Local: "item"}},
-		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
 		Fixed:         true,
 	}
 	def := &valueConstraint{
 		Lexical: "p:item", Canonical: "{urn:default}item", Value: defaultValue,
 		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:default", Local: "item"}},
-		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:default", bound: true}}},
 	}
 	use := newAttributeUseRead(&names, attributeUse{
 		Name: name, Type: 7, ValueConstraint: fixed, Required: true,
 	})
 	defaulted := newAttributeUseRead(&names, attributeUse{Name: name, Type: 7, ValueConstraint: def})
-	fixed.qnameContext.bindings[0].namespace = "urn:changed"
-	def.qnameContext.bindings[0].bound = false
 	if use.Name() != name {
 		t.Fatalf("Name() = %v, want %v", use.Name(), name)
 	}
@@ -72,18 +68,12 @@ func TestAttributeUseRead(t *testing.T) {
 		if !hasFixed || fixedRead.ApplicationText() != "p:item" || fixedRead.CanonicalText() != "{urn:fixed}item" || fixedRead.Value().CanonicalText() != "{urn:fixed}item" || !fixedRead.Value().Equal(fixedValue) {
 			t.Fatalf("FixedValue() = %+v, %v; want p:item, {urn:fixed}item, typed QName, true", fixedRead, hasFixed)
 		}
-		if resolved, ok := fixedRead.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:fixed", Local: "item"}) {
-			t.Fatalf("fixed QName = %v, %v; want {urn:fixed}item, true", resolved, ok)
-		}
 		if got, ok := use.AbsentValueConstraint(); !ok || got != fixedRead {
 			t.Fatalf("AbsentValueConstraint() = %+v, %v; want fixed, true", got, ok)
 		}
 		defaultRead, hasDefault := defaulted.AbsentValueConstraint()
 		if !hasDefault || defaultRead.ApplicationText() != "p:item" || defaultRead.CanonicalText() != "{urn:default}item" || defaultRead.Value().CanonicalText() != "{urn:default}item" || !defaultRead.Value().Equal(defaultValue) {
 			t.Fatalf("AbsentValueConstraint(defaulted) = %+v, %v; want p:item, {urn:default}item, typed QName, true", defaultRead, hasDefault)
-		}
-		if resolved, ok := defaultRead.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:default", Local: "item"}) {
-			t.Fatalf("default QName = %v, %v; want {urn:default}item, true", resolved, ok)
 		}
 		if got, ok := defaulted.FixedValue(); ok || got != (ValueConstraintRead{}) {
 			t.Fatalf("defaulted FixedValue() = %+v, %v; want zero, false", got, ok)
@@ -125,14 +115,12 @@ func TestAttributeDeclRead(t *testing.T) {
 	fixed := &valueConstraint{
 		Lexical: "p:item", Canonical: "{urn:fixed}item", Value: value,
 		ResolvedNames: []resolvedValueName{{Lexical: "p:item", NS: "urn:fixed", Local: "item"}},
-		qnameContext:  &valueConstraintQNameContext{bindings: []valueConstraintQNameBinding{{prefix: "p", namespace: "urn:fixed", bound: true}}},
 		Fixed:         true,
 	}
 	def := *fixed
 	def.Fixed = false
 	decl := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, ValueConstraint: fixed})
 	defaultOnly := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, ValueConstraint: &def})
-	fixed.qnameContext.bindings[0].namespace = "urn:changed"
 	if decl.Name() != name {
 		t.Fatalf("Name() = %v, want %v", decl.Name(), name)
 	}
@@ -143,9 +131,6 @@ func TestAttributeDeclRead(t *testing.T) {
 		got, present := decl.FixedValue()
 		if !present || got.ApplicationText() != "p:item" || got.CanonicalText() != "{urn:fixed}item" || got.Value().CanonicalText() != "{urn:fixed}item" || !got.Value().Equal(value) {
 			t.Fatalf("FixedValue() = %+v, %v; want p:item, {urn:fixed}item, typed QName, true", got, present)
-		}
-		if resolved, ok := got.ResolveQName("p:item"); !ok || resolved != (valuepkg.ExpandedName{Namespace: "urn:fixed", Local: "item"}) {
-			t.Fatalf("declaration QName = %v, %v; want {urn:fixed}item, true", resolved, ok)
 		}
 	}
 	if got, ok := defaultOnly.FixedValue(); ok || got != (ValueConstraintRead{}) {

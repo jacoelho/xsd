@@ -631,7 +631,8 @@ func providerVersions(results map[string]caseResult) (map[corpus.Provider]string
 	return versions, nil
 }
 
-// unmeasuredRows returns the existing rows of every case not in results. The
+// unmeasuredRows returns the existing rows of every project case of inv not in
+// results, dropping rows of cases inv no longer holds. The
 // profile they come from must name image digest and every version in versions.
 // It reads the tree without writing to it, so a refused run leaves it unchanged.
 func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest string, versions map[corpus.Provider]string) ([]corpus.Row, error) {
@@ -651,10 +652,21 @@ func unmeasuredRows(inv *corpus.Inventory, results map[string]caseResult, digest
 			return nil, fmt.Errorf("%s is %q in %s but %q now; measure every project case", p, obs.Profile.Providers[p], corpus.ProfilePath, v)
 		}
 	}
+	project := projectCaseIDs(inv)
 	return slices.DeleteFunc(obs.Rows, func(r corpus.Row) bool {
 		_, measured := results[r.CaseID]
-		return measured
+		return measured || !project[r.CaseID]
 	}), nil
+}
+
+func projectCaseIDs(inv *corpus.Inventory) map[string]bool {
+	ids := make(map[string]bool, len(inv.Cases))
+	for i := range inv.Cases {
+		if inv.Cases[i].ExpectedSource == corpus.SourceProject {
+			ids[inv.Cases[i].ID] = true
+		}
+	}
+	return ids
 }
 
 // recordedObservations returns the profile and every observation file of inv

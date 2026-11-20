@@ -19,6 +19,5 @@ func cloneSimpleTypeDerivation(in simpleTypeDerivation) simpleTypeDerivation {
 // projection metadata.
 func cloneValueConstraintIdentity(in constraintIdentity) constraintIdentity {
 	in.ResolvedNames = slices.Clone(in.ResolvedNames)
-	in.qnameContext = cloneValueConstraintQNameContext(in.qnameContext)
 	return in
 }

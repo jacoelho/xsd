@@ -9103,13 +9103,13 @@
       ]
     },
     {
-      "id": "project/qname-constraint-schema-context",
+      "id": "project/qname-constraint-instance-context",
       "expectedSource": "project",
       "source": {
         "kind": "project",
         "package": "runtime",
-        "sourceFile": "tests/corpus/project/datatypes/qname/qname-constraint-schema-context",
-        "description": "Selected library interpretation I-013 in docs/spec/INTERPRETATIONS.md: QName declaration constraints retain schema namespace context during xsi:type revalidation, including actual-type facets. The 2004 canonical/context integration gap is not settled by processor agreement; explicit instance text still uses instance bindings.",
+        "sourceFile": "tests/corpus/project/datatypes/qname/qname-constraint-instance-context",
+        "description": "I-013 in docs/spec/INTERPRETATIONS.md: an element default or fixed value applied under xsi:type (cvc-elt clause 5.1.1) is validated against the actual type with its QName spelling resolved in the instance namespace scope, so a missing or rebound prefix makes it invalid and a prefix bound to another namespace gives another value. Without xsi:type the declared value is used unchanged.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#QName"
@@ -9119,98 +9119,202 @@
         "expected": "valid",
         "documents": [
           {
-            "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/schema.xsd",
+            "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/schema.xsd",
             "role": "principal"
           }
         ],
         "rule": {
           "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
-          "clause": "I-013 in docs/spec/INTERPRETATIONS.md (QName element constraints under xsi:type keep the schema namespace context); this observation is not a majority-vote oracle"
+          "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
         }
       },
       "instances": [
         {
           "testName": "default-missing-prefix",
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/default-missing-prefix.xml",
-          "expected": "valid",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-missing-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
           "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
-          },
-          "differences": {
-            "xerces": {
-              "note": "Observed offline with Xerces-J 2.12.2 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "dotnet": {
-              "note": "Observed offline with .NET 10.0.9 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "libxml2": {
-              "note": "Observed offline with native libxml2 2.9.13 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            }
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
           }
         },
         {
           "testName": "default-rebound-prefix",
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/default-rebound-prefix.xml",
-          "expected": "valid",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-rebound-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
           "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
-          },
-          "differences": {
-            "xerces": {
-              "note": "Observed offline with Xerces-J 2.12.2 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "dotnet": {
-              "note": "Observed offline with .NET 10.0.9 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "libxml2": {
-              "note": "Observed offline with native libxml2 2.9.13 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            }
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
           }
         },
         {
           "testName": "fixed-missing-prefix",
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/fixed-missing-prefix.xml",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-missing-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          }
+        },
+        {
+          "testName": "default-bound-prefix",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-bound-prefix.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt"
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          }
+        },
+        {
+          "testName": "default-other-binding",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-other-binding.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          }
+        },
+        {
+          "testName": "fixed-other-binding",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-other-binding.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          }
+        },
+        {
+          "testName": "fixed-explicit-text",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-explicit-text.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          }
+        },
+        {
+          "testName": "no-xsi-type-missing-prefix",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/no-xsi-type-missing-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
           },
           "differences": {
-            "xerces": {
-              "note": "Observed offline with Xerces-J 2.12.2 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
             "dotnet": {
-              "note": "Observed offline with .NET 10.0.9 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
+              "record": "I-013"
+            }
+          }
+        },
+        {
+          "testName": "fixed-no-xsi-type-missing-prefix",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-no-xsi-type-missing-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-013"
+            }
+          }
+        },
+        {
+          "testName": "no-xsi-type-rebound-prefix",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/no-xsi-type-rebound-prefix.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          }
+        },
+        {
+          "testName": "declared-facet-rebound-prefix",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/declared-facet-rebound-prefix.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-013"
+            }
+          }
+        },
+        {
+          "testName": "attribute-default-missing-prefix",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/attribute-default-missing-prefix.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "I-013 in docs/spec/INTERPRETATIONS.md (an element value constraint applied under xsi:type resolves its QName spelling in instance scope)"
+          },
+          "differences": {
             "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
-            },
-            "libxml2": {
-              "note": "Observed offline with native libxml2 2.9.13 on unchanged explicit roots and file bytes: instance assessed invalid. Selected interpretation I-013 preserves the schema namespace context of a QName declaration constraint during xsi:type revalidation. cvc-elt 5.1.1–5.1.2 requires a canonical lexical representation that QName does not define, leaving the synthetic resolver unspecified. The processor instead replays the spelling in instance context. This is a source-qualified interoperability difference, not a confirmed processor or Go defect; actual-type facets remain enforced."
+              "record": "I-013"
             }
           }
         }
       ],
       "files": [
         {
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/schema.xsd",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/schema.xsd",
           "role": "principal"
         },
         {
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/default-missing-prefix.xml",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/attribute-default-missing-prefix.xml",
           "role": "instance"
         },
         {
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/default-rebound-prefix.xml",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/declared-facet-rebound-prefix.xml",
           "role": "instance"
         },
         {
-          "file": "corpus/project/datatypes/qname/qname-constraint-schema-context/fixed-missing-prefix.xml",
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-bound-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-missing-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-other-binding.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/default-rebound-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-explicit-text.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-missing-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-no-xsi-type-missing-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/fixed-other-binding.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/no-xsi-type-missing-prefix.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/qname/qname-constraint-instance-context/no-xsi-type-rebound-prefix.xml",
           "role": "instance"
         }
       ]

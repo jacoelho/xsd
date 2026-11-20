@@ -2494,22 +2494,58 @@ project/prohibited-no-component-xmlns-name-prohibited	schema	dotnet	schema-inval
 project/prohibited-no-component-xmlns-name-prohibited	schema	libxml2	schema-invalid	xmlns-name-prohibited.xsd:1: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'name': The value of the attribute must not match 'xmlns'.␊WXS schema xmlns-name-prohibited.xsd failed to compile
 project/prohibited-no-component-xmlns-name-prohibited	schema	xerces	schema-invalid	xmlns-name-prohibited.xsd:1:234: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'.
 project/prohibited-no-component-xmlns-name-prohibited	schema	xmlschema	schema-invalid	an attribute name must be different from 'xmlns':␊␊Schema component:␊␊  <xs:attribute xmlns:xs="http://www.w3.org/2001/XMLSchema" name="xmlns" type="xs:string" use="prohibited" />␊␊Path: /xs:schema/xs:element/xs:complexType/xs:attribute␊␊Schema URL: xmlns-name-prohibited.xsd
-project/qname-constraint-schema-context	default-missing-prefix	dotnet	invalid	default-missing-prefix.xml:1:2: The default value 'p:x' of element 'default' is invalid according to the type specified by xsi:type.
-project/qname-constraint-schema-context	default-missing-prefix	libxml2	invalid	default-missing-prefix.xml:1: element default: Schemas validity error : Element 'default': The QName value 'p:x' has no corresponding namespace declaration in scope.
-project/qname-constraint-schema-context	default-missing-prefix	xerces	invalid	default-missing-prefix.xml:1:83: cvc-elt.5.1.1: {value constraint} 'p:x' of element 'default' is not a valid default value for type 'Actual'.
-project/qname-constraint-schema-context	default-missing-prefix	xmlschema	invalid	line None: unmapped prefix 'p' in a QName (path /default)
-project/qname-constraint-schema-context	default-rebound-prefix	dotnet	invalid	default-rebound-prefix.xml:1:2: The default value 'p:x' of element 'default' is invalid according to the type specified by xsi:type.
-project/qname-constraint-schema-context	default-rebound-prefix	libxml2	invalid	default-rebound-prefix.xml:1: element default: Schemas validity error : Element 'default': [facet 'enumeration'] The value 'p:x' is not an element of the set {'{urn:value}urn:value'}.
-project/qname-constraint-schema-context	default-rebound-prefix	xerces	invalid	default-rebound-prefix.xml:1:103: cvc-elt.5.1.1: {value constraint} 'p:x' of element 'default' is not a valid default value for type 'Actual'.
-project/qname-constraint-schema-context	default-rebound-prefix	xmlschema	invalid	line None: value must be one of ['{urn:value}x'] (path /default)
-project/qname-constraint-schema-context	fixed-missing-prefix	dotnet	invalid	fixed-missing-prefix.xml:1:2: The default value 'p:x' of element 'fixed' is invalid according to the type specified by xsi:type.
-project/qname-constraint-schema-context	fixed-missing-prefix	libxml2	invalid	fixed-missing-prefix.xml:1: element fixed: Schemas validity error : Element 'fixed': The QName value 'p:x' has no corresponding namespace declaration in scope.
-project/qname-constraint-schema-context	fixed-missing-prefix	xerces	invalid	fixed-missing-prefix.xml:1:81: cvc-elt.5.1.1: {value constraint} 'p:x' of element 'fixed' is not a valid default value for type 'Actual'.
-project/qname-constraint-schema-context	fixed-missing-prefix	xmlschema	invalid	line None: unmapped prefix 'p' in a QName (path /fixed)
-project/qname-constraint-schema-context	schema	dotnet	schema-valid	
-project/qname-constraint-schema-context	schema	libxml2	schema-valid	
-project/qname-constraint-schema-context	schema	xerces	schema-valid	
-project/qname-constraint-schema-context	schema	xmlschema	schema-valid	
+project/qname-constraint-instance-context	attribute-default-missing-prefix	dotnet	valid	
+project/qname-constraint-instance-context	attribute-default-missing-prefix	libxml2	valid	
+project/qname-constraint-instance-context	attribute-default-missing-prefix	xerces	valid	
+project/qname-constraint-instance-context	attribute-default-missing-prefix	xmlschema	invalid	line None: attribute a='p:x': unmapped prefix 'p' in a QName (path /attr)
+project/qname-constraint-instance-context	declared-facet-rebound-prefix	dotnet	valid	
+project/qname-constraint-instance-context	declared-facet-rebound-prefix	libxml2	invalid	declared-facet-rebound-prefix.xml:1: element restricted: Schemas validity error : Element 'restricted': [facet 'enumeration'] The value 'p:x' is not an element of the set {'{urn:value}urn:value'}.
+project/qname-constraint-instance-context	declared-facet-rebound-prefix	xerces	invalid	declared-facet-rebound-prefix.xml:1:34: cvc-enumeration-valid: Value 'p:x' is not facet-valid with respect to enumeration '[p:x]'. It must be a value from the enumeration.
+project/qname-constraint-instance-context	declared-facet-rebound-prefix	xmlschema	invalid	line None: value must be one of ['{urn:value}x'] (path /restricted)
+project/qname-constraint-instance-context	default-bound-prefix	dotnet	valid	
+project/qname-constraint-instance-context	default-bound-prefix	libxml2	valid	
+project/qname-constraint-instance-context	default-bound-prefix	xerces	valid	
+project/qname-constraint-instance-context	default-bound-prefix	xmlschema	valid	
+project/qname-constraint-instance-context	default-missing-prefix	dotnet	invalid	default-missing-prefix.xml:1:2: The default value 'p:x' of element 'default' is invalid according to the type specified by xsi:type.
+project/qname-constraint-instance-context	default-missing-prefix	libxml2	invalid	default-missing-prefix.xml:1: element default: Schemas validity error : Element 'default': The QName value 'p:x' has no corresponding namespace declaration in scope.
+project/qname-constraint-instance-context	default-missing-prefix	xerces	invalid	default-missing-prefix.xml:1:83: cvc-elt.5.1.1: {value constraint} 'p:x' of element 'default' is not a valid default value for type 'Actual'.
+project/qname-constraint-instance-context	default-missing-prefix	xmlschema	invalid	line None: unmapped prefix 'p' in a QName (path /default)
+project/qname-constraint-instance-context	default-other-binding	dotnet	valid	
+project/qname-constraint-instance-context	default-other-binding	libxml2	valid	
+project/qname-constraint-instance-context	default-other-binding	xerces	valid	
+project/qname-constraint-instance-context	default-other-binding	xmlschema	valid	
+project/qname-constraint-instance-context	default-rebound-prefix	dotnet	invalid	default-rebound-prefix.xml:1:2: The default value 'p:x' of element 'default' is invalid according to the type specified by xsi:type.
+project/qname-constraint-instance-context	default-rebound-prefix	libxml2	invalid	default-rebound-prefix.xml:1: element default: Schemas validity error : Element 'default': [facet 'enumeration'] The value 'p:x' is not an element of the set {'{urn:value}urn:value'}.
+project/qname-constraint-instance-context	default-rebound-prefix	xerces	invalid	default-rebound-prefix.xml:1:103: cvc-elt.5.1.1: {value constraint} 'p:x' of element 'default' is not a valid default value for type 'Actual'.
+project/qname-constraint-instance-context	default-rebound-prefix	xmlschema	invalid	line None: value must be one of ['{urn:value}x'] (path /default)
+project/qname-constraint-instance-context	fixed-explicit-text	dotnet	valid	
+project/qname-constraint-instance-context	fixed-explicit-text	libxml2	valid	
+project/qname-constraint-instance-context	fixed-explicit-text	xerces	valid	
+project/qname-constraint-instance-context	fixed-explicit-text	xmlschema	valid	
+project/qname-constraint-instance-context	fixed-missing-prefix	dotnet	invalid	fixed-missing-prefix.xml:1:2: The default value 'p:x' of element 'fixed' is invalid according to the type specified by xsi:type.
+project/qname-constraint-instance-context	fixed-missing-prefix	libxml2	invalid	fixed-missing-prefix.xml:1: element fixed: Schemas validity error : Element 'fixed': The QName value 'p:x' has no corresponding namespace declaration in scope.
+project/qname-constraint-instance-context	fixed-missing-prefix	xerces	invalid	fixed-missing-prefix.xml:1:81: cvc-elt.5.1.1: {value constraint} 'p:x' of element 'fixed' is not a valid default value for type 'Actual'.
+project/qname-constraint-instance-context	fixed-missing-prefix	xmlschema	invalid	line None: unmapped prefix 'p' in a QName (path /fixed)
+project/qname-constraint-instance-context	fixed-no-xsi-type-missing-prefix	dotnet	valid	
+project/qname-constraint-instance-context	fixed-no-xsi-type-missing-prefix	libxml2	invalid	fixed-no-xsi-type-missing-prefix.xml:1: element fixed: Schemas validity error : Element 'fixed': The QName value 'p:x' has no corresponding namespace declaration in scope.
+project/qname-constraint-instance-context	fixed-no-xsi-type-missing-prefix	xerces	invalid	fixed-no-xsi-type-missing-prefix.xml:1:9: UndeclaredPrefix: Cannot resolve 'p:x' as a QName: the prefix 'p' is not declared.
+project/qname-constraint-instance-context	fixed-no-xsi-type-missing-prefix	xmlschema	invalid	line None: unmapped prefix 'p' in a QName (path /fixed)
+project/qname-constraint-instance-context	fixed-other-binding	dotnet	valid	
+project/qname-constraint-instance-context	fixed-other-binding	libxml2	valid	
+project/qname-constraint-instance-context	fixed-other-binding	xerces	valid	
+project/qname-constraint-instance-context	fixed-other-binding	xmlschema	valid	
+project/qname-constraint-instance-context	no-xsi-type-missing-prefix	dotnet	valid	
+project/qname-constraint-instance-context	no-xsi-type-missing-prefix	libxml2	invalid	no-xsi-type-missing-prefix.xml:1: element default: Schemas validity error : Element 'default': The QName value 'p:x' has no corresponding namespace declaration in scope.
+project/qname-constraint-instance-context	no-xsi-type-missing-prefix	xerces	invalid	no-xsi-type-missing-prefix.xml:1:11: UndeclaredPrefix: Cannot resolve 'p:x' as a QName: the prefix 'p' is not declared.
+project/qname-constraint-instance-context	no-xsi-type-missing-prefix	xmlschema	invalid	line None: unmapped prefix 'p' in a QName (path /default)
+project/qname-constraint-instance-context	no-xsi-type-rebound-prefix	dotnet	valid	
+project/qname-constraint-instance-context	no-xsi-type-rebound-prefix	libxml2	valid	
+project/qname-constraint-instance-context	no-xsi-type-rebound-prefix	xerces	valid	
+project/qname-constraint-instance-context	no-xsi-type-rebound-prefix	xmlschema	valid	
+project/qname-constraint-instance-context	schema	dotnet	schema-valid	
+project/qname-constraint-instance-context	schema	libxml2	schema-valid	
+project/qname-constraint-instance-context	schema	xerces	schema-valid	
+project/qname-constraint-instance-context	schema	xmlschema	schema-valid	
 project/recursive-extension-default	nested	dotnet	valid	
 project/recursive-extension-default	nested	libxml2	valid	
 project/recursive-extension-default	nested	xerces	valid	
