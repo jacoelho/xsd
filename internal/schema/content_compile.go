@@ -47,6 +47,9 @@ type dfaEntry struct {
 	Pos     int
 }
 
+// dfaNode is the position-automaton summary of one particle. First, Last and
+// Counters are normalized and may be shared with the nodes it was built from,
+// so they are never modified in place.
 type dfaNode struct {
 	First    []dfaEntry
 	Last     []dfaEntry
@@ -1231,7 +1234,7 @@ func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
 	if err := b.c.work.spend(1); err != nil {
 		return nil, err
 	}
-	return append(start, dfaEntry{Pos: dfaEndPos}), nil
+	return append(slices.Clip(start), dfaEntry{Pos: dfaEndPos}), nil
 }
 
 func (b *dfaBuilder) appendRootEndFollows(last []dfaEntry) error {
@@ -1258,21 +1261,19 @@ func (b *dfaBuilder) compileSourceRows() error {
 		if err != nil {
 			return err
 		}
-		b.rows = append(b.rows, row)
+		b.rows = appendDoubling(b.rows, row)
 	}
 	return nil
 }
 
 func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
-	var row dfaSourceRow
+	row := newDFASourceRow(entries)
 	for _, e := range entries {
 		if err := b.c.work.spend(len(e.Guards) + len(e.Actions) + 1); err != nil {
 			return dfaSourceRow{}, err
 		}
 		if e.Pos == dfaEndPos {
-			row.Accept = append(row.Accept, dfaAccept{
-				Guards: slices.Clone(e.Guards),
-			})
+			row.Accept = append(row.Accept, dfaAccept{Guards: e.Guards})
 			continue
 		}
 		if e.Pos < 0 || e.Pos >= len(b.positions) {
@@ -1284,8 +1285,8 @@ func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
 		}
 		row.Edges = append(row.Edges, dfaSourceEdge{
 			Particle: b.positions[e.Pos],
-			Guards:   slices.Clone(e.Guards),
-			Actions:  slices.Clone(e.Actions),
+			Guards:   e.Guards,
+			Actions:  e.Actions,
 			To:       to,
 			Pos:      e.Pos,
 		})
@@ -1293,11 +1294,24 @@ func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
 	return row, nil
 }
 
+func newDFASourceRow(entries []dfaEntry) dfaSourceRow {
+	edges := 0
+	for _, e := range entries {
+		if e.Pos != dfaEndPos {
+			edges++
+		}
+	}
+	if edges == 0 {
+		return dfaSourceRow{}
+	}
+	return dfaSourceRow{Edges: make([]dfaSourceEdge, 0, edges)}
+}
+
 func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
 	if err := b.spendDFAEntries(entries); err != nil {
 		return 0, err
 	}
-	return b.internState(normalizeDFAEntries(entries))
+	return b.internState(normalizeDFAEntries(slices.Clone(entries)))
 }
 
 // followStateID charges the follow set before consulting the position cache,
@@ -1444,11 +1458,9 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 
 func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
 	pos := len(b.positions)
-	b.positions = append(b.positions, p)
-	return dfaNode{
-		First: []dfaEntry{{Pos: pos}},
-		Last:  []dfaEntry{{Pos: pos}},
-	}
+	b.positions = appendDoubling(b.positions, p)
+	entries := []dfaEntry{{Pos: pos}}
+	return dfaNode{First: entries, Last: entries}
 }
 
 func (b *dfaBuilder) concat(a, c dfaNode) (dfaNode, error) {
@@ -1462,17 +1474,17 @@ func (b *dfaBuilder) concat(a, c dfaNode) (dfaNode, error) {
 			b.appendFollow(tail.Pos, composeEntry(tail.Guards, tail.Actions, first))
 		}
 	}
-	first := slices.Clone(a.First)
+	first := a.First
 	if a.Nullable {
-		first = append(first, c.First...)
+		first = unionDFAEntries(a.First, c.First)
 	}
-	last := slices.Clone(c.Last)
+	last := c.Last
 	if c.Nullable {
-		last = append(last, a.Last...)
+		last = unionDFAEntries(c.Last, a.Last)
 	}
 	return dfaNode{
-		First:    normalizeDFAEntries(first),
-		Last:     normalizeDFAEntries(last),
+		First:    first,
+		Last:     last,
 		Counters: mergeCounters(a.Counters, c.Counters),
 		Nullable: a.Nullable && c.Nullable,
 	}, nil
@@ -1480,8 +1492,8 @@ func (b *dfaBuilder) concat(a, c dfaNode) (dfaNode, error) {
 
 func dfaChoice(a, c dfaNode) dfaNode {
 	return dfaNode{
-		First:    normalizeDFAEntries(append(slices.Clone(a.First), c.First...)),
-		Last:     normalizeDFAEntries(append(slices.Clone(a.Last), c.Last...)),
+		First:    unionDFAEntries(a.First, c.First),
+		Last:     unionDFAEntries(a.Last, c.Last),
 		Counters: mergeCounters(a.Counters, c.Counters),
 		Nullable: a.Nullable || c.Nullable,
 	}
