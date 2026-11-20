@@ -2688,7 +2688,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle."
+            "record": "I-039"
           }
         }
       },
@@ -2727,7 +2727,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the XSD 1.0 schema for schemas; this observation is not a majority-vote oracle."
+            "record": "I-039"
           }
         }
       },
@@ -2907,7 +2907,7 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows XSD 1.0 src-resolve over the XSD 1.0 built-in type definitions; this observation is not a majority-vote oracle. Diagnosis: processor difference. xmlschema 4.3.2 registers xs:anyAtomicType among the built-in types of its XMLSchema10 meta-schema (XMLSchema10 maps.types contains it, while xs:dateTimeStamp is absent), so the reference resolves; XSD 1.0 defines no such type definition, so src-resolve fails."
+            "record": "I-039"
           }
         }
       },
@@ -6531,7 +6531,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which a top-level xs:group holds one all, choice or sequence; this observation is not a majority-vote oracle. libxml2 accepts a top-level xs:group that holds only an annotation, contrary to the schema for schemas content (annotation?, (all | choice | sequence))."
+            "record": "I-039"
           }
         }
       },
@@ -7137,7 +7137,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and its XML representation constraints, under which xs:notation carries public or system; this observation is not a majority-vote oracle. libxml2 accepts an xs:notation that has neither public nor system, which Xerces-J, .NET and xmlschema reject."
+            "record": "I-039"
           }
         }
       },
@@ -7737,7 +7737,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which fixed of a facet is an xs:boolean; this observation is not a majority-vote oracle. libxml2 accepts a facet whose fixed is not an xs:boolean, which Xerces-J, .NET and xmlschema reject."
+            "record": "I-039"
           }
         }
       },
@@ -9002,7 +9002,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, under which final of xs:simpleType is #all or a list of list, union and restriction; this observation is not a majority-vote oracle. .NET accepts final=\"extension\" on xs:simpleType, which the schema for schemas (simpleDerivationSet: #all or a list of list, union and restriction) excludes and Xerces-J, xmlschema and libxml2 reject."
+            "record": "I-039"
           }
         }
       },
@@ -9469,7 +9469,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project rejects the schema under src-single-facet-value, which the start tag of the second maxLength decides before that tag's attributes; the providers report the fixed value instead, which the project would also reject, and the reported rule is not a validity outcome; this observation is not a majority-vote oracle. libxml2 accepts the schema: it accepts a facet whose fixed is not an xs:boolean (see project/schema-syntax/attribute-values/facet-fixed-not-boolean) and a restriction that holds maxLength twice, which Xerces-J, .NET and xmlschema reject (src-single-facet-value)."
+            "record": "I-039"
           }
         }
       },
@@ -10030,13 +10030,13 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4:38: The value for the 'maxOccurs' attribute must be xsd:nonNegativeInteger or 'unbounded'. The project expectation follows the schema for schemas, which types minOccurs as nonNegativeInteger and maxOccurs as allNNI, a union of nonNegativeInteger and an NMTOKEN enumeration of unbounded, with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. maxOccurs value must be a non negative integer or 'unbounded': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"b\" minOccurs=\" 0 \" maxOccurs=\" unbounded \" /> Path: /xs:schema/xs:element/xs:complexType/xs:sequence/xs:element[2] Schema URL: schema.xsd. The project expectation follows the schema for schemas, which types minOccurs as nonNegativeInteger and maxOccurs as allNNI, a union of nonNegativeInteger and an NMTOKEN enumeration of unbounded, with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'maxOccurs': The value ' unbounded ' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'. The project expectation follows the schema for schemas, which types minOccurs as nonNegativeInteger and maxOccurs as allNNI, a union of nonNegativeInteger and an NMTOKEN enumeration of unbounded, with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10130,10 +10130,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. unknown type 't:T': Schema component: <xs:element xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\" r \" type=\"t:T\" /> Path: /xs:schema/xs:element Schema URL: schema.xsd. The project expectation follows the schema for schemas, which types the name attribute as NCName with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:3: element element: Schemas parser error : element decl. '{urn:t} r ', attribute 'type': The QName value '{urn:t}T' does not resolve to a(n) type definition. The project expectation follows the schema for schemas, which types the name attribute as NCName with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10201,7 +10201,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element restriction: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}restriction', attribute 'base': The value ' xs:string ' of simple type 'xs:QName' has no corresponding namespace declaration in scope. The project expectation follows the schema for schemas, which types type, base and ref as QName with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10283,10 +10283,10 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:2: The namespace attribute ' urn:o ' of an import should be the same value as the targetNamespace 'urn:o' of the imported schema. | warning: schema.xsd:4:52: Namespace 'urn:o' is not available to be referenced in this schema. The project expectation follows the schema for schemas, which types targetNamespace and the import namespace attribute as anyURI with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:4: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'ref': References from this schema to components in the namespace 'urn:o' are not allowed, since not indicated by an import statement. The project expectation follows the schema for schemas, which types targetNamespace and the import namespace attribute as anyURI with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10362,10 +10362,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. wrong value ' strict ' for 'processContents' attribute: Schema component: <xs:any xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" namespace=\"##targetNamespace\" processContents=\" strict \" /> Path: /xs:schema/xs:element[2]/xs:complexType/xs:sequence/xs:any Schema URL: schema.xsd. The project expectation follows the schema for schemas, which types form, elementFormDefault, use and processContents as NMTOKEN enumerations with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:1: element schema: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}schema', attribute 'elementFormDefault': The value ' qualified ' is not valid. Expected is '(qualified | unqualified)'. The project expectation follows the schema for schemas, which types form, elementFormDefault, use and processContents as NMTOKEN enumerations with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10610,7 +10610,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType', attribute 'mixed': ' true ' is not a valid value of the atomic type 'xs:boolean'. The project expectation follows the schema for schemas, which types nillable and mixed as boolean with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10678,10 +10678,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which types the fixed attribute of a facet as boolean with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which types the fixed attribute of a facet as boolean with a whiteSpace facet of collapse (Datatypes 4.3.6), so the value is used without its surrounding spaces; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -10980,7 +10980,7 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Datatypes 4.3.6, under which collapse removes only #x20, #x9, #xA and #xD (XML 1.0 S), so the no-break space U+00A0 stays and the value is not an allNNI value; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -11021,7 +11021,7 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Datatypes 4.3.6, under which collapse removes only #x20, #x9, #xA and #xD (XML 1.0 S), so the no-break space U+00A0 stays and the value is not an NCName; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -11062,10 +11062,10 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which types name as NCName with whiteSpace collapse, so both declarations are named e and violate Schema Properties Correct clause 2; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which types name as NCName with whiteSpace collapse, so both declarations are named e and violate Schema Properties Correct clause 2; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -11106,10 +11106,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which types name as NCName with whiteSpace collapse, so both attribute uses are named a and violate Complex Type Definition Properties Correct clause 4; this observation is not a majority-vote oracle."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas, which types name as NCName with whiteSpace collapse, so both attribute uses are named a and violate Complex Type Definition Properties Correct clause 4; this observation is not a majority-vote oracle."
+            "record": "I-033"
           }
         }
       },
@@ -11431,10 +11431,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. xmlschema compares the name before whitespace collapse, so \" xmlns \" escapes xmlns Not Allowed; Xerces-J and .NET collapse the NCName and reject it."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. libxml2 compares the name before whitespace collapse, so \" xmlns \" escapes xmlns Not Allowed; Xerces-J and .NET collapse the NCName and reject it."
+            "record": "I-033"
           }
         }
       },
@@ -11511,16 +11511,16 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:74: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited)."
+            "record": "I-008"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:30: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited)."
+            "record": "I-008"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. an attribute name must be different from 'xmlns': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"xmlns\" use=\"prohibited\" /> Path: /xs:schema/xs:attributeGroup/xs:attribute Schema URL: file://schema.xsd. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited)."
+            "record": "I-008"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'name': The value of the attribute must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. The provider applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component (see project/prohibited-no-component-xmlns-name-prohibited)."
+            "record": "I-008"
           }
         }
       },
@@ -11561,13 +11561,13 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:75: no-xmlns: The {name} of an attribute declaration must not match 'xmlns'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. Xerces-J applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component."
+            "record": "I-008"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:27: The value 'xmlns' cannot be used as the name of an attribute declaration. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. .NET applies xmlns Not Allowed to the XML representation whatever its use; the project follows I-008, under which a prohibited declaration corresponds to no component."
+            "record": "I-008"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute', attribute 'use': The value ' prohibited ' is not valid. Expected is '(optional | prohibited | required)'. The project expectation follows xmlns Not Allowed, which applies to an attribute declaration component, and I-008, under which a declaration with use=\"prohibited\" corresponds to no component; this observation is not a majority-vote oracle. libxml2 rejects the use value \" prohibited \" lexically, without whitespace collapse; Xerces-J and .NET collapse it."
+            "record": "I-033"
           }
         }
       },
@@ -11679,7 +11679,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows src-single-facet-value, under which a restriction step specifies each facet other than pattern and enumeration at most once; this observation is not a majority-vote oracle. libxml2 accepts a restriction that holds maxLength twice (see project/schema-syntax/attribute-values/facet-fixed-not-boolean-on-repeated-facet); Xerces-J, .NET and xmlschema reject it under src-single-facet-value."
+            "record": "I-039"
           }
         }
       },
@@ -11845,7 +11845,7 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:92: s4s-att-invalid-value: Invalid attribute value for 'value' in element 'maxLength'. Recorded reason: cvc-datatype-valid.1.2.1: '4294967295' is not a valid value for 'nonNegativeInteger'. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. Xerces-J rejects 4294967295 as an xs:nonNegativeInteger attribute value, an implementation range limit below the value space; xmlschema and libxml2 accept it."
+            "record": "observation-product-modality"
           }
         }
       },
@@ -11886,10 +11886,10 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. xmlschema has no size limit; the project rejects the value with schema.limit as a resource limit, not as XSD invalidity."
+            "record": "observation-product-modality"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. libxml2 has no size limit at this value; the project rejects the value with schema.limit as a resource limit, not as XSD invalidity."
+            "record": "observation-product-modality"
           }
         }
       },
@@ -12036,10 +12036,10 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:59: The whitespace character, ' collapse ', is invalid. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. .NET compares the whiteSpace value before whitespace collapse; Xerces-J and xmlschema collapse it."
+            "record": "I-033"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element whiteSpace: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}whiteSpace': The value ' collapse ' of the facet 'whitespace' is not valid. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. libxml2 compares the whiteSpace value before whitespace collapse; Xerces-J and xmlschema collapse it."
+            "record": "I-033"
           }
         }
       },
@@ -12188,7 +12188,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. .NET accepts maxOccurs=\"0\" with the default minOccurs 1; Xerces-J, xmlschema and libxml2 reject it under Particle Correct 2.1."
+            "record": "I-044"
           }
         }
       },
@@ -12334,7 +12334,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'minOccurs': The value ' +02 ' is not valid. Expected is 'xs:nonNegativeInteger'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. libxml2 rejects the minOccurs value \" +02 \" lexically; it does not collapse whitespace or accept the leading plus sign that xs:nonNegativeInteger admits, which Xerces-J, .NET and xmlschema accept."
+            "record": "I-033"
           }
         }
       },
@@ -12518,7 +12518,7 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. .NET accepts maxOccurs=\"0\" with the default minOccurs 1; Xerces-J, xmlschema and libxml2 reject it under Particle Correct 2.1."
+            "record": "I-044"
           }
         }
       },
@@ -12594,10 +12594,10 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2:98: s4s-att-invalid-value: Invalid attribute value for 'maxOccurs' in element 'element'. Recorded reason: cvc-datatype-valid.1.2.1: '4294967295' is not a valid value for 'nonNegativeInteger'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. Xerces-J rejects 4294967295 as an xs:nonNegativeInteger attribute value, an implementation range limit below the value space; .NET and xmlschema accept it."
+            "record": "observation-product-modality"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema rejected. schema.xsd:2: element element: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}element', attribute 'maxOccurs': The value '4294967295' is not valid. Expected is '(xs:nonNegativeInteger | unbounded)'. The project expectation follows Particle Correct and the schema for schemas, under which minOccurs and maxOccurs are xs:nonNegativeInteger values (maxOccurs also unbounded), compared by value after whitespace collapse, and minOccurs must not exceed maxOccurs, either written or by default; this observation is not a majority-vote oracle. libxml2 rejects 4294967295 as a maxOccurs value, an implementation range limit below the value space; .NET and xmlschema accept it."
+            "record": "observation-product-modality"
           }
         }
       },
@@ -13105,16 +13105,16 @@
         },
         "differences": {
           "xerces": {
-            "note": "Observed offline with Apache Xerces-J 2.12.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity."
+            "record": "observation-product-modality"
           },
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity."
+            "record": "observation-product-modality"
           },
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity."
+            "record": "observation-product-modality"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the schema for schemas and the facet definitions, under which a size facet value is an xs:nonNegativeInteger (totalDigits an xs:positiveInteger), the whiteSpace value is preserve, replace or collapse after whitespace collapse, and a pattern value is a regular expression; this observation is not a majority-vote oracle. The provider has no compile limit at this size; the project rejects the pattern with schema.limit because its compiled form exceeds the fixed xsdregex compile limit, a resource limit and not XSD invalidity."
+            "record": "observation-product-modality"
           }
         }
       },
