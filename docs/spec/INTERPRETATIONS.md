@@ -2223,7 +2223,9 @@ decide these shapes:
 - `minOccurs` and `maxOccurs` are `xs:nonNegativeInteger`, so `+01` is admitted.
 - A facet's `fixed` is an `xs:boolean`.
 - A top-level `xs:group` holds one `all`, `choice` or `sequence`, and an
-  `xs:notation` carries `public` or `system`.
+  `xs:notation` carries `public` or `system`: under
+  [Notation Declaration Correct](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#n-props-correct)
+  each identifier is "Optional if" the other "is present".
 - `xs:schema` has no `defaultAttributes` or `xpathDefaultNamespace` attribute,
   and the XSD 1.0 built-in type definitions include no `xs:anyAtomicType`, so a
   reference to it fails `src-resolve`.
