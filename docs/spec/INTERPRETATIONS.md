@@ -1762,8 +1762,9 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 - Xerces-J compares values and gives the project result in every case listed.
 - .NET equates `P1Y` and `P365D`, and supplies the declaration's default
   instead of an empty use default.
-- .NET takes a referenced declaration's default as the use's value constraint
-  and ignores a default or fixed written on the reference: it does not check
+- When a referenced declaration has a default, .NET takes it as the use's
+  value constraint and ignores a default or fixed written on the reference: it
+  does not check
   that fixed value against the type or enforce it on instances, does not treat
   a base use fixed only by its reference as fixed under restriction or
   extension, supplies the declaration's default to an absent attribute in
@@ -1928,8 +1929,8 @@ On schema-document attributes:
 - xmlschema rejects a padded `maxOccurs` and `processContents`, keeps a padded
   type name uncollapsed so a reference to it does not resolve, accepts a padded
   duplicate attribute use, a padded `fixed="true"` facet restricted by a
-  derived type, and a padded `xmlns` attribute name, and strips U+00A0 from a
-  name and an occurrence.
+  derived type, and a padded `xmlns` attribute name, and accepts a name and an
+  occurrence padded with U+00A0.
 - libxml2 rejects padded occurrence, QName, anyURI, boolean, token and
   `whiteSpace` values, keeps a padded type name uncollapsed, and accepts the
   padded duplicate declarations, the padded fixed facet and a padded `xmlns`
@@ -1945,8 +1946,7 @@ Cases: `project/datatypes/lists/conformance-whole-list-pattern-multiple-items`,
 `project/content-models/contrasts-mixed-priority-outer-absent-inner-absent`,
 `project/schema-syntax/attribute-values/padded-*`,
 `project/schema-syntax/attribute-values/nbsp-padded-*`,
-`project/schema-syntax/facet-values/whitespace-padded-mode`,
-`project/schema-syntax/occurrence-values/value-equal-spellings-equal` and
+`project/schema-syntax/facet-values/whitespace-padded-mode` and
 `project/schema-syntax/xmlns-attribute-name/local-padded-name*`.
 
 ## I-034 — regular expressions follow the XSD grammar over characters
@@ -2267,7 +2267,8 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 - libxml2 admits duplicate facets, a facet `fixed` that is not a boolean, the
   XSD 1.1 `defaultAttributes` and `xpathDefaultNamespace` attributes, a
   top-level `xs:group` with no model group and an `xs:notation` with neither
-  `public` nor `system`, and rejects `minOccurs="+01"`.
+  `public` nor `system`, and rejects a `+` sign in `minOccurs`, as in `+01`
+  and ` +02 `.
 - xmlschema resolves `xs:anyAtomicType` in an XSD 1.0 schema.
 
 Cases: `project/datatypes/facets/conformance-*-prohibited-fixed-*`,
@@ -2286,7 +2287,8 @@ Cases: `project/datatypes/facets/conformance-*-prohibited-fixed-*`,
 `project/schema-syntax/required-children/group-missing-model-group`,
 `project/schema-syntax/required-children/notation-missing-public-and-system`,
 `project/schema-syntax/attribute-values/facet-fixed-not-boolean*`,
-`project/schema-syntax/attribute-values/simple-type-final-extension` and
+`project/schema-syntax/attribute-values/simple-type-final-extension`,
+`project/schema-syntax/occurrence-values/value-equal-spellings-equal` and
 `project/schema-syntax/facet-repetition/simple-content-maxlength-twice`.
 
 ## I-040 — direct NOTATION use
