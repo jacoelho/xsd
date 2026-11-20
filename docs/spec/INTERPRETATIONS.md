@@ -1732,14 +1732,26 @@ Observed with Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13:
 - Xerces-J compares values and gives the project result in every case listed.
 - .NET equates `P1Y` and `P365D`, and supplies the declaration's default
   instead of an empty use default.
+- .NET takes a referenced declaration's default as the use's value constraint
+  and ignores a default or fixed written on the reference: it does not check
+  that fixed value against the type or enforce it on instances, does not treat
+  a base use fixed only by its reference as fixed under restriction or
+  extension, supplies the declaration's default to an absent attribute in
+  identity fields, and accepts an absent required attribute whose declaration
+  has a default.
 - xmlschema compares spellings, both between schema constraints and for a QName
   instance value against a declaration's fixed QName.
+- xmlschema accepts a default on a reference to a fixed declaration, and
+  resolves the prefix of a reference's fixed QName in the instance element's
+  namespace scope instead of the reference's.
 - .NET, xmlschema and libxml2 compare a string fixed value after the `xsi:type`
   token normalization.
 - libxml2 ignores `fixed` on an attribute reference at instance time (a
   reference with `fixed="b"` accepts `a="other"`, the equivalent local
-  declaration rejects it), ignores an empty fixed use and a mismatched fixed
-  use, compares no fixed values between declarations, uses and restrictions,
+  declaration rejects it), does not check a reference's fixed value against
+  the type or against a fixed declaration, does not treat a use fixed only by
+  its reference as fixed under restriction, ignores an empty fixed use and a
+  mismatched fixed use, compares no fixed values between declarations, uses and restrictions,
   and compares element fixed values by spelling.
 
 Cases: `project/attributes/conformance-global-fixed-qname`,
@@ -1749,6 +1761,7 @@ Cases: `project/attributes/conformance-global-fixed-qname`,
 `project/attributes/continuation-use-fixed-*`,
 `project/attributes/fixed-value-space-attribute-reference/*`,
 `project/attributes/fixed-value-space-attribute-restriction/*`,
+`project/attributes/use-value-constraint/*`,
 `project/content-models/fixed-value-space-element-restriction/*`,
 `project/content-models/properties-fixed-value-controls`,
 `project/content-models/properties-fixed-value-opponent`,

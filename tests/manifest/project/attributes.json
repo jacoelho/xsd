@@ -13655,10 +13655,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -13754,10 +13754,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -13835,7 +13835,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET treats an absent required attribute as supplied when the referenced declaration has a default, with or without a local fixed value (required-over-declaration-default); without a declaration default the required reference is enforced (required-fixed-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         },
@@ -13850,10 +13850,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -13986,10 +13986,10 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+            "record": "I-030"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping, where a local default or fixed on an attribute reference is the use's single value constraint and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -14030,7 +14030,7 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle. Diagnosis: xmlschema applies au-props-correct 2 only to a fixed reference: it rejects a different fixed value (other-fixed-over-declaration-fixed) but accepts any default on a reference to a fixed declaration."
+            "record": "I-030"
           }
         }
       },
@@ -14071,7 +14071,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -14111,7 +14111,7 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. referenced attribute has a different fixed value '1': Schema component: <xs:attribute xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" ref=\"a\" fixed=\"01\" /> Path: /xs:schema/xs:element/xs:complexType/xs:attribute Schema URL: file://schema.xsd  The project expectation follows au-props-correct.2, which requires a use of a fixed declaration to keep that fixed value; this observation is not a majority-vote oracle. Diagnosis: xmlschema compares fixed values by string rather than by value: the same spelling is accepted (same-string-fixed-over-declaration-fixed, restriction-same-fixed-over-fixed-use) and an equal value spelled differently is rejected, as in fixed-value-space-attribute-restriction/decimal-trailing-zero; the project compares typed values (I-009 and those value-space cases)."
+            "record": "I-030"
           }
         }
       },
@@ -14152,10 +14152,10 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+            "record": "I-030"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -14196,10 +14196,10 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+            "record": "I-030"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -14240,10 +14240,10 @@
         },
         "differences": {
           "dotnet": {
-            "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+            "record": "I-030"
           },
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -14312,10 +14312,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -14369,7 +14369,7 @@
         },
         "differences": {
           "xmlschema": {
-            "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: schema rejected. Attribute 'a': derived attribute has a different fixed value: Schema component: <xs:complexType xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" name=\"R\"><xs:complexContent><xs:restriction base=\"B\"><xs:attribute ref=\"a\" fixed=\"02\" /></xs:restriction></xs:complexContent></xs:complexType> Path: /xs:schema/ The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value, comparing fixed values in the value space (Datatypes equality) as the fixed-value-space-attribute-restriction cases do; this observation is not a majority-vote oracle. Its 3 instance runs were blocked by schema rejection and were not assessed. Diagnosis: xmlschema compares fixed values by string rather than by value: the same spelling is accepted (same-string-fixed-over-declaration-fixed, restriction-same-fixed-over-fixed-use) and an equal value spelled differently is rejected, as in fixed-value-space-attribute-restriction/decimal-trailing-zero; the project compares typed values (I-009 and those value-space cases)."
+            "record": "I-030"
           }
         }
       },
@@ -14403,10 +14403,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value, comparing fixed values in the value space (Datatypes equality) as the fixed-value-space-attribute-restriction cases do; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value, comparing fixed values in the value space (Datatypes equality) as the fixed-value-space-attribute-restriction cases do; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -14488,10 +14488,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where the base use's effective value constraint is its own fixed 2 rather than the declaration default 1, so a restricting use must be fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -14574,10 +14574,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows cos-ct-extends 1.2, which carries the base attribute uses into the extension, and cvc-au, which checks the use's own fixed value; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows cos-ct-extends 1.2, which carries the base attribute uses into the extension, and cvc-au, which checks the use's own fixed value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -14642,7 +14642,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         },
@@ -14656,7 +14656,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. declaration-default-distinct.xml:1:9: There is a duplicate key sequence '1' for the 'u' key or unique identity constraint. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         },
@@ -14670,7 +14670,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. other-use-declaration-default.xml:1:9: There is a duplicate key sequence '1' for the 'u' key or unique identity constraint. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         },
@@ -14685,7 +14685,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         }
@@ -14754,7 +14754,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         },
@@ -14768,7 +14768,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. other-use-declaration-default.xml:1:9: There is a duplicate key sequence '1' for the 'u' key or unique identity constraint. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         },
@@ -14782,7 +14782,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance rejected. other-use-declaration-default-value.xml:1:9: There is a duplicate key sequence '1' for the 'u' key or unique identity constraint. The project expectation follows sic-attrDefault, which adds an absent attribute with the use's effective value constraint to the post-schema-validation infoset, and cvc-identity-constraint 4.1, which compares those values; the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one; this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         }
@@ -14976,7 +14976,7 @@
           },
           "differences": {
             "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute a='p:y': unmapped prefix 'p' in a QName (path /r) The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the reference's fixed attribute resolved in the reference element's namespace context, and cvc-au with typed QName equality (I-009); this observation is not a majority-vote oracle. Diagnosis: xmlschema resolves the prefix of a QName fixed value against the instance element's namespace bindings instead of the reference element's: with p unbound in the instance it reports an unmapped prefix even when the attribute is absent, and it accepts the value only where the instance binds p to urn:r (same-prefix-as-reference)."
+              "record": "I-030"
             }
           }
         },
@@ -14990,7 +14990,7 @@
           },
           "differences": {
             "xmlschema": {
-              "note": "Observed offline with Python xmlschema.XMLSchema10 4.3.2 through tools/oracles/run.sh on the current fixture: instance rejected. line None: attribute 'a' has a fixed value 'p:y' (path /r) The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the reference's fixed attribute resolved in the reference element's namespace context, and cvc-au with typed QName equality (I-009); this observation is not a majority-vote oracle. Diagnosis: xmlschema resolves the prefix of a QName fixed value against the instance element's namespace bindings instead of the reference element's: with p unbound in the instance it reports an unmapped prefix even when the attribute is absent, and it accepts the value only where the instance binds p to urn:r (same-prefix-as-reference)."
+              "record": "I-030"
             }
           }
         },
@@ -15014,10 +15014,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the reference's fixed attribute resolved in the reference element's namespace context, and cvc-au with typed QName equality (I-009); this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the reference's fixed attribute resolved in the reference element's namespace context, and cvc-au with typed QName equality (I-009); this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         },
@@ -15032,10 +15032,10 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the reference's fixed attribute resolved in the reference element's namespace context, and cvc-au with typed QName equality (I-009); this observation is not a majority-vote oracle. Diagnosis: .NET keeps the referenced declaration's default as the use's value constraint and ignores the reference's own default or fixed: a local fixed value is not type-checked or enforced on instances, a base use fixed only by its reference is not treated as fixed in restriction, and an absent attribute takes the declaration default in identity fields. Without a declaration constraint the same references are handled per the specification (fixed-without-declaration-constraint, fixed-not-in-type-without-declaration-constraint, identity-default-without-declaration-constraint, restriction-plain-reference-over-fixed-use-without-declaration-constraint, restriction-other-fixed-over-fixed-use-without-declaration-constraint)."
+              "record": "I-030"
             },
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the reference's fixed attribute resolved in the reference element's namespace context, and cvc-au with typed QName equality (I-009); this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -15116,7 +15116,7 @@
           },
           "differences": {
             "dotnet": {
-              "note": "Observed offline with .NET System.Xml.Schema 10.0.14 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows cvc-complex-type 4, which requires every required attribute use to match an attribute present in the instance; this observation is not a majority-vote oracle. Diagnosis: .NET treats an absent required attribute as supplied when the referenced declaration has a default, with or without a local fixed value (required-over-declaration-default); without a declaration default the required reference is enforced (required-fixed-without-declaration-constraint)."
+              "record": "I-030"
             }
           }
         }
@@ -15194,7 +15194,7 @@
           },
           "differences": {
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows the attribute use mapping (§3.2.2), where a local default or fixed on an attribute reference is the use's single {value constraint} and the declaration constraint applies only without one, and cvc-au; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
@@ -15248,7 +15248,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows the attribute use mapping (§3.2.2), whose {value constraint} is the actual value of the fixed attribute with respect to the declaration type; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -15388,7 +15388,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where a base use fixed to 2 must be restricted by a use fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -15429,7 +15429,7 @@
         },
         "differences": {
           "libxml2": {
-            "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: schema accepted. The project expectation follows derivation-ok-restriction 2.1.3, where a base use fixed to 2 must be restricted by a use fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+            "record": "I-030"
           }
         }
       },
@@ -15553,7 +15553,7 @@
           },
           "differences": {
             "libxml2": {
-              "note": "Observed offline with libxml2 2.9.13 through tools/oracles/run.sh on the current fixture: instance accepted. The project expectation follows derivation-ok-restriction 2.1.3, where a base use fixed to 2 must be restricted by a use fixed to the same value; this observation is not a majority-vote oracle. Diagnosis: libxml2 2.9.13 ignores a fixed value written on an attribute reference: it does not type-check it (fixed-not-in-type-without-declaration-constraint), compare it with a fixed declaration (other-fixed-over-declaration-fixed), enforce it on instances (fixed-without-declaration-constraint) or treat the use as fixed in restriction (restriction-plain-reference-over-fixed-use-without-declaration-constraint). It does reject a reference default over a fixed declaration (default-over-declaration-fixed), and a declaration's own fixed value reached through a plain reference is enforced (declaration-fixed-through-plain-reference)."
+              "record": "I-030"
             }
           }
         }
