@@ -59,7 +59,7 @@ func TestPublishSchemaChecksImplicitSubstitutionConsistencyAndAllowsRetry(t *tes
   </xs:sequence></xs:complexType></xs:element>
 </xs:schema>`
 	c, _ := newEmptyComplexTypePublicationCompiler(t, document)
-	if err := c.compileContentModels(); err != nil {
+	if err := c.compileReachedContentModelsForTest(); err != nil {
 		t.Fatal(err)
 	}
 	local, original := changeConsistencyLocalType(t, &c.rt, "member", "int")

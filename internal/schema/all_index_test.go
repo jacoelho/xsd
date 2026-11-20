@@ -32,7 +32,7 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 		},
 	}
 	exhausted := errors.New("content work exhausted")
-	index := func(models []compiledModel, entered []contentModelID) ([]compiledModelRead, error) {
+	index := func(models []compiledModel, entered []int) ([]compiledModelRead, error) {
 		reads := make([]compiledModelRead, len(entered))
 		remaining := compiledDFARowIndexMinEdges
 		err := indexAllContentModels(models, entered, reads, source.build(), func(steps int) error {
@@ -44,19 +44,19 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 		})
 		return reads, err
 	}
-	if reads, err := index([]compiledModel{plain}, []contentModelID{0}); err != nil || reads[0].allNames == nil {
+	if reads, err := index([]compiledModel{plain}, []int{0}); err != nil || reads[0].allNames == nil {
 		t.Fatalf("plain index = %v, installed %v; want it to fit the budget", err, reads[0].allNames != nil)
 	}
 	for _, tt := range []struct {
 		name    string
 		models  []compiledModel
-		entered []contentModelID
+		entered []int
 	}{
-		{name: "entered", models: []compiledModel{substituted}, entered: []contentModelID{0}},
+		{name: "entered", models: []compiledModel{substituted}, entered: []int{0}},
 		// Validation never enters the substituted model, but its index work
 		// is still charged, so its exhaustion fails publication although the
 		// entered model alone fits.
-		{name: "unentered before entered", models: []compiledModel{substituted, plain}, entered: []contentModelID{1}},
+		{name: "unentered before entered", models: []compiledModel{substituted, plain}, entered: []int{1}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -91,19 +91,19 @@ func TestAllContentIndexStaysWithItsPublishedModel(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		models  []compiledModel
-		entered []contentModelID
+		entered []int
 		// indexed lists the entered models whose slots carry their own index.
-		indexed []contentModelID
+		indexed []int
 	}{
 		{
 			// Unentered large all-groups lead and trail the entered ones, and
 			// entered models that carry no index sit between indexed ones.
 			name:    "mixed",
 			models:  []compiledModel{large(1), dfa, large(11), small, unindexable, large(21), large(31)},
-			entered: []contentModelID{1, 2, 3, 4, 5},
-			indexed: []contentModelID{2, 5},
+			entered: []int{1, 2, 3, 4, 5},
+			indexed: []int{2, 5},
 		},
-		{name: "entered last", models: []compiledModel{large(1), large(11)}, entered: []contentModelID{1}, indexed: []contentModelID{1}},
+		{name: "entered last", models: []compiledModel{large(1), large(11)}, entered: []int{1}, indexed: []int{1}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

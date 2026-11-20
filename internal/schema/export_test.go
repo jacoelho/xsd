@@ -47,6 +47,16 @@ func (c *compiler) CompileGlobalsForTest() error {
 	return c.compileGlobals()
 }
 
+// compileReachedContentModelsForTest compiles the content models complex types
+// reach, as finalization does, for white-box tests.
+func (c *compiler) compileReachedContentModelsForTest() error {
+	reached, err := c.complexTypeReachableModels()
+	if err != nil {
+		return err
+	}
+	return c.compileContentModels(reached)
+}
+
 // RuntimeForTest returns the compiler-owned mutable runtime for white-box tests.
 func (c *compiler) RuntimeForTest() *schemaBuild {
 	return &c.rt

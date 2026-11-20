@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="G"><xs:choice><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence><xs:sequence><xs:element name="a"/><xs:element name="c"/></xs:sequence></xs:choice></xs:group>
+<xs:element name="r"/>
+</xs:schema>

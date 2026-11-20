@@ -2226,7 +2226,11 @@ func wideChoiceSchema(width int, extraParticles string) string {
 func compiledRootModel(t *testing.T, schema string) xsdSchema.CompiledModel {
 	t.Helper()
 	build := mutableSchemaBuild(t, schema)
-	return build.CompiledModels[rootBuildContentModel(t, build)]
+	root, ok := slices.BinarySearch(build.CompiledContent.Sources, rootBuildContentModel(t, build))
+	if !ok {
+		t.Fatal("root content model is not compiled")
+	}
+	return build.CompiledContent.Models[root]
 }
 
 func TestWideChoiceIndexedDispatch(t *testing.T) {

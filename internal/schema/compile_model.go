@@ -316,41 +316,91 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 	return c.enterComponent(c.modelSources[id])
 }
 
-// compileContentModels compiles every model in the scope of its owner, then
-// indexes the table. Indexing is set-wide: it only spends budget, and
+// compileContentModels compiles every model reached from a complex type, in
+// source-ID order and in the scope of its owner, then indexes the table. A
+// nested model is compiled on its own as well as in its ancestors' rows, so a
+// violation or limit inside a group stops compilation at the first model, in
+// source order, holding it. Indexing is set-wide: it only spends budget, and
 // locateSetWideLimit locates its limit failure.
-func (c *compiler) compileContentModels() error {
+func (c *compiler) compileContentModels(reached []bool) error {
 	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, c.contentAnalysis)
-	compiled := make([]compiledModel, len(c.rt.Models))
-	for id := range compiled {
-		if err := c.compileContentModel(&cc, compiled, contentModelID(id)); err != nil {
+	var sources []contentModelID
+	var models []compiledModel
+	for id, ok := range reached {
+		if !ok {
+			continue
+		}
+		var compiled compiledModel
+		if err := c.compileContentModel(&cc, &compiled, contentModelID(id)); err != nil {
 			return err
 		}
+		sources = append(sources, contentModelID(id))
+		models = append(models, compiled)
 	}
-	if err := indexCompiledModelsRows(&c.rt, compiled, c.contentWork.spend); err != nil {
+	if err := indexCompiledModelsRows(&c.rt, models, c.contentWork.spend); err != nil {
 		return contentRestrictionCompileError(err)
 	}
-	return c.installCompiledModels(compiled)
+	c.rt.CompiledContent = compiledContent{Sources: sources, Models: models}
+	return nil
 }
 
-func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled []compiledModel, id contentModelID) (err error) {
+func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled *compiledModel, id contentModelID) (err error) {
 	scope, err := c.enterContentModel(id)
 	if err != nil {
 		return err
 	}
 	defer scope.leave(&err)
-	compiled[id], err = cc.compileRootContentModel(id)
+	*compiled, err = cc.compileRootContentModel(id)
 	return err
 }
 
-func (c *compiler) checkCompiledModelsUPA() error {
+// checkCompiledModelsUPA applies Unique Particle Attribution to the reached
+// content models. The constraint is stated over "a content model", so a named
+// model group that no complex type uses is not checked, as accepted W3C
+// msMeta/Additional_w3c.xml/addB194 expects.
+func (c *compiler) checkCompiledModelsUPA(reached []bool) error {
 	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
-	for id := range c.rt.Models {
+	for id, ok := range reached {
+		if !ok {
+			continue
+		}
 		if err := c.checkModelUPA(upa, contentModelID(id)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// complexTypeReachableModels marks every content model that a complex type's
+// content reaches through nested model particles.
+func (c *compiler) complexTypeReachableModels() ([]bool, error) {
+	reached := make([]bool, len(c.rt.Models))
+	pending := make([]contentModelID, 0, len(c.rt.ComplexTypes))
+	for i := range c.rt.ComplexTypes {
+		pending = markReachedModel(reached, pending, c.rt.ComplexTypes[i].Content)
+	}
+	for len(pending) > 0 {
+		id := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if err := c.contentWork.spend(1); err != nil {
+			return nil, err
+		}
+		for _, particle := range c.rt.Models[id].Particles {
+			if particle.Kind == particleModel {
+				pending = markReachedModel(reached, pending, particle.Model)
+			}
+		}
+	}
+	return reached, nil
+}
+
+// markReachedModel marks id reached and queues it unless it already was.
+func markReachedModel(reached []bool, pending []contentModelID, id contentModelID) []contentModelID {
+	if reached[id] {
+		return pending
+	}
+	reached[id] = true
+	return append(pending, id)
 }
 
 func (c *compiler) checkModelUPA(upa *contentModelUPACheck, id contentModelID) (err error) {

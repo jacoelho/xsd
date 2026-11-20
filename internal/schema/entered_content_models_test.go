@@ -60,8 +60,8 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 	for i := range collapsed.ComplexTypes {
 		collapsed.ComplexTypes[i].Content = collapsed.ComplexTypes[0].Content
 	}
-	if entered := len(enterContentModels(spread.ComplexTypes, spread.CompiledModels).Models); entered < 4 || entered >= len(spread.CompiledModels) {
-		t.Fatalf("fixture: %d entered of %d compiled models, want at least 4 and some unentered", entered, len(spread.CompiledModels))
+	if entered := len(enterContentModels(spread.ComplexTypes, &spread.CompiledContent).Models); entered < 4 || entered >= len(spread.CompiledContent.Models) {
+		t.Fatalf("fixture: %d entered of %d compiled models, want at least 4 and some unentered", entered, len(spread.CompiledContent.Models))
 	}
 
 	total := func(build *schemaBuild) int {
@@ -94,12 +94,13 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 	t.Parallel()
 
-	kinds := func(kinds ...compiledModelKind) []compiledModel {
-		models := make([]compiledModel, len(kinds))
+	kinds := func(kinds ...compiledModelKind) *compiledContent {
+		content := &compiledContent{Sources: make([]contentModelID, len(kinds)), Models: make([]compiledModel, len(kinds))}
 		for i, kind := range kinds {
-			models[i].Kind = kind
+			content.Sources[i] = contentModelID(i)
+			content.Models[i].Kind = kind
 		}
-		return models
+		return content
 	}
 	types := func(contents ...contentModelID) []complexTypeMetadata {
 		types := make([]complexTypeMetadata, len(contents))
@@ -110,9 +111,9 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 	}
 	for _, test := range []struct {
 		name          string
-		models        []compiledModel
+		models        *compiledContent
 		types         []complexTypeMetadata
-		wantModels    []contentModelID
+		wantModels    []int
 		wantPublished []contentModelID
 	}{
 		{
@@ -120,14 +121,14 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 			name:          "empty roots share the lowest empty model",
 			models:        kinds(compiledModelEmpty, compiledModelAll, compiledModelEmpty, compiledModelDFA, compiledModelEmpty),
 			types:         types(2, 1, 0, 3, 1, 4),
-			wantModels:    []contentModelID{0, 1, 3},
+			wantModels:    []int{0, 1, 3},
 			wantPublished: []contentModelID{0, 1, 0, 2, 1, 0},
 		},
 		{
 			name:          "no empty models",
 			models:        kinds(compiledModelDFA, compiledModelAll, compiledModelAny),
 			types:         types(2, 2, 0),
-			wantModels:    []contentModelID{0, 2},
+			wantModels:    []int{0, 2},
 			wantPublished: []contentModelID{1, 1, 0},
 		},
 	} {

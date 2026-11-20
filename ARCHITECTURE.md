@@ -255,7 +255,16 @@ declared, through facts the content-model analysis owns:
 `lastParticles` alone decides which particles of a nested group can match its
 last element, and `ModelContinuations` computes the continuation set of each
 model once, holding each particle once, so a group referenced N times adds
-no copies; both direct checks iterate the shared sets. The count analysis
+no copies; both direct checks iterate the shared sets. Unique Particle
+Attribution applies to the content models of complex types ([I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)): the direct
+check and automaton construction (`compileContentModels`) visit, in source-ID
+order, the root model of each complex type and every model it reaches through
+particles (`complexTypeReachableModels`), so a model no complex type reaches is
+neither checked nor compiled and spends no automaton work or
+`MaxContentModelStates` budget. The compiled table (`compiledContent`) holds
+the reached models with their source IDs, and publication enters only the
+roots. Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
+count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
 no alternative to a choice. `baseIsUrType` alone decides the ur-type
 exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
@@ -1327,8 +1336,14 @@ graph preserves these ownership rules:
   (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`).
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
-  skipping their compilation was rejected because their errors and work
-  charges belong to admission.
+  skipping the compilation of a reached nested model was rejected because its
+  errors and work charges belong to admission, and compiling it on its own
+  stops a group fan-out at the first nested group over the DFA state cap.
+  Compiling a model no complex type reaches was rejected: Unique Particle
+  Attribution belongs to the content models of complex types ([I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)), as W3C
+  `addB194` expects. A table indexed by source model with zero entries for the
+  unreached models was rejected because a zero `compiledModel` reads as an
+  empty model; `compiledContent` names the source of each compiled model.
 - Raising the DFA state cap to admit avoidable expansion was rejected; safe
   single-particle occurrence normalization prevents that expansion.
 - Per-row pointers for optional content dispatch were rejected because they

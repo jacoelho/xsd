@@ -10,18 +10,18 @@ func unlimitedContentModelAnalysis(rt *schemaBuild) *contentModelAnalysis {
 	return analysis
 }
 
-// allContentModelIDs enters every model, so the published table keeps source
-// IDs.
-func allContentModelIDs(n int) []contentModelID {
-	ids := make([]contentModelID, n)
-	for i := range ids {
-		ids[i] = contentModelID(i)
+// allCompiledModels enters every model of an n-model compiled table, so the
+// published table keeps compiled-table positions.
+func allCompiledModels(n int) []int {
+	positions := make([]int, n)
+	for i := range positions {
+		positions[i] = i
 	}
-	return ids
+	return positions
 }
 
 func testCompiledModelReads(models []compiledModel) []compiledModelRead {
-	reads, mayHaveDenseRows, err := newCompiledModelReads(models, allContentModelIDs(len(models)), unlimitedContentModelWork)
+	reads, mayHaveDenseRows, err := newCompiledModelReads(models, allCompiledModels(len(models)), unlimitedContentModelWork)
 	if err != nil {
 		panic(err)
 	}

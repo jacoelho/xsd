@@ -87,7 +87,7 @@ func TestPublishedSchemaValidatesEveryTypeAgainstItsOwnModel(t *testing.T) {
 	// differ from source IDs, so the shifted types must sit above a dropped
 	// model, and the extension must share its base's model.
 	firstOrphan := xsdSchema.NoContentModel
-	for id := range build.CompiledModels {
+	for id := range build.Models {
 		if !roots[xsdSchema.ContentModelID(id)] {
 			firstOrphan = xsdSchema.ContentModelID(id)
 			break
@@ -106,7 +106,7 @@ func TestPublishedSchemaValidatesEveryTypeAgainstItsOwnModel(t *testing.T) {
 	if userRoot("S1") != userRoot("U1") || userRoot("U1") >= userRoot("T4") {
 		t.Fatalf("fixture: U1 root %d does not share S1 root %d below T4 root %d", userRoot("U1"), userRoot("S1"), userRoot("T4"))
 	}
-	compiled := len(build.CompiledModels)
+	compiled := len(build.CompiledContent.Models)
 
 	published, err := publishSchema(build)
 	if err != nil {
@@ -158,73 +158,21 @@ func TestPublishedSchemaValidatesEveryTypeAgainstItsOwnModel(t *testing.T) {
 	}
 }
 
-func TestPublishedSchemaKeepsUnusedAllIndexOffTheNextModel(t *testing.T) {
+func TestCompileAppliesStateLimitOnlyToComplexTypeContent(t *testing.T) {
 	t.Parallel()
 
-	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:group name="unused"><xs:all>`+allElements("u")+`</xs:all></xs:group>
-  <xs:element name="small"><xs:complexType><xs:all>
-    <xs:element name="x"/><xs:element name="y"/>
-  </xs:all></xs:complexType></xs:element>
-</xs:schema>`)
-	// A small all-group carries no index of its own, so only an index taken
-	// from the unentered large group could change how it matches; that needs
-	// the large group to precede it with no entered model between them.
-	roots := make(map[xsdSchema.ContentModelID]bool, len(build.ComplexTypes))
-	for i := range build.ComplexTypes {
-		roots[build.ComplexTypes[i].Content] = true
-	}
-	unused, small := -1, -1
-	for id, model := range build.CompiledModels {
-		if model.Kind == xsdSchema.CompiledModelAll {
-			switch len(model.All) {
-			case 8:
-				unused = id
-			case 2:
-				small = id
-			}
-		}
-	}
-	if unused < 0 || small <= unused || roots[xsdSchema.ContentModelID(unused)] || !roots[xsdSchema.ContentModelID(small)] {
-		t.Fatalf("fixture: unused all model %d must be unentered and precede the small all root %d", unused, small)
-	}
-	for id := unused + 1; id < small; id++ {
-		if roots[xsdSchema.ContentModelID(id)] {
-			t.Fatalf("fixture: root %d lies between unused all model %d and small all root %d", id, unused, small)
-		}
-	}
-
-	published, err := publishSchema(build)
-	if err != nil {
-		t.Fatalf("PublishSchema() error = %v", err)
-	}
-	for _, doc := range []string{`<small><y/><x/></small>`, `<small><x/><y/></small>`} {
-		if err := validateWithRuntime(published, doc); err != nil {
-			t.Errorf("Validate(%s) error = %v", doc, err)
-		}
-	}
-	if err := validateWithRuntime(published, `<small><x/></small>`); err == nil || !strings.Contains(err.Error(), `"y"`) {
-		t.Errorf("Validate(<small><x/></small>) error = %v, want a diagnostic naming y", err)
-	}
-}
-
-func TestCompileAppliesStateLimitToUnusedGroups(t *testing.T) {
-	t.Parallel()
-
-	const repeat = `<xs:group name="unused"><xs:sequence>
+	const repeat = `<xs:group name="repeat"><xs:sequence>
     <xs:sequence minOccurs="18" maxOccurs="18"><xs:element name="a"/><xs:element name="b"/></xs:sequence>
   </xs:sequence></xs:group>`
-	schema := func(groups string) string {
-		return `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + groups + `
-  <xs:element name="r"><xs:complexType><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType></xs:element>
+	compile := func(content string) error {
+		text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + repeat + `
+  <xs:element name="r"><xs:complexType>` + content + `</xs:complexType></xs:element>
 </xs:schema>`
-	}
-	compile := func(text string) error {
 		_, err := xsdSchema.Compile(xsdSchema.Options{MaxContentModelStates: 8}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
 		return err
 	}
-	if err := compile(schema("")); err != nil {
-		t.Fatalf("Compile(without unused group) error = %v", err)
+	if err := compile(`<xs:sequence><xs:element name="a"/></xs:sequence>`); err != nil {
+		t.Fatalf("Compile(group no type uses) error = %v", err)
 	}
-	expectCategoryCode(t, compile(schema(repeat)), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	expectCategoryCode(t, compile(`<xs:group ref="repeat"/>`), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }

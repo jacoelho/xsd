@@ -5525,7 +5525,7 @@
       "schema": {
         "testName": "addB194",
         "expected": "invalid",
-        "errorCode": "schema.content_model",
+        "errorCode": "schema.limit",
         "status": "stable",
         "documents": [
           {
@@ -5535,8 +5535,22 @@
         "oracle": {
           "w3c": {
             "expected": "valid",
-            "reason": "Original W3C expectation is valid. Overlapping ##other wildcards in group THDMVV violate Unique Particle Attribution.",
-            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig"
+            "reason": "Original W3C expectation is valid. The effective rejection records the library's finite compilation resource limit, not normative XSD invalidity.",
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance"
+          }
+        },
+        "differences": {
+          "xerces": {
+            "record": "observation-product-modality"
+          },
+          "dotnet": {
+            "record": "observation-product-modality"
+          },
+          "xmlschema": {
+            "record": "observation-product-modality"
+          },
+          "libxml2": {
+            "record": "observation-product-modality"
           }
         }
       },

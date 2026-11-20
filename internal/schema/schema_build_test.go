@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"math"
 	"reflect"
 	"slices"
 	"testing"
@@ -136,28 +135,6 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 	})
 	if entries != 1 {
 		t.Fatalf("substitution entries = %d, want 1", entries)
-	}
-}
-
-func TestSchemaBuildCompiledModelInstallationPreservesAlignment(t *testing.T) {
-	t.Parallel()
-
-	c := compiler{rt: newSchemaBuild(nameTable{}), dependencyWork: newWorkBudget(dependencyWorkBudget, math.MaxInt)}
-	if _, err := c.addModel(contentModelNode{}, &schemaNode{}); err != nil {
-		t.Fatal(err)
-	}
-	compiled := []compiledModel{{}}
-	if err := c.installCompiledModels(compiled); err != nil {
-		t.Fatal(err)
-	}
-	if len(c.rt.CompiledModels) != 1 {
-		t.Fatalf("compiled models = %d", len(c.rt.CompiledModels))
-	}
-	if err := c.installCompiledModels(nil); err == nil {
-		t.Fatal("misaligned compiled model installation succeeded")
-	}
-	if len(c.rt.CompiledModels) != 1 {
-		t.Fatal("failed compiled model installation changed prior topology")
 	}
 }
 

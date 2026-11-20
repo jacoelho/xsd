@@ -34918,6 +34918,366 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/upa-scope/unreferenced-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "A named model group that no complex type uses is not a content model, so its overlapping particles break no Unique Particle Attribution.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/unreferenced-group"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/unreferenced-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/unreferenced-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/group-referenced-by-unreferenced-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "A group reached only through another group that no complex type uses is not part of any content model.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/group-referenced-by-unreferenced-group"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/group-referenced-by-unreferenced-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/group-referenced-by-unreferenced-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/group-referenced-by-named-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "A named complex type that uses the group makes the group part of its content model, even when no element uses the type.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/group-referenced-by-named-type"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/group-referenced-by-named-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/group-referenced-by-named-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/group-referenced-by-anonymous-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "An element's anonymous complex type that uses the group makes the group part of its content model.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/group-referenced-by-anonymous-type"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/group-referenced-by-anonymous-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/group-referenced-by-anonymous-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/group-referenced-through-nested-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "A group reached through another group that a complex type uses is part of that content model.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/group-referenced-through-nested-group"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/group-referenced-through-nested-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/group-referenced-through-nested-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/anonymous-type-in-unreferenced-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "An anonymous complex type declared inside a group that no complex type uses still has a content model, so its overlapping particles break Unique Particle Attribution.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/anonymous-type-in-unreferenced-group"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/anonymous-type-in-unreferenced-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-050"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/anonymous-type-in-unreferenced-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/group-referenced-with-zero-occurrence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "A group reference with maxOccurs 0 maps to no particle, so the group is not part of the referring type's content model.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/group-referenced-with-zero-occurrence"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/group-referenced-with-zero-occurrence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-050"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/group-referenced-with-zero-occurrence/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/unreferenced-group-ambiguous-by-repetition",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "A group that no complex type uses is not checked even when only its automaton would show the ambiguity.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/unreferenced-group-ambiguous-by-repetition"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/unreferenced-group-ambiguous-by-repetition/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/unreferenced-group-ambiguous-by-repetition/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/group-ambiguous-by-repetition-referenced-by-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "The repeated choice is ambiguous only through its automaton, which compiling the referring type's content model reaches.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/group-ambiguous-by-repetition-referenced-by-type"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/group-ambiguous-by-repetition-referenced-by-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-050"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/group-ambiguous-by-repetition-referenced-by-type/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-scope/addB194-occurrences-collapsed",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types"
+        ],
+        "description": "W3C msData/additional/addB194.xsd with every maxOccurs above 1 set to 1: the unreferenced group THDMVV keeps its overlapping ##other wildcards, so the schema is valid only if that group is not checked.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-scope/addB194-occurrences-collapsed"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-scope/addB194-occurrences-collapsed/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types",
+          "clause": "I-050 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-scope/addB194-occurrences-collapsed/schema.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

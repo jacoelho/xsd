@@ -10,7 +10,7 @@ import (
 func TestNextContentQNameBounds(t *testing.T) {
 	t.Parallel()
 	build := contentContractBuild(t, []QName{{Namespace: 3, Local: math.MaxUint32 - 4}, {Namespace: 3, Local: math.MaxUint32 - 1}})
-	rt := contentContractSchema(build, testCompiledModelReads(build.CompiledModels))
+	rt := contentContractSchema(build, testCompiledModelReads(build.CompiledContent.Models))
 	for _, test := range []struct {
 		name  string
 		input RuntimeName
@@ -45,7 +45,7 @@ func TestNextContentQNameBounds(t *testing.T) {
 	t.Run("above span", func(t *testing.T) {
 		t.Parallel()
 		lower := contentContractBuild(t, []QName{{Local: 10}, {Local: 11}})
-		runtime := contentContractSchema(lower, testCompiledModelReads(lower.CompiledModels))
+		runtime := contentContractSchema(lower, testCompiledModelReads(lower.CompiledContent.Models))
 		transition, status := runtime.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 12}}}, &ContentScratch{})
 		if status != ContentTransitionNoMatch || transition.IsPlanned() {
 			t.Fatalf("above-span name = %+v/%v, want no match", transition, status)
@@ -59,15 +59,15 @@ func TestNextContentExhaustedNamedCandidateContinuesToWildcard(t *testing.T) {
 		t.Run(map[int]string{2: "three edges", 7: "eight edges"}[named], func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(named))
-			row := &build.CompiledModels[0].Rows[0]
+			row := &build.CompiledContent.Models[0].Rows[0]
 			row.Counted, row.Min, row.Max = true, 1, 1
 			row.CountParticle = row.Edges[0].Particle
 			row.Edges[0].To = 0
 			row.Edges = append(row.Edges, compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1})
-			if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+			if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
-			rt := contentContractSchema(build, testCompiledModelReads(build.CompiledModels))
+			rt := contentContractSchema(build, testCompiledModelReads(build.CompiledContent.Models))
 			rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 			st := ContentState{model: 0, count: 1, present: true}
 			transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
@@ -85,17 +85,17 @@ func TestNextContentDuplicateNameKeepsCountedLoopAndExit(t *testing.T) {
 		t.Run(map[int]string{3: "narrow", 8: "wide", 17: "seventeen edges"}[width], func(t *testing.T) {
 			t.Parallel()
 			build := contentContractBuild(t, contentContractNames(width-1))
-			row := &build.CompiledModels[0].Rows[0]
+			row := &build.CompiledContent.Models[0].Rows[0]
 			row.Counted, row.Min, row.Max = true, 2, 2
 			row.CountParticle = row.Edges[0].Particle
 			loop := row.Edges[0]
 			loop.To = 0
 			row.Edges = append([]compiledModelEdge{loop}, row.Edges...)
 			row.index = dfaRowIndex{}
-			if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+			if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
 				t.Fatal(err)
 			}
-			reads := testCompiledModelReads(build.CompiledModels)
+			reads := testCompiledModelReads(build.CompiledContent.Models)
 			rt := contentContractSchema(build, reads)
 			st := ContentState{model: 0, present: true}
 			for _, want := range []ContentState{{model: 0, count: 1, present: true}, {model: 0, count: 2, present: true}, {model: 0, state: 1, present: true}} {
@@ -128,8 +128,11 @@ func contentContractBuild(t *testing.T, names []QName) *schemaBuild {
 		build.Elements[i] = elementDecl{Name: name}
 		edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i), occurrence{Min: 1, Max: 1}), To: 1}
 	}
-	build.CompiledModels = []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}}
-	if err := indexCompiledModelsRows(build, build.CompiledModels, unlimitedContentModelWork); err != nil {
+	build.CompiledContent = compiledContent{
+		Sources: []contentModelID{0},
+		Models:  []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}},
+	}
+	if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
 		t.Fatal(err)
 	}
 	return build

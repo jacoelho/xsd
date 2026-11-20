@@ -65,13 +65,13 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 				t.Fatalf("compiled source model = %#v, want non-mixed ModelEmpty", validModel)
 			}
 			tt.mutate(&c.rt.Models[modelID])
-			if err := c.compileContentModels(); err != nil {
+			if err := c.compileReachedContentModelsForTest(); err != nil {
 				t.Fatalf("compileContentModels(corrupt) error = %v", err)
 			}
 
 			expected, expectedModelID := newEmptyComplexTypePublicationCompiler(t, document)
 			tt.mutate(&expected.rt.Models[expectedModelID])
-			if err := expected.compileContentModels(); err != nil {
+			if err := expected.compileReachedContentModelsForTest(); err != nil {
 				t.Fatalf("compileContentModels(expected) error = %v", err)
 			}
 
@@ -85,7 +85,7 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 			}
 
 			c.rt.Models[modelID] = validModel
-			if err := c.compileContentModels(); err != nil {
+			if err := c.compileReachedContentModelsForTest(); err != nil {
 				t.Fatalf("compileContentModels(restored) error = %v", err)
 			}
 			if published, err := c.publishSchema(); err != nil || published == nil {

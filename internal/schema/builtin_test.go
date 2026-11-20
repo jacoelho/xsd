@@ -129,7 +129,7 @@ func TestPublicationRejectsIntrinsicXSIAttributeDrift(t *testing.T) {
 			c, _ := newEmptyComplexTypePublicationCompiler(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType/></xs:element></xs:schema>`)
 			q, _ := c.rt.Names.LookupQName(vocab.XSINamespaceURI, "nil")
 			mutate(t, &c.rt, q, c.rt.GlobalAttributes[q])
-			if err := c.compileContentModels(); err != nil {
+			if err := c.compileReachedContentModelsForTest(); err != nil {
 				t.Fatal(err)
 			}
 			if published, err := c.publishSchema(); err == nil || published != nil {
