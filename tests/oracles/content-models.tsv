@@ -4417,6 +4417,10 @@ project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	d
 project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xerces	schema-valid	
 project/content-models/pointless-groups/declared/derived-cho-nested-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:choice><xs:choice><xs:element name="a" type="xs:string" /></xs:choice></xs:choice></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-cho-nested-elt.xsd
+project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq	schema	xerces	schema-invalid	derived-choice-a-repemptyseq.xsd:4:28: rcase-RecurseLax.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-choice-a-repemptyseq	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	dotnet	schema-valid	warning: derived-seq-a-choiceofemptychoiceandseq-b.xsd:4:136: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoiceandseq-b	schema	xerces	schema-valid	
@@ -4469,6 +4473,10 @@ project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b	sch
 project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b	schema	xerces	schema-invalid	derived-seq-a-repemptyseq-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
 project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03	schema	xerces	schema-invalid	derived-seq-a-repemptyseq-b03.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-a-repemptyseq-b03	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b	schema	dotnet	schema-valid	warning: derived-seq-a-reqrepemptychoice-b.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b	schema	xerces	schema-invalid	derived-seq-a-reqrepemptychoice-b.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
@@ -4485,6 +4493,14 @@ project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	dot
 project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	xerces	schema-invalid	derived-seq-both-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
 project/content-models/pointless-groups/declared/derived-seq-both-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:sequence><xs:element name="a" type="xs:string" /></xs:sequence><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-both-elt.xsd
+project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq	schema	xerces	schema-invalid	derived-seq-c-choice-a-repemptyseq.xsd:4:28: rcase-Recurse.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-c-choice-a-repemptyseq	schema	xmlschema	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq	schema	xerces	schema-invalid	derived-seq-choice-a-repemptyseq.xsd:4:28: rcase-RecurseLax.2: There is not a complete functional mapping between the particles.
+project/content-models/pointless-groups/declared/derived-seq-choice-a-repemptyseq	schema	xmlschema	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	dotnet	schema-valid	warning: derived-seq-choiceofempties.xsd:4:125: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-choiceofempties	schema	xerces	schema-invalid	derived-seq-choiceofempties.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
@@ -4533,6 +4549,18 @@ project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	sch
 project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	libxml2	schema-valid	
 project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	xerces	schema-invalid	derived-seq-nestedempty-elt.xsd:4:28: cos-particle-restrict.2: Forbidden particle restriction: 'seq:elt'.
 project/content-models/pointless-groups/declared/derived-seq-nestedempty-elt	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence><xs:element name="a" type="xs:string" /><xs:sequence><xs:sequence /></xs:sequence></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: derived-seq-nestedempty-elt.xsd
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq	schema	xerces	schema-invalid	mapandsum-repseq-twoemptyseq.xsd:4:28: rcase-MapAndSum.2: Group's occurrence range, (0,unbounded), is not a valid restriction of base group's occurrence range, (0,1).
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence maxOccurs="unbounded"><xs:sequence /><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mapandsum-repseq-twoemptyseq.xsd
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-repseq-twoemptyseq-repbase	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence maxOccurs="unbounded"><xs:sequence /><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mapandsum-repseq-twoemptyseq-repbase.xsd
+project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq	schema	dotnet	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq	schema	libxml2	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq	schema	xerces	schema-valid	
+project/content-models/pointless-groups/declared/mapandsum-twoseq-twoemptyseq	schema	xmlschema	schema-invalid	the derived group is an illegal restriction:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" name="R"><xs:complexContent><xs:restriction base="B"><xs:sequence maxOccurs="2"><xs:sequence /><xs:sequence /></xs:sequence></xs:restriction></xs:complexContent></xs:complexType>␊␊Path: /xs:schema/xs:complexType[2]␊␊Schema URL: mapandsum-twoseq-twoemptyseq.xsd
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	libxml2	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xerces	valid	
 project/content-models/pointless-groups/empty-restriction-epsilon-base	base-element	xmlschema	valid	

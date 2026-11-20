@@ -478,7 +478,7 @@ func (v contentRestrictionValidator) validateUnmappedGroupParticles(
 }
 
 func (v contentRestrictionValidator) validateSequenceRestrictsChoice(base, derived contentModelNode) error {
-	if !occurrenceRangeSubset(sequenceChoiceRange(derived), base.Occurs) {
+	if !occurrenceRangeSubset(mapAndSumRange(derived), base.Occurs) {
 		return contentRestrictionMismatch("sequence restriction occurrence is not subset of choice")
 	}
 	for _, derivedParticle := range derived.Particles {

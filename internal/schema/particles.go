@@ -1,7 +1,9 @@
 package schema
 
-// sequenceChoiceRange reports the range for a sequence that restricts a choice.
-func sequenceChoiceRange(model contentModelNode) occurrence {
+// mapAndSumRange returns the range of a sequence restricting a choice that
+// Particle Derivation OK (Sequence:Choice -- MapAndSum) clause 2 compares with
+// the choice's range; it is not the sequence's Effective Total Range (§3.8.6).
+func mapAndSumRange(model contentModelNode) occurrence {
 	particleCount := saturatingUint32(len(model.Particles))
 	if model.Occurs.Unbounded {
 		return occurrence{Min: saturatingMul(model.Occurs.Min, particleCount), Unbounded: true}
@@ -24,10 +26,8 @@ func unionOccurrenceRanges(a, b occurrence) occurrence {
 	return occurrence{Min: minOccurs, Max: maxOccurs}
 }
 
-// multiplyOccurrence applies occurrence constraints to an accepted range. A
-// zero maximum stays zero against an unbounded factor, as Effective Total
-// Range (Structures §3.8.6) makes the maximum unbounded only when the
-// repeated part is non-zero.
+// multiplyOccurrence returns the range of a repeated range, as Effective
+// Total Range (Structures §3.8.6) defines it.
 func multiplyOccurrence(a, b occurrence) occurrence {
 	if a.IsAbsent() || b.IsAbsent() {
 		return occurrence{}
