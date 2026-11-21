@@ -164,7 +164,7 @@ func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 	}
 }
 
-func TestUPAInsideGroupIsLocatedAtTheGroupExceptRepeatedWholeContentAndRepetitionConflicts(t *testing.T) {
+func TestUPAInsideGroupIsLocatedAtTheFirstModelInSourceOrderThatReachesIt(t *testing.T) {
 	t.Parallel()
 
 	ambiguousGroup := `<xs:choice><xs:element name="a"/><xs:sequence><xs:element name="a"/></xs:sequence></xs:choice>`
@@ -186,6 +186,12 @@ func TestUPAInsideGroupIsLocatedAtTheGroupExceptRepeatedWholeContentAndRepetitio
 				`<xs:complexType name="T"><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:complexType>`,
 			}
 		},
+		"whole content beside a unit reference": func(maxOccurs string) []string {
+			return []string{
+				`<xs:complexType name="T"><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:complexType>`,
+				`<xs:complexType name="U"><xs:sequence><xs:group ref="G"/></xs:sequence></xs:complexType>`,
+			}
+		},
 	}
 	atGroup := compileLocation{path: "b.xsd", line: 3}
 	for _, test := range []struct {
@@ -203,6 +209,7 @@ func TestUPAInsideGroupIsLocatedAtTheGroupExceptRepeatedWholeContentAndRepetitio
 		{shape: "whole content", group: ambiguousGroup, maxOccurs: "1", want: atGroup},
 		{shape: "whole content", group: ambiguousGroup, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 2}},
 		{shape: "whole content", group: ambiguousGroup, maxOccurs: "unbounded", want: compileLocation{path: "a.xsd", line: 2}},
+		{shape: "whole content beside a unit reference", group: ambiguousGroup, maxOccurs: "2", want: atGroup},
 		{shape: "nested", group: ambiguousWhenRepeated, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 2}},
 		{shape: "extension", group: ambiguousWhenRepeated, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 3}},
 		{shape: "whole content", group: ambiguousWhenRepeated, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 2}},

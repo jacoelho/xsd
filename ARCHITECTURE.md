@@ -214,26 +214,20 @@ has a schema document to locate it.
 
 The content model table holds declared components. Lowering drops zero-count
 particles and keeps every declared group as its own particle; xs:anyType's
-content is a 1..1 mixed sequence holding its lax `##any` wildcard
-0..unbounded. A model group is compiled for one use (`modelUse`): the term of
-a particle has a unit occurrence on its record and the occurrence on its
-particle, and the root of a {content type} carries the occurrence and mixed
-flag on its record (`compileCompositor`). Every reference to a group from
-inside a model group or from an extension's content sequence therefore names
-the group's own model, and `validateContentModelTable` rejects a particle that
-names a record with any other occurrence. Records that share another model's
-particles are made by `applyModelGroupOccurrence` (the root of a repeated
-group reference that is a type's whole content), `canonicalComplexContentModel`
-(a shared root under another mixed flag) and `compileModelParticle` (the
-unit-occurrence term of a repeated base root in an extension), and
-`chargedParticles` names the passes that read particles through it.
+content is a 1..1 sequence holding its lax `##any` wildcard 0..unbounded,
+and a {content type}'s variety alone says whether it is mixed. Where a model
+group's occurrence is recorded is owned by `modelUse` and `compileCompositor`,
+and `appendModelParticles` admits a model particle only when the record it
+names has a unit occurrence. `applyModelGroupOccurrence` and
+`compileModelParticle` make the records that share another model's particles,
+and `chargedParticles` names the passes that read particles through it.
 `explicitContentEmpty` alone decides from the source whether a complex type's
 ·effective content· is empty (Structures §3.4.2 complex content
 clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
 direct, restriction and extension paths call, and returns the effective
 content with the variety it gives the {content type}, with no model for empty
 content, which mixed content stores as the synthetic empty sequence of clause
-2.1.4. `extensionContentType` alone
+2.1.4 (an empty model). `extensionContentType` alone
 builds an extension's {content type} (clause 3.2), and the publication audit
 `complexContentExtendsBase` checks the same three forms. Each reader that
 reduces a model owns one rule: the restriction normalizer
@@ -1362,19 +1356,19 @@ graph preserves these ownership rules:
 - Locating content-model diagnostics at the particle was rejected: particles
   carry no source node, and one per particle adds a pointer to every retained
   particle. The precision limit is that a violation inside a referenced group
-  is located at the first model, in compilation order, whose check reaches it;
+  is located at the first model, in source-ID order, whose check reaches it;
   types compile before groups, so a referring type in another document than
   the group can be named
-  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`). A group
-  referenced as a type's whole content with a non-unit occurrence is the one
-  case where the location depends on the occurrence: its root is a record of
-  its own located at the reference (`applyModelGroupOccurrence`). A root that
-  wraps the reference as the one particle of a 1..1 sequence naming the
-  group's own model was rejected: the group's model is then reached and
-  compiled on its own as well, which raised analysis steps on 81 corpus
-  schemas (460 to 608 for a two-alternative choice repeated twice) and
-  dependency steps by one per such type, and an all group cannot be a
-  particle.
+  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`). The root of a
+  group referenced as a type's whole content with a non-unit occurrence is a
+  record of its own located at the reference (`applyModelGroupOccurrence`),
+  so the location depends on the occurrence when no model with a lower ID
+  reaches the group
+  (`TestUPAInsideGroupIsLocatedAtTheFirstModelInSourceOrderThatReachesIt`). A
+  root that wraps the reference as the one particle of a 1..1 sequence naming
+  the group's own model was rejected: the group's model is then reached and
+  compiled on its own as well, which raises analysis and dependency steps, and
+  an all group cannot be a member of a model group such as that sequence.
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
   skipping the compilation of a reached nested model was rejected because its
