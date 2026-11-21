@@ -60,11 +60,10 @@ type dfaNode struct {
 }
 
 type dfaBuilder struct {
-	c         *contentModelCompiler
-	states    map[string]uint32
-	positions []contentParticle
-	rows      []dfaSourceRow
-	// queue holds the keys of the states whose rows are not built yet.
+	c          *contentModelCompiler
+	states     map[string]uint32
+	positions  []contentParticle
+	rows       []dfaSourceRow
 	queue      []string
 	rowEntries []dfaStateEntry
 	key        []byte
@@ -841,10 +840,9 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 }
 
 // directSequenceCompilation compiles a sequence of element and wildcard
-// particles. Each particle adds a row and one edge into it, which every
-// active row takes: the rows from active, the first that no required
-// particle has passed since it was added, through the last. A row's edges
-// are therefore one run of edges, which table shares between the rows.
+// particles. The rows that take a particle's edge are always a contiguous
+// run ending at the last row, so each row's edges are one run of a shared
+// edge array.
 type directSequenceCompilation struct {
 	compiler *contentModelCompiler
 	rows     []compiledModelRow
@@ -882,9 +880,6 @@ func (b *directSequenceCompilation) addParticle(particle contentParticle) (bool,
 	return true, b.addEdge(particle, row)
 }
 
-// addEdge adds row and the edge of particle into it, which every active row
-// takes. row also takes it when particle repeats; the earlier rows stay
-// active when particle is optional.
 func (b *directSequenceCompilation) addEdge(particle contentParticle, row compiledModelRow) error {
 	to, err := b.appendRow(row)
 	if err != nil {
@@ -920,8 +915,8 @@ func (b *directSequenceCompilation) appendRow(row compiledModelRow) (uint32, err
 	return to, err
 }
 
-// table returns the rows with the active rows accepting. Each row's Edges is
-// its run of edges, shared and without spare capacity, or nil.
+// table's rows share one edge array, and each row's Edges has no spare
+// capacity, so appending to it never writes into another row's edges.
 func (b *directSequenceCompilation) table() []compiledModelRow {
 	for state := range b.rows {
 		span := b.spans[state]

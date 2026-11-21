@@ -323,8 +323,6 @@ func (t *followTable) addClass() (uint32, error) {
 	return id, nil
 }
 
-// entriesCharge is what admitting entries as a state costs: one step, and
-// one per entry and per guard and action it takes.
 func (t *followTable) entriesCharge(entries []dfaStateEntry) int {
 	charge := len(entries) + 1
 	for _, e := range entries {
@@ -348,8 +346,8 @@ func (t *followTable) segmentEntries(seg followSegment, entries []dfaStateEntry)
 	return entries
 }
 
-// normalize sorts entries in place by position, then by the content of their
-// guards and actions as compareDFAEntry orders it, and removes duplicates.
+// normalize orders entries by prefix content rather than prefix ID, so a set
+// normalizes to the same key whatever order its prefixes were interned in.
 func (t *followTable) normalize(entries []dfaStateEntry) []dfaStateEntry {
 	slices.SortFunc(entries, t.compareEntries)
 	return slices.Compact(entries)
