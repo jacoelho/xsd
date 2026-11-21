@@ -514,29 +514,35 @@ func mustDeterministicModelCompilation(t *testing.T, b *dfaBuilder) *determinist
 	return c
 }
 
-func TestNormalizeFollowsChargesEntryStorage(t *testing.T) {
+func TestNormalizeFollowsChargesFollowEntryGuards(t *testing.T) {
 	t.Parallel()
 
-	work := newWorkBudget(contentModelWorkBudget, 3)
-	b := &dfaBuilder{
-		c: &contentModelCompiler{work: &work},
-		follow: followTableOf(map[int][]dfaEntry{
-			0: {{Pos: 1, Guards: []compiledGuard{{}, {}}}},
-		}),
+	follow := newFollowTable()
+	follow.addPosition()
+	follow.addPosition()
+	set, err := follow.addSet([]int{1})
+	if err != nil {
+		t.Fatal(err)
 	}
-	err := b.normalizeFollows()
+	guards := []compiledGuard{{Slot: 0, N: 2, Kind: compiledGuardLoopMax}, {Slot: 1, N: 2, Kind: compiledGuardLoopMax}}
+	if err = follow.add(0, guards, nil, set); err != nil {
+		t.Fatal(err)
+	}
+	work := newWorkBudget(contentModelWorkBudget, 3)
+	b := &dfaBuilder{c: &contentModelCompiler{work: &work}, follow: follow}
+	err = b.normalizeFollows()
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
 // followTableOf returns a follow table in which each position of follows is
-// followed by exactly its entries.
-func followTableOf(follows map[int][]dfaEntry) followTable {
+// followed by exactly its positions, without guards or actions.
+func followTableOf(follows map[int][]int) followTable {
 	t := newFollowTable()
-	for pos, entries := range follows {
+	for pos, positions := range follows {
 		for len(t.heads) <= pos {
 			t.addPosition()
 		}
-		set, err := t.addSet(entries)
+		set, err := t.addSet(positions)
 		if err != nil {
 			panic(err)
 		}

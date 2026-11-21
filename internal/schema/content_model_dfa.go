@@ -518,20 +518,6 @@ func complementaryCountingGuards(loopEdge, exitEdge []compiledGuard) bool {
 	return false
 }
 
-// composeEntry prefixes entry with normalized guards and with actions. Guard
-// and action lists are never modified, so an entry without its own guards or
-// actions shares the prefix's.
-func composeEntry(guards []compiledGuard, actions []compiledAction, entry dfaEntry) dfaEntry {
-	composed := dfaEntry{Pos: entry.Pos, Guards: guards, Actions: actions}
-	if len(entry.Guards) != 0 {
-		composed.Guards = appendGuards(guards, entry.Guards)
-	}
-	if len(entry.Actions) != 0 {
-		composed.Actions = appendActions(actions, entry.Actions)
-	}
-	return composed
-}
-
 func appendGuards(a, b []compiledGuard) []compiledGuard {
 	out := slices.Clone(a)
 	out = append(out, b...)
