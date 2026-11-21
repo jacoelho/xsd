@@ -1555,7 +1555,6 @@ func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
 	return dfaNode{First: sets.first[:], Last: sets.last[:]}
 }
 
-// dfaLeafSets holds the first and last sets of one leaf in one allocation.
 type dfaLeafSets struct {
 	last  [1]dfaEntry
 	first [1]int
@@ -1581,9 +1580,8 @@ func (b *dfaBuilder) addFollows(tails []dfaEntry, first []int) error {
 	return nil
 }
 
-// spendFollowPairs charges one tail with a prefix of the given guard and
-// action count against every position of set: per pair, the prefix and one
-// step.
+// spendFollowPairs charges, for each position of set, one step plus prefix,
+// the number of guards and actions the tail adds to that follow entry.
 func (b *dfaBuilder) spendFollowPairs(prefix int, set uint32) error {
 	return b.c.work.spendProduct(b.follow.setLen(set), prefix+1)
 }
