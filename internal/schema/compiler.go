@@ -406,7 +406,7 @@ func (c *compiler) compileModelGroupByQName(q QName) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.compileModel(raw.ctx, modelNode)
+	_, err = c.compileGroupModel(raw.ctx, modelNode)
 	return err
 }
 

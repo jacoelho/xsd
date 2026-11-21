@@ -3,6 +3,7 @@ package xsd_test
 import (
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -163,36 +164,73 @@ func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 	}
 }
 
-func TestUPAInsideNestedRepeatedGroupReferenceIsLocatedAtTheGroup(t *testing.T) {
+func TestUPAInsideGroupIsLocatedAtTheGroupExceptRepeatedWholeContentAndRepetitionConflicts(t *testing.T) {
 	t.Parallel()
 
-	group := strings.Join([]string{
-		`<xs:schema ` + xsNS + `>`,
-		`<xs:group name="G">`,
-		`<xs:choice>`,
-		`<xs:element name="a"/>`,
-		`<xs:sequence><xs:element name="a"/></xs:sequence>`,
-		`</xs:choice>`,
-		`</xs:group>`,
-		`</xs:schema>`,
-	}, "\n")
-	want := compileLocation{path: "b.xsd", line: 3}
-	for _, maxOccurs := range []string{"1", "2", "unbounded"} {
-		t.Run("maxOccurs "+maxOccurs, func(t *testing.T) {
+	ambiguousGroup := `<xs:choice><xs:element name="a"/><xs:sequence><xs:element name="a"/></xs:sequence></xs:choice>`
+	ambiguousWhenRepeated := `<xs:sequence><xs:element name="a"/><xs:element name="a" minOccurs="0"/></xs:sequence>`
+	referrers := map[string]func(maxOccurs string) []string{
+		"nested": func(maxOccurs string) []string {
+			return []string{
+				`<xs:complexType name="T"><xs:sequence><xs:element name="x"/><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:sequence></xs:complexType>`,
+			}
+		},
+		"extension": func(maxOccurs string) []string {
+			return []string{
+				`<xs:complexType name="B"><xs:sequence><xs:element name="z"/></xs:sequence></xs:complexType>`,
+				`<xs:complexType name="T"><xs:complexContent><xs:extension base="B"><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:extension></xs:complexContent></xs:complexType>`,
+			}
+		},
+		"whole content": func(maxOccurs string) []string {
+			return []string{
+				`<xs:complexType name="T"><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:complexType>`,
+			}
+		},
+	}
+	atGroup := compileLocation{path: "b.xsd", line: 3}
+	for _, test := range []struct {
+		shape     string
+		group     string
+		maxOccurs string
+		want      compileLocation
+	}{
+		{shape: "nested", group: ambiguousGroup, maxOccurs: "1", want: atGroup},
+		{shape: "nested", group: ambiguousGroup, maxOccurs: "2", want: atGroup},
+		{shape: "nested", group: ambiguousGroup, maxOccurs: "unbounded", want: atGroup},
+		{shape: "extension", group: ambiguousGroup, maxOccurs: "1", want: atGroup},
+		{shape: "extension", group: ambiguousGroup, maxOccurs: "2", want: atGroup},
+		{shape: "extension", group: ambiguousGroup, maxOccurs: "unbounded", want: atGroup},
+		{shape: "whole content", group: ambiguousGroup, maxOccurs: "1", want: atGroup},
+		{shape: "whole content", group: ambiguousGroup, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 2}},
+		{shape: "whole content", group: ambiguousGroup, maxOccurs: "unbounded", want: compileLocation{path: "a.xsd", line: 2}},
+		{shape: "nested", group: ambiguousWhenRepeated, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 2}},
+		{shape: "extension", group: ambiguousWhenRepeated, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 3}},
+		{shape: "whole content", group: ambiguousWhenRepeated, maxOccurs: "2", want: compileLocation{path: "a.xsd", line: 2}},
+	} {
+		name := test.shape + " maxOccurs " + test.maxOccurs
+		if test.group == ambiguousWhenRepeated {
+			name += " ambiguous only when repeated"
+		}
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			referrer := strings.Join([]string{
+			referrer := strings.Join(slices.Concat(
+				[]string{`<xs:schema ` + xsNS + `>`},
+				referrers[test.shape](test.maxOccurs),
+				[]string{`</xs:schema>`},
+			), "\n")
+			group := strings.Join([]string{
 				`<xs:schema ` + xsNS + `>`,
-				`<xs:complexType name="T">`,
-				`<xs:sequence><xs:element name="x"/><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:sequence>`,
-				`</xs:complexType>`,
+				`<xs:group name="G">`,
+				test.group,
+				`</xs:group>`,
 				`</xs:schema>`,
 			}, "\n")
 			_, err := xsd.Compile(xsd.Bytes("a.xsd", []byte(referrer)), xsd.Bytes("b.xsd", []byte(group)))
 			if err == nil || !strings.Contains(err.Error(), "UPA violation") {
 				t.Fatalf("error = %v, want a UPA violation", err)
 			}
-			if got := compileDiagnosticLocation(t, err, xsderrors.CodeSchemaContentModel); got != want {
-				t.Fatalf("location = %+v, want the group's choice %+v: %v", got, want, err)
+			if got := compileDiagnosticLocation(t, err, xsderrors.CodeSchemaContentModel); got != test.want {
+				t.Fatalf("location = %+v, want %+v: %v", got, test.want, err)
 			}
 		})
 	}

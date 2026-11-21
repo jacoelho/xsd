@@ -215,11 +215,17 @@ has a schema document to locate it.
 The content model table holds declared components. Lowering drops zero-count
 particles and keeps every declared group as its own particle; xs:anyType's
 content is a 1..1 mixed sequence holding its lax `##any` wildcard
-0..unbounded. A nested model group's occurrence is on its particle
-(`compileNestedModelChild`), so every nested reference to a group names the
-group's own model. Root records that share another model's particles are made
-by `applyModelGroupOccurrence` and `compileModelParticle`, and
-`chargedParticles` names the passes that read particles through it.
+0..unbounded. A model group is compiled for one use (`modelUse`): the term of
+a particle has a unit occurrence on its record and the occurrence on its
+particle, and the root of a {content type} carries the occurrence and mixed
+flag on its record (`compileCompositor`). Every reference to a group from
+inside a model group or from an extension's content sequence therefore names
+the group's own model. Records that share another model's particles are made
+by `applyModelGroupOccurrence` (the root of a repeated group reference that is
+a type's whole content), `canonicalComplexContentModel` (a shared root under
+another mixed flag) and `compileModelParticle` (the unit-occurrence term of a
+repeated base root in an extension), and `chargedParticles` names the passes
+that read particles through it.
 `explicitContentEmpty` alone decides from the source whether a complex type's
 ·effective content· is empty (Structures §3.4.2 complex content
 clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
@@ -1358,7 +1364,16 @@ graph preserves these ownership rules:
   is located at the first model, in compilation order, whose check reaches it;
   types compile before groups, so a referring type in another document than
   the group can be named
-  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`).
+  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`). A group
+  referenced as a type's whole content with a non-unit occurrence is the one
+  case where the location depends on the occurrence: its root is a record of
+  its own located at the reference (`applyModelGroupOccurrence`). A root that
+  wraps the reference as the one particle of a 1..1 sequence naming the
+  group's own model was rejected: the group's model is then reached and
+  compiled on its own as well, which raised analysis steps on 81 corpus
+  schemas (460 to 608 for a two-alternative choice repeated twice) and
+  dependency steps by one per such type, and an all group cannot be a
+  particle.
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
   skipping the compilation of a reached nested model was rejected because its
