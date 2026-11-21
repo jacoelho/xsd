@@ -59,19 +59,18 @@ type dfaNode struct {
 
 type dfaBuilder struct {
 	c         *contentModelCompiler
-	follow    map[int][]dfaEntry
-	followIDs []dfaStateID
 	states    map[string]uint32
 	positions []contentParticle
 	rows      []dfaSourceRow
 	queue     [][]dfaEntry
+	key       []byte
+	follow    followTable
 	limit     int
 	counters  uint32
 }
 
-// dfaStateID caches the canonical state assigned to one normalized follow
-// position. known distinguishes the valid state ID zero from an unpopulated
-// entry.
+// dfaStateID caches an ID assigned on first use. known distinguishes the
+// valid ID zero from an unpopulated entry.
 type dfaStateID struct {
 	id    uint32
 	known bool
@@ -657,7 +656,7 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 		}
 		b := &dfaBuilder{
 			c:      c,
-			follow: make(map[int][]dfaEntry),
+			follow: newFollowTable(),
 			states: make(map[string]uint32),
 			limit:  c.maxContentModelStates,
 		}
@@ -1238,13 +1237,20 @@ func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
 }
 
 func (b *dfaBuilder) appendRootEndFollows(last []dfaEntry) error {
+	if len(last) == 0 {
+		return nil
+	}
+	end, err := b.follow.rootEndSet()
+	if err != nil {
+		return err
+	}
 	for _, tail := range last {
 		if err := b.c.work.spend(len(tail.Guards) + len(tail.Actions) + 1); err != nil {
 			return err
 		}
-		b.appendFollow(tail.Pos, dfaEntry{
-			Pos: dfaEndPos, Guards: slices.Clone(tail.Guards), Actions: slices.Clone(tail.Actions),
-		})
+		if err := b.follow.add(tail.Pos, tail.Guards, tail.Actions, end); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1314,28 +1320,31 @@ func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
 	return b.internState(normalizeDFAEntries(slices.Clone(entries)))
 }
 
-// followStateID charges the follow set before consulting the position cache,
+// followStateID charges the follow set before consulting the class cache,
 // so state discovery order and limit-failure order do not depend on caching.
 func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
-	if err := b.spendDFAEntries(b.follow[pos]); err != nil {
-		return 0, err
-	}
-	cache := &b.followIDs[pos]
-	if cache.known {
-		return cache.id, nil
-	}
-	id, err := b.internState(b.follow[pos])
+	class, err := b.follow.class(pos)
 	if err != nil {
 		return 0, err
 	}
-	cache.id = id
-	cache.known = true
+	if spendErr := b.c.work.spend(class.charge); spendErr != nil {
+		return 0, spendErr
+	}
+	if class.state.known {
+		return class.state.id, nil
+	}
+	id, err := b.internState(class.entries)
+	if err != nil {
+		return 0, err
+	}
+	class.state = dfaStateID{id: id, known: true}
+	class.entries = nil
 	return id, nil
 }
 
 func (b *dfaBuilder) internState(entries []dfaEntry) (uint32, error) {
-	key := dfaStateKey(entries)
-	if id, ok := b.states[key]; ok {
+	b.key = appendDFAStateKey(b.key[:0], entries)
+	if id, ok := b.states[string(b.key)]; ok {
 		return id, nil
 	}
 	if len(b.states) >= b.limit {
@@ -1345,7 +1354,7 @@ func (b *dfaBuilder) internState(entries []dfaEntry) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	b.states[key] = id
+	b.states[string(b.key)] = id
 	b.queue = append(b.queue, entries)
 	return id, nil
 }
@@ -1400,8 +1409,13 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 	return b.repeat(node, model.Occurs)
 }
 
+// sequenceNode and choiceNode charge each child the lengths of the
+// accumulated and child entry sets. Leaves take positions in particle order,
+// so a child's entries follow every earlier sibling's and the union of
+// sibling sets is their concatenation.
 func (b *dfaBuilder) sequenceNode(particles []contentParticle) (dfaNode, error) {
 	node := dfaNode{Nullable: true}
+	var first, last dfaEntryUnion
 	for _, particle := range particles {
 		child, err := b.particleNode(particle)
 		if err != nil {
@@ -1410,16 +1424,33 @@ func (b *dfaBuilder) sequenceNode(particles []contentParticle) (dfaNode, error) 
 		if spendErr := b.c.work.spend(len(node.First) + len(node.Last) + len(child.First) + len(child.Last)); spendErr != nil {
 			return dfaNode{}, spendErr
 		}
-		node, err = b.concat(node, child)
-		if err != nil {
+		if err := b.addFollows(node.Last, child.First); err != nil {
 			return dfaNode{}, err
 		}
+		node = concatNode(node, child, &first, &last)
 	}
 	return node, nil
 }
 
+// concatNode returns the summary of node followed by child; first and last
+// accumulate node's entry sets.
+func concatNode(node, child dfaNode, first, last *dfaEntryUnion) dfaNode {
+	if node.Nullable {
+		node.First = first.add(child.First)
+	}
+	if child.Nullable {
+		node.Last = last.add(child.Last)
+	} else {
+		node.Last = last.reset(child.Last)
+	}
+	node.Counters = mergeCounters(node.Counters, child.Counters)
+	node.Nullable = node.Nullable && child.Nullable
+	return node
+}
+
 func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
 	var node dfaNode
+	var first, last dfaEntryUnion
 	for _, particle := range particles {
 		child, err := b.particleNode(particle)
 		if err != nil {
@@ -1428,9 +1459,43 @@ func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
 		if err := b.c.work.spend(len(node.First) + len(node.Last) + len(child.First) + len(child.Last)); err != nil {
 			return dfaNode{}, err
 		}
-		node = dfaChoice(node, child)
+		node.First = first.add(child.First)
+		node.Last = last.add(child.Last)
+		node.Counters = mergeCounters(node.Counters, child.Counters)
+		node.Nullable = node.Nullable || child.Nullable
 	}
 	return node, nil
+}
+
+// dfaEntryUnion accumulates the union of normalized entry sets, each holding
+// only positions above those of the sets before it. It shares the first set
+// until a second joins it, then appends to a buffer it owns, so a shared set
+// is never modified.
+type dfaEntryUnion struct {
+	entries []dfaEntry
+	owned   bool
+}
+
+func (u *dfaEntryUnion) add(entries []dfaEntry) []dfaEntry {
+	switch {
+	case len(entries) == 0:
+	case len(u.entries) == 0:
+		u.entries = entries
+		u.owned = false
+	case !u.owned:
+		u.entries = append(make([]dfaEntry, 0, len(u.entries)+len(entries)), u.entries...)
+		u.entries = append(u.entries, entries...)
+		u.owned = true
+	default:
+		u.entries = append(u.entries, entries...)
+	}
+	return u.entries
+}
+
+func (u *dfaEntryUnion) reset(entries []dfaEntry) []dfaEntry {
+	u.entries = entries
+	u.owned = false
+	return entries
 }
 
 func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
@@ -1459,44 +1524,39 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
 	pos := len(b.positions)
 	b.positions = appendDoubling(b.positions, p)
+	b.follow.addPosition()
 	entries := []dfaEntry{{Pos: pos}}
 	return dfaNode{First: entries, Last: entries}
 }
 
-func (b *dfaBuilder) concat(a, c dfaNode) (dfaNode, error) {
-	for _, tail := range a.Last {
-		for _, first := range c.First {
-			if err := b.c.work.spend(
-				len(tail.Guards) + len(tail.Actions) + len(first.Guards) + len(first.Actions) + 1,
-			); err != nil {
-				return dfaNode{}, err
-			}
-			b.appendFollow(tail.Pos, composeEntry(tail.Guards, tail.Actions, first))
+// addFollows makes every tail followed by every entry of first.
+func (b *dfaBuilder) addFollows(tails, first []dfaEntry) error {
+	if len(tails) == 0 || len(first) == 0 {
+		return nil
+	}
+	set, err := b.follow.addSet(first)
+	if err != nil {
+		return err
+	}
+	for _, tail := range tails {
+		if err := b.spendFollowPairs(len(tail.Guards)+len(tail.Actions), set); err != nil {
+			return err
+		}
+		if err := b.follow.add(tail.Pos, tail.Guards, tail.Actions, set); err != nil {
+			return err
 		}
 	}
-	first := a.First
-	if a.Nullable {
-		first = unionDFAEntries(a.First, c.First)
-	}
-	last := c.Last
-	if c.Nullable {
-		last = unionDFAEntries(c.Last, a.Last)
-	}
-	return dfaNode{
-		First:    first,
-		Last:     last,
-		Counters: mergeCounters(a.Counters, c.Counters),
-		Nullable: a.Nullable && c.Nullable,
-	}, nil
+	return nil
 }
 
-func dfaChoice(a, c dfaNode) dfaNode {
-	return dfaNode{
-		First:    unionDFAEntries(a.First, c.First),
-		Last:     unionDFAEntries(a.Last, c.Last),
-		Counters: mergeCounters(a.Counters, c.Counters),
-		Nullable: a.Nullable || c.Nullable,
+// spendFollowPairs charges one tail with a prefix of the given guard and
+// action count against every entry of set: per pair, the prefix, the entry's
+// guards and actions, and one step.
+func (b *dfaBuilder) spendFollowPairs(prefix int, set uint32) error {
+	if err := b.c.work.spendProduct(b.follow.setLen(set), prefix+1); err != nil {
+		return err
 	}
+	return b.c.work.spend(b.follow.setWork(set))
 }
 
 func (b *dfaBuilder) repeat(child dfaNode, occurs occurrence) (dfaNode, error) {
@@ -1605,17 +1665,22 @@ func (b *dfaBuilder) repeatLastEntries(child dfaNode, occurs occurrence, counter
 }
 
 func (b *dfaBuilder) addRepeatLoopFollows(child dfaNode, occurs occurrence, counter dfaRepeatCounter) error {
+	if len(child.Last) == 0 || len(child.First) == 0 {
+		return nil
+	}
+	set, err := b.follow.addSet(child.First)
+	if err != nil {
+		return err
+	}
 	for _, tail := range child.Last {
-		for _, first := range child.First {
-			if err := b.addRepeatLoopFollow(tail, first, child.Counters, occurs, counter); err != nil {
-				return err
-			}
+		if err := b.addRepeatLoopFollow(tail, set, child.Counters, occurs, counter); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (b *dfaBuilder) addRepeatLoopFollow(tail, first dfaEntry, childCounters []uint32, occurs occurrence, counter dfaRepeatCounter) error {
+func (b *dfaBuilder) addRepeatLoopFollow(tail dfaEntry, set uint32, childCounters []uint32, occurs occurrence, counter dfaRepeatCounter) error {
 	extraGuards := 0
 	if counter.active() && !occurs.Unbounded {
 		extraGuards = 1
@@ -1627,20 +1692,19 @@ func (b *dfaBuilder) addRepeatLoopFollow(tail, first dfaEntry, childCounters []u
 			extraActions--
 		}
 	}
-	if err := b.c.work.spend(len(tail.Guards) + extraGuards + len(tail.Actions) + extraActions + len(first.Guards) + len(first.Actions) + 1); err != nil {
+	if err := b.spendFollowPairs(len(tail.Guards)+extraGuards+len(tail.Actions)+extraActions, set); err != nil {
 		return err
 	}
-	guards := slices.Clone(tail.Guards)
+	guards := tail.Guards
 	if counter.active() && !occurs.Unbounded {
-		guards = append(guards, compiledGuard{Slot: counter.slot, N: occurs.Max, Kind: compiledGuardLoopMax})
+		guards = appendGuards(guards, []compiledGuard{{Slot: counter.slot, N: occurs.Max, Kind: compiledGuardLoopMax}})
 	}
 	actions := slices.Clone(tail.Actions)
 	if counter.active() {
 		actions = append(actions, compiledAction{Slot: counter.slot, Kind: compiledActionInc})
 	}
 	actions = append(actions, resetActions(childCounters, counter.slot)...)
-	b.appendFollow(tail.Pos, composeEntry(guards, actions, first))
-	return nil
+	return b.follow.add(tail.Pos, guards, actions, set)
 }
 
 func repeatNeedsCounter(occurs occurrence) bool {
@@ -1656,22 +1720,10 @@ func (b *dfaBuilder) newCounter() uint32 {
 	return slot
 }
 
-func (b *dfaBuilder) appendFollow(pos int, entry dfaEntry) {
-	b.follow[pos] = append(b.follow[pos], entry)
-}
-
+// normalizeFollows charges normalizing every follow set; followStateID
+// materializes each set when a row first reaches it.
 func (b *dfaBuilder) normalizeFollows() error {
-	if err := b.c.work.spend(len(b.follow)); err != nil {
-		return err
-	}
-	for pos, entries := range b.follow {
-		if err := b.spendDFAEntries(entries); err != nil {
-			return err
-		}
-		b.follow[pos] = normalizeDFAEntries(entries)
-	}
-	b.followIDs = make([]dfaStateID, len(b.positions))
-	return nil
+	return b.follow.chargeNormalization(b.c.work.spend)
 }
 
 func (b *dfaBuilder) checkUPA() error {

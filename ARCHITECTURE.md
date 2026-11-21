@@ -195,7 +195,9 @@ IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
 `MaxSchemaDependencySteps` bounds loading, planning and resolution;
 `MaxContentModelAnalysisSteps` bounds consistency, restriction, UPA,
-compilation and sealing. Spent work is never refunded. Retained derived records
+compilation and sealing, and through that work the heap that automaton
+construction uses (measured bound in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): each step
+admits bounded automaton state. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
 `appendModelParticles` is the only append to retained model particles and
 charges one step per particle before allocating (the restriction normalizer
@@ -1246,7 +1248,17 @@ graph preserves these ownership rules:
   reason: one step per particle bought 32 bytes or more of a list that direct
   compilation and automaton construction can read in place, so a fan-out of
   references to a large group reached hundreds of MiB within the default
-  analysis budget.
+  analysis budget. For the same reason automaton construction does not store
+  one composed follow entry per tail and first position it charges: a 56-byte
+  entry per step let a choice of 256 elements doubled through ten group
+  references reach 640 MiB of heap. Each tail instead records one segment
+  naming the shared first set and its interned guard and action prefix
+  (`followTable`), sibling entry sets are unioned by appending, and each
+  distinct follow set is materialized once, so heap stays under the measured per-step
+  bound in `docs/RESOURCE_LIMITS.md`. Charging those entries more steps was
+  rejected because it moves existing schemas toward or past
+  `MaxContentModelAnalysisSteps`; a separate memory option was rejected because
+  the analysis budget expresses the bound once each step admits bounded state.
   Charging `len(Particles)` at `addModel` was rejected because the main path
   installs particles through `completeModel`, and shared variants would be
   charged for copies that do not happen. Cloning content models on read was

@@ -520,12 +520,31 @@ func TestNormalizeFollowsChargesEntryStorage(t *testing.T) {
 	work := newWorkBudget(contentModelWorkBudget, 3)
 	b := &dfaBuilder{
 		c: &contentModelCompiler{work: &work},
-		follow: map[int][]dfaEntry{
+		follow: followTableOf(map[int][]dfaEntry{
 			0: {{Pos: 1, Guards: []compiledGuard{{}, {}}}},
-		},
+		}),
 	}
 	err := b.normalizeFollows()
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+// followTableOf returns a follow table in which each position of follows is
+// followed by exactly its entries.
+func followTableOf(follows map[int][]dfaEntry) followTable {
+	t := newFollowTable()
+	for pos, entries := range follows {
+		for len(t.heads) <= pos {
+			t.addPosition()
+		}
+		set, err := t.addSet(entries)
+		if err != nil {
+			panic(err)
+		}
+		if err := t.add(pos, nil, nil, set); err != nil {
+			panic(err)
+		}
+	}
+	return t
 }
 
 func TestNormalizeSingleParticleModelCollapsesContiguousOccurrenceRange(t *testing.T) {

@@ -56,23 +56,47 @@ func groupFanOutSchema(depth int) string {
 	return b.String()
 }
 
+// wideGroupFanOutSchema defines group g0 as a choice of width elements and
+// each g(i) as a sequence of two references to g(i-1), so every position of
+// one g0 copy is followed by every first position of the next copy.
+func wideGroupFanOutSchema(width, depth int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:group name="g0"><xs:choice>`)
+	for i := range width {
+		fmt.Fprintf(&b, `<xs:element name="e%d"/>`, i)
+	}
+	b.WriteString(`</xs:choice></xs:group>`)
+	for i := 1; i <= depth; i++ {
+		fmt.Fprintf(&b, `<xs:group name="g%d"><xs:sequence><xs:group ref="g%d"/><xs:group ref="g%d"/></xs:sequence></xs:group>`, i, i-1, i-1)
+	}
+	fmt.Fprintf(&b, `<xs:element name="root"><xs:complexType><xs:group ref="g%d"/></xs:complexType></xs:element></xs:schema>`, depth)
+	return b.String()
+}
+
 type automatonConstructionCase struct {
-	name     string
-	schema   string
-	limitErr bool
-	maxMiB   uint64
+	name         string
+	schema       string
+	limitErr     bool
+	stepLimitErr bool
+	maxMiB       uint64
 }
 
 // automatonConstructionCases bound the bytes compilation allocates. The
 // determinization bounds are about four times the compiled tables each schema
 // reaches: 3.1 MiB of rows and edges at the state limit, and 16.6 MiB summed
 // over the separately determinized models in choice. The fan-out bound is
-// about 1.2 KiB per position over the 49,000 positions of g1 to g13.
+// about 1.2 KiB per position over the 49,000 positions of g1 to g13. The
+// wide fan-out exhausts the default MaxContentModelAnalysisSteps; its bound is
+// two bytes per step of that budget, a quarter of the measured per-step bound
+// in docs/RESOURCE_LIMITS.md.
 func automatonConstructionCases() []automatonConstructionCase {
 	return []automatonConstructionCase{
 		{name: "nested-counted-sequences", schema: nestedCountedSequenceSchema(17), limitErr: true, maxMiB: 12},
 		{name: "counted-sequences-in-choice", schema: countedSequenceInChoiceSchema(12), maxMiB: 64},
 		{name: "group-fan-out", schema: groupFanOutSchema(17), limitErr: true, maxMiB: 56},
+		{name: "wide-group-fan-out-10", schema: wideGroupFanOutSchema(256, 10), stepLimitErr: true, maxMiB: 32},
+		{name: "wide-group-fan-out-11", schema: wideGroupFanOutSchema(256, 11), stepLimitErr: true, maxMiB: 32},
+		{name: "wide-group-fan-out-12", schema: wideGroupFanOutSchema(256, 12), stepLimitErr: true, maxMiB: 32},
 	}
 }
 
@@ -82,6 +106,13 @@ func (tt automatonConstructionCase) compile() (*xsdSchema.Schema, error) {
 
 func (tt automatonConstructionCase) check(tb testing.TB, err error) {
 	tb.Helper()
+	if tt.stepLimitErr {
+		x, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || x.Code() != xsderrors.CodeSchemaLimit || !strings.HasPrefix(x.Message(), "compiler work exceeds MaxContentModelAnalysisSteps") {
+			tb.Fatalf("Compile() error = %v, want the content-model analysis step limit", err)
+		}
+		return
+	}
 	if !tt.limitErr {
 		if err != nil {
 			tb.Fatalf("Compile() error = %v", err)

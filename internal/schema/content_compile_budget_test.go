@@ -56,7 +56,7 @@ func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {
 		work := newWorkBudget(contentModelWorkBudget, limit)
 		b := &dfaBuilder{
 			c:         &contentModelCompiler{work: &work},
-			follow:    map[int][]dfaEntry{0: {{Pos: 0}}},
+			follow:    followTableOf(map[int][]dfaEntry{0: {{Pos: 0}}}),
 			states:    make(map[string]uint32),
 			positions: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},
 			limit:     1,
