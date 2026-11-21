@@ -144,16 +144,17 @@ func (c *Case) Phases() []Phase {
 
 // Measured reports whether the oracle observation contract of the
 // tests/README.md Corpus Contract covers c: c is a project case, or a W3C case
-// with a phase whose effective expectation differs from its oracle.w3c
-// expectation.
+// with a phase that carries an oracle.w3c expectation. LoadInventory rejects
+// an oracle expectation equal to the effective one, so such a phase overrides
+// the W3C expectation.
 func (c *Case) Measured() bool {
 	switch c.ExpectedSource {
 	case SourceProject:
 		return true
 	case SourceW3C:
 		return slices.ContainsFunc(c.Phases(), func(p Phase) bool {
-			original, ok := p.Oracle[SourceW3C]
-			return ok && original.Expected != p.Expected
+			_, ok := p.Oracle[SourceW3C]
+			return ok
 		})
 	}
 	return false
