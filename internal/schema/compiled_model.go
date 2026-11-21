@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"slices"
 )
 
 // compiledModelKind identifies the runtime representation used for a compiled
@@ -40,20 +39,14 @@ func (idx dfaRowIndex) enabled() bool {
 	return idx.nameToEdge != nil
 }
 
-// compiledContent holds one compiled model for each content model a complex
-// type reaches: its root and every model nested in it. A model no complex type
-// reaches has no compiled form, so a table position never names one.
+// compiledContent holds the compiled form of each content model that
+// complexTypeReachableModels returns, and no other.
 type compiledContent struct {
 	// Sources holds the source IDs of the compiled models, ascending and
 	// distinct.
 	Sources []contentModelID
 	// Models is parallel to Sources.
 	Models []compiledModel
-}
-
-// modelIndex returns the table position of the compiled model id.
-func (t *compiledContent) modelIndex(id contentModelID) (int, bool) {
-	return slices.BinarySearch(t.Sources, id)
 }
 
 // compiledModelRow stores a compiled DFA state.

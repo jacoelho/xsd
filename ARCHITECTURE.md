@@ -292,8 +292,9 @@ Rejected Alternatives). A `schema.limit` failure raised after loading and
 outside every component scope is set-wide: target-context planning locates it
 at the document being added or whose references it is walking, and
 `compileMappedSources` locates the rest (name indexing, substitution closure,
-the checks of the builtin anyType model, content-model row indexing,
-publication audit) at the first explicit root document in plan order, which is
+the checks of the builtin anyType model, the walk to the content models
+complex types reach (`complexTypeReachableModels`), content-model row
+indexing, publication audit) at the first explicit root document in plan order, which is
 by document name. Loading locates its dependency charge at the reference being
 resolved and a `MaxSchemaReferences` failure at the document whose references
 exceed it. Publication consumes the

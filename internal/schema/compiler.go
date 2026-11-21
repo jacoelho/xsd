@@ -93,8 +93,9 @@ func (c *compiler) compileLoaded() (*Schema, error) {
 
 // locateSetWideLimit locates a schema.limit failure that no component scope
 // located. Name indexing, substitution closure, the checks of the builtin
-// anyType content model, content-model row indexing and the publication audit
-// work on the whole schema set, so locateSetWide places their limit failures.
+// anyType content model, the walk to the content models complex types reach,
+// content-model row indexing and the publication audit work on the whole
+// schema set, so locateSetWide places their limit failures.
 // Other diagnostics are returned unchanged.
 func (c *compiler) locateSetWideLimit(err error) error {
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)

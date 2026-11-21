@@ -96,8 +96,7 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 }
 
 // validateCompiledContent proves that the compiled table names ascending
-// source models, one compiled model each, and holds every complex type's
-// root, which enterContentModels relies on.
+// source models, one compiled model each.
 func validateCompiledContent(build *schemaBuild) error {
 	content := &build.CompiledContent
 	if len(content.Sources) != len(content.Models) {
@@ -108,16 +107,14 @@ func validateCompiledContent(build *schemaBuild) error {
 			return xsderrors.InternalInvariant("schema compiled content-model sources are not ascending source models")
 		}
 	}
-	for i := range build.ComplexTypes {
-		if _, ok := content.modelIndex(build.ComplexTypes[i].Content); !ok {
-			return xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root")
-		}
-	}
 	return nil
 }
 
 func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
-	content := enterContentModels(build.ComplexTypes, &build.CompiledContent)
+	content, err := enterContentModels(build.ComplexTypes, &build.CompiledContent)
+	if err != nil {
+		return schemaProgram{}, err
+	}
 	entered := content.Models
 	compiled := build.CompiledContent.Models
 	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(compiled, entered, work)

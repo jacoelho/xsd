@@ -47,29 +47,12 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 	if reads, err := index([]compiledModel{plain}, []int{0}); err != nil || reads[0].allNames == nil {
 		t.Fatalf("plain index = %v, installed %v; want it to fit the budget", err, reads[0].allNames != nil)
 	}
-	for _, tt := range []struct {
-		name    string
-		models  []compiledModel
-		entered []int
-	}{
-		{name: "entered", models: []compiledModel{substituted}, entered: []int{0}},
-		// Validation never enters the substituted model, but its index work
-		// is still charged, so its exhaustion fails publication although the
-		// entered model alone fits.
-		{name: "unentered before entered", models: []compiledModel{substituted, plain}, entered: []int{1}},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			reads, err := index(tt.models, tt.entered)
-			if !errors.Is(err, exhausted) {
-				t.Fatalf("indexAllContentModels() = %v, want work exhaustion", err)
-			}
-			for i := range reads {
-				if reads[i].allNames != nil {
-					t.Fatalf("failed index construction installed lookup data on published model %d", i)
-				}
-			}
-		})
+	reads, err := index([]compiledModel{substituted}, []int{0})
+	if !errors.Is(err, exhausted) {
+		t.Fatalf("indexAllContentModels() = %v, want work exhaustion", err)
+	}
+	if reads[0].allNames != nil {
+		t.Fatal("failed index construction installed lookup data on the published model")
 	}
 }
 
@@ -96,14 +79,17 @@ func TestAllContentIndexStaysWithItsPublishedModel(t *testing.T) {
 		indexed []int
 	}{
 		{
-			// Unentered large all-groups lead and trail the entered ones, and
-			// entered models that carry no index sit between indexed ones.
-			name:    "mixed",
-			models:  []compiledModel{large(1), dfa, large(11), small, unindexable, large(21), large(31)},
-			entered: []int{1, 2, 3, 4, 5},
-			indexed: []int{2, 5},
+			name:    "entered models that carry no index between indexed ones",
+			models:  []compiledModel{large(1), small, unindexable, large(21)},
+			entered: []int{0, 1, 2, 3},
+			indexed: []int{0, 3},
 		},
-		{name: "entered last", models: []compiledModel{large(1), large(11)}, entered: []int{1}, indexed: []int{1}},
+		{
+			name:    "unentered nested models between entered ones",
+			models:  []compiledModel{dfa, large(1), dfa, large(11), dfa},
+			entered: []int{1, 3},
+			indexed: []int{1, 3},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

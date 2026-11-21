@@ -5,6 +5,8 @@ import (
 	"maps"
 	"math"
 	"slices"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // ContentState is the mutable validation state for one compiled content model.
@@ -262,10 +264,12 @@ type enteredContent struct {
 // their ancestors' rows, so no published particle references another model.
 // Every empty-kind model compiles to the same read, so empty roots share the
 // lowest such position and publication keeps one row for them; projection
-// work is still charged per compiled model. validateCompiledContent has
-// already proved that every root is in the compiled table.
-func enterContentModels(types []complexTypeMetadata, content *compiledContent) enteredContent {
-	roots := contentRoots(types, content)
+// work is still charged per compiled model.
+func enterContentModels(types []complexTypeMetadata, content *compiledContent) (enteredContent, error) {
+	roots, err := contentRoots(types, content)
+	if err != nil {
+		return enteredContent{}, err
+	}
 	entered := slices.Clone(roots)
 	slices.Sort(entered)
 	entered = slices.Compact(entered)
@@ -277,30 +281,36 @@ func enterContentModels(types []complexTypeMetadata, content *compiledContent) e
 	for i, root := range roots {
 		published[i] = position[root]
 	}
-	return enteredContent{Models: entered, Published: published}
+	return enteredContent{Models: entered, Published: published}, nil
 }
 
 // contentRoots returns the compiled-table position of each complex type's root
 // model, with empty roots folded to the lowest empty root position.
-func contentRoots(types []complexTypeMetadata, content *compiledContent) []int {
+func contentRoots(types []complexTypeMetadata, content *compiledContent) ([]int, error) {
 	roots := make([]int, len(types))
-	empty := -1
 	for i := range types {
-		root, _ := content.modelIndex(types[i].Content)
+		root, ok := slices.BinarySearch(content.Sources, types[i].Content)
+		if !ok {
+			return nil, xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root")
+		}
 		roots[i] = root
-		if content.Models[root].Kind == compiledModelEmpty && (empty < 0 || root < empty) {
+	}
+	foldEmptyRoots(roots, content.Models)
+	return roots, nil
+}
+
+func foldEmptyRoots(roots []int, models []compiledModel) {
+	empty := -1
+	for _, root := range roots {
+		if models[root].Kind == compiledModelEmpty && (empty < 0 || root < empty) {
 			empty = root
 		}
 	}
-	if empty < 0 {
-		return roots
-	}
 	for i, root := range roots {
-		if content.Models[root].Kind == compiledModelEmpty {
+		if models[root].Kind == compiledModelEmpty {
 			roots[i] = empty
 		}
 	}
-	return roots
 }
 
 // newCompiledModelReads publishes the entered models in entered order.
@@ -326,50 +336,38 @@ func newCompiledModelReads(models []compiledModel, entered []int, work contentMo
 
 // Large all-groups dispatch by expanded name. The index uses the same
 // substitution expansion as DFA rows; occurrence bits remain document-owned.
-// Every compiled model is indexed in table order, so work charges and
-// failures do not depend on which models are published; reads, parallel to
-// entered, keep only their own models' indexes. Unentered models are indexed
-// into one cleared scratch map, which nothing retains.
-//
-//nolint:gocognit // Keep table-order charging, entered-slot pairing, and scratch reuse in one pass.
+// All Group Limited admits an all group only as the whole content of a complex
+// type, so every compiled all model is an entered root and indexing the
+// entered models charges the same work whichever other models are entered.
 func indexAllContentModels(models []compiledModel, entered []int, reads []compiledModelRead, rt *schemaBuild, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
 	analysis := newDFARowIndexAnalysis(rt, work)
-	var scratch map[QName]uint32
-	next := 0
-	for i := range models {
-		slot := -1
-		if next < len(entered) && entered[next] == i {
-			slot = next
-			next++
-		}
-		model := &models[i]
-		if model.Kind != compiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
-			continue
-		}
-		if err := spendContentModelWorkN(analysis.work, len(model.All)); err != nil {
+	for slot, id := range entered {
+		if err := indexAllContentModel(&reads[slot], &models[id], analysis); err != nil {
 			return err
 		}
-		var index map[QName]uint32
-		switch {
-		case slot >= 0:
-			index = make(map[QName]uint32, len(model.All))
-		case scratch == nil:
-			scratch = make(map[QName]uint32, len(model.All))
-			index = scratch
-		default:
-			clear(scratch)
-			index = scratch
-		}
-		indexed, err := indexAllContentTerms(index, model.All, analysis)
-		if err != nil {
-			return err
-		}
-		if slot >= 0 && indexed {
-			reads[slot].allNames = index
-		}
+	}
+	return nil
+}
+
+// indexAllContentModel installs the name index of model in read when model is
+// a large all model whose terms can be indexed.
+func indexAllContentModel(read *compiledModelRead, model *compiledModel, analysis *dfaRowIndexAnalysis) error {
+	if model.Kind != compiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
+		return nil
+	}
+	if err := spendContentModelWorkN(analysis.work, len(model.All)); err != nil {
+		return err
+	}
+	index := make(map[QName]uint32, len(model.All))
+	indexed, err := indexAllContentTerms(index, model.All, analysis)
+	if err != nil {
+		return err
+	}
+	if indexed {
+		read.allNames = index
 	}
 	return nil
 }
