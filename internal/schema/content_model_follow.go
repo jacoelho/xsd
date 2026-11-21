@@ -28,12 +28,12 @@ type followTable struct {
 	sets      []followSet
 	prefixes  []followPrefix
 	classes   []followClass
-	classOf   []dfaStateID
+	classOf   []cachedID
 	entries   []dfaStateEntry
 	key       []byte
-	endSet    dfaStateID
+	endSet    cachedID
 	// entriesOf is the class whose follow set entries holds.
-	entriesOf dfaStateID
+	entriesOf cachedID
 }
 
 // followSegment stands for one entry per position of set, each carrying the
@@ -48,7 +48,7 @@ type followSegment struct {
 // class of the positions whose only segment is this set without a prefix.
 type followSet struct {
 	positions []int
-	class     dfaStateID
+	class     cachedID
 }
 
 // followPrefix holds normalized guards. Prefix 0 is the empty prefix.
@@ -75,7 +75,7 @@ type dfaStateEntry struct {
 // caches the state it was interned as.
 type followClass struct {
 	charge int
-	state  dfaStateID
+	state  cachedID
 }
 
 func newFollowTable() followTable {
@@ -107,7 +107,7 @@ func (t *followTable) rootEndSet() (uint32, error) {
 		if err != nil {
 			return 0, err
 		}
-		t.endSet = dfaStateID{id: id, known: true}
+		t.endSet = cachedID{id: id, known: true}
 	}
 	return t.endSet.id, nil
 }
@@ -232,7 +232,7 @@ func (t *followTable) chargeNormalization(spend func(int) error) error {
 			return err
 		}
 	}
-	t.classOf = make([]dfaStateID, len(t.heads))
+	t.classOf = make([]cachedID, len(t.heads))
 	return nil
 }
 
@@ -267,7 +267,7 @@ func (t *followTable) class(pos int) (*followClass, error) {
 		if err != nil {
 			return nil, err
 		}
-		*ref = dfaStateID{id: id, known: true}
+		*ref = cachedID{id: id, known: true}
 	}
 	return &t.classes[ref.id], nil
 }
@@ -291,7 +291,7 @@ func (t *followTable) classID(segs []followSegment) (uint32, error) {
 			if err != nil {
 				return 0, err
 			}
-			set.class = dfaStateID{id: id, known: true}
+			set.class = cachedID{id: id, known: true}
 		}
 		return set.class.id, nil
 	}
@@ -319,7 +319,7 @@ func (t *followTable) addClass() (uint32, error) {
 		return 0, err
 	}
 	t.classes = appendDoubling(t.classes, followClass{charge: t.entriesCharge(t.entries)})
-	t.entriesOf = dfaStateID{id: id, known: true}
+	t.entriesOf = cachedID{id: id, known: true}
 	return id, nil
 }
 

@@ -72,9 +72,9 @@ type dfaBuilder struct {
 	counters   uint32
 }
 
-// dfaStateID caches an ID assigned on first use. known distinguishes the
+// cachedID caches an ID assigned on first use. known distinguishes the
 // valid ID zero from an unpopulated entry.
-type dfaStateID struct {
+type cachedID struct {
 	id    uint32
 	known bool
 }
@@ -1353,7 +1353,7 @@ func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	class.state = dfaStateID{id: id, known: true}
+	class.state = cachedID{id: id, known: true}
 	return id, nil
 }
 
