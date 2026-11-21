@@ -2,7 +2,6 @@ package schema
 
 import (
 	"encoding/xml"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -389,8 +388,7 @@ func (c *compiler) complexTypeReachableModels() ([]contentModelID, error) {
 			return nil, err
 		}
 	}
-	slices.Sort(walk.queue)
-	return walk.queue, nil
+	return walk.ids(), nil
 }
 
 func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err error) {
@@ -406,11 +404,22 @@ func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err
 	return walk.reachParticles(particles)
 }
 
-// modelReach holds the models reached so far; queue holds each of them once,
-// in the order they were reached.
+// modelReach is a breadth-first walk over the content models. queue holds
+// each reached model once, in visit order.
 type modelReach struct {
 	reached []bool
 	queue   []contentModelID
+}
+
+// ids returns the reached models in ascending ID order.
+func (r *modelReach) ids() []contentModelID {
+	ids := make([]contentModelID, 0, len(r.queue))
+	for id, ok := range r.reached {
+		if ok {
+			ids = append(ids, contentModelID(id))
+		}
+	}
+	return ids
 }
 
 func (r *modelReach) reach(id contentModelID) error {
