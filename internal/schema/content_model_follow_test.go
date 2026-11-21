@@ -185,10 +185,8 @@ func followFixtureBuilder(rt *schemaBuild) *dfaBuilder {
 	}
 }
 
-// pairwiseFollows is the reference position automaton: it composes and
-// stores one follow entry for every tail and first position, and unions
-// position and entry sets by sorting their concatenation. b allocates positions and counters in
-// the order the builder under test does.
+// pairwiseFollows is the reference position automaton: it stores one composed
+// follow entry per tail and first position, independently of followTable.
 type pairwiseFollows struct {
 	b      *dfaBuilder
 	follow map[int][]dfaEntry
