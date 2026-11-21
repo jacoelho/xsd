@@ -375,7 +375,12 @@ func (c *compiler) checkCompiledModelsUPA(reached []bool) error {
 
 // complexTypeReachableModels returns the content models that Unique Particle
 // Attribution and automaton construction apply to, as
-// docs/spec/INTERPRETATIONS.md scopes them.
+// docs/spec/INTERPRETATIONS.md scopes them. Occurrence copies of a group share
+// its particles at one dependency step each, so the walk charges every
+// particle it reads, in the scope of the model holding it. It visits the
+// complex types' roots in complex-type order and then nested models breadth
+// first, so a limit failure names the first model in that order; only the
+// builtin anyType model's charge has no source and is located set-wide.
 func (c *compiler) complexTypeReachableModels() ([]bool, error) {
 	walk := modelReach{
 		reached: make([]bool, len(c.rt.Models)),
@@ -387,16 +392,26 @@ func (c *compiler) complexTypeReachableModels() ([]bool, error) {
 		}
 	}
 	for len(walk.pending) > 0 {
-		id := walk.pending[len(walk.pending)-1]
-		walk.pending = walk.pending[:len(walk.pending)-1]
-		if err := c.contentWork.spend(1); err != nil {
-			return nil, err
-		}
-		if err := walk.reachParticles(c.rt.Models[id].Particles); err != nil {
+		id := walk.pending[0]
+		walk.pending = walk.pending[1:]
+		if err := c.reachModelParticles(&walk, id); err != nil {
 			return nil, err
 		}
 	}
 	return walk.reached, nil
+}
+
+func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err error) {
+	scope, err := c.enterContentModel(id)
+	if err != nil {
+		return err
+	}
+	defer scope.leave(&err)
+	particles := c.rt.Models[id].Particles
+	if err := c.contentWork.spend(1 + len(particles)); err != nil {
+		return err
+	}
+	return walk.reachParticles(particles)
 }
 
 type modelReach struct {
