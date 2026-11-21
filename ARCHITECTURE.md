@@ -215,8 +215,16 @@ has a schema document to locate it.
 The content model table holds declared components. Lowering drops zero-count
 particles and keeps every declared group as its own particle; xs:anyType's
 content is a 1..1 mixed sequence holding its lax `##any` wildcard
-0..unbounded. `explicitContentEmpty` alone decides from the source whether a
-complex type's ·effective content· is empty (Structures §3.4.2 complex content
+0..unbounded. A nested group's occurrence is on the particle that names it and
+its record has a unit occurrence (`compileNestedModelChild`), so a named group
+is one record however its references repeat it. Only a complex type's root
+carries its occurrence on its record: a root that repeats a group
+(`applyModelGroupOccurrence`), an extension's copy of a repeated base root
+(`compileModelParticle`) and a root whose mixed flag differs from its model's
+(`canonicalComplexContentModel`) share the particles of the model they vary in
+a record of their own at one dependency step, so the particles across the table are not
+bounded by `MaxSchemaDependencySteps`. `explicitContentEmpty` alone decides
+from the source whether a complex type's ·effective content· is empty (Structures §3.4.2 complex content
 clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
 direct, restriction and extension paths call, and returns the effective
 content with the variety it gives the {content type}, with no model for empty
