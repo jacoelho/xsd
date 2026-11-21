@@ -1516,7 +1516,7 @@ func (u *dfaSetUnion[E]) add(elems []E) []E {
 func (u *dfaSetUnion[E]) reset(elems []E) []E {
 	u.elems = elems
 	u.owned = false
-	return elems
+	return slices.Clip(elems)
 }
 
 func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
