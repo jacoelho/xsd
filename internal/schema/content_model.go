@@ -64,9 +64,9 @@ type contentModelNode struct {
 }
 
 // chargedParticles returns the particles of model after charging work one
-// step for the model and one for each particle. A root that varies another
-// model's occurrence or mixed flag shares that model's particles at one
-// dependency step, so the particles across the table are not bounded by the
+// step for the model and one for each particle. A record that varies another
+// model's occurrence or mixed flag, a root or the unit-occurrence term of a
+// repeated base root, shares that model's particles at one dependency step, so the particles across the table are not bounded by the
 // dependency steps that admitted them. The reachability walk
 // (complexTypeReachableModels) and the publication table audit
 // (validateContentModelTable) read particles only through it; Element
@@ -215,7 +215,9 @@ type contentModelGraphFrame struct {
 
 // validateContentModelTable proves that every model has a valid shape, that
 // every particle is well formed and references a valid element, wildcard or
-// model, and that the models form an acyclic graph. It enters every model
+// model, that a model a particle names has a unit occurrence, the particle
+// carrying the occurrence, and that the models form an acyclic graph. It
+// enters every model
 // once and reads its particles through chargedParticles.
 func validateContentModelTable(models []contentModelNode, limits contentModelRefLimits, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
@@ -292,6 +294,9 @@ func (a *contentModelTableAudit) advance() error {
 	}
 	if particle.Kind != particleModel {
 		return nil
+	}
+	if !a.models[particle.Model].Occurs.IsExactlyOne() {
+		return xsderrors.InternalInvariant("model particle names a model whose record repeats it")
 	}
 	switch a.state[particle.Model] {
 	case contentModelGraphUnchecked:

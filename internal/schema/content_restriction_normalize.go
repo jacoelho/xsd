@@ -170,35 +170,19 @@ func (n *restrictionNormalizer) model(p contentParticle, depth int) (contentPart
 	if m.Kind == modelEmpty {
 		return p, nil
 	}
+	// A root enters with a unit particle and carries its occurrence on its
+	// record; every other model a particle names has a unit record.
 	occurs := p.Occurs
 	switch {
 	case occurs.IsExactlyOne():
 		occurs = m.Occurs
 	case !m.Occurs.IsExactlyOne():
-		return n.repeatedModel(p, depth)
+		return contentParticle{}, contentRestrictionInvariant("model particle names a model whose record repeats it")
 	}
 	if pointlessSingleton(m, occurs) {
 		return n.particle(m.Particles[0], depth+1)
 	}
 	return n.modelBody(p, m, occurs, depth)
-}
-
-// repeatedModel normalizes a particle that repeats a model which repeats
-// itself. Source lowering normally moves nested bounds to the particle; it
-// retains two nonunit layers rather than multiplying away structural guards.
-func (n *restrictionNormalizer) repeatedModel(p contentParticle, depth int) (contentParticle, error) {
-	inner, err := n.model(modelParticle(p.Model, occurrence{Min: 1, Max: 1}), depth+1)
-	if err != nil {
-		return contentParticle{}, err
-	}
-	if err = n.validator.charge(); err != nil {
-		return contentParticle{}, err
-	}
-	term, err := n.validator.analysis.ModelCountRange(p.Model)
-	if err != nil {
-		return contentParticle{}, err
-	}
-	return n.addGroup(restrictionModel{model: contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Particles: []contentParticle{inner}}, term: term}, p.Occurs)
 }
 
 func pointlessSingleton(m contentModelNode, occurs occurrence) bool {

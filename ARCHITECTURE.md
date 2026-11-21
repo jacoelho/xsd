@@ -220,12 +220,13 @@ a particle has a unit occurrence on its record and the occurrence on its
 particle, and the root of a {content type} carries the occurrence and mixed
 flag on its record (`compileCompositor`). Every reference to a group from
 inside a model group or from an extension's content sequence therefore names
-the group's own model. Records that share another model's particles are made
-by `applyModelGroupOccurrence` (the root of a repeated group reference that is
-a type's whole content), `canonicalComplexContentModel` (a shared root under
-another mixed flag) and `compileModelParticle` (the unit-occurrence term of a
-repeated base root in an extension), and `chargedParticles` names the passes
-that read particles through it.
+the group's own model, and `validateContentModelTable` rejects a particle that
+names a record with any other occurrence. Records that share another model's
+particles are made by `applyModelGroupOccurrence` (the root of a repeated
+group reference that is a type's whole content), `canonicalComplexContentModel`
+(a shared root under another mixed flag) and `compileModelParticle` (the
+unit-occurrence term of a repeated base root in an extension), and
+`chargedParticles` names the passes that read particles through it.
 `explicitContentEmpty` alone decides from the source whether a complex type's
 ·effective content· is empty (Structures §3.4.2 complex content
 clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the

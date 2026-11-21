@@ -119,10 +119,10 @@ func TestContentRestrictionRecursiveChoiceWorkFailureAllowsRetry(t *testing.T) {
 	t.Parallel()
 	one := occurrence{Min: 1, Max: 1}
 	fixture := contentRestrictionRuntimeWith([]contentModelNode{
-		{Kind: modelChoice, Occurs: occurrence{Min: 2, Max: 3}, Particles: []contentParticle{elementParticle(1, one), elementParticle(2, one)}},
-		{Kind: modelChoice, Occurs: occurrence{Min: 2, Max: 2}, Particles: []contentParticle{elementParticle(1, one), elementParticle(2, one)}},
-		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(3, one), modelParticle(0, one)}},
-		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(3, one), modelParticle(1, one)}},
+		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(1, one), elementParticle(2, one)}},
+		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(1, one), elementParticle(2, one)}},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(3, one), modelParticle(0, occurrence{Min: 2, Max: 3})}},
+		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{elementParticle(3, one), modelParticle(1, occurrence{Min: 2, Max: 2})}},
 		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{modelParticle(2, one), elementParticle(4, one)}},
 		{Kind: modelChoice, Occurs: one, Particles: []contentParticle{modelParticle(3, one), elementParticle(4, one)}},
 	})
@@ -180,48 +180,41 @@ func TestContentRestrictionEmptyAgainstEmptiableChoice(t *testing.T) {
 	}
 }
 
-func TestContentRestrictionBodyOccurrences(t *testing.T) {
+func TestContentRestrictionGroupParticleOccurrences(t *testing.T) {
 	t.Parallel()
 	one := occurrence{Min: 1, Max: 1}
 	type testCase struct {
 		name         string
-		body         occurrence
-		baseOuter    occurrence
-		derivedOuter occurrence
+		derived      occurrence
 		baseOptional bool
 		invalid      bool
 	}
 	for _, kind := range []modelKind{modelChoice, modelSequence} {
 		tests := []testCase{
-			{name: "tightened body", body: occurrence{Min: 2, Max: 2}, baseOuter: one, derivedOuter: one},
-			{name: "too few", body: one, baseOuter: one, derivedOuter: one, invalid: true},
-			{name: "too many", body: occurrence{Min: 2, Max: 4}, baseOuter: one, derivedOuter: one, invalid: true},
+			{name: "tightened", derived: occurrence{Min: 2, Max: 2}},
+			{name: "too few", derived: one, invalid: true},
+			{name: "too many", derived: occurrence{Min: 2, Max: 4}, invalid: true},
 		}
-		if kind == modelSequence {
+		if kind == modelChoice {
 			tests = append(tests,
-				testCase{name: "tightened both layers", body: occurrence{Min: 2, Max: 2}, baseOuter: occurrence{Min: 2, Max: 3}, derivedOuter: occurrence{Min: 2, Max: 2}},
-				testCase{name: "outer minimum lost", body: occurrence{Min: 2, Max: 3}, baseOuter: occurrence{Min: 2, Max: 3}, derivedOuter: one, invalid: true},
-			)
-		} else {
-			tests = append(tests,
-				testCase{name: "mixed occurrence ownership", body: one, baseOuter: one, derivedOuter: occurrence{Min: 2, Max: 3}},
-				testCase{name: "optional body", body: occurrence{Min: 0, Max: 2}, baseOuter: one, derivedOuter: one, baseOptional: true},
-				testCase{name: "introduced empty body", body: occurrence{Min: 0, Max: 2}, baseOuter: one, derivedOuter: one, invalid: true},
+				testCase{name: "same range", derived: occurrence{Min: 2, Max: 3}},
+				testCase{name: "optional", derived: occurrence{Min: 0, Max: 2}, baseOptional: true},
+				testCase{name: "introduced optional", derived: occurrence{Min: 0, Max: 2}, invalid: true},
 			)
 		}
 		for _, test := range tests {
 			t.Run(fmt.Sprintf("kind=%d/%s", kind, test.name), func(t *testing.T) {
 				t.Parallel()
 				children := []contentParticle{elementParticle(1, one), elementParticle(2, one)}
-				baseBody := occurrence{Min: 2, Max: 3}
+				base := occurrence{Min: 2, Max: 3}
 				if test.baseOptional {
-					baseBody.Min = 0
+					base.Min = 0
 				}
 				fixture := contentRestrictionRuntimeWith([]contentModelNode{
-					{Kind: kind, Occurs: baseBody, Particles: children},
-					{Kind: kind, Occurs: test.body, Particles: children},
-					{Kind: kind, Occurs: one, Particles: []contentParticle{modelParticle(0, test.baseOuter), elementParticle(3, one)}},
-					{Kind: kind, Occurs: one, Particles: []contentParticle{modelParticle(1, test.derivedOuter), elementParticle(3, one)}},
+					{Kind: kind, Occurs: one, Particles: children},
+					{Kind: kind, Occurs: one, Particles: children},
+					{Kind: kind, Occurs: one, Particles: []contentParticle{modelParticle(0, base), elementParticle(3, one)}},
+					{Kind: kind, Occurs: one, Particles: []contentParticle{modelParticle(1, test.derived), elementParticle(3, one)}},
 				})
 				fixture.elements = append(fixture.elements, QName{Namespace: emptyNamespaceID, Local: 3})
 				fixture.elementRestrictions = append(fixture.elementRestrictions, particleRestrictionElement{Type: ComplexRef(0), Scope: declarationScopeNonGlobal})
