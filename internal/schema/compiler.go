@@ -208,7 +208,11 @@ func (c *compiler) spendComponentDependency(n *schemaNode) error {
 }
 
 // componentScope is the open compile scope of one component, opened both to
-// compile the component and for each check made on it after compilation.
+// compile the component and for each check made on it after compilation:
+// Element Declarations Consistent, the walk to the models complex types reach,
+// Unique Particle Attribution and automaton construction at the source of the
+// content model, restriction at the derived type's definition, and keyref
+// references at the keyref.
 // leave fills the missing path and line of a diagnostic leaving the component
 // from its node, so a budget or admission failure raised anywhere inside the
 // component names its document. A location attached deeper (an inner
