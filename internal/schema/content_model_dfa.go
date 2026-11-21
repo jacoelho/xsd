@@ -611,8 +611,8 @@ func compareCompiledActions(a, b []compiledAction) int {
 	return 0
 }
 
-// appendDFAStateKey appends the encoding of a normalized entry set to b, a
-// varint pair per entry, so equal keys are equal sets.
+// appendDFAStateKey's keys are equal exactly when the normalized entry sets
+// are, so a key identifies a DFA state.
 func appendDFAStateKey(b []byte, entries []dfaStateEntry) []byte {
 	for _, e := range entries {
 		b = binary.AppendVarint(b, int64(e.Pos))
@@ -621,8 +621,6 @@ func appendDFAStateKey(b []byte, entries []dfaStateEntry) []byte {
 	return b
 }
 
-// decodeDFAStateKey appends the entries appendDFAStateKey encoded in key to
-// entries.
 func decodeDFAStateKey(entries []dfaStateEntry, key string) []dfaStateEntry {
 	for key != "" {
 		pos, n := varintString(key)
@@ -637,8 +635,8 @@ func decodeDFAStateKey(entries []dfaStateEntry, key string) []dfaStateEntry {
 	return entries
 }
 
-// uvarintString decodes a binary.AppendUvarint encoding at the start of s
-// and returns it with its length in bytes; s must start with one.
+// uvarintString panics unless s starts with a complete
+// binary.AppendUvarint encoding.
 func uvarintString(s string) (uint64, int) {
 	var x uint64
 	for i := 0; ; i++ {
