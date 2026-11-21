@@ -194,8 +194,8 @@ graph before compiling; planning performs no I/O. `internal/value` owns builtin
 IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
 `MaxSchemaDependencySteps` bounds loading, planning and resolution;
-`MaxContentModelAnalysisSteps` bounds consistency, restriction, the walk to
-the models complex types reach, UPA, compilation and sealing, and through that work the heap that automaton
+`MaxContentModelAnalysisSteps` bounds the content-model work `workBudgetKind`
+lists, and through that work the heap that automaton
 construction uses (measured bound in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): each step
 admits bounded automaton state. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
@@ -284,19 +284,16 @@ that component's node, so a failure is located at the innermost component being
 compiled, not at the referring site; a charge made at a reference before the
 scope opens keeps the reference location. The scope is opened to compile each
 component and again, by a compiler loop, for each check made on it after
-compilation: Element Declarations Consistent, the walk to the models complex
-types reach, Unique Particle Attribution and automaton construction at the
-source of the content model (`addModel` admits
-no model without one; only the builtin anyType model has none), restriction at
-the derived type's definition, keyref references at the keyref. Particles
+compilation, at the node `componentScope` names for each check; a content
+model's checks open it at the model's source, which `addModel` requires of
+every model but the builtin anyType model. Particles
 carry no source, so a content-model violation inside a referenced group is
 located at the first model in compilation order whose check reaches it (see
 Rejected Alternatives). A `schema.limit` failure raised after loading and
 outside every component scope is set-wide: target-context planning locates it
 at the document being added or whose references it is walking, and
-`compileMappedSources` locates the rest (name indexing, substitution closure,
-the checks of the builtin anyType model, content-model row indexing,
-publication audit) at the first explicit root document in plan order, which is
+`compileMappedSources` locates the rest, the work `locateSetWideLimit` lists,
+at the first explicit root document in plan order, which is
 by document name. Loading locates its dependency charge at the reference being
 resolved and a `MaxSchemaReferences` failure at the document whose references
 exceed it. Publication consumes the
