@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestContentModelByID(t *testing.T) {
@@ -124,15 +125,11 @@ func TestValidateContentModelShape(t *testing.T) {
 	}
 }
 
-func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.T) {
+func TestValidateContentModelTableRejectsInvalidParticleReferences(t *testing.T) {
 	t.Parallel()
 
 	one := occurrence{Min: 1, Max: 1}
-	limits := contentModelRefLimits{
-		ElementCount:      1,
-		ContentModelCount: 1,
-		WildcardCount:     1,
-	}
+	limits := contentModelRefLimits{ElementCount: 1, WildcardCount: 1}
 	tests := []struct {
 		name    string
 		wantErr string
@@ -178,21 +175,22 @@ func TestValidateContentModelRuntimeRejectsInvalidParticleReferences(t *testing.
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateContentModelRuntime(tt.model, limits)
+			err := validateContentModelTable([]contentModelNode{tt.model}, limits, unlimitedContentModelWork)
 			if tt.wantErr == "" {
 				if err != nil {
-					t.Fatalf("ValidateContentModelRuntime() error = %v", err)
+					t.Fatalf("validateContentModelTable() error = %v", err)
 				}
 				return
 			}
-			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-				t.Fatalf("ValidateContentModelRuntime() error = %v, want %q", err, tt.wantErr)
+			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("validateContentModelTable() error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestValidateContentModelGraphRejectsCycles(t *testing.T) {
+func TestValidateContentModelTableRejectsCycles(t *testing.T) {
 	t.Parallel()
 
 	one := occurrence{Min: 1, Max: 1}
@@ -211,26 +209,52 @@ func TestValidateContentModelGraphRejectsCycles(t *testing.T) {
 		{name: "acyclic", models: []contentModelNode{model(1), {Kind: modelEmpty}}},
 		{name: "self cycle", models: []contentModelNode{model(0)}, wantErr: "content model graph contains cycle"},
 		{name: "multi-node cycle", models: []contentModelNode{model(1), model(0)}, wantErr: "content model graph contains cycle"},
-		{name: "invalid reference", models: []contentModelNode{model(1)}, wantErr: "content model graph references invalid model"},
+		{name: "invalid reference", models: []contentModelNode{model(1)}, wantErr: "particle references invalid content model"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := validateContentModelGraph(tt.models)
+			err := validateContentModelTable(tt.models, contentModelRefLimits{}, unlimitedContentModelWork)
 			if tt.wantErr == "" {
 				if err != nil {
-					t.Fatalf("validateContentModelGraph() error = %v", err)
+					t.Fatalf("validateContentModelTable() error = %v", err)
 				}
 				return
 			}
-			if err == nil || err.Error() != tt.wantErr {
-				t.Fatalf("validateContentModelGraph() error = %v, want %q", err, tt.wantErr)
+			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if diag, _ := errors.AsType[*xsderrors.Error](err); diag.Message() != tt.wantErr {
+				t.Fatalf("validateContentModelTable() error = %v, want %q", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestValidateContentModelGraphHandlesDeepChain(t *testing.T) {
+func TestContentModelTableAuditChargesEachModelAndParticleOnce(t *testing.T) {
+	t.Parallel()
+
+	const copies, particles = 4, 25
+	one := occurrence{Min: 1, Max: 1}
+	shared := make([]contentParticle, particles)
+	for i := range shared {
+		shared[i] = elementParticle(0, one)
+	}
+	models := make([]contentModelNode, 0, copies+1)
+	for range copies {
+		models = append(models, contentModelNode{Kind: modelSequence, Occurs: one, Particles: shared})
+	}
+	models = append(models, contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(0, one), modelParticle(1, one)}})
+	tableWork := copies*(1+particles) + 1 + 2
+	refs := contentModelRefLimits{ElementCount: 1}
+
+	exact := newWorkBudget(contentModelWorkBudget, tableWork)
+	if err := validateContentModelTable(models, refs, exact.spend); err != nil {
+		t.Fatalf("validateContentModelTable() with %d units = %v", tableWork, err)
+	}
+	short := newWorkBudget(contentModelWorkBudget, tableWork-1)
+	expectDiagnostic(t, validateContentModelTable(models, refs, short.spend), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func TestValidateContentModelTableHandlesDeepChain(t *testing.T) {
 	t.Parallel()
 
 	const count = 10_000
@@ -244,20 +268,20 @@ func TestValidateContentModelGraphHandlesDeepChain(t *testing.T) {
 		}
 	}
 	models[count-1] = contentModelNode{Kind: modelEmpty}
-	if err := validateContentModelGraph(models); err != nil {
-		t.Fatalf("validateContentModelGraph() error = %v", err)
+	if err := validateContentModelTable(models, contentModelRefLimits{}, unlimitedContentModelWork); err != nil {
+		t.Fatalf("validateContentModelTable() error = %v", err)
 	}
 }
 
-func TestValidateContentModelGraphHandlesWideFlatTable(t *testing.T) {
+func TestValidateContentModelTableHandlesWideFlatTable(t *testing.T) {
 	t.Parallel()
 
 	models := make([]contentModelNode, 10_000)
 	for i := range models {
 		models[i] = contentModelNode{Kind: modelEmpty}
 	}
-	if err := validateContentModelGraph(models); err != nil {
-		t.Fatalf("validateContentModelGraph() error = %v", err)
+	if err := validateContentModelTable(models, contentModelRefLimits{}, unlimitedContentModelWork); err != nil {
+		t.Fatalf("validateContentModelTable() error = %v", err)
 	}
 }
 
