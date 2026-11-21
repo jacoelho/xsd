@@ -70,8 +70,8 @@ func TestComplexTypeReachableModelsChargesEachModelAndParticleItReads(t *testing
 	c.contentWork = newWorkBudget(contentModelWorkBudget, walkWork-1)
 	_, err := c.complexTypeReachableModels()
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
-	var diag *xsderrors.Error
-	if errors.As(err, &diag); diag.Line() < 2 {
-		t.Fatalf("limit located at line %d, want the line of a referring complex type: %v", diag.Line(), err)
+	diag, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diag.Line() < 2 {
+		t.Fatalf("limit = %v, want a diagnostic located at the line of a referring complex type", err)
 	}
 }

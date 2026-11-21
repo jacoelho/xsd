@@ -64,11 +64,14 @@ type contentModelNode struct {
 }
 
 // chargedParticles returns the particles of model after charging work one
-// step for the model and one for each particle. A pass that reads the
-// particles of every model, or of every complex type's model, reads them
-// through it: a root that varies another model's occurrence or mixed flag
-// shares that model's particles at one dependency step, so the particles
-// across the table are not bounded by the dependency steps that admitted them.
+// step for the model and one for each particle. A root that varies another
+// model's occurrence or mixed flag shares that model's particles at one
+// dependency step, so the particles across the table are not bounded by the
+// dependency steps that admitted them. The reachability walk
+// (complexTypeReachableModels) and the publication table audit
+// (validateContentModelTable) read particles only through it; Element
+// Declarations Consistent and the per-root analyses charge each particle as
+// they visit it.
 func chargedParticles(work contentModelWork, model contentModelNode) ([]contentParticle, error) {
 	if err := work(1 + len(model.Particles)); err != nil {
 		return nil, err
@@ -205,8 +208,9 @@ const (
 )
 
 type contentModelGraphFrame struct {
-	id   contentModelID
-	next int
+	particles []contentParticle
+	id        contentModelID
+	next      int
 }
 
 // validateContentModelTable proves that every model has a valid shape, that
@@ -246,14 +250,15 @@ type contentModelTableAudit struct {
 
 func (a *contentModelTableAudit) enter(id contentModelID) error {
 	model := a.models[id]
-	if _, err := chargedParticles(a.work, model); err != nil {
+	particles, err := chargedParticles(a.work, model)
+	if err != nil {
 		return err
 	}
 	if err := validateContentModelKindShape(model); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	a.state[id] = contentModelGraphChecking
-	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: id}, len(a.models))
+	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{particles: particles, id: id}, len(a.models))
 	return nil
 }
 
@@ -272,13 +277,12 @@ func (a *contentModelTableAudit) validateRoot(root contentModelID) error {
 func (a *contentModelTableAudit) advance() error {
 	top := len(a.stack) - 1
 	frame := &a.stack[top]
-	model := &a.models[frame.id]
-	if frame.next == len(model.Particles) {
+	if frame.next == len(frame.particles) {
 		a.state[frame.id] = contentModelGraphChecked
 		a.stack = a.stack[:top]
 		return nil
 	}
-	particle := model.Particles[frame.next]
+	particle := frame.particles[frame.next]
 	frame.next++
 	if err := validateParticleShape(particle); err != nil {
 		return xsderrors.InternalInvariant(err.Error())

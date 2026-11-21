@@ -163,7 +163,7 @@ func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 	}
 }
 
-func TestUPAInsideRepeatedGroupReferenceIsLocatedAtTheGroup(t *testing.T) {
+func TestUPAInsideNestedRepeatedGroupReferenceIsLocatedAtTheGroup(t *testing.T) {
 	t.Parallel()
 
 	group := strings.Join([]string{

@@ -30,13 +30,12 @@ var particleListReaders = struct {
 		"particle_overlap.go":              "emptiability and count ranges, memoized per model and charged per particle",
 	},
 	functions: map[string]string{
-		"chargedParticles":               "the charged accessor",
-		"appendModelParticles":           "the table writer that charges each particle it appends",
-		"compiler.appendModel":           "the table writer",
-		"compiler.completeModel":         "the table writer",
-		"contentModelTableAudit.advance": "reads one particle per step of a model that enter charged through chargedParticles",
-		"validateContentModelShape":      "called by the restriction graph check before its charged loop over the same particles",
-		"modelParticlePreservesBase":     "called once per extension type, whose root automaton is compiled from the base particles and charged first",
+		"chargedParticles":           "the charged accessor",
+		"appendModelParticles":       "the table writer that charges each particle it appends",
+		"compiler.appendModel":       "the table writer",
+		"compiler.completeModel":     "the table writer",
+		"validateContentModelShape":  "called by the restriction graph check before its charged loop over the same particles",
+		"modelParticlePreservesBase": "called once per extension type, whose root automaton is compiled from the base particles and charged first",
 	},
 }
 
@@ -74,6 +73,7 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 	}
 
 	readers := map[string]bool{}
+	readerFiles := map[string]bool{}
 	for _, file := range files {
 		name := filepath.Base(fset.Position(file.Pos()).Filename)
 		for _, decl := range file.Decls {
@@ -84,6 +84,7 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 			key := funcKey(fn)
 			for _, sel := range particleListReads(fn, info, particles) {
 				readers[key] = true
+				readerFiles[name] = true
 				if _, ok := particleListReaders.files[name]; ok {
 					continue
 				}
@@ -96,7 +97,12 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 	}
 	for _, name := range slices.Sorted(maps.Keys(particleListReaders.functions)) {
 		if !readers[name] {
-			t.Errorf("allowed particle-list reader %s reads no particle list", name)
+			t.Errorf("allowed particle-list reader %s does not exist or reads no particle list", name)
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(particleListReaders.files)) {
+		if !readerFiles[name] {
+			t.Errorf("allowed particle-list file %s does not exist or reads no particle list", name)
 		}
 	}
 }
