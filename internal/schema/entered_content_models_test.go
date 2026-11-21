@@ -136,7 +136,7 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 		},
 		{
 			name:          "no empty models",
-			models:        kinds(compiledModelDFA, compiledModelAll, compiledModelAny),
+			models:        kinds(compiledModelDFA, compiledModelDFA, compiledModelAny),
 			types:         types(2, 2, 0),
 			wantModels:    []int{0, 2},
 			wantPublished: []contentModelID{1, 1, 0},
@@ -159,8 +159,8 @@ func TestPublicationRejectsCompiledAllModelNoComplexTypeEnters(t *testing.T) {
 	t.Parallel()
 
 	build := compiledTestBuild(t, enteredModelsSchema())
-	if err := validateCompiledContent(build); err != nil {
-		t.Fatalf("validateCompiledContent() with every all model entered = %v", err)
+	if _, err := enterContentModels(build.ComplexTypes, &build.CompiledContent); err != nil {
+		t.Fatalf("enterContentModels() with every all model entered = %v", err)
 	}
 	enterFirstTypeContent(build, func(model contentModelNode) bool { return model.Kind == modelAll })
 	_, err := publishSchema(build, unlimitedContentModelWork)

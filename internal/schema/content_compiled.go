@@ -264,7 +264,9 @@ type enteredContent struct {
 // their ancestors' rows, so no published particle references another model.
 // Every empty-kind model compiles to the same read, so empty roots share the
 // lowest such position and publication keeps one row for them; projection
-// work is still charged per compiled model.
+// work is still charged per compiled model. A compiled all model that no
+// complex type enters is an internal invariant violation, because
+// indexAllContentModels indexes only entered models.
 func enterContentModels(types []complexTypeMetadata, content *compiledContent) (enteredContent, error) {
 	roots, err := contentRoots(types, content)
 	if err != nil {
@@ -273,6 +275,11 @@ func enterContentModels(types []complexTypeMetadata, content *compiledContent) (
 	entered := slices.Clone(roots)
 	slices.Sort(entered)
 	entered = slices.Compact(entered)
+	for i := range content.Models {
+		if _, ok := slices.BinarySearch(entered, i); !ok && content.Models[i].Kind == compiledModelAll {
+			return enteredContent{}, xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type")
+		}
+	}
 	position := make([]contentModelID, len(content.Models))
 	for index, root := range entered {
 		position[root] = contentModelID(index) // #nosec G115 -- entered holds at most one position per complex type, and complex-type IDs are uint32.
@@ -337,9 +344,9 @@ func newCompiledModelReads(models []compiledModel, entered []int, work contentMo
 // Large all-groups dispatch by expanded name. The index uses the same
 // substitution expansion as DFA rows; occurrence bits remain document-owned.
 // All Group Limited admits an all group only as the whole content of a complex
-// type, so every compiled all model is an entered root, as
-// validateCompiledContent asserts, and indexing the entered models charges the
-// same work whichever other models are entered.
+// type, so every compiled all model is an entered root, as enterContentModels
+// asserts, and indexing the entered models charges the same work whichever
+// other models are entered.
 func indexAllContentModels(models []compiledModel, entered []int, reads []compiledModelRead, rt *schemaBuild, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
