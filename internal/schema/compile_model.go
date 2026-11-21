@@ -371,10 +371,9 @@ func (c *compiler) checkCompiledModelsUPA(reached []contentModelID) error {
 
 // complexTypeReachableModels returns the content models that Unique Particle
 // Attribution and automaton construction apply to, as
-// docs/spec/INTERPRETATIONS.md scopes them, in ascending ID order. Occurrence
-// copies of a group share its particles at one dependency step each, so the
-// walk charges every particle it reads, in the scope of the model holding it.
-// It visits the complex types' roots in complex-type order and then nested
+// docs/spec/INTERPRETATIONS.md scopes them, in ascending ID order. The walk
+// reads each model's particles through chargedParticles, in the scope of the
+// model holding them. It visits the complex types' roots in complex-type order and then nested
 // models breadth first, so a limit failure names the first model in that
 // order; only the builtin anyType model's charge has no source and is located
 // set-wide.
@@ -405,8 +404,8 @@ func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err
 		return err
 	}
 	defer scope.leave(&err)
-	particles := c.rt.Models[id].Particles
-	if err := c.contentWork.spend(1 + len(particles)); err != nil {
+	particles, err := chargedParticles(c.contentWork.spend, c.rt.Models[id])
+	if err != nil {
 		return err
 	}
 	return walk.reachParticles(particles)

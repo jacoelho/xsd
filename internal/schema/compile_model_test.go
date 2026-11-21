@@ -43,9 +43,15 @@ func TestComplexTypeReachableModelsRejectsMissingModel(t *testing.T) {
 	}
 }
 
-func TestComplexTypeReachableModelsStopsAtBudgetBelowParticlesRead(t *testing.T) {
+func TestComplexTypeReachableModelsChargesEachModelAndParticleItReads(t *testing.T) {
 	t.Parallel()
 	const references, particles = 40, 25
+	const (
+		rootSequenceWork   = 1 + references
+		repeatedGroupWork  = references * (1 + particles)
+		anyTypeContentWork = 1 + 1
+		walkWork           = rootSequenceWork + repeatedGroupWork + anyTypeContentWork
+	)
 	var document strings.Builder
 	document.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:group name="G"><xs:sequence>`)
 	for i := range particles {
@@ -57,7 +63,11 @@ func TestComplexTypeReachableModelsStopsAtBudgetBelowParticlesRead(t *testing.T)
 	}
 	document.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
 	c, _ := newEmptyComplexTypePublicationCompiler(t, document.String())
-	c.contentWork = newWorkBudget(contentModelWorkBudget, references*particles/2)
+	c.contentWork = newWorkBudget(contentModelWorkBudget, walkWork)
+	if _, err := c.complexTypeReachableModels(); err != nil {
+		t.Fatalf("walk with %d steps: %v", walkWork, err)
+	}
+	c.contentWork = newWorkBudget(contentModelWorkBudget, walkWork-1)
 	_, err := c.complexTypeReachableModels()
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	var diag *xsderrors.Error

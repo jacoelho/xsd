@@ -223,7 +223,8 @@ carries its occurrence on its record: a root that repeats a group
 (`compileModelParticle`) and a root whose mixed flag differs from its model's
 (`canonicalComplexContentModel`) share the particles of the model they vary in
 a record of their own at one dependency step, so the particles across the table are not
-bounded by `MaxSchemaDependencySteps`. `explicitContentEmpty` alone decides
+bounded by `MaxSchemaDependencySteps`, and a pass over every model or every
+complex type reads them through `chargedParticles`. `explicitContentEmpty` alone decides
 from the source whether a complex type's ·effective content· is empty (Structures §3.4.2 complex content
 clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
 direct, restriction and extension paths call, and returns the effective
@@ -1045,6 +1046,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
+| `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the table writers, the per-root analysis files and the readers it lists with the bound each relies on; reading only the length or one element is exempt. A pass added to an allowed file is not caught |
 | `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |
 | `web/js/validation-worker.test.js` | Worker queue, cancellation, timeout, generation, and state ownership |
 | `web/js/xsd-runtime.test.js` | Go runtime readiness and single-fatal reporting on runtime exit or startup failure |
