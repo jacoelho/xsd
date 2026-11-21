@@ -163,6 +163,41 @@ func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 	}
 }
 
+func TestUPAInsideNestedRepeatedGroupReferenceIsLocatedAtTheGroup(t *testing.T) {
+	t.Parallel()
+
+	group := strings.Join([]string{
+		`<xs:schema ` + xsNS + `>`,
+		`<xs:group name="G">`,
+		`<xs:choice>`,
+		`<xs:element name="a"/>`,
+		`<xs:sequence><xs:element name="a"/></xs:sequence>`,
+		`</xs:choice>`,
+		`</xs:group>`,
+		`</xs:schema>`,
+	}, "\n")
+	want := compileLocation{path: "b.xsd", line: 3}
+	for _, maxOccurs := range []string{"1", "2", "unbounded"} {
+		t.Run("maxOccurs "+maxOccurs, func(t *testing.T) {
+			t.Parallel()
+			referrer := strings.Join([]string{
+				`<xs:schema ` + xsNS + `>`,
+				`<xs:complexType name="T">`,
+				`<xs:sequence><xs:element name="x"/><xs:group ref="G" maxOccurs="` + maxOccurs + `"/></xs:sequence>`,
+				`</xs:complexType>`,
+				`</xs:schema>`,
+			}, "\n")
+			_, err := xsd.Compile(xsd.Bytes("a.xsd", []byte(referrer)), xsd.Bytes("b.xsd", []byte(group)))
+			if err == nil || !strings.Contains(err.Error(), "UPA violation") {
+				t.Fatalf("error = %v, want a UPA violation", err)
+			}
+			if got := compileDiagnosticLocation(t, err, xsderrors.CodeSchemaContentModel); got != want {
+				t.Fatalf("location = %+v, want the group's choice %+v: %v", got, want, err)
+			}
+		})
+	}
+}
+
 // TestContentModelBudgetFailuresNameTheCheckedComponent sweeps
 // MaxContentModelAnalysisSteps over two explicit roots. The first root holds no
 // content model, so a failure inside a checked component names the second

@@ -63,6 +63,22 @@ type contentModelNode struct {
 	Mixed     bool
 }
 
+// chargedParticles returns the particles of model after charging work one
+// step for the model and one for each particle. A root that varies another
+// model's occurrence or mixed flag shares that model's particles at one
+// dependency step, so the particles across the table are not bounded by the
+// dependency steps that admitted them. The reachability walk
+// (complexTypeReachableModels) and the publication table audit
+// (validateContentModelTable) read particles only through it; Element
+// Declarations Consistent and the per-root analyses charge each particle as
+// they visit it.
+func chargedParticles(work contentModelWork, model contentModelNode) ([]contentParticle, error) {
+	if err := work(1 + len(model.Particles)); err != nil {
+		return nil, err
+	}
+	return model.Particles, nil
+}
+
 // contentModelByID resolves a content model from a content-model table. It
 // returns the stored model: admitted models are immutable, the Particles slice
 // is shared and has no spare capacity, and callers must not write its elements.
@@ -192,17 +208,15 @@ const (
 )
 
 type contentModelGraphFrame struct {
-	id   contentModelID
-	next int
+	particles []contentParticle
+	id        contentModelID
+	next      int
 }
 
 // validateContentModelTable proves that every model has a valid shape, that
 // every particle is well formed and references a valid element, wildcard or
-// model, and that the models form an acyclic graph. Occurrence copies of a
-// group share its particles, so the particles across models are not bounded by
-// the dependency steps that admitted them: the audit charges work for each
-// model it enters and each particle that model holds, before it reads them,
-// and reads every particle once.
+// model, and that the models form an acyclic graph. It enters every model
+// once and reads its particles through chargedParticles.
 func validateContentModelTable(models []contentModelNode, limits contentModelRefLimits, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
@@ -236,14 +250,15 @@ type contentModelTableAudit struct {
 
 func (a *contentModelTableAudit) enter(id contentModelID) error {
 	model := a.models[id]
-	if err := a.work(1 + len(model.Particles)); err != nil {
+	particles, err := chargedParticles(a.work, model)
+	if err != nil {
 		return err
 	}
 	if err := validateContentModelKindShape(model); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	a.state[id] = contentModelGraphChecking
-	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: id}, len(a.models))
+	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{particles: particles, id: id}, len(a.models))
 	return nil
 }
 
@@ -262,13 +277,12 @@ func (a *contentModelTableAudit) validateRoot(root contentModelID) error {
 func (a *contentModelTableAudit) advance() error {
 	top := len(a.stack) - 1
 	frame := &a.stack[top]
-	particles := a.models[frame.id].Particles
-	if frame.next == len(particles) {
+	if frame.next == len(frame.particles) {
 		a.state[frame.id] = contentModelGraphChecked
 		a.stack = a.stack[:top]
 		return nil
 	}
-	particle := particles[frame.next]
+	particle := frame.particles[frame.next]
 	frame.next++
 	if err := validateParticleShape(particle); err != nil {
 		return xsderrors.InternalInvariant(err.Error())

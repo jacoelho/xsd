@@ -140,8 +140,10 @@ func validateExtensionSequenceTerms(rt *schemaBuild, base contentModelID, effect
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base")
 }
 
-// compileModelParticle lowers a referenced content model into a particle. Repeated
-// model references are normalized through a generated exactly-one model slot.
+// compileModelParticle lowers the root model id of a {content type} into a
+// particle. A root carries its occurrence on its record, so a repeated root
+// moves its occurrence onto the particle and names a generated exactly-one
+// model that shares its particles.
 func compileModelParticle(rt *schemaBuild, add addContentModelFunc, id contentModelID) (contentParticle, bool, error) {
 	model, ok := contentModelByID(rt.Models, id)
 	if !ok {

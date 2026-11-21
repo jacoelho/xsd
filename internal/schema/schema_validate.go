@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -577,7 +576,7 @@ func validateBuiltinAnyTypeComponents(rt *schemaValidation, ct complexTypeMetada
 func builtinAnyTypeContent(content contentModelNode, wildcard WildcardID) bool {
 	want := builtinAnyTypeContentModel()
 	return content.Kind == want.Kind && content.Occurs == want.Occurs && content.Mixed == want.Mixed &&
-		slices.Equal(content.Particles, []contentParticle{builtinAnyTypeContentParticle(wildcard)})
+		len(content.Particles) == 1 && content.Particles[0] == builtinAnyTypeContentParticle(wildcard)
 }
 
 func validateElementDeclShape(rt *schemaValidation, decl elementDecl) error {

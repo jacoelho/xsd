@@ -215,8 +215,13 @@ has a schema document to locate it.
 The content model table holds declared components. Lowering drops zero-count
 particles and keeps every declared group as its own particle; xs:anyType's
 content is a 1..1 mixed sequence holding its lax `##any` wildcard
-0..unbounded. `explicitContentEmpty` alone decides from the source whether a
-complex type's ·effective content· is empty (Structures §3.4.2 complex content
+0..unbounded. A nested model group's occurrence is on its particle
+(`compileNestedModelChild`), so every nested reference to a group names the
+group's own model. Root records that share another model's particles are made
+by `applyModelGroupOccurrence` and `compileModelParticle`, and
+`chargedParticles` names the passes that read particles through it.
+`explicitContentEmpty` alone decides from the source whether a complex type's
+·effective content· is empty (Structures §3.4.2 complex content
 clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
 direct, restriction and extension paths call, and returns the effective
 content with the variety it gives the {content type}, with no model for empty
@@ -1037,6 +1042,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
+| `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the table writers, the per-root analysis files and the readers it lists with the bound each relies on; reading only the length, or an element at an integer-literal index, is exempt. An exempt file or reader that no longer exists or reads no particle list fails it. A pass added to an allowed file is not caught |
 | `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |
 | `web/js/validation-worker.test.js` | Worker queue, cancellation, timeout, generation, and state ownership |
 | `web/js/xsd-runtime.test.js` | Go runtime readiness and single-fatal reporting on runtime exit or startup failure |
