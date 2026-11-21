@@ -194,7 +194,6 @@ func (t *followTable) chargePosition(segs []followSegment, spend func(int) error
 	return nil
 }
 
-// segmentCharge counts one step per entry of seg plus its guards and actions.
 func (t *followTable) segmentCharge(seg followSegment) int {
 	p := t.prefixes[seg.prefix]
 	return len(t.sets[seg.set].positions) * (1 + len(p.guards) + len(p.actions))
