@@ -96,7 +96,8 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 }
 
 // validateCompiledContent proves that the compiled table names ascending
-// source models, one compiled model each.
+// source models, one compiled model each, and that every compiled all model is
+// the content of a complex type, which indexAllContentModels relies on.
 func validateCompiledContent(build *schemaBuild) error {
 	content := &build.CompiledContent
 	if len(content.Sources) != len(content.Models) {
@@ -105,6 +106,22 @@ func validateCompiledContent(build *schemaBuild) error {
 	for i, id := range content.Sources {
 		if !validContentModelID(id, len(build.Models)) || (i > 0 && content.Sources[i-1] >= id) {
 			return xsderrors.InternalInvariant("schema compiled content-model sources are not ascending source models")
+		}
+	}
+	return validateCompiledAllModelsEntered(build)
+}
+
+func validateCompiledAllModelsEntered(build *schemaBuild) error {
+	content := &build.CompiledContent
+	roots := make([]bool, len(build.Models))
+	for i := range build.ComplexTypes {
+		if root := build.ComplexTypes[i].Content; validContentModelID(root, len(roots)) {
+			roots[root] = true
+		}
+	}
+	for i := range content.Models {
+		if content.Models[i].Kind == compiledModelAll && !roots[content.Sources[i]] {
+			return xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type")
 		}
 	}
 	return nil

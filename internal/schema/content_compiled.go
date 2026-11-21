@@ -337,8 +337,9 @@ func newCompiledModelReads(models []compiledModel, entered []int, work contentMo
 // Large all-groups dispatch by expanded name. The index uses the same
 // substitution expansion as DFA rows; occurrence bits remain document-owned.
 // All Group Limited admits an all group only as the whole content of a complex
-// type, so every compiled all model is an entered root and indexing the
-// entered models charges the same work whichever other models are entered.
+// type, so every compiled all model is an entered root, as
+// validateCompiledContent asserts, and indexing the entered models charges the
+// same work whichever other models are entered.
 func indexAllContentModels(models []compiledModel, entered []int, reads []compiledModelRead, rt *schemaBuild, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
