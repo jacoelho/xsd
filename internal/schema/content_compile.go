@@ -885,10 +885,8 @@ func (b *directSequenceCompilation) addEdge(particle contentParticle, row compil
 	if err != nil {
 		return err
 	}
-	for range to - b.active {
-		if err := b.compiler.work.spend(1); err != nil {
-			return err
-		}
+	if err := b.compiler.work.spend(int(to - b.active)); err != nil {
+		return err
 	}
 	edge := len(b.edges)
 	b.edges = append(b.edges, compiledModelEdge{Particle: singleParticle(particle), To: to})
