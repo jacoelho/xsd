@@ -147,7 +147,7 @@ func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]con
 	want.rootEnd(wantRoot.Last)
 	wantCharge := want.normalize()
 
-	if !equalDFAEntries(gotRoot.First, wantRoot.First) || !equalDFAEntries(gotRoot.Last, wantRoot.Last) {
+	if !slices.Equal(gotRoot.First, wantRoot.First) || !equalDFAEntries(gotRoot.Last, wantRoot.Last) {
 		t.Fatalf("root first, last = %v, %v, want %v, %v", gotRoot.First, gotRoot.Last, wantRoot.First, wantRoot.Last)
 	}
 	if gotCharge != wantCharge {
@@ -181,8 +181,8 @@ func followFixtureBuilder(rt *schemaBuild) *dfaBuilder {
 }
 
 // pairwiseFollows is the reference position automaton: it composes and
-// stores one follow entry for every tail and first entry, and unions entry
-// sets by sorting their concatenation. b allocates positions and counters in
+// stores one follow entry for every tail and first position, and unions
+// position and entry sets by sorting their concatenation. b allocates positions and counters in
 // the order the builder under test does.
 type pairwiseFollows struct {
 	b      *dfaBuilder
@@ -199,7 +199,7 @@ func (r *pairwiseFollows) group(t *testing.T, model contentModelNode) dfaNode {
 			continue
 		}
 		node = dfaNode{
-			First:    pairwiseUnion(node.First, child.First),
+			First:    pairwisePositionUnion(node.First, child.First),
 			Last:     pairwiseUnion(node.Last, child.Last),
 			Counters: mergeCounters(node.Counters, child.Counters),
 			Nullable: node.Nullable || child.Nullable,
@@ -228,7 +228,7 @@ func (r *pairwiseFollows) concat(a, c dfaNode) dfaNode {
 	}
 	first, last := a.First, c.Last
 	if a.Nullable {
-		first = pairwiseUnion(a.First, c.First)
+		first = pairwisePositionUnion(a.First, c.First)
 	}
 	if c.Nullable {
 		last = pairwiseUnion(c.Last, a.Last)
@@ -276,11 +276,11 @@ func (r *pairwiseFollows) repeat(t *testing.T, child dfaNode, occurs occurrence)
 	}
 }
 
-func (r *pairwiseFollows) add(pos int, guards []compiledGuard, actions []compiledAction, first dfaEntry) {
+func (r *pairwiseFollows) add(pos int, guards []compiledGuard, actions []compiledAction, first int) {
 	r.follow[pos] = append(r.follow[pos], dfaEntry{
-		Pos:     first.Pos,
-		Guards:  appendGuards(guards, first.Guards),
-		Actions: appendActions(actions, first.Actions),
+		Pos:     first,
+		Guards:  appendGuards(guards, nil),
+		Actions: slices.Clone(actions),
 	})
 }
 
@@ -314,6 +314,10 @@ func entriesCharge(entries []dfaEntry) int {
 
 func pairwiseUnion(a, b []dfaEntry) []dfaEntry {
 	return normalizeDFAEntries(slices.Concat(a, b))
+}
+
+func pairwisePositionUnion(a, b []int) []int {
+	return slices.Compact(slices.Sorted(slices.Values(slices.Concat(a, b))))
 }
 
 func equalDFAEntries(a, b []dfaEntry) bool {

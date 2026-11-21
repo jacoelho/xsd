@@ -47,11 +47,13 @@ type dfaEntry struct {
 	Pos     int
 }
 
-// dfaNode is the position-automaton summary of one particle. First, Last and
-// Counters are normalized and may be shared with the nodes it was built from,
-// so they are never modified in place.
+// dfaNode is the position-automaton summary of one particle. First holds
+// ascending positions: only a tail carries guards and actions, which the
+// follow entries composed from it apply to every first position. First, Last
+// and Counters are normalized and may be shared with the nodes it was built
+// from, so they are never modified in place.
 type dfaNode struct {
-	First    []dfaEntry
+	First    []int
 	Last     []dfaEntry
 	Counters []uint32
 	Nullable bool
@@ -1226,14 +1228,17 @@ func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {
 }
 
 func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
-	start := root.First
+	start := make([]dfaEntry, 0, len(root.First)+1)
+	for _, pos := range root.First {
+		start = append(start, dfaEntry{Pos: pos})
+	}
 	if !root.Nullable {
 		return start, nil
 	}
 	if err := b.c.work.spend(1); err != nil {
 		return nil, err
 	}
-	return append(slices.Clip(start), dfaEntry{Pos: dfaEndPos}), nil
+	return append(start, dfaEntry{Pos: dfaEndPos}), nil
 }
 
 func (b *dfaBuilder) appendRootEndFollows(last []dfaEntry) error {
@@ -1415,7 +1420,8 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 // sibling sets is their concatenation.
 func (b *dfaBuilder) sequenceNode(particles []contentParticle) (dfaNode, error) {
 	node := dfaNode{Nullable: true}
-	var first, last dfaEntryUnion
+	var first dfaSetUnion[int]
+	var last dfaSetUnion[dfaEntry]
 	for _, particle := range particles {
 		child, err := b.particleNode(particle)
 		if err != nil {
@@ -1434,7 +1440,7 @@ func (b *dfaBuilder) sequenceNode(particles []contentParticle) (dfaNode, error) 
 
 // concatNode returns the summary of node followed by child; first and last
 // accumulate node's entry sets.
-func concatNode(node, child dfaNode, first, last *dfaEntryUnion) dfaNode {
+func concatNode(node, child dfaNode, first *dfaSetUnion[int], last *dfaSetUnion[dfaEntry]) dfaNode {
 	if node.Nullable {
 		node.First = first.add(child.First)
 	}
@@ -1450,7 +1456,8 @@ func concatNode(node, child dfaNode, first, last *dfaEntryUnion) dfaNode {
 
 func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
 	var node dfaNode
-	var first, last dfaEntryUnion
+	var first dfaSetUnion[int]
+	var last dfaSetUnion[dfaEntry]
 	for _, particle := range particles {
 		child, err := b.particleNode(particle)
 		if err != nil {
@@ -1467,35 +1474,36 @@ func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
 	return node, nil
 }
 
-// dfaEntryUnion accumulates the union of normalized entry sets, each holding
-// only positions above those of the sets before it. It shares the first set
-// until a second joins it, then appends to a buffer it owns, so a shared set
-// is never modified.
-type dfaEntryUnion struct {
-	entries []dfaEntry
-	owned   bool
+// dfaSetUnion accumulates the union of normalized position or entry sets,
+// each holding only positions above those of the sets before it. It shares
+// the first set until a second joins it, then appends to a buffer it owns, so
+// a shared set is never modified. The sets it returns have no spare capacity,
+// so appending to one copies it instead of writing into the buffer.
+type dfaSetUnion[E any] struct {
+	elems []E
+	owned bool
 }
 
-func (u *dfaEntryUnion) add(entries []dfaEntry) []dfaEntry {
+func (u *dfaSetUnion[E]) add(elems []E) []E {
 	switch {
-	case len(entries) == 0:
-	case len(u.entries) == 0:
-		u.entries = entries
+	case len(elems) == 0:
+	case len(u.elems) == 0:
+		u.elems = elems
 		u.owned = false
 	case !u.owned:
-		u.entries = append(make([]dfaEntry, 0, len(u.entries)+len(entries)), u.entries...)
-		u.entries = append(u.entries, entries...)
+		u.elems = append(make([]E, 0, len(u.elems)+len(elems)), u.elems...)
+		u.elems = append(u.elems, elems...)
 		u.owned = true
 	default:
-		u.entries = append(u.entries, entries...)
+		u.elems = append(u.elems, elems...)
 	}
-	return u.entries
+	return slices.Clip(u.elems)
 }
 
-func (u *dfaEntryUnion) reset(entries []dfaEntry) []dfaEntry {
-	u.entries = entries
+func (u *dfaSetUnion[E]) reset(elems []E) []E {
+	u.elems = elems
 	u.owned = false
-	return entries
+	return elems
 }
 
 func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
@@ -1525,12 +1533,18 @@ func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
 	pos := len(b.positions)
 	b.positions = appendDoubling(b.positions, p)
 	b.follow.addPosition()
-	entries := []dfaEntry{{Pos: pos}}
-	return dfaNode{First: entries, Last: entries}
+	sets := &dfaLeafSets{last: [1]dfaEntry{{Pos: pos}}, first: [1]int{pos}}
+	return dfaNode{First: sets.first[:], Last: sets.last[:]}
 }
 
-// addFollows makes every tail followed by every entry of first.
-func (b *dfaBuilder) addFollows(tails, first []dfaEntry) error {
+// dfaLeafSets holds the first and last sets of one leaf in one allocation.
+type dfaLeafSets struct {
+	last  [1]dfaEntry
+	first [1]int
+}
+
+// addFollows makes every tail followed by every position of first.
+func (b *dfaBuilder) addFollows(tails []dfaEntry, first []int) error {
 	if len(tails) == 0 || len(first) == 0 {
 		return nil
 	}
@@ -1550,13 +1564,10 @@ func (b *dfaBuilder) addFollows(tails, first []dfaEntry) error {
 }
 
 // spendFollowPairs charges one tail with a prefix of the given guard and
-// action count against every entry of set: per pair, the prefix, the entry's
-// guards and actions, and one step.
+// action count against every position of set: per pair, the prefix and one
+// step.
 func (b *dfaBuilder) spendFollowPairs(prefix int, set uint32) error {
-	if err := b.c.work.spendProduct(b.follow.setLen(set), prefix+1); err != nil {
-		return err
-	}
-	return b.c.work.spend(b.follow.setWork(set))
+	return b.c.work.spendProduct(b.follow.setLen(set), prefix+1)
 }
 
 func (b *dfaBuilder) repeat(child dfaNode, occurs occurrence) (dfaNode, error) {

@@ -9,9 +9,9 @@ import (
 
 // followTable holds the follow sets of the position automaton one dfaBuilder
 // constructs. A concatenation or a repeat makes each tail of one entry set
-// followed by every entry of another; the table records that as one segment
-// per tail, naming the shared first set and the tail's interned guard and
-// action prefix, so it grows with the tails and not with the tail-first
+// followed by every position of a first set; the table records that as one
+// segment per tail, naming the shared first set and the tail's interned guard
+// and action prefix, so it grows with the tails and not with the tail-first
 // pairs that automaton construction charges. A follow set is materialized
 // once per distinct segment list, when a source row first reaches one of
 // its positions. heads[pos] is one more than the index of the last segment
@@ -30,21 +30,19 @@ type followTable struct {
 	endSet    dfaStateID
 }
 
-// followSegment stands for the entries composeEntry builds from the guards
-// and actions of prefix and each entry of set.
+// followSegment stands for one entry per position of set, each carrying the
+// guards and actions of prefix.
 type followSegment struct {
 	prefix uint32
 	set    uint32
 	next   uint32
 }
 
-// followSet is a normalized entry set that segments share. work is the sum
-// of its entries' guard and action counts. class is the class of the
-// positions whose only segment is this set without a prefix.
+// followSet is an ascending position set that segments share. class is the
+// class of the positions whose only segment is this set without a prefix.
 type followSet struct {
-	entries []dfaEntry
-	work    int
-	class   dfaStateID
+	positions []int
+	class     dfaStateID
 }
 
 // followPrefix holds normalized guards. Prefix 0 is the empty prefix.
@@ -75,24 +73,20 @@ func (t *followTable) addPosition() {
 	t.heads = appendDoubling(t.heads, 0)
 }
 
-// addSet registers entries, a normalized set that is never modified, for
+// addSet registers positions, an ascending set that is never modified, for
 // segments to share.
-func (t *followTable) addSet(entries []dfaEntry) (uint32, error) {
+func (t *followTable) addSet(positions []int) (uint32, error) {
 	id, err := followTableID(len(t.sets))
 	if err != nil {
 		return 0, err
 	}
-	work := 0
-	for _, e := range entries {
-		work += len(e.Guards) + len(e.Actions)
-	}
-	t.sets = appendDoubling(t.sets, followSet{entries: entries, work: work})
+	t.sets = appendDoubling(t.sets, followSet{positions: positions})
 	return id, nil
 }
 
 func (t *followTable) rootEndSet() (uint32, error) {
 	if !t.endSet.known {
-		id, err := t.addSet([]dfaEntry{{Pos: dfaEndPos}})
+		id, err := t.addSet([]int{dfaEndPos})
 		if err != nil {
 			return 0, err
 		}
@@ -106,11 +100,7 @@ func followTableID(n int) (uint32, error) {
 }
 
 func (t *followTable) setLen(set uint32) int {
-	return len(t.sets[set].entries)
-}
-
-func (t *followTable) setWork(set uint32) int {
-	return t.sets[set].work
+	return len(t.sets[set].positions)
 }
 
 // prefix interns guards, which must be normalized, with actions.
@@ -141,8 +131,8 @@ func (t *followTable) prefix(guards []compiledGuard, actions []compiledAction) (
 	return id, nil
 }
 
-// add makes pos followed by the entries of set composed with guards, which
-// must be normalized, and actions.
+// add makes pos followed by every position of set, guarded by guards, which
+// must be normalized, and taking actions.
 func (t *followTable) add(pos int, guards []compiledGuard, actions []compiledAction, set uint32) error {
 	prefix, err := t.prefix(guards, actions)
 	if err != nil {
@@ -204,38 +194,10 @@ func (t *followTable) chargePosition(segs []followSegment, spend func(int) error
 	return nil
 }
 
-// segmentCharge counts one step per composed entry plus its guards and
-// actions. Composition unions the prefix guards with each entry's guards.
+// segmentCharge counts one step per entry of seg plus its guards and actions.
 func (t *followTable) segmentCharge(seg followSegment) int {
-	set := t.sets[seg.set]
 	p := t.prefixes[seg.prefix]
-	charge := len(set.entries)*(1+len(p.actions)) + set.work
-	if len(p.guards) == 0 {
-		return charge
-	}
-	for _, e := range set.entries {
-		charge += guardUnionLen(p.guards, e.Guards) - len(e.Guards)
-	}
-	return charge
-}
-
-// guardUnionLen returns the length of the normalized union of two
-// normalized guard lists.
-func guardUnionLen(a, b []compiledGuard) int {
-	n, i, j := 0, 0, 0
-	for i < len(a) && j < len(b) {
-		switch c := compareCompiledGuard(a[i], b[j]); {
-		case c < 0:
-			i++
-		case c > 0:
-			j++
-		default:
-			i++
-			j++
-		}
-		n++
-	}
-	return n + len(a) - i + len(b) - j
+	return len(t.sets[seg.set].positions) * (1 + len(p.guards) + len(p.actions))
 }
 
 // class returns the follow class of pos, materializing its follow set the
@@ -259,7 +221,7 @@ func (t *followTable) classID(segs []followSegment) (uint32, error) {
 	if len(segs) == 1 && segs[0].prefix == 0 {
 		set := &t.sets[segs[0].set]
 		if !set.class.known {
-			id, err := t.addClass(set.entries)
+			id, err := t.addClass(t.segmentEntries(segs[0], make([]dfaEntry, 0, t.setLen(segs[0].set))))
 			if err != nil {
 				return 0, err
 			}
@@ -299,19 +261,21 @@ func (t *followTable) addClass(entries []dfaEntry) (uint32, error) {
 func (t *followTable) materialize(segs []followSegment) []dfaEntry {
 	n := 0
 	for _, seg := range segs {
-		n += len(t.sets[seg.set].entries)
+		n += len(t.sets[seg.set].positions)
 	}
 	entries := make([]dfaEntry, 0, n)
 	for _, seg := range segs {
-		set := t.sets[seg.set].entries
-		if seg.prefix == 0 {
-			entries = append(entries, set...)
-			continue
-		}
-		p := t.prefixes[seg.prefix]
-		for _, e := range set {
-			entries = append(entries, composeEntry(p.guards, p.actions, e))
-		}
+		entries = t.segmentEntries(seg, entries)
 	}
 	return slices.Clip(normalizeDFAEntries(entries))
+}
+
+// segmentEntries appends the entries of seg to entries. They share the
+// prefix's guard and action lists, which are never modified.
+func (t *followTable) segmentEntries(seg followSegment, entries []dfaEntry) []dfaEntry {
+	p := t.prefixes[seg.prefix]
+	for _, pos := range t.sets[seg.set].positions {
+		entries = append(entries, dfaEntry{Pos: pos, Guards: p.guards, Actions: p.actions})
+	}
+	return entries
 }
