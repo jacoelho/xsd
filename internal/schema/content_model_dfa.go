@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"encoding/binary"
 	"slices"
-	"strconv"
 
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -519,12 +518,18 @@ func complementaryCountingGuards(loopEdge, exitEdge []compiledGuard) bool {
 	return false
 }
 
+// composeEntry prefixes entry with normalized guards and with actions. Guard
+// and action lists are never modified, so an entry without its own guards or
+// actions shares the prefix's.
 func composeEntry(guards []compiledGuard, actions []compiledAction, entry dfaEntry) dfaEntry {
-	return dfaEntry{
-		Pos:     entry.Pos,
-		Guards:  appendGuards(guards, entry.Guards),
-		Actions: appendActions(actions, entry.Actions),
+	composed := dfaEntry{Pos: entry.Pos, Guards: guards, Actions: actions}
+	if len(entry.Guards) != 0 {
+		composed.Guards = appendGuards(guards, entry.Guards)
 	}
+	if len(entry.Actions) != 0 {
+		composed.Actions = appendActions(actions, entry.Actions)
+	}
+	return composed
 }
 
 func appendGuards(a, b []compiledGuard) []compiledGuard {
@@ -562,19 +567,6 @@ func mergeCounters(a, b []uint32) []uint32 {
 	out = append(out, b...)
 	slices.Sort(out)
 	return slices.Compact(out)
-}
-
-// unionDFAEntries returns the normalized union of two normalized entry sets.
-// It shares an operand when the other is empty, so callers treat node entry
-// sets as immutable.
-func unionDFAEntries(a, b []dfaEntry) []dfaEntry {
-	if len(b) == 0 {
-		return a
-	}
-	if len(a) == 0 {
-		return b
-	}
-	return normalizeDFAEntries(slices.Concat(a, b))
 }
 
 // normalizeDFAEntries sorts and deduplicates entries in place; callers pass
@@ -633,29 +625,22 @@ func compareCompiledActions(a, b []compiledAction) int {
 	return 0
 }
 
-func dfaStateKey(entries []dfaEntry) string {
-	var b []byte
+// appendDFAStateKey appends the encoding of a normalized entry set to b.
+// Every field is length-prefixed or fixed-width, so equal keys are equal sets.
+func appendDFAStateKey(b []byte, entries []dfaEntry) []byte {
 	for _, e := range entries {
-		b = strconv.AppendInt(b, int64(e.Pos), 10)
-		b = append(b, ':')
+		b = binary.AppendVarint(b, int64(e.Pos))
+		b = binary.AppendUvarint(b, uint64(len(e.Guards)))
 		for _, g := range e.Guards {
-			b = append(b, 'g')
-			b = strconv.AppendUint(b, uint64(g.Slot), 10)
-			b = append(b, '/')
-			b = strconv.AppendUint(b, uint64(g.Kind), 10)
-			b = append(b, '/')
-			b = strconv.AppendUint(b, uint64(g.N), 10)
-			b = append(b, ',')
+			b = binary.AppendUvarint(b, uint64(g.Slot))
+			b = binary.AppendUvarint(b, uint64(g.N))
+			b = append(b, byte(g.Kind))
 		}
-		b = append(b, ':')
+		b = binary.AppendUvarint(b, uint64(len(e.Actions)))
 		for _, a := range e.Actions {
-			b = append(b, 'a')
-			b = strconv.AppendUint(b, uint64(a.Slot), 10)
-			b = append(b, '/')
-			b = strconv.AppendUint(b, uint64(a.Kind), 10)
-			b = append(b, ',')
+			b = binary.AppendUvarint(b, uint64(a.Slot))
+			b = append(b, byte(a.Kind))
 		}
-		b = append(b, ';')
 	}
-	return string(b)
+	return b
 }
