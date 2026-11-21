@@ -190,21 +190,6 @@ func TestValidateContentModelTableRejectsInvalidParticleReferences(t *testing.T)
 	}
 }
 
-func TestValidateContentModelTableRejectsModelParticleNamingRepeatedModel(t *testing.T) {
-	t.Parallel()
-
-	one := occurrence{Min: 1, Max: 1}
-	models := []contentModelNode{
-		{Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(1, occurrence{Min: 0, Max: 2})}},
-		{Kind: modelChoice, Occurs: occurrence{Min: 1, Max: 2}},
-	}
-	err := validateContentModelTable(models, contentModelRefLimits{}, unlimitedContentModelWork)
-	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	if diag, _ := errors.AsType[*xsderrors.Error](err); diag.Message() != "model particle names a model whose record repeats it" {
-		t.Fatalf("validateContentModelTable() error = %v, want a repeated named model rejected", err)
-	}
-}
-
 func TestValidateContentModelTableRejectsCycles(t *testing.T) {
 	t.Parallel()
 
@@ -324,7 +309,7 @@ func TestComplexContentExtendsBase(t *testing.T) {
 	}
 	rt := particleFixture{
 		models: []contentModelNode{
-			emptyID:       {Kind: modelEmpty, Mixed: true},
+			emptyID:       {Kind: modelEmpty},
 			baseSeqID:     seq(one, a),
 			extendedID:    seq(one, modelParticle(baseSeqID, one), b),
 			emptySeqID:    seq(one),

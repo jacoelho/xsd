@@ -23,12 +23,17 @@ const (
 	// modelTerm is the term of a particle: the record has a unit occurrence
 	// and the particle carries the occurrence.
 	modelTerm modelUse = iota
-	// modelRoot is the root of an element-only {content type}: the record
-	// carries the occurrence of the content type's particle.
+	// modelRoot is the root of a {content type}: the record carries the
+	// occurrence of the content type's particle.
 	modelRoot
-	// modelMixedRoot is the root of a mixed {content type}.
-	modelMixedRoot
 )
+
+// compiledModelGroup is the model a model group node was compiled to, or
+// noContentModel for a zero-count compositor, and the use it was compiled for.
+type compiledModelGroup struct {
+	id  contentModelID
+	use modelUse
+}
 
 // compileModel compiles n, the model group child of a complex type definition,
 // for use and returns its model and the occurrence of its particle.
@@ -41,21 +46,22 @@ func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode, use model
 	if err != nil || id == noContentModel || use == modelTerm || occurs.IsExactlyOne() {
 		return id, occurs, err
 	}
-	id, err = c.applyModelGroupOccurrence(n, id, occurs, use == modelMixedRoot)
+	id, err = c.applyModelGroupOccurrence(n, id, occurs)
 	return id, occurs, err
 }
 
 // compileCompositor compiles the compositor n for use and returns its model
 // and the occurrence of its particle. A zero-count sequence or choice has no
 // model; its children are deferred. A compositor node is compiled for one use
-// only: a complex type's own model group child as a root or a term of its
-// extension sequence, and every other compositor as a term.
+// only, which existingModel enforces: a complex type's own model group child
+// as a root or a term of its extension sequence, and every other compositor as
+// a term.
 func (c *compiler) compileCompositor(ctx *schemaSetDocument, n *schemaNode, use modelUse) (contentModelID, occurrence, error) {
 	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return noContentModel, occurrence{}, err
 	}
-	if id, done, existingErr := c.existingModel(ctx, n); done || existingErr != nil {
+	if id, done, existingErr := c.existingModel(ctx, n, use); done || existingErr != nil {
 		return id, occurs, existingErr
 	}
 	if (n.local == vocab.XSDElemSequence || n.local == vocab.XSDElemChoice) && occurs.IsAbsent() {
@@ -64,19 +70,19 @@ func (c *compiler) compileCompositor(ctx *schemaSetDocument, n *schemaNode, use 
 		}
 		// Cache only the parent's absence. Its descendants retain their own
 		// obligations after active group expansion unwinds.
-		c.modelDone[nodeKey(ctx, n)] = noContentModel
+		c.modelDone[nodeKey(ctx, n)] = compiledModelGroup{id: noContentModel, use: use}
 		c.deferredModelChildren = append(c.deferredModelChildren, schemaComponent{ctx: ctx, id: n.id})
 		return noContentModel, occurs, nil
 	}
 	record := contentModelNode{Occurs: occurrence{Min: 1, Max: 1}}
-	if use != modelTerm {
-		record.Occurs, record.Mixed = occurs, use == modelMixedRoot
+	if use == modelRoot {
+		record.Occurs = occurs
 	}
-	id, err := c.compileModelComponent(ctx, n, record)
+	id, err := c.compileModelComponent(ctx, n, record, use)
 	return id, occurs, err
 }
 
-func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, record contentModelNode) (result contentModelID, err error) {
+func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, record contentModelNode, use modelUse) (result contentModelID, err error) {
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
 		return noContentModel, dependencyErr
 	}
@@ -89,7 +95,7 @@ func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, 
 	if err != nil {
 		return noContentModel, err
 	}
-	c.modelDone[nodeKey(ctx, n)] = id
+	c.modelDone[nodeKey(ctx, n)] = compiledModelGroup{id: id, use: use}
 	c.compilingModel[nodeKey(ctx, n)] = true
 	defer delete(c.compilingModel, nodeKey(ctx, n))
 	m, err := c.compileModelValue(ctx, n, record)
@@ -100,13 +106,16 @@ func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, 
 	return id, nil
 }
 
-func (c *compiler) existingModel(ctx *schemaSetDocument, n *schemaNode) (contentModelID, bool, error) {
-	id, ok := c.modelDone[nodeKey(ctx, n)]
+func (c *compiler) existingModel(ctx *schemaSetDocument, n *schemaNode, use modelUse) (contentModelID, bool, error) {
+	done, ok := c.modelDone[nodeKey(ctx, n)]
 	if !ok {
 		return noContentModel, false, nil
 	}
+	if done.use != use {
+		return noContentModel, true, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group compiled for another use"))
+	}
 	if !c.compilingModel[nodeKey(ctx, n)] {
-		return id, true, nil
+		return done.id, true, nil
 	}
 	err := schemaComponentRecursionError(schemaComponentModelGroup, "")
 	return noContentModel, true, withSchemaCompileLocation(n, err)
@@ -210,19 +219,19 @@ func (c *compiler) resolveModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 }
 
 // applyModelGroupOccurrence returns the root of a {content type} whose
-// particle is n, a reference to the group id with a non-unit occurrence, and
-// mixed says whether the content type is mixed. A root carries its occurrence
-// on its record, and the group's record is shared by every reference, so the
-// root shares the group's particles in a record of its own, located at n. A
-// violation inside the group is therefore located at the reference here and
-// at the group when the reference has a unit occurrence, the one place where
-// the location of a content-model violation depends on an occurrence.
-func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, occurs occurrence, mixed bool) (contentModelID, error) {
+// particle is n, a reference to the group id with a non-unit occurrence. A
+// root carries its occurrence on its record, and the group's record is shared
+// by every reference, so the root shares the group's particles in a record of
+// its own, located at n. A violation is located at the first model, in
+// source-ID order, whose check reaches it, so a violation inside the group is
+// located at n only when no model with a lower ID, such as the group's own
+// model reached through a unit reference, reaches the group first.
+func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, occurs occurrence) (contentModelID, error) {
 	model, err := c.contentModel(id, "model group reference resolved missing content model")
 	if err != nil {
 		return noContentModel, err
 	}
-	model.Occurs, model.Mixed = occurs, mixed
+	model.Occurs = occurs
 	return c.addModel(model, n)
 }
 
@@ -252,13 +261,13 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 		if err != nil || !ok {
 			return err
 		}
-		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
+		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, c.rt.Models, m, p))
 	case vocab.XSDElemAny:
 		p, err := c.compileWildcardParticle(ctx, child)
 		if err != nil {
 			return err
 		}
-		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, p))
+		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, c.rt.Models, m, p))
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		return c.appendNestedModelChild(ctx, m, child)
 	}
@@ -289,7 +298,7 @@ func (c *compiler) appendNestedModelChild(ctx *schemaSetDocument, m *contentMode
 	if err != nil || id == noContentModel {
 		return err
 	}
-	return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, m, modelParticle(id, occurs)))
+	return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, c.rt.Models, m, modelParticle(id, occurs)))
 }
 
 // compileDeferredModelChildren gives descendants of a zero-count sequence or

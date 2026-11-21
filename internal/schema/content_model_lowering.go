@@ -64,10 +64,24 @@ func validateModelGroupChildAdmission(parent modelKind, child modelChildAdmissio
 // appendModelParticles is the only append to the particles of a model the
 // model table retains. It charges one MaxSchemaDependencySteps step per
 // particle before it allocates, so no model under construction retains memory
-// that the dependency budget has not paid for. The restriction normalizer
-// builds transient comparison nodes, which it charges to
-// MaxContentModelAnalysisSteps and never retains.
-func appendModelParticles(work *workBudget, model *contentModelNode, particles ...contentParticle) error {
+// that the dependency budget has not paid for. A model particle must name a
+// model of models whose record has a unit occurrence, so only a {content type}
+// root carries an occurrence on its record. The restriction normalizer builds
+// transient comparison nodes, which it charges to MaxContentModelAnalysisSteps
+// and never retains.
+func appendModelParticles(work *workBudget, models []contentModelNode, model *contentModelNode, particles ...contentParticle) error {
+	for _, p := range particles {
+		if p.Kind != particleModel {
+			continue
+		}
+		named, ok := contentModelByID(models, p.Model)
+		if !ok {
+			return xsderrors.InternalInvariant("model particle names a missing content model")
+		}
+		if !named.Occurs.IsExactlyOne() {
+			return xsderrors.InternalInvariant("model particle names a model with a non-unit occurrence")
+		}
+	}
 	if err := work.spend(len(particles)); err != nil {
 		return err
 	}
@@ -78,14 +92,14 @@ func appendModelParticles(work *workBudget, model *contentModelNode, particles .
 // appendParticle admits p as a child of model and appends it. Zero-count
 // particles are omitted from the lowered model. The occurrence range of an
 // xs:all member was admitted at its start tag; see occurrenceAdmission.
-func appendParticle(work *workBudget, model *contentModelNode, p contentParticle) error {
+func appendParticle(work *workBudget, models []contentModelNode, model *contentModelNode, p contentParticle) error {
 	if err := validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
 		return err
 	}
 	if p.Occurs.IsAbsent() {
 		return nil
 	}
-	return appendModelParticles(work, model, p)
+	return appendModelParticles(work, models, model, p)
 }
 
 func modelParticleChildKind(p contentParticle) modelChildKind {
@@ -103,9 +117,9 @@ func modelParticleChildKind(p contentParticle) modelChildKind {
 
 // contentTypeParticle returns the particle of the {content type} whose model
 // is id, as Structures §3.4.2 complex content clause 3.2.3 composes it. Mixed
-// empty content is stored as an empty model with the mixed flag, and
-// noContentModel is the effective content of mixed empty explicit content;
-// both stand for the synthetic 1..1 empty sequence of clause 2.1.4.
+// empty content is stored as an empty model, and noContentModel is the
+// effective content of mixed empty explicit content; both stand for the
+// synthetic 1..1 empty sequence of clause 2.1.4.
 func contentTypeParticle(rt *schemaBuild, add addContentModelFunc, id contentModelID) (contentParticle, error) {
 	one := occurrence{Min: 1, Max: 1}
 	if id == noContentModel || rt.Models[id].Kind == modelEmpty {

@@ -105,6 +105,23 @@ func TestCompilerPublicationRequiresCompletedOmittedDescendants(t *testing.T) {
 	}
 }
 
+func TestCompositorCompiledForAnotherUseIsAnInvariantViolation(t *testing.T) {
+	t.Parallel()
+
+	c, component := omittedCompositorCompiler(t, "")
+	if _, _, err := c.compileCompositor(component.ctx, component.sourceNode(), modelRoot); err != nil {
+		t.Fatal(err)
+	}
+	id, _, err := c.compileCompositor(component.ctx, component.sourceNode(), modelTerm)
+	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if id != noContentModel {
+		t.Fatalf("use mismatch returned model %d", id)
+	}
+	if diag, ok := errors.AsType[*xsderrors.Error](err); !ok || diag.Path() != "compositor.xsd" || diag.Line() == 0 {
+		t.Fatalf("use mismatch = %v, want an invariant located at the compositor", err)
+	}
+}
+
 func omittedCompositorCompiler(t *testing.T, descendants string) (*compiler, schemaComponent) {
 	t.Helper()
 	limits, err := NormalizeOptions(Options{})

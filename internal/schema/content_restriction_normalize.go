@@ -171,13 +171,11 @@ func (n *restrictionNormalizer) model(p contentParticle, depth int) (contentPart
 		return p, nil
 	}
 	// A root enters with a unit particle and carries its occurrence on its
-	// record; every other model a particle names has a unit record.
+	// record; every model a particle names has a unit record
+	// (appendModelParticles).
 	occurs := p.Occurs
-	switch {
-	case occurs.IsExactlyOne():
+	if occurs.IsExactlyOne() {
 		occurs = m.Occurs
-	case !m.Occurs.IsExactlyOne():
-		return contentParticle{}, contentRestrictionInvariant("model particle names a model whose record repeats it")
 	}
 	if pointlessSingleton(m, occurs) {
 		return n.particle(m.Particles[0], depth+1)

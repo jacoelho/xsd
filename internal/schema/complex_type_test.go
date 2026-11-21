@@ -120,7 +120,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		{Kind: modelEmpty},
 		{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}},
 		{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Particles: []contentParticle{elementParticle(0, occurrence{Min: 1, Max: 1})}},
-		{Kind: modelEmpty, Mixed: true},
+		{Kind: modelEmpty},
 		{Kind: modelChoice, Occurs: occurrence{Min: 1, Max: 1}},
 		{Kind: modelAll, Occurs: occurrence{Min: 0, Max: 1}},
 	}
@@ -290,7 +290,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 				ct.Content = 1
 				return ct
 			}(),
-			wantErr: "empty complex type must reference a non-mixed empty content model",
+			wantErr: "empty complex type must reference an empty content model",
 		},
 		{
 			name: "empty content rejects sequence with particles",
@@ -301,18 +301,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 				ct.Content = 2
 				return ct
 			}(),
-			wantErr: "empty complex type must reference a non-mixed empty content model",
-		},
-		{
-			name: "empty content rejects mixed empty model",
-			id:   1,
-			ct: func() complexTypeMetadata {
-				ct := valid
-				ct.ContentKind = contentEmpty
-				ct.Content = 3
-				return ct
-			}(),
-			wantErr: "empty complex type must reference a non-mixed empty content model",
+			wantErr: "empty complex type must reference an empty content model",
 		},
 		{
 			name: "empty content rejects choice model",
@@ -323,7 +312,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 				ct.Content = 4
 				return ct
 			}(),
-			wantErr: "empty complex type must reference a non-mixed empty content model",
+			wantErr: "empty complex type must reference an empty content model",
 		},
 		{
 			name: "empty content rejects all model",
@@ -334,7 +323,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 				ct.Content = 5
 				return ct
 			}(),
-			wantErr: "empty complex type must reference a non-mixed empty content model",
+			wantErr: "empty complex type must reference an empty content model",
 		},
 		{
 			name: "simple content invalid text type",

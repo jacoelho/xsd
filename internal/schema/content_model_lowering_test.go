@@ -21,8 +21,10 @@ func TestAppendParticle(t *testing.T) {
 		modelKind modelKind
 		occurs    occurrence
 		particle  func(occurrence) contentParticle
+		models    []contentModelNode
 		wantLen   int
 		wantCode  xsderrors.Code
+		wantErr   string
 	}{
 		{name: "omits zero count", modelKind: modelSequence, occurs: zero},
 		{name: "sequence accepts repeating particle", modelKind: modelSequence, occurs: repeated, wantLen: 1},
@@ -33,6 +35,30 @@ func TestAppendParticle(t *testing.T) {
 			occurs:    one,
 			particle:  func(occurs occurrence) contentParticle { return wildcardParticle(1, occurs) },
 			wantCode:  xsderrors.CodeSchemaContentModel,
+		},
+		{
+			name:      "sequence accepts repeating particle naming unit model",
+			modelKind: modelSequence,
+			occurs:    repeated,
+			particle:  func(occurs occurrence) contentParticle { return modelParticle(0, occurs) },
+			models:    []contentModelNode{{Kind: modelChoice, Occurs: one}},
+			wantLen:   1,
+		},
+		{
+			name:      "rejects particle naming optional model",
+			modelKind: modelSequence,
+			occurs:    one,
+			particle:  func(occurs occurrence) contentParticle { return modelParticle(0, occurs) },
+			models:    []contentModelNode{{Kind: modelChoice, Occurs: occurrence{Min: 0, Max: 1}}},
+			wantErr:   "model particle names a model with a non-unit occurrence",
+		},
+		{
+			name:      "rejects particle naming repeated model",
+			modelKind: modelSequence,
+			occurs:    repeated,
+			particle:  func(occurs occurrence) contentParticle { return modelParticle(0, occurs) },
+			models:    []contentModelNode{{Kind: modelChoice, Occurs: repeated}},
+			wantErr:   "model particle names a model with a non-unit occurrence",
 		},
 	}
 
@@ -47,9 +73,19 @@ func TestAppendParticle(t *testing.T) {
 			if tt.particle != nil {
 				particle = tt.particle
 			}
-			err := appendParticle(testDependencyWork(), &model, particle(tt.occurs))
+			err := appendParticle(testDependencyWork(), tt.models, &model, particle(tt.occurs))
 			if tt.wantCode != "" {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, tt.wantCode)
+				return
+			}
+			if tt.wantErr != "" {
+				expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+				if diag, _ := errors.AsType[*xsderrors.Error](err); diag.Message() != tt.wantErr {
+					t.Fatalf("AppendParticle() error = %v, want %q", err, tt.wantErr)
+				}
+				if len(model.Particles) != 0 {
+					t.Fatalf("rejected particle was appended: %v", model.Particles)
+				}
 				return
 			}
 			if err != nil {

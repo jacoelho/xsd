@@ -79,11 +79,11 @@ func builtinAnyTypeAttributeUseSet(wildcard WildcardID) attributeUseSet {
 	}
 }
 
-// builtinAnyTypeContentModel returns the mixed 1..1 sequence that is the
+// builtinAnyTypeContentModel returns the 1..1 sequence that is the
 // {content type} particle of xs:anyType (Structures §3.4.7); its one member is
 // builtinAnyTypeContentParticle.
 func builtinAnyTypeContentModel() contentModelNode {
-	return contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}, Mixed: true}
+	return contentModelNode{Kind: modelSequence, Occurs: occurrence{Min: 1, Max: 1}}
 }
 
 // builtinAnyTypeContentParticle returns the lax ##any wildcard particle,

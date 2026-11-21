@@ -718,7 +718,7 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 	if first, err = c.executionParticle(first); err != nil {
 		return model, err
 	}
-	single := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Mixed: model.Mixed, Particles: []contentParticle{first}}
+	single := contentModelNode{Kind: model.Kind, Occurs: model.Occurs, Particles: []contentParticle{first}}
 	return normalizeSingleParticleModel(single), nil
 }
 

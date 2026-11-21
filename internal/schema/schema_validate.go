@@ -575,7 +575,7 @@ func validateBuiltinAnyTypeComponents(rt *schemaValidation, ct complexTypeMetada
 
 func builtinAnyTypeContent(content contentModelNode, wildcard WildcardID) bool {
 	want := builtinAnyTypeContentModel()
-	return content.Kind == want.Kind && content.Occurs == want.Occurs && content.Mixed == want.Mixed &&
+	return content.Kind == want.Kind && content.Occurs == want.Occurs &&
 		len(content.Particles) == 1 && content.Particles[0] == builtinAnyTypeContentParticle(wildcard)
 }
 

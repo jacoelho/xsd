@@ -48,12 +48,6 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 				model.Occurs = occurrence{Min: 1, Max: 1}
 			},
 		},
-		{
-			name: "mixed empty model",
-			mutate: func(model *contentModelNode) {
-				model.Mixed = true
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -61,8 +55,8 @@ func TestPublishSchemaRejectsEmptyComplexTypeModelMismatchWithoutConsumingBuild(
 
 			c, modelID := newEmptyComplexTypePublicationCompiler(t, document)
 			validModel := c.rt.Models[modelID]
-			if validModel.Kind != modelEmpty || validModel.Mixed {
-				t.Fatalf("compiled source model = %#v, want non-mixed ModelEmpty", validModel)
+			if validModel.Kind != modelEmpty {
+				t.Fatalf("compiled source model = %#v, want ModelEmpty", validModel)
 			}
 			tt.mutate(&c.rt.Models[modelID])
 			if err := c.compileReachedContentModelsForTest(); err != nil {
