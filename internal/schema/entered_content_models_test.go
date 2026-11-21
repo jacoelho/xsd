@@ -46,21 +46,26 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
   <xs:element name="head" abstract="true"/>
   <xs:element name="m1" substitutionGroup="head"/>
   <xs:element name="m2" substitutionGroup="head"/>
-  <xs:group name="unusedAll"><xs:all>` + all.String() + `</xs:all></xs:group>
-  <xs:group name="unusedSeq"><xs:sequence><xs:element name="u"/></xs:sequence></xs:group>
   <xs:group name="nested"><xs:sequence><xs:element name="n"/></xs:sequence></xs:group>
   <xs:complexType name="A"><xs:sequence><xs:element name="a"/><xs:group ref="nested"/></xs:sequence></xs:complexType>
   <xs:complexType name="B"><xs:all>` + all.String() + `</xs:all></xs:complexType>
   <xs:complexType name="C"><xs:sequence><xs:element ref="head" maxOccurs="3"/></xs:sequence></xs:complexType>
 </xs:schema>`
 	spread := compiledTestBuild(t, text)
-	// Every type enters one model in collapsed; spread keeps their own.
-	// Neither build is audited, so newSchemaProgram is called directly.
+	// In collapsed every type without all content enters one model; spread
+	// keeps their own. Neither build is audited, so newSchemaProgram is called
+	// directly.
 	collapsed := compiledTestBuild(t, text)
 	for i := range collapsed.ComplexTypes {
-		collapsed.ComplexTypes[i].Content = collapsed.ComplexTypes[0].Content
+		if collapsed.Models[collapsed.ComplexTypes[i].Content].Kind != modelAll {
+			collapsed.ComplexTypes[i].Content = collapsed.ComplexTypes[0].Content
+		}
 	}
-	if entered := len(enterContentModels(spread.ComplexTypes, &spread.CompiledContent).Models); entered < 4 || entered >= len(spread.CompiledContent.Models) {
+	spreadContent, err := enterContentModels(spread.ComplexTypes, &spread.CompiledContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entered := len(spreadContent.Models); entered < 4 || entered >= len(spread.CompiledContent.Models) {
 		t.Fatalf("fixture: %d entered of %d compiled models, want at least 4 and some unentered", entered, len(spread.CompiledContent.Models))
 	}
 
@@ -134,7 +139,10 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			got := enterContentModels(test.types, test.models)
+			got, err := enterContentModels(test.types, test.models)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if !slices.Equal(got.Models, test.wantModels) || !slices.Equal(got.Published, test.wantPublished) {
 				t.Fatalf("enterContentModels() = %v %v, want %v %v", got.Models, got.Published, test.wantModels, test.wantPublished)
 			}

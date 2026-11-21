@@ -99,7 +99,6 @@ func TestCaseMeasured(t *testing.T) {
 			{TestName: "a", Expected: ExpectedValid},
 			{TestName: "b", Expected: ExpectedInvalid, Oracle: override(ExpectedValid)},
 		}}, want: true},
-		{name: "W3C override equal to the effective expectation", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedValid, Oracle: override(ExpectedValid)}}, want: false},
 		{name: "W3C case with a project correction only", c: Case{ExpectedSource: SourceW3C, Schema: &Schema{Expected: ExpectedInvalid, Oracle: map[string]Provenance{SourceProject: {Expected: ExpectedValid, Reason: "r"}}}}, want: false},
 		{name: "Xerces-J case with a W3C-keyed override", c: Case{ExpectedSource: SourceXercesJ, Schema: &Schema{Expected: ExpectedInvalid, Oracle: override(ExpectedValid)}}, want: false},
 	} {

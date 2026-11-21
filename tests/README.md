@@ -199,11 +199,7 @@ or a stated unresolved boundary. Report remaining coverage limits to the user.
   measured case, or lists a case whose differences are all owned. The backlog
   only shrinks: a new case is never listed, and a change that modifies a listed
   case owns its differences and removes it from the list, which review checks
-  because the test cannot tell a modified case from an untouched one. The one
-  exception is a W3C override that neither specification text nor an adopted
-  correction decides, such as one resting on a selected reading: it does not
-  outrank the accepted W3C expectation, so its provider differences are not
-  owned and the case stays listed until its expectation is reviewed.
+  because the test cannot tell a modified case from an untouched one.
 - Each schema or instance `expected` is the effective project expectation,
   derived from the published specifications, approved corrections and
   documented qualifications. Provider agreement is diagnostic evidence, not a

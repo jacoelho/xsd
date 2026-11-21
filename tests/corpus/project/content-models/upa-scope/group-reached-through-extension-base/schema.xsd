@@ -1,0 +1,6 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="G"><xs:choice><xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence><xs:sequence><xs:element name="a"/><xs:element name="c"/></xs:sequence></xs:choice></xs:group>
+<xs:complexType name="B"><xs:group ref="G"/></xs:complexType>
+<xs:complexType name="D"><xs:complexContent><xs:extension base="B"><xs:sequence><xs:element name="d"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
+<xs:element name="r" type="D"/>
+</xs:schema>

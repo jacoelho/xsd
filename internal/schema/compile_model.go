@@ -324,8 +324,14 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 // locateSetWideLimit locates its limit failure.
 func (c *compiler) compileContentModels(reached []bool) error {
 	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, c.contentAnalysis)
-	var sources []contentModelID
-	var models []compiledModel
+	count := 0
+	for _, ok := range reached {
+		if ok {
+			count++
+		}
+	}
+	sources := make([]contentModelID, 0, count)
+	models := make([]compiledModel, 0, count)
 	for id, ok := range reached {
 		if !ok {
 			continue
@@ -354,10 +360,6 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled *compi
 	return err
 }
 
-// checkCompiledModelsUPA applies Unique Particle Attribution to the reached
-// content models. The constraint is stated over "a content model", so a named
-// model group that no complex type uses is not checked, as accepted W3C
-// msMeta/Additional_w3c.xml/addB194 expects.
 func (c *compiler) checkCompiledModelsUPA(reached []bool) error {
 	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
 	for id, ok := range reached {
@@ -371,35 +373,58 @@ func (c *compiler) checkCompiledModelsUPA(reached []bool) error {
 	return nil
 }
 
-// complexTypeReachableModels marks every content model that a complex type's
-// content reaches through nested model particles.
+// complexTypeReachableModels returns the content models that Unique Particle
+// Attribution and automaton construction apply to, as
+// docs/spec/INTERPRETATIONS.md scopes them.
 func (c *compiler) complexTypeReachableModels() ([]bool, error) {
-	reached := make([]bool, len(c.rt.Models))
-	pending := make([]contentModelID, 0, len(c.rt.ComplexTypes))
-	for i := range c.rt.ComplexTypes {
-		pending = markReachedModel(reached, pending, c.rt.ComplexTypes[i].Content)
+	walk := modelReach{
+		reached: make([]bool, len(c.rt.Models)),
+		pending: make([]contentModelID, 0, len(c.rt.ComplexTypes)),
 	}
-	for len(pending) > 0 {
-		id := pending[len(pending)-1]
-		pending = pending[:len(pending)-1]
+	for i := range c.rt.ComplexTypes {
+		if err := walk.reach(c.rt.ComplexTypes[i].Content); err != nil {
+			return nil, err
+		}
+	}
+	for len(walk.pending) > 0 {
+		id := walk.pending[len(walk.pending)-1]
+		walk.pending = walk.pending[:len(walk.pending)-1]
 		if err := c.contentWork.spend(1); err != nil {
 			return nil, err
 		}
-		for _, particle := range c.rt.Models[id].Particles {
-			if particle.Kind == particleModel {
-				pending = markReachedModel(reached, pending, particle.Model)
-			}
+		if err := walk.reachParticles(c.rt.Models[id].Particles); err != nil {
+			return nil, err
 		}
 	}
-	return reached, nil
+	return walk.reached, nil
 }
 
-func markReachedModel(reached []bool, pending []contentModelID, id contentModelID) []contentModelID {
-	if reached[id] {
-		return pending
+type modelReach struct {
+	reached []bool
+	pending []contentModelID
+}
+
+func (r *modelReach) reach(id contentModelID) error {
+	if !validContentModelID(id, len(r.reached)) {
+		return xsderrors.InternalInvariant("content model reachability references missing content model")
 	}
-	reached[id] = true
-	return append(pending, id)
+	if !r.reached[id] {
+		r.reached[id] = true
+		r.pending = append(r.pending, id)
+	}
+	return nil
+}
+
+func (r *modelReach) reachParticles(particles []contentParticle) error {
+	for _, particle := range particles {
+		if particle.Kind != particleModel {
+			continue
+		}
+		if err := r.reach(particle.Model); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *compiler) checkModelUPA(upa *contentModelUPACheck, id contentModelID) (err error) {

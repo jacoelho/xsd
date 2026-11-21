@@ -2814,7 +2814,12 @@ content model of each complex type and the models it reaches through
 particles. A group reference with `minOccurs` and `maxOccurs` 0
 "corresponds to no component at all"
 ([§3.7.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup)),
-so it brings no group into the content model. An anonymous complex type declared
+so it brings no group into the content model. Nor does a reference inside a
+sequence or choice whose `minOccurs` and `maxOccurs` are 0, which equally
+"corresponds to no component at all"
+([§3.8.2](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-contentModel)).
+A reference with any other occurrence range brings its group in, and so does
+the content model of a base type, which is itself a complex type. An anonymous complex type declared
 inside an unreferenced group is still a complex type, and its content model is
 checked. The library refuses the original `addB194` schema for its size, a
 resource limit recorded under
@@ -2835,18 +2840,28 @@ expects valid and every measured processor accepts.
 Fixtures, each in `project/content-models/upa-scope/`: `unreferenced-group`,
 `addB194-occurrences-collapsed`,
 `unreferenced-group-ambiguous-by-repetition`,
-`group-referenced-by-unreferenced-group` and
-`group-referenced-with-zero-occurrence` are valid;
+`group-referenced-by-unreferenced-group`,
+`group-referenced-with-zero-occurrence` and
+`group-referenced-in-zero-occurrence-sequence` are valid;
 `group-referenced-by-named-type`, `group-referenced-by-anonymous-type`,
 `group-referenced-through-nested-group`,
-`group-ambiguous-by-repetition-referenced-by-type` and
-`anonymous-type-in-unreferenced-group` are invalid. Xerces-J, .NET, xmlschema
-and libxml2 give the project result on seven cases; on each of the other three
+`group-ambiguous-by-repetition-referenced-by-type`,
+`anonymous-type-in-unreferenced-group`,
+`group-referenced-by-anonymous-type-in-unreferenced-group`,
+`group-referenced-with-min-occurs-zero`,
+`group-referenced-with-max-occurs-two`,
+`group-reached-through-extension-base` and
+`group-reached-through-restriction-base` are invalid. Xerces-J, .NET, xmlschema
+and libxml2 give the project result on eleven cases; on each of the other five
 one processor differs. .NET accepts
-`project/content-models/upa-scope/anonymous-type-in-unreferenced-group`: it does
-not check a complex type declared inside a group that no type uses. xmlschema
-rejects `project/content-models/upa-scope/group-referenced-with-zero-occurrence`:
-it keeps the group of a zero-count reference in the content model. libxml2
+`project/content-models/upa-scope/anonymous-type-in-unreferenced-group` and
+`project/content-models/upa-scope/group-referenced-by-anonymous-type-in-unreferenced-group`:
+it does not check a complex type declared inside a group that no type uses.
+xmlschema rejects
+`project/content-models/upa-scope/group-referenced-with-zero-occurrence` and
+`project/content-models/upa-scope/group-referenced-in-zero-occurrence-sequence`:
+it keeps the group of a zero-count reference, and the groups referenced inside
+a zero-count sequence, in the content model. libxml2
 accepts `project/content-models/upa-scope/group-ambiguous-by-repetition-referenced-by-type`:
 it does not find the ambiguity between a repeated element and the same element
 after the repeated choice that holds it.
