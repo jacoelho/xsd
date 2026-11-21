@@ -123,9 +123,6 @@ func generatedFollowModels(rng *rand.Rand) map[contentModelID]contentModelNode {
 	return models
 }
 
-// checkFollowTableMatchesPairwise builds the automaton of model 0 and
-// compares every materialized follow set, its admission charge, the root's
-// first and last sets, and the normalization charge with pairwiseFollows.
 func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]contentModelNode) {
 	t.Helper()
 	rt := compiledModelFixture{models: models}.build()
