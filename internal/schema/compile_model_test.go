@@ -1,6 +1,9 @@
 package schema
 
 import (
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -37,5 +40,28 @@ func TestComplexTypeReachableModelsRejectsMissingModel(t *testing.T) {
 			_, err := c.complexTypeReachableModels()
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
+	}
+}
+
+func TestComplexTypeReachableModelsStopsAtBudgetBelowParticlesRead(t *testing.T) {
+	t.Parallel()
+	const references, particles = 40, 25
+	var document strings.Builder
+	document.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:group name="G"><xs:sequence>`)
+	for i := range particles {
+		fmt.Fprintf(&document, `<xs:element name="e%d"/>`, i)
+	}
+	document.WriteString(`</xs:sequence></xs:group><xs:element name="root"><xs:complexType><xs:sequence>`)
+	for i := range references {
+		fmt.Fprintf(&document, `<xs:element name="w%d"><xs:complexType><xs:group ref="G" maxOccurs="2"/></xs:complexType></xs:element>`+"\n", i)
+	}
+	document.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	c, _ := newEmptyComplexTypePublicationCompiler(t, document.String())
+	c.contentWork = newWorkBudget(contentModelWorkBudget, references*particles/2)
+	_, err := c.complexTypeReachableModels()
+	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	var diag *xsderrors.Error
+	if errors.As(err, &diag); diag.Line() < 2 {
+		t.Fatalf("limit located at line %d, want the line of a referring complex type: %v", diag.Line(), err)
 	}
 }

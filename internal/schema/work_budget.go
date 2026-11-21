@@ -17,7 +17,8 @@ type workBudget struct {
 // workBudgetKind names the two public budgets. Dependency work is shared by
 // source loading, effective-context planning, registration and component
 // resolution; content-model work is shared by element-declaration consistency,
-// restriction, UPA, compilation and sealing. Dependency work also covers
+// restriction, the walk to the models complex types reach, UPA, compilation and
+// sealing. Dependency work also covers
 // records appended to or retained by compiled components: content-model
 // particles and models, attribute-use sets and wildcard namespaces. Spent work is never refunded,
 // including when publication fails.
