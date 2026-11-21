@@ -10,10 +10,15 @@ func TestDFASetUnionReturnedSetsDoNotShareSpareCapacity(t *testing.T) {
 	for name, union := range map[string]func(*dfaSetUnion[int], []int) []int{
 		"reset":     (*dfaSetUnion[int]).reset,
 		"first add": (*dfaSetUnion[int]).add,
-		"owned add": func(u *dfaSetUnion[int], set []int) []int {
+		"copying add": func(u *dfaSetUnion[int], set []int) []int {
 			u.add([]int{0})
-			grown := u.add(set)
-			return grown
+			return u.add(set)
+		},
+		"owned add": func(u *dfaSetUnion[int], set []int) []int {
+			u.add([]int{-2})
+			u.add([]int{-1})
+			u.add([]int{0})
+			return u.add(set)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
