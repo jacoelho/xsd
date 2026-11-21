@@ -611,22 +611,50 @@ func compareCompiledActions(a, b []compiledAction) int {
 	return 0
 }
 
-// appendDFAStateKey appends the encoding of a normalized entry set to b.
-// Every field is length-prefixed or fixed-width, so equal keys are equal sets.
-func appendDFAStateKey(b []byte, entries []dfaEntry) []byte {
+// appendDFAStateKey appends the encoding of a normalized entry set to b, a
+// varint pair per entry, so equal keys are equal sets.
+func appendDFAStateKey(b []byte, entries []dfaStateEntry) []byte {
 	for _, e := range entries {
 		b = binary.AppendVarint(b, int64(e.Pos))
-		b = binary.AppendUvarint(b, uint64(len(e.Guards)))
-		for _, g := range e.Guards {
-			b = binary.AppendUvarint(b, uint64(g.Slot))
-			b = binary.AppendUvarint(b, uint64(g.N))
-			b = append(b, byte(g.Kind))
-		}
-		b = binary.AppendUvarint(b, uint64(len(e.Actions)))
-		for _, a := range e.Actions {
-			b = binary.AppendUvarint(b, uint64(a.Slot))
-			b = append(b, byte(a.Kind))
-		}
+		b = binary.AppendUvarint(b, uint64(e.Prefix))
 	}
 	return b
+}
+
+// decodeDFAStateKey appends the entries appendDFAStateKey encoded in key to
+// entries.
+func decodeDFAStateKey(entries []dfaStateEntry, key string) []dfaStateEntry {
+	for key != "" {
+		pos, n := varintString(key)
+		key = key[n:]
+		prefix, n := uvarintString(key)
+		key = key[n:]
+		entries = append(entries, dfaStateEntry{
+			Pos:    int(pos),
+			Prefix: uint32(prefix), //nolint:gosec // The key encodes a uint32 prefix.
+		})
+	}
+	return entries
+}
+
+// uvarintString decodes a binary.AppendUvarint encoding at the start of s
+// and returns it with its length in bytes; s must start with one.
+func uvarintString(s string) (uint64, int) {
+	var x uint64
+	for i := 0; ; i++ {
+		c := s[i]
+		x |= uint64(c&0x7f) << (7 * i)
+		if c < 0x80 {
+			return x, i + 1
+		}
+	}
+}
+
+func varintString(s string) (int64, int) {
+	ux, n := uvarintString(s)
+	x := int64(ux >> 1)
+	if ux&1 != 0 {
+		x = ^x
+	}
+	return x, n
 }

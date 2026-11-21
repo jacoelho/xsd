@@ -64,11 +64,13 @@ type dfaBuilder struct {
 	states    map[string]uint32
 	positions []contentParticle
 	rows      []dfaSourceRow
-	queue     [][]dfaEntry
-	key       []byte
-	follow    followTable
-	limit     int
-	counters  uint32
+	// queue holds the keys of the states whose rows are not built yet.
+	queue      []string
+	rowEntries []dfaStateEntry
+	key        []byte
+	follow     followTable
+	limit      int
+	counters   uint32
 }
 
 // dfaStateID caches an ID assigned on first use. known distinguishes the
@@ -816,7 +818,7 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 }
 
 func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode) (compiledModel, bool, error) {
-	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, active: []uint32{0}}
+	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, spans: []directSequenceSpan{{}}}
 	supported := true
 	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
 		var err error
@@ -826,24 +828,35 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 	if err != nil || !supported {
 		return compiledModel{}, supported, err
 	}
-	for _, state := range compilation.active {
-		compilation.rows[state].Accept = true
-	}
-	if err := c.checkCompiledRowsUPA(compilation.rows); err != nil {
+	rows := compilation.table()
+	if err := c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, false, err
 	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
-		Rows:  compilation.rows,
+		Rows:  rows,
 		Start: 0,
-		Empty: compilation.rows[0].Accept,
+		Empty: rows[0].Accept,
 	}, true, nil
 }
 
+// directSequenceCompilation compiles a sequence of element and wildcard
+// particles. Each particle adds a row and one edge into it, which every
+// active row takes: the rows from active, the first that no required
+// particle has passed since it was added, through the last. A row's edges
+// are therefore one run of edges, which table shares between the rows.
 type directSequenceCompilation struct {
 	compiler *contentModelCompiler
 	rows     []compiledModelRow
-	active   []uint32
+	spans    []directSequenceSpan
+	edges    []compiledModelEdge
+	active   uint32
+}
+
+// directSequenceSpan is a row's run of edges. The run of an active row
+// extends to the last edge.
+type directSequenceSpan struct {
+	start, end int
 }
 
 func (b *directSequenceCompilation) addParticle(particle contentParticle) (bool, error) {
@@ -862,46 +875,39 @@ func (b *directSequenceCompilation) addParticle(particle contentParticle) (bool,
 	if particle.Occurs.IsAbsent() {
 		return true, nil
 	}
-	if particle.Occurs.IsExactlyOne() {
-		return true, b.addExactParticle(particle)
+	row := compiledModelRow{}
+	if !particle.Occurs.IsExactlyOne() {
+		row = compiledParticleRow(singleParticle(particle), particle.Occurs, compiledRowReject)
 	}
-	return true, b.addRepeatedParticle(particle)
+	return true, b.addEdge(particle, row)
 }
 
-func (b *directSequenceCompilation) addExactParticle(particle contentParticle) error {
-	edge := compiledModelEdge{Particle: singleParticle(particle)}
-	to, err := b.appendRow(compiledModelRow{})
+// addEdge adds row and the edge of particle into it, which every active row
+// takes. row also takes it when particle repeats; the earlier rows stay
+// active when particle is optional.
+func (b *directSequenceCompilation) addEdge(particle contentParticle, row compiledModelRow) error {
+	to, err := b.appendRow(row)
 	if err != nil {
 		return err
 	}
-	edge.To = to
-	if err := b.appendActiveEdges(edge); err != nil {
-		return err
+	for range to - b.active {
+		if err := b.compiler.work.spend(1); err != nil {
+			return err
+		}
 	}
-	b.active = []uint32{to}
-	return nil
-}
-
-func (b *directSequenceCompilation) addRepeatedParticle(particle contentParticle) error {
-	edge := compiledModelEdge{Particle: singleParticle(particle)}
-	to, err := b.appendRow(compiledParticleRow(edge.Particle, particle.Occurs, compiledRowReject))
-	if err != nil {
-		return err
-	}
-	edge.To = to
-	if err := b.appendActiveEdges(edge); err != nil {
-		return err
-	}
+	edge := len(b.edges)
+	b.edges = append(b.edges, compiledModelEdge{Particle: singleParticle(particle), To: to})
+	start := edge + 1
 	if particle.Occurs.Unbounded || particle.Occurs.Max > 1 {
-		b.rows[to].Edges = append(b.rows[to].Edges, edge)
+		start = edge
 	}
-	next := []uint32{to}
-	if particle.Occurs.Min == 0 {
-		next = append(next, b.active...)
-		slices.Sort(next)
-		next = slices.Compact(next)
+	b.spans = append(b.spans, directSequenceSpan{start: start})
+	if particle.Occurs.Min > 0 {
+		for state := b.active; state < to; state++ {
+			b.spans[state].end = edge + 1
+		}
+		b.active = to
 	}
-	b.active = next
 	return nil
 }
 
@@ -914,14 +920,20 @@ func (b *directSequenceCompilation) appendRow(row compiledModelRow) (uint32, err
 	return to, err
 }
 
-func (b *directSequenceCompilation) appendActiveEdges(edge compiledModelEdge) error {
-	for _, state := range b.active {
-		if err := b.compiler.work.spend(1); err != nil {
-			return err
+// table returns the rows with the active rows accepting. Each row's Edges is
+// its run of edges, shared and without spare capacity, or nil.
+func (b *directSequenceCompilation) table() []compiledModelRow {
+	for state := range b.rows {
+		span := b.spans[state]
+		if state >= int(b.active) {
+			span.end = len(b.edges)
+			b.rows[state].Accept = true
 		}
-		b.rows[state].Edges = append(b.rows[state].Edges, edge)
+		if span.start < span.end {
+			b.rows[state].Edges = b.edges[span.start:span.end:span.end]
+		}
 	}
-	return nil
+	return b.rows
 }
 
 func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode) (compiledModel, bool, error) {
@@ -1227,10 +1239,10 @@ func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {
 	return b.compileDeterministicModel(startID)
 }
 
-func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
-	start := make([]dfaEntry, 0, len(root.First)+1)
+func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaStateEntry, error) {
+	start := make([]dfaStateEntry, 0, len(root.First)+1)
 	for _, pos := range root.First {
-		start = append(start, dfaEntry{Pos: pos})
+		start = append(start, dfaStateEntry{Pos: pos})
 	}
 	if !root.Nullable {
 		return start, nil
@@ -1238,7 +1250,7 @@ func (b *dfaBuilder) rootStartEntries(root dfaNode) ([]dfaEntry, error) {
 	if err := b.c.work.spend(1); err != nil {
 		return nil, err
 	}
-	return append(start, dfaEntry{Pos: dfaEndPos}), nil
+	return append(start, dfaStateEntry{Pos: dfaEndPos}), nil
 }
 
 func (b *dfaBuilder) appendRootEndFollows(last []dfaEntry) error {
@@ -1262,13 +1274,14 @@ func (b *dfaBuilder) appendRootEndFollows(last []dfaEntry) error {
 
 func (b *dfaBuilder) compileSourceRows() error {
 	for len(b.queue) != 0 {
-		entries := b.queue[0]
-		b.queue[0] = nil
+		key := b.queue[0]
+		b.queue[0] = ""
 		b.queue = b.queue[1:]
 		if err := b.c.work.spend(1); err != nil {
 			return err
 		}
-		row, err := b.row(entries)
+		b.rowEntries = decodeDFAStateKey(b.rowEntries[:0], key)
+		row, err := b.row(b.rowEntries)
 		if err != nil {
 			return err
 		}
@@ -1277,14 +1290,17 @@ func (b *dfaBuilder) compileSourceRows() error {
 	return nil
 }
 
-func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
+// row builds the source row of entries, which must not be the follow
+// table's storage: resolving each edge's target materializes into it.
+func (b *dfaBuilder) row(entries []dfaStateEntry) (dfaSourceRow, error) {
 	row := newDFASourceRow(entries)
 	for _, e := range entries {
-		if err := b.c.work.spend(len(e.Guards) + len(e.Actions) + 1); err != nil {
+		p := b.follow.prefixes[e.Prefix]
+		if err := b.c.work.spend(p.len() + 1); err != nil {
 			return dfaSourceRow{}, err
 		}
 		if e.Pos == dfaEndPos {
-			row.Accept = append(row.Accept, dfaAccept{Guards: e.Guards})
+			row.Accept = append(row.Accept, dfaAccept{Guards: p.guards})
 			continue
 		}
 		if e.Pos < 0 || e.Pos >= len(b.positions) {
@@ -1296,8 +1312,8 @@ func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
 		}
 		row.Edges = append(row.Edges, dfaSourceEdge{
 			Particle: b.positions[e.Pos],
-			Guards:   e.Guards,
-			Actions:  e.Actions,
+			Guards:   p.guards,
+			Actions:  p.actions,
 			To:       to,
 			Pos:      e.Pos,
 		})
@@ -1305,7 +1321,7 @@ func (b *dfaBuilder) row(entries []dfaEntry) (dfaSourceRow, error) {
 	return row, nil
 }
 
-func newDFASourceRow(entries []dfaEntry) dfaSourceRow {
+func newDFASourceRow(entries []dfaStateEntry) dfaSourceRow {
 	edges := 0
 	for _, e := range entries {
 		if e.Pos != dfaEndPos {
@@ -1318,11 +1334,11 @@ func newDFASourceRow(entries []dfaEntry) dfaSourceRow {
 	return dfaSourceRow{Edges: make([]dfaSourceEdge, 0, edges)}
 }
 
-func (b *dfaBuilder) stateID(entries []dfaEntry) (uint32, error) {
+func (b *dfaBuilder) stateID(entries []dfaStateEntry) (uint32, error) {
 	if err := b.spendDFAEntries(entries); err != nil {
 		return 0, err
 	}
-	return b.internState(normalizeDFAEntries(slices.Clone(entries)))
+	return b.internState(b.follow.normalize(slices.Clone(entries)))
 }
 
 // followStateID charges the follow set before consulting the class cache,
@@ -1338,16 +1354,17 @@ func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
 	if class.state.known {
 		return class.state.id, nil
 	}
-	id, err := b.internState(class.entries)
+	id, err := b.internState(b.follow.classEntries(pos))
 	if err != nil {
 		return 0, err
 	}
 	class.state = dfaStateID{id: id, known: true}
-	class.entries = nil
 	return id, nil
 }
 
-func (b *dfaBuilder) internState(entries []dfaEntry) (uint32, error) {
+// internState returns the state of entries, which must be normalized,
+// admitting it if it is new. A queued state keeps only its key.
+func (b *dfaBuilder) internState(entries []dfaStateEntry) (uint32, error) {
 	b.key = appendDFAStateKey(b.key[:0], entries)
 	if id, ok := b.states[string(b.key)]; ok {
 		return id, nil
@@ -1359,17 +1376,18 @@ func (b *dfaBuilder) internState(entries []dfaEntry) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	b.states[string(b.key)] = id
-	b.queue = append(b.queue, entries)
+	key := string(b.key)
+	b.states[key] = id
+	b.queue = append(b.queue, key)
 	return id, nil
 }
 
-func (b *dfaBuilder) spendDFAEntries(entries []dfaEntry) error {
+func (b *dfaBuilder) spendDFAEntries(entries []dfaStateEntry) error {
 	if err := b.c.work.spend(len(entries) + 1); err != nil {
 		return err
 	}
 	for _, entry := range entries {
-		if err := b.c.work.spend(len(entry.Guards) + len(entry.Actions)); err != nil {
+		if err := b.c.work.spend(b.follow.prefixes[entry.Prefix].len()); err != nil {
 			return err
 		}
 	}

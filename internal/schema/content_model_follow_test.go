@@ -161,8 +161,13 @@ func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]con
 		if err != nil {
 			t.Fatalf("class(%d) error = %v", pos, err)
 		}
-		if !equalDFAEntries(class.entries, want.follow[pos]) {
-			t.Fatalf("follow(%d) = %v, want %v", pos, class.entries, want.follow[pos])
+		entries := got.follow.classEntries(pos)
+		if gotFollow := expandStateEntries(&got.follow, entries); !equalDFAEntries(gotFollow, want.follow[pos]) {
+			t.Fatalf("follow(%d) = %v, want %v", pos, gotFollow, want.follow[pos])
+		}
+		key := appendDFAStateKey(nil, entries)
+		if decoded := decodeDFAStateKey(nil, string(key)); !slices.Equal(decoded, entries) {
+			t.Fatalf("follow(%d) key decodes to %v, want %v", pos, decoded, entries)
 		}
 		if wantAdmission := entriesCharge(want.follow[pos]); class.charge != wantAdmission {
 			t.Fatalf("follow(%d) charge = %d, want %d", pos, class.charge, wantAdmission)
@@ -318,6 +323,15 @@ func pairwiseUnion(a, b []dfaEntry) []dfaEntry {
 
 func pairwisePositionUnion(a, b []int) []int {
 	return slices.Compact(slices.Sorted(slices.Values(slices.Concat(a, b))))
+}
+
+func expandStateEntries(t *followTable, entries []dfaStateEntry) []dfaEntry {
+	out := make([]dfaEntry, 0, len(entries))
+	for _, e := range entries {
+		p := t.prefixes[e.Prefix]
+		out = append(out, dfaEntry{Pos: e.Pos, Guards: p.guards, Actions: p.actions})
+	}
+	return out
 }
 
 func equalDFAEntries(a, b []dfaEntry) bool {
