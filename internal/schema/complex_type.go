@@ -175,8 +175,8 @@ func validateComplexTypeContent(ct complexTypeMetadata, models []contentModelNod
 	}
 	if ct.ContentKind == contentEmpty {
 		model := models[ct.Content]
-		if model.Kind != modelEmpty || model.Mixed {
-			return errors.New("empty complex type must reference a non-mixed empty content model")
+		if model.Kind != modelEmpty {
+			return errors.New("empty complex type must reference an empty content model")
 		}
 	}
 	return nil

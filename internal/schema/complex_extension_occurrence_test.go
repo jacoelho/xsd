@@ -50,9 +50,6 @@ func TestPublicationRejectsNormalizedExtensionBaseCorruption(t *testing.T) {
 		{"repeated clone", func(_, normalized *xsdSchema.ContentModel) {
 			normalized.Occurs.Max = 2
 		}},
-		{"changed mixed content", func(_, normalized *xsdSchema.ContentModel) {
-			normalized.Mixed = true
-		}},
 	} {
 		t.Run(mutation.name, func(t *testing.T) {
 			build := mutableSchemaBuild(t, source)

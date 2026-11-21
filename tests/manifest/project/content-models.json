@@ -24312,6 +24312,119 @@
       ]
     },
     {
+      "id": "project/content-models/occurrence-boundaries/root-reference-wrapped",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/occurrence-boundaries/root-reference-wrapped.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#range-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse"
+        ],
+        "conditions": [
+          "The base content type particle is the reference to Pairs with range 2..3. The derived content is a 1..1 sequence holding the same reference, which Particle Valid (Restriction) clause 2.2 finds pointless, so the derived particle is the reference itself and its range 2..3 is within the base range."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "clause": "rcase-Recurse with range-ok in XML Schema Part 1"
+        },
+        "differences": {
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "two",
+          "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-two.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+            "clause": "rcase-Recurse with range-ok in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "one",
+          "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-one.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-complex-type",
+            "clause": "cvc-complex-type clause 2.4 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-two.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-one.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/occurrence-boundaries/root-reference-wrapped-lost-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-lost-minimum.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-namedModelGroup",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-particle-restrict",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#range-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse"
+        ],
+        "conditions": [
+          "As root-reference-wrapped, but the wrapped derived reference has range 1..3, whose minimum is below the base minimum 2."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-lost-minimum.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#rcase-Recurse",
+          "clause": "rcase-Recurse clause 1 in XML Schema Part 1"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/occurrence-boundaries/root-reference-wrapped-lost-minimum.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/occurrence-boundaries/two-layer-lost-outer-minimum",
       "expectedSource": "project",
       "source": {

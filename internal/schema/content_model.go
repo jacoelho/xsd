@@ -60,16 +60,15 @@ type contentModelNode struct {
 	Particles []contentParticle
 	Occurs    occurrence
 	Kind      modelKind
-	Mixed     bool
 }
 
 // chargedParticles returns the particles of model after charging work one
-// step for the model and one for each particle. A root that varies another
-// model's occurrence or mixed flag shares that model's particles at one
-// dependency step, so the particles across the table are not bounded by the
-// dependency steps that admitted them. The reachability walk
-// (complexTypeReachableModels) and the publication table audit
-// (validateContentModelTable) read particles only through it; Element
+// step for the model and one for each particle. A record that varies another
+// model's occurrence, a root or the unit-occurrence term of a repeated base
+// root, shares that model's particles at one dependency step, so the particles
+// across the table are not bounded by the dependency steps that admitted them.
+// The reachability walk (complexTypeReachableModels) and the publication table
+// audit (validateContentModelTable) read particles only through it; Element
 // Declarations Consistent and the per-root analyses charge each particle as
 // they visit it.
 func chargedParticles(work contentModelWork, model contentModelNode) ([]contentParticle, error) {
@@ -350,7 +349,7 @@ func modelParticlePreservesBase(models []contentModelNode, particle contentParti
 	// retains its term in an exactly-one clone. Compare that term, not its ID.
 	normalized := models[particle.Model]
 	return normalized.Occurs.IsExactlyOne() && normalized.Kind == base.Kind &&
-		normalized.Mixed == base.Mixed && slices.Equal(normalized.Particles, base.Particles)
+		slices.Equal(normalized.Particles, base.Particles)
 }
 
 func spendContentModelWork(work contentModelWork) error {

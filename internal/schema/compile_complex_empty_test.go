@@ -39,13 +39,6 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 		model contentModelNode
 	}{
 		{
-			name: "mixed empty model",
-			model: contentModelNode{
-				Kind:  modelEmpty,
-				Mixed: true,
-			},
-		},
-		{
 			name: "empty model with inactive slices",
 			model: contentModelNode{
 				Kind:      modelEmpty,
@@ -100,8 +93,8 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 			if err := validateContentModelShape(model); err != nil {
 				t.Fatalf("canonical empty model shape invalid: %v", err)
 			}
-			if model.Kind != modelEmpty || model.Mixed {
-				t.Fatalf("canonical empty model = %#v, want inactive non-mixed ModelEmpty", model)
+			if model.Kind != modelEmpty {
+				t.Fatalf("canonical empty model = %#v, want inactive ModelEmpty", model)
 			}
 			if c.modelSources[got] != baseSource {
 				t.Fatalf("canonical empty model source = %p, want %p", c.modelSources[got], baseSource)
@@ -137,8 +130,8 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNoModel(t *testing.T) {
 	if err := validateContentModelShape(model); err != nil {
 		t.Fatalf("canonical empty model shape invalid: %v", err)
 	}
-	if model.Kind != modelEmpty || model.Mixed {
-		t.Fatalf("canonical empty model = %#v, want inactive non-mixed ModelEmpty", model)
+	if model.Kind != modelEmpty {
+		t.Fatalf("canonical empty model = %#v, want inactive ModelEmpty", model)
 	}
 	if c.modelSources[got] != owner {
 		t.Fatalf("canonical empty model source = %p, want owner %p", c.modelSources[got], owner)

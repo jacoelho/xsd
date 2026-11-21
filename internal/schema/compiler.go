@@ -168,7 +168,7 @@ type compilerCycleState struct {
 }
 
 type compilerModelState struct {
-	modelDone             map[schemaNodeKey]contentModelID
+	modelDone             map[schemaNodeKey]compiledModelGroup
 	modelSources          []*schemaNode
 	deferredModelChildren []schemaComponent
 }
@@ -268,7 +268,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 		compilingSimple:          make(map[QName]bool),
 		compilingAttrGrp:         make(map[QName]bool),
 		compilingModel:           make(map[schemaNodeKey]bool),
-		modelDone:                make(map[schemaNodeKey]contentModelID),
+		modelDone:                make(map[schemaNodeKey]compiledModelGroup),
 		rt:                       rt,
 		missingSimple:            NoSimpleType,
 		limits:                   limits,
@@ -406,7 +406,7 @@ func (c *compiler) compileModelGroupByQName(q QName) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.compileModel(raw.ctx, modelNode)
+	_, err = c.compileGroupModel(raw.ctx, modelNode)
 	return err
 }
 

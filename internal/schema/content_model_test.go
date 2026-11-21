@@ -206,7 +206,7 @@ func TestValidateContentModelTableRejectsCycles(t *testing.T) {
 		wantErr string
 		models  []contentModelNode
 	}{
-		{name: "acyclic", models: []contentModelNode{model(1), {Kind: modelEmpty}}},
+		{name: "acyclic", models: []contentModelNode{model(1), model()}},
 		{name: "self cycle", models: []contentModelNode{model(0)}, wantErr: "content model graph contains cycle"},
 		{name: "multi-node cycle", models: []contentModelNode{model(1), model(0)}, wantErr: "content model graph contains cycle"},
 		{name: "invalid reference", models: []contentModelNode{model(1)}, wantErr: "particle references invalid content model"},
@@ -267,7 +267,7 @@ func TestValidateContentModelTableHandlesDeepChain(t *testing.T) {
 			Particles: []contentParticle{modelParticle(contentModelID(i+1), one)},
 		}
 	}
-	models[count-1] = contentModelNode{Kind: modelEmpty}
+	models[count-1] = contentModelNode{Kind: modelSequence, Occurs: one}
 	if err := validateContentModelTable(models, contentModelRefLimits{}, unlimitedContentModelWork); err != nil {
 		t.Fatalf("validateContentModelTable() error = %v", err)
 	}
@@ -309,7 +309,7 @@ func TestComplexContentExtendsBase(t *testing.T) {
 	}
 	rt := particleFixture{
 		models: []contentModelNode{
-			emptyID:       {Kind: modelEmpty, Mixed: true},
+			emptyID:       {Kind: modelEmpty},
 			baseSeqID:     seq(one, a),
 			extendedID:    seq(one, modelParticle(baseSeqID, one), b),
 			emptySeqID:    seq(one),
