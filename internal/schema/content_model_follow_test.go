@@ -156,13 +156,20 @@ func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]con
 	if len(got.positions) != len(want.b.positions) {
 		t.Fatalf("positions = %d, want %d", len(got.positions), len(want.b.positions))
 	}
+	created := make(map[uint32][]dfaStateEntry)
 	for pos := range got.positions {
 		ref, err := got.follow.class(pos)
 		if err != nil {
 			t.Fatalf("class(%d) error = %v", pos, err)
 		}
-		got.follow.materialize(got.follow.positionSegments(pos))
-		entries := got.follow.entries
+		id := got.follow.classOf[pos].id
+		if ref.created {
+			created[id] = slices.Clone(ref.entries)
+		}
+		entries, ok := created[id]
+		if !ok {
+			t.Fatalf("class(%d) = class %d, which no earlier position created", pos, id)
+		}
 		if gotFollow := expandStateEntries(&got.follow, entries); !equalDFAEntries(gotFollow, want.follow[pos]) {
 			t.Fatalf("follow(%d) = %v, want %v", pos, gotFollow, want.follow[pos])
 		}
