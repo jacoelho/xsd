@@ -204,6 +204,9 @@ type contentModelGraphFrame struct {
 // model it enters and each particle that model holds, before it reads them,
 // and reads every particle once.
 func validateContentModelTable(models []contentModelNode, limits contentModelRefLimits, work contentModelWork) error {
+	if err := requireContentModelWork(work); err != nil {
+		return err
+	}
 	audit := contentModelTableAudit{
 		models: models,
 		work:   work,
@@ -233,7 +236,7 @@ type contentModelTableAudit struct {
 
 func (a *contentModelTableAudit) enter(id contentModelID) error {
 	model := a.models[id]
-	if err := spendContentModelWorkN(a.work, 1+len(model.Particles)); err != nil {
+	if err := a.work(1 + len(model.Particles)); err != nil {
 		return err
 	}
 	if err := validateContentModelKindShape(model); err != nil {
