@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // compiledTestBuild returns the mutable build of text, compiled but not yet
@@ -34,15 +35,13 @@ func compiledTestBuild(t *testing.T, text string) *schemaBuild {
 	return c.RuntimeForTest()
 }
 
-func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
-	t.Parallel()
-
+func enteredModelsSchema() string {
 	var all strings.Builder
 	for i := range 8 {
 		fmt.Fprintf(&all, `<xs:element name="e%d"/>`, i)
 	}
 	all.WriteString(`<xs:element ref="head"/>`)
-	text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	return `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head" abstract="true"/>
   <xs:element name="m1" substitutionGroup="head"/>
   <xs:element name="m2" substitutionGroup="head"/>
@@ -51,16 +50,22 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
   <xs:complexType name="B"><xs:all>` + all.String() + `</xs:all></xs:complexType>
   <xs:complexType name="C"><xs:sequence><xs:element ref="head" maxOccurs="3"/></xs:sequence></xs:complexType>
 </xs:schema>`
-	spread := compiledTestBuild(t, text)
-	// In collapsed every type without all content enters one model; spread
-	// keeps their own. Neither build is audited, so newSchemaProgram is called
-	// directly.
-	collapsed := compiledTestBuild(t, text)
-	for i := range collapsed.ComplexTypes {
-		if collapsed.Models[collapsed.ComplexTypes[i].Content].Kind != modelAll {
-			collapsed.ComplexTypes[i].Content = collapsed.ComplexTypes[0].Content
+}
+
+func enterFirstTypeContent(build *schemaBuild, redirect func(contentModelNode) bool) {
+	for i := range build.ComplexTypes {
+		if redirect(build.Models[build.ComplexTypes[i].Content]) {
+			build.ComplexTypes[i].Content = build.ComplexTypes[0].Content
 		}
 	}
+}
+
+func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
+	t.Parallel()
+
+	spread := compiledTestBuild(t, enteredModelsSchema())
+	collapsed := compiledTestBuild(t, enteredModelsSchema())
+	enterFirstTypeContent(collapsed, func(model contentModelNode) bool { return model.Kind != modelAll })
 	spreadContent, err := enterContentModels(spread.ComplexTypes, &spread.CompiledContent)
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +136,7 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 		},
 		{
 			name:          "no empty models",
-			models:        kinds(compiledModelDFA, compiledModelAll, compiledModelAny),
+			models:        kinds(compiledModelDFA, compiledModelDFA, compiledModelAny),
 			types:         types(2, 2, 0),
 			wantModels:    []int{0, 2},
 			wantPublished: []contentModelID{1, 1, 0},
@@ -147,5 +152,20 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 				t.Fatalf("enterContentModels() = %v %v, want %v %v", got.Models, got.Published, test.wantModels, test.wantPublished)
 			}
 		})
+	}
+}
+
+func TestPublicationRejectsCompiledAllModelNoComplexTypeEnters(t *testing.T) {
+	t.Parallel()
+
+	build := compiledTestBuild(t, enteredModelsSchema())
+	if _, err := enterContentModels(build.ComplexTypes, &build.CompiledContent); err != nil {
+		t.Fatalf("enterContentModels() with every all model entered = %v", err)
+	}
+	enterFirstTypeContent(build, func(model contentModelNode) bool { return model.Kind == modelAll })
+	_, err := publishSchema(build, unlimitedContentModelWork)
+	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if !strings.Contains(err.Error(), "all content model") {
+		t.Fatalf("publishSchema() error = %v, want the unentered all model reported", err)
 	}
 }

@@ -297,39 +297,18 @@ func validateRuntimeAttributeUseSets(rt *schemaValidation) error {
 }
 
 func validateRuntimeContentModelComponents(rt *schemaValidation) error {
-	contentModelLimits := contentModelRefLimits{
-		ElementCount:      len(rt.build.Elements),
-		ContentModelCount: len(rt.build.Models),
-		WildcardCount:     len(rt.build.Wildcards),
+	refs := contentModelRefLimits{
+		ElementCount:  len(rt.build.Elements),
+		WildcardCount: len(rt.build.Wildcards),
 	}
-	for i := range rt.build.Models {
-		if err := validateRuntimeContentModel(rt, rt.build.Models[i], contentModelLimits); err != nil {
-			return err
-		}
-	}
-	if err := validateContentModelGraph(rt.build.Models); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+	if err := validateContentModelTable(rt.build.Models, refs, rt.contentModelWork); err != nil {
+		return err
 	}
 	checker := newElementDeclarationConsistencyChecker(rt.build, rt.contentModelWork)
 	for id := range rt.build.Models {
 		if err := checker.checkModel(contentModelID(id)); err != nil {
 			return schemaBuildValidationError(err)
 		}
-	}
-	return nil
-}
-
-func validateRuntimeContentModel(rt *schemaValidation, model contentModelNode, limits contentModelRefLimits) error {
-	if err := spendContentModelWork(rt.contentModelWork); err != nil {
-		return err
-	}
-	for range model.Particles {
-		if err := spendContentModelWork(rt.contentModelWork); err != nil {
-			return err
-		}
-	}
-	if err := validateContentModelRuntime(model, limits); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil
 }

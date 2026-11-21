@@ -72,9 +72,9 @@ type dfaBuilder struct {
 	counters   uint32
 }
 
-// dfaStateID caches an ID assigned on first use. known distinguishes the
+// cachedID caches an ID assigned on first use. known distinguishes the
 // valid ID zero from an unpopulated entry.
-type dfaStateID struct {
+type cachedID struct {
 	id    uint32
 	known bool
 }
@@ -885,10 +885,8 @@ func (b *directSequenceCompilation) addEdge(particle contentParticle, row compil
 	if err != nil {
 		return err
 	}
-	for range to - b.active {
-		if err := b.compiler.work.spend(1); err != nil {
-			return err
-		}
+	if err := b.compiler.work.spend(int(to - b.active)); err != nil {
+		return err
 	}
 	edge := len(b.edges)
 	b.edges = append(b.edges, compiledModelEdge{Particle: singleParticle(particle), To: to})
@@ -1339,21 +1337,24 @@ func (b *dfaBuilder) stateID(entries []dfaStateEntry) (uint32, error) {
 // followStateID charges the follow set before consulting the class cache,
 // so state discovery order and limit-failure order do not depend on caching.
 func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
-	class, err := b.follow.class(pos)
+	ref, err := b.follow.class(pos)
 	if err != nil {
 		return 0, err
 	}
-	if spendErr := b.c.work.spend(class.charge); spendErr != nil {
+	if spendErr := b.c.work.spend(ref.class.charge); spendErr != nil {
 		return 0, spendErr
 	}
-	if class.state.known {
-		return class.state.id, nil
+	if !ref.created {
+		if !ref.class.state.known {
+			return 0, xsderrors.InternalInvariant("content model follow class has no state")
+		}
+		return ref.class.state.id, nil
 	}
-	id, err := b.internState(b.follow.classEntries(pos))
+	id, err := b.internState(ref.entries)
 	if err != nil {
 		return 0, err
 	}
-	class.state = dfaStateID{id: id, known: true}
+	ref.class.state = cachedID{id: id, known: true}
 	return id, nil
 }
 
@@ -1516,7 +1517,7 @@ func (u *dfaSetUnion[E]) add(elems []E) []E {
 func (u *dfaSetUnion[E]) reset(elems []E) []E {
 	u.elems = elems
 	u.owned = false
-	return elems
+	return slices.Clip(elems)
 }
 
 func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {

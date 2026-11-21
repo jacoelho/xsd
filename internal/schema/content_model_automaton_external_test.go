@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/source"
@@ -81,6 +83,16 @@ func optionalSequenceSchema(head string, width int, maxOccurs string) string {
 	fmt.Fprintf(&b, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence maxOccurs="%s">%s`, maxOccurs, head)
 	for i := range width {
 		fmt.Fprintf(&b, `<xs:element name="e%d" minOccurs="0"/>`, i)
+	}
+	b.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	return b.String()
+}
+
+func repeatedOptionalWildcardSequenceSchema(width int) string {
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence maxOccurs="unbounded"><xs:element name="z"/>`)
+	for i := range width {
+		fmt.Fprintf(&b, `<xs:any namespace="urn:n%d" processContents="skip" minOccurs="0"/>`, i)
 	}
 	b.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
 	return b.String()
@@ -167,4 +179,73 @@ func BenchmarkCompileContentModelAutomata(b *testing.B) {
 			}
 		})
 	}
+}
+
+// The shape is the one docs/RESOURCE_LIMITS.md lists with the largest peak
+// heap, and the bound is its documented 3 bytes per step. A 1 ms HeapInuse
+// sampler sees a lower bound on the true peak, so the floor rejects a run in
+// which it missed construction instead of passing it.
+func TestContentModelAutomatonConstructionPeakHeapIsBounded(t *testing.T) {
+	const bytesPerStep = 3
+	const sampledFloor = 8 << 20
+	limits, err := xsdSchema.NormalizeOptions(xsdSchema.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound := uint64(bytesPerStep * limits.MaxContentModelAnalysisSteps) // #nosec G115 -- the default step limit is positive and small.
+	tt := automatonConstructionCase{schema: repeatedOptionalWildcardSequenceSchema(1900), stepLimitErr: true}
+	defer debug.SetGCPercent(debug.SetGCPercent(100))
+	runtime.GC()
+	runtime.GC()
+	baseline := heapInuse()
+	sampler := startHeapSampler(time.Millisecond)
+	_, err = tt.compile()
+	peak := sampler.stop()
+	tt.check(t, err)
+	delta := peak - min(peak, baseline)
+	t.Logf("sampled peak heap %d KiB above baseline, bound %d KiB", delta>>10, bound>>10)
+	if delta < sampledFloor {
+		t.Fatalf("sampled peak heap %d MiB above baseline, want at least %d MiB: the sampler missed construction", delta>>20, sampledFloor>>20)
+	}
+	if delta > bound {
+		t.Fatalf("peak heap %d MiB above baseline, want at most %d MiB", delta>>20, bound>>20)
+	}
+}
+
+type heapSampler struct {
+	done chan struct{}
+	peak chan uint64
+}
+
+func startHeapSampler(interval time.Duration) heapSampler {
+	s := heapSampler{done: make(chan struct{}), peak: make(chan uint64)}
+	started := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		peak := heapInuse()
+		close(started)
+		for {
+			select {
+			case <-ticker.C:
+				peak = max(peak, heapInuse())
+			case <-s.done:
+				s.peak <- max(peak, heapInuse())
+				return
+			}
+		}
+	}()
+	<-started
+	return s
+}
+
+func (s heapSampler) stop() uint64 {
+	close(s.done)
+	return <-s.peak
+}
+
+func heapInuse() uint64 {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return stats.HeapInuse
 }

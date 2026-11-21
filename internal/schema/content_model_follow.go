@@ -28,12 +28,10 @@ type followTable struct {
 	sets      []followSet
 	prefixes  []followPrefix
 	classes   []followClass
-	classOf   []dfaStateID
+	classOf   []cachedID
 	entries   []dfaStateEntry
 	key       []byte
-	endSet    dfaStateID
-	// entriesOf is the class whose follow set entries holds.
-	entriesOf dfaStateID
+	endSet    cachedID
 }
 
 // followSegment stands for one entry per position of set, each carrying the
@@ -48,7 +46,7 @@ type followSegment struct {
 // class of the positions whose only segment is this set without a prefix.
 type followSet struct {
 	positions []int
-	class     dfaStateID
+	class     cachedID
 }
 
 // followPrefix holds normalized guards. Prefix 0 is the empty prefix.
@@ -75,7 +73,7 @@ type dfaStateEntry struct {
 // caches the state it was interned as.
 type followClass struct {
 	charge int
-	state  dfaStateID
+	state  cachedID
 }
 
 func newFollowTable() followTable {
@@ -107,7 +105,7 @@ func (t *followTable) rootEndSet() (uint32, error) {
 		if err != nil {
 			return 0, err
 		}
-		t.endSet = dfaStateID{id: id, known: true}
+		t.endSet = cachedID{id: id, known: true}
 	}
 	return t.endSet.id, nil
 }
@@ -232,7 +230,7 @@ func (t *followTable) chargeNormalization(spend func(int) error) error {
 			return err
 		}
 	}
-	t.classOf = make([]dfaStateID, len(t.heads))
+	t.classOf = make([]cachedID, len(t.heads))
 	return nil
 }
 
@@ -255,45 +253,53 @@ func (t *followTable) segmentCharge(seg followSegment) int {
 	return len(t.sets[seg.set].positions) * (1 + t.prefixes[seg.prefix].len())
 }
 
+// followClassRef is the follow class of a position. Only the reference that
+// creates a class carries its follow set, in entries, in storage that the
+// next materialization reuses.
+type followClassRef struct {
+	class   *followClass
+	entries []dfaStateEntry
+	created bool
+}
+
 // class returns the follow class of pos, materializing its follow set the
 // first time a position with its segment list is reached.
-func (t *followTable) class(pos int) (*followClass, error) {
+func (t *followTable) class(pos int) (followClassRef, error) {
 	if pos < 0 || pos >= len(t.classOf) {
-		return nil, xsderrors.InternalInvariant("content model DFA references invalid position")
+		return followClassRef{}, xsderrors.InternalInvariant("content model DFA references invalid position")
 	}
 	ref := &t.classOf[pos]
+	created := false
 	if !ref.known {
-		id, err := t.classID(t.positionSegments(pos))
+		id, isNew, err := t.classID(t.positionSegments(pos))
 		if err != nil {
-			return nil, err
+			return followClassRef{}, err
 		}
-		*ref = dfaStateID{id: id, known: true}
+		*ref = cachedID{id: id, known: true}
+		created = isNew
 	}
-	return &t.classes[ref.id], nil
+	class := followClassRef{class: &t.classes[ref.id], created: created}
+	if created {
+		class.entries = t.entries
+	}
+	return class, nil
 }
 
-// classEntries returns the normalized follow set of pos, which class must
-// have resolved, in storage that the next materialization reuses.
-func (t *followTable) classEntries(pos int) []dfaStateEntry {
-	if t.entriesOf != t.classOf[pos] {
-		t.materialize(t.positionSegments(pos))
-		t.entriesOf = t.classOf[pos]
-	}
-	return t.entries
-}
-
-func (t *followTable) classID(segs []followSegment) (uint32, error) {
+// classID returns the class of segs and whether this call created it, in
+// which case entries holds its follow set.
+func (t *followTable) classID(segs []followSegment) (uint32, bool, error) {
 	if len(segs) == 1 && segs[0].prefix == 0 {
 		set := &t.sets[segs[0].set]
-		if !set.class.known {
-			t.entries = t.segmentEntries(segs[0], t.entries[:0])
-			id, err := t.addClass()
-			if err != nil {
-				return 0, err
-			}
-			set.class = dfaStateID{id: id, known: true}
+		if set.class.known {
+			return set.class.id, false, nil
 		}
-		return set.class.id, nil
+		t.entries = t.segmentEntries(segs[0], t.entries[:0])
+		id, err := t.addClass()
+		if err != nil {
+			return 0, false, err
+		}
+		set.class = cachedID{id: id, known: true}
+		return id, true, nil
 	}
 	t.key = t.key[:0]
 	for _, seg := range segs {
@@ -301,15 +307,15 @@ func (t *followTable) classID(segs []followSegment) (uint32, error) {
 		t.key = binary.AppendUvarint(t.key, uint64(seg.set))
 	}
 	if id, ok := t.classIDs[string(t.key)]; ok {
-		return id, nil
+		return id, false, nil
 	}
 	t.materialize(segs)
 	id, err := t.addClass()
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	t.classIDs[string(t.key)] = id
-	return id, nil
+	return id, true, nil
 }
 
 // addClass adds the class whose follow set entries holds.
@@ -319,7 +325,6 @@ func (t *followTable) addClass() (uint32, error) {
 		return 0, err
 	}
 	t.classes = appendDoubling(t.classes, followClass{charge: t.entriesCharge(t.entries)})
-	t.entriesOf = dfaStateID{id: id, known: true}
 	return id, nil
 }
 

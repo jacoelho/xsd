@@ -322,25 +322,16 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 // violation or limit inside a group stops compilation at the first model, in
 // source order, holding it. Indexing is set-wide: it only spends budget, and
 // locateSetWideLimit locates its limit failure.
-func (c *compiler) compileContentModels(reached []bool) error {
+func (c *compiler) compileContentModels(reached []contentModelID) error {
 	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, c.contentAnalysis)
-	count := 0
-	for _, ok := range reached {
-		if ok {
-			count++
-		}
-	}
-	sources := make([]contentModelID, 0, count)
-	models := make([]compiledModel, 0, count)
-	for id, ok := range reached {
-		if !ok {
-			continue
-		}
+	sources := make([]contentModelID, 0, len(reached))
+	models := make([]compiledModel, 0, len(reached))
+	for _, id := range reached {
 		var compiled compiledModel
-		if err := c.compileContentModel(&cc, &compiled, contentModelID(id)); err != nil {
+		if err := c.compileContentModel(&cc, &compiled, id); err != nil {
 			return err
 		}
-		sources = append(sources, contentModelID(id))
+		sources = append(sources, id)
 		models = append(models, compiled)
 	}
 	if err := indexCompiledModelsRows(&c.rt, models, c.contentWork.spend); err != nil {
@@ -360,13 +351,10 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled *compi
 	return err
 }
 
-func (c *compiler) checkCompiledModelsUPA(reached []bool) error {
+func (c *compiler) checkCompiledModelsUPA(reached []contentModelID) error {
 	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
-	for id, ok := range reached {
-		if !ok {
-			continue
-		}
-		if err := c.checkModelUPA(upa, contentModelID(id)); err != nil {
+	for _, id := range reached {
+		if err := c.checkModelUPA(upa, id); err != nil {
 			return err
 		}
 	}
@@ -375,30 +363,32 @@ func (c *compiler) checkCompiledModelsUPA(reached []bool) error {
 
 // complexTypeReachableModels returns the content models that Unique Particle
 // Attribution and automaton construction apply to, as
-// docs/spec/INTERPRETATIONS.md scopes them. Occurrence copies of a group share
-// its particles at one dependency step each, so the walk charges every
-// particle it reads, in the scope of the model holding it. It visits the
-// complex types' roots in complex-type order and then nested models breadth
-// first, so a limit failure names the first model in that order; only the
-// builtin anyType model's charge has no source and is located set-wide.
-func (c *compiler) complexTypeReachableModels() ([]bool, error) {
+// docs/spec/INTERPRETATIONS.md scopes them, in ascending ID order. Occurrence
+// copies of a group share its particles at one dependency step each, so the
+// walk charges every particle it reads, in the scope of the model holding it.
+// It visits the complex types' roots in complex-type order and then nested
+// models breadth first, so a limit failure names the first model in that
+// order; only the builtin anyType model's charge has no source and is located
+// set-wide.
+func (c *compiler) complexTypeReachableModels() ([]contentModelID, error) {
 	walk := modelReach{
 		reached: make([]bool, len(c.rt.Models)),
-		pending: make([]contentModelID, 0, len(c.rt.ComplexTypes)),
+		queue:   make([]contentModelID, 0, len(c.rt.ComplexTypes)),
 	}
 	for i := range c.rt.ComplexTypes {
 		if err := walk.reach(c.rt.ComplexTypes[i].Content); err != nil {
 			return nil, err
 		}
 	}
-	for len(walk.pending) > 0 {
-		id := walk.pending[0]
-		walk.pending = walk.pending[1:]
+	// The queue grows while it is read, so its length is re-read each step.
+	for next := 0; next < len(walk.queue); {
+		id := walk.queue[next]
+		next++
 		if err := c.reachModelParticles(&walk, id); err != nil {
 			return nil, err
 		}
 	}
-	return walk.reached, nil
+	return walk.ids(), nil
 }
 
 func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err error) {
@@ -414,9 +404,22 @@ func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err
 	return walk.reachParticles(particles)
 }
 
+// modelReach is a breadth-first walk over the content models. queue holds
+// each reached model once, in visit order.
 type modelReach struct {
 	reached []bool
-	pending []contentModelID
+	queue   []contentModelID
+}
+
+// ids returns the reached models in ascending ID order.
+func (r *modelReach) ids() []contentModelID {
+	ids := make([]contentModelID, 0, len(r.queue))
+	for id, ok := range r.reached {
+		if ok {
+			ids = append(ids, contentModelID(id))
+		}
+	}
+	return ids
 }
 
 func (r *modelReach) reach(id contentModelID) error {
@@ -425,7 +428,7 @@ func (r *modelReach) reach(id contentModelID) error {
 	}
 	if !r.reached[id] {
 		r.reached[id] = true
-		r.pending = append(r.pending, id)
+		r.queue = append(r.queue, id)
 	}
 	return nil
 }

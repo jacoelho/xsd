@@ -156,12 +156,20 @@ func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]con
 	if len(got.positions) != len(want.b.positions) {
 		t.Fatalf("positions = %d, want %d", len(got.positions), len(want.b.positions))
 	}
+	created := make(map[uint32][]dfaStateEntry)
 	for pos := range got.positions {
-		class, err := got.follow.class(pos)
+		ref, err := got.follow.class(pos)
 		if err != nil {
 			t.Fatalf("class(%d) error = %v", pos, err)
 		}
-		entries := got.follow.classEntries(pos)
+		id := got.follow.classOf[pos].id
+		if ref.created {
+			created[id] = slices.Clone(ref.entries)
+		}
+		entries, ok := created[id]
+		if !ok {
+			t.Fatalf("class(%d) = class %d, which no earlier position created", pos, id)
+		}
 		if gotFollow := expandStateEntries(&got.follow, entries); !equalDFAEntries(gotFollow, want.follow[pos]) {
 			t.Fatalf("follow(%d) = %v, want %v", pos, gotFollow, want.follow[pos])
 		}
@@ -169,8 +177,8 @@ func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]con
 		if decoded := decodeDFAStateKey(nil, string(key)); !slices.Equal(decoded, entries) {
 			t.Fatalf("follow(%d) key decodes to %v, want %v", pos, decoded, entries)
 		}
-		if wantAdmission := entriesCharge(want.follow[pos]); class.charge != wantAdmission {
-			t.Fatalf("follow(%d) charge = %d, want %d", pos, class.charge, wantAdmission)
+		if wantAdmission := entriesCharge(want.follow[pos]); ref.class.charge != wantAdmission {
+			t.Fatalf("follow(%d) charge = %d, want %d", pos, ref.class.charge, wantAdmission)
 		}
 	}
 }

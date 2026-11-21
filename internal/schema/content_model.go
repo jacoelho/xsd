@@ -3,6 +3,8 @@ package schema
 import (
 	"errors"
 	"slices"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // modelKind identifies the runtime content-model shape.
@@ -80,12 +82,11 @@ type contentParticle struct {
 	Wildcard WildcardID
 }
 
-// contentModelRefLimits are table sizes used to validate cross-table particle
-// references in a frozen runtime schema.
+// contentModelRefLimits are the sizes of the element and wildcard tables that
+// content-model particles reference.
 type contentModelRefLimits struct {
-	ElementCount      int
-	ContentModelCount int
-	WildcardCount     int
+	ElementCount  int
+	WildcardCount int
 }
 
 // particleRestrictionElement is the element-declaration projection needed to
@@ -162,28 +163,14 @@ func validateAllContentModelShape(model contentModelNode) error {
 	return nil
 }
 
-// validateContentModelRuntime validates content-model shape and cross-table
-// particle references.
-func validateContentModelRuntime(model contentModelNode, limits contentModelRefLimits) error {
-	if err := validateContentModelShape(model); err != nil {
-		return err
-	}
-	for _, particle := range model.Particles {
-		if err := validateParticleRuntimeReference(particle, limits); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateParticleRuntimeReference(particle contentParticle, limits contentModelRefLimits) error {
+func validateParticleRuntimeReference(particle contentParticle, limits contentModelRefLimits, modelCount int) error {
 	switch particle.Kind {
 	case particleElement:
 		if !validElementID(particle.Element, limits.ElementCount) {
 			return errors.New("particle references invalid element")
 		}
 	case particleModel:
-		if !validContentModelID(particle.Model, limits.ContentModelCount) {
+		if !validContentModelID(particle.Model, modelCount) {
 			return errors.New("particle references invalid content model")
 		}
 	case particleWildcard:
@@ -209,11 +196,23 @@ type contentModelGraphFrame struct {
 	next int
 }
 
-func validateContentModelGraph(models []contentModelNode) error {
-	audit := contentModelGraphAudit{
+// validateContentModelTable proves that every model has a valid shape, that
+// every particle is well formed and references a valid element, wildcard or
+// model, and that the models form an acyclic graph. Occurrence copies of a
+// group share its particles, so the particles across models are not bounded by
+// the dependency steps that admitted them: the audit charges work for each
+// model it enters and each particle that model holds, before it reads them,
+// and reads every particle once.
+func validateContentModelTable(models []contentModelNode, limits contentModelRefLimits, work contentModelWork) error {
+	if err := requireContentModelWork(work); err != nil {
+		return err
+	}
+	audit := contentModelTableAudit{
 		models: models,
+		work:   work,
 		state:  make([]contentModelGraphState, len(models)),
 		stack:  make([]contentModelGraphFrame, 0, min(len(models), 1_024)),
+		limits: limits,
 	}
 	for i := range models {
 		root := contentModelID(i)
@@ -227,15 +226,31 @@ func validateContentModelGraph(models []contentModelNode) error {
 	return nil
 }
 
-type contentModelGraphAudit struct {
+type contentModelTableAudit struct {
 	models []contentModelNode
+	work   contentModelWork
 	state  []contentModelGraphState
 	stack  []contentModelGraphFrame
+	limits contentModelRefLimits
 }
 
-func (a *contentModelGraphAudit) validateRoot(root contentModelID) error {
-	a.state[root] = contentModelGraphChecking
-	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: root}, len(a.models))
+func (a *contentModelTableAudit) enter(id contentModelID) error {
+	model := a.models[id]
+	if err := a.work(1 + len(model.Particles)); err != nil {
+		return err
+	}
+	if err := validateContentModelKindShape(model); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	a.state[id] = contentModelGraphChecking
+	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: id}, len(a.models))
+	return nil
+}
+
+func (a *contentModelTableAudit) validateRoot(root contentModelID) error {
+	if err := a.enter(root); err != nil {
+		return err
+	}
 	for len(a.stack) != 0 {
 		if err := a.advance(); err != nil {
 			return err
@@ -244,39 +259,34 @@ func (a *contentModelGraphAudit) validateRoot(root contentModelID) error {
 	return nil
 }
 
-func (a *contentModelGraphAudit) advance() error {
+func (a *contentModelTableAudit) advance() error {
 	top := len(a.stack) - 1
 	frame := &a.stack[top]
-	child, ok := nextNestedContentModel(a.models[frame.id].Particles, &frame.next)
-	if !ok {
+	particles := a.models[frame.id].Particles
+	if frame.next == len(particles) {
 		a.state[frame.id] = contentModelGraphChecked
 		a.stack = a.stack[:top]
 		return nil
 	}
-	if !validContentModelID(child, len(a.models)) {
-		return errors.New("content model graph references invalid model")
+	particle := particles[frame.next]
+	frame.next++
+	if err := validateParticleShape(particle); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
 	}
-	switch a.state[child] {
+	if err := validateParticleRuntimeReference(particle, a.limits, len(a.models)); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
+	if particle.Kind != particleModel {
+		return nil
+	}
+	switch a.state[particle.Model] {
 	case contentModelGraphUnchecked:
-		a.state[child] = contentModelGraphChecking
-		a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{id: child}, len(a.models))
+		return a.enter(particle.Model)
 	case contentModelGraphChecking:
-		return errors.New("content model graph contains cycle")
+		return xsderrors.InternalInvariant("content model graph contains cycle")
 	case contentModelGraphChecked:
 	}
 	return nil
-}
-
-func nextNestedContentModel(particles []contentParticle, next *int) (contentModelID, bool) {
-	for *next < len(particles) && particles[*next].Kind != particleModel {
-		*next++
-	}
-	if *next == len(particles) {
-		return noContentModel, false
-	}
-	child := particles[*next].Model
-	*next++
-	return child, true
 }
 
 // complexContentExtendsBase reports whether derived's {content type}, its
