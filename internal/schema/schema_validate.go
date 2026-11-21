@@ -688,8 +688,8 @@ func validateComplexExtensionRuntime(rt *schemaValidation, ct complexTypeMetadat
 	if err != nil {
 		return err
 	}
-	if err := validateComplexTypeExtensionRuntime(rt.build, base, ct); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+	if err := validateComplexTypeExtensionRuntime(rt.build, base, ct, rt.contentModelWork); err != nil {
+		return err
 	}
 	if err := validateComplexExtensionAttributeAncestry(rt.build, ct); err != nil {
 		return schemaBuildValidationError(err)

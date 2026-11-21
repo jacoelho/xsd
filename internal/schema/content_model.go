@@ -291,49 +291,60 @@ func (a *contentModelTableAudit) advance() error {
 // 3.2 gives an extension of base: any content over an empty base (3.2.2), and
 // otherwise the base variety (Derivation Valid (Extension) clause 1.4.3.2.2.1)
 // with the base particle itself (3.2.1) or a 1..1 sequence whose first
-// particle is the base particle (3.2.3).
-func complexContentExtendsBase(rt *schemaBuild, base, derived complexTypeMetadata) bool {
+// particle is the base particle (3.2.3). Extensions of one base share its
+// particles through occurrence copies, so comparing them charges work for
+// every base particle read.
+func complexContentExtendsBase(rt *schemaBuild, base, derived complexTypeMetadata, work contentModelWork) (bool, error) {
 	if base.ContentKind == contentEmpty {
-		return true
+		return true, nil
 	}
 	if derived.ContentKind != base.ContentKind {
-		return false
+		return false, nil
 	}
 	if derived.Content == base.Content {
-		return true
+		return true, nil
 	}
 	model, ok := contentModelByID(rt.Models, derived.Content)
 	if !ok || model.Kind != modelSequence || !model.Occurs.IsExactlyOne() || len(model.Particles) != 2 {
-		return false
+		return false, nil
 	}
 	first := model.Particles[0]
 	baseModel, ok := contentModelByID(rt.Models, base.Content)
 	if !ok {
-		return false
+		return false, nil
 	}
 	if baseModel.Kind == modelEmpty {
 		return first.Kind == particleModel && first.Occurs.IsExactlyOne() &&
-			validContentModelID(first.Model, len(rt.Models)) && emptySequence(rt.Models[first.Model])
+			validContentModelID(first.Model, len(rt.Models)) && emptySequence(rt.Models[first.Model]), nil
 	}
-	return modelParticlePreservesBase(rt.Models, first, base.Content, baseModel)
+	return modelParticlePreservesBase(rt.Models, first, base.Content, baseModel, work)
 }
 
 func emptySequence(model contentModelNode) bool {
 	return model.Kind == modelSequence && model.Occurs.IsExactlyOne() && len(model.Particles) == 0
 }
 
-func modelParticlePreservesBase(models []contentModelNode, particle contentParticle, baseID contentModelID, base contentModelNode) bool {
+func modelParticlePreservesBase(models []contentModelNode, particle contentParticle, baseID contentModelID, base contentModelNode, work contentModelWork) (bool, error) {
 	if base.Occurs.IsExactlyOne() {
-		return particle == modelParticle(baseID, base.Occurs)
+		return particle == modelParticle(baseID, base.Occurs), nil
 	}
 	if particle.Kind != particleModel || particle.Occurs != base.Occurs || !validContentModelID(particle.Model, len(models)) {
-		return false
+		return false, nil
 	}
 	// CompileModelParticle moves the base occurrence onto the reference and
 	// retains its term in an exactly-one clone. Compare that term, not its ID.
 	normalized := models[particle.Model]
-	return normalized.Occurs.IsExactlyOne() && normalized.Kind == base.Kind &&
-		normalized.Mixed == base.Mixed && slices.Equal(normalized.Particles, base.Particles)
+	if !normalized.Occurs.IsExactlyOne() || normalized.Kind != base.Kind || normalized.Mixed != base.Mixed ||
+		len(normalized.Particles) != len(base.Particles) {
+		return false, nil
+	}
+	if err := requireContentModelWork(work); err != nil {
+		return false, xsderrors.InternalInvariant(err.Error())
+	}
+	if err := work(len(base.Particles)); err != nil {
+		return false, err
+	}
+	return slices.Equal(normalized.Particles, base.Particles), nil
 }
 
 func spendContentModelWork(work contentModelWork) error {

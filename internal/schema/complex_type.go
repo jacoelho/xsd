@@ -3,6 +3,8 @@ package schema
 import (
 	"errors"
 	"fmt"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // derivationKind identifies how a complex type derives from its base.
@@ -323,25 +325,31 @@ func validateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 }
 
 // validateComplexTypeExtensionRuntime validates complex-type extension rules
-// that do not depend on attribute-use value-constraint equality.
-func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexTypeMetadata) error {
+// that do not depend on attribute-use value-constraint equality. A rule
+// violation is an internal invariant violation; a work limit is returned as
+// work reports it.
+func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexTypeMetadata, work contentModelWork) error {
 	if err := validateComplexTypeFinalAllows(base.Final, DerivationExtension); err != nil {
-		return err
+		return xsderrors.InternalInvariant(err.Error())
 	}
 	if base.SimpleContent() {
 		if !derived.SimpleContent() || derived.TextType != base.TextType || !contentModelKind(rt, derived.Content, modelEmpty) {
-			return errors.New("complex simple-content extension shape does not match base")
+			return xsderrors.InternalInvariant("complex simple-content extension shape does not match base")
 		}
 		return nil
 	}
 	if derived.SimpleContent() {
-		return errors.New("complex extension changes element content to simple content")
+		return xsderrors.InternalInvariant("complex extension changes element content to simple content")
 	}
 	if base.Mixed() && !derived.Mixed() {
-		return errors.New("complex extension drops mixed base content")
+		return xsderrors.InternalInvariant("complex extension drops mixed base content")
 	}
-	if !complexContentExtendsBase(rt, base, derived) {
-		return errors.New("complex extension content does not preserve base content")
+	extends, err := complexContentExtendsBase(rt, base, derived, work)
+	if err != nil {
+		return err
+	}
+	if !extends {
+		return xsderrors.InternalInvariant("complex extension content does not preserve base content")
 	}
 	return nil
 }

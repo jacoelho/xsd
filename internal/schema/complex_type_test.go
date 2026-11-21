@@ -835,7 +835,7 @@ func TestValidateComplexTypeExtensionRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived)
+			err := validateComplexTypeExtensionRuntime(rt.build(), tt.base, tt.derived, unlimitedContentModelWork)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeExtensionRuntime() error = %v", err)

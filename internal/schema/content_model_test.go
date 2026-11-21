@@ -351,11 +351,42 @@ func TestComplexContentExtendsBase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := complexContentExtendsBase(rt.build(), tt.base, tt.derived); got != tt.want {
-				t.Fatalf("complexContentExtendsBase() = %v, want %v", got, tt.want)
+			got, err := complexContentExtendsBase(rt.build(), tt.base, tt.derived, unlimitedContentModelWork)
+			if err != nil || got != tt.want {
+				t.Fatalf("complexContentExtendsBase() = %v, %v, want %v", got, err, tt.want)
 			}
 		})
 	}
+}
+
+func TestComplexContentExtendsBaseChargesEveryRepeatedBaseParticleItCompares(t *testing.T) {
+	t.Parallel()
+
+	const (
+		baseID     contentModelID = 0
+		cloneID    contentModelID = 1
+		extendedID contentModelID = 2
+	)
+	one := occurrence{Min: 1, Max: 1}
+	twice := occurrence{Min: 1, Max: 2}
+	particles := []contentParticle{elementParticle(0, one), elementParticle(1, one), elementParticle(2, one)}
+	rt := particleFixture{
+		models: []contentModelNode{
+			baseID:     {Kind: modelSequence, Occurs: twice, Particles: particles},
+			cloneID:    {Kind: modelSequence, Occurs: one, Particles: particles},
+			extendedID: {Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(cloneID, twice), elementParticle(3, one)}},
+		},
+	}
+	base := complexTypeMetadata{Content: baseID, ContentKind: contentElementOnly}
+	derived := complexTypeMetadata{Content: extendedID, ContentKind: contentElementOnly}
+
+	enough := newWorkBudget(contentModelWorkBudget, len(particles))
+	if got, err := complexContentExtendsBase(rt.build(), base, derived, enough.spend); err != nil || !got {
+		t.Fatalf("complexContentExtendsBase() with %d units = %v, %v, want true", len(particles), got, err)
+	}
+	short := newWorkBudget(contentModelWorkBudget, len(particles)-1)
+	_, err := complexContentExtendsBase(rt.build(), base, derived, short.spend)
+	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
 func TestContentRestrictionRejectsRepeatedElementAgainstUnitChoiceBranch(t *testing.T) {
