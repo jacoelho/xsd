@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"cmp"
 	"encoding/binary"
 	"slices"
 
@@ -13,21 +14,26 @@ import (
 // segment per tail, naming the shared first set and the tail's interned guard
 // and action prefix, so it grows with the tails and not with the tail-first
 // pairs that automaton construction charges. A follow set is materialized
-// once per distinct segment list, when a source row first reaches one of
-// its positions. heads[pos] is one more than the index of the last segment
-// added to pos, or zero; each segment links to the one added before it.
+// once per distinct segment list, when a source row first reaches one of its
+// positions, into entries, which the next materialization reuses; the class
+// keeps only its charge and state. heads[pos] is one more than the index of
+// the last segment added to pos, or zero; each segment links to the one added
+// before it.
 type followTable struct {
 	prefixIDs map[string]uint32
 	classIDs  map[string]uint32
 	heads     []uint32
-	segments  []followSegment
+	segments  followSegments
 	scratch   []followSegment
 	sets      []followSet
 	prefixes  []followPrefix
 	classes   []followClass
 	classOf   []dfaStateID
+	entries   []dfaStateEntry
 	key       []byte
 	endSet    dfaStateID
+	// entriesOf is the class whose follow set entries holds.
+	entriesOf dfaStateID
 }
 
 // followSegment stands for one entry per position of set, each carrying the
@@ -51,14 +57,25 @@ type followPrefix struct {
 	actions []compiledAction
 }
 
+func (p followPrefix) len() int {
+	return len(p.guards) + len(p.actions)
+}
+
+// dfaStateEntry is one entry of a source automaton state: a position, or
+// dfaEndPos, taken with the guards and actions of a followTable prefix.
+// Prefixes are interned by content, so two entries are equal exactly when
+// their fields are.
+type dfaStateEntry struct {
+	Pos    int
+	Prefix uint32
+}
+
 // followClass is the normalized follow set of every position with one
 // segment list. charge is what admitting the set as a state costs; state
-// caches the state it was interned as, after which entries is released to
-// the state's queued row.
+// caches the state it was interned as.
 type followClass struct {
-	entries []dfaEntry
-	charge  int
-	state   dfaStateID
+	charge int
+	state  dfaStateID
 }
 
 func newFollowTable() followTable {
@@ -138,11 +155,11 @@ func (t *followTable) add(pos int, guards []compiledGuard, actions []compiledAct
 	if err != nil {
 		return err
 	}
-	head, err := followTableID(len(t.segments) + 1)
+	head, err := followTableID(t.segments.len() + 1)
 	if err != nil {
 		return err
 	}
-	t.segments = appendDoubling(t.segments, followSegment{prefix: prefix, set: set, next: t.heads[pos]})
+	t.segments.append(followSegment{prefix: prefix, set: set, next: t.heads[pos]})
 	t.heads[pos] = head
 	return nil
 }
@@ -151,10 +168,50 @@ func (t *followTable) add(pos int, guards []compiledGuard, actions []compiledAct
 // storage that the next call reuses.
 func (t *followTable) positionSegments(pos int) []followSegment {
 	t.scratch = t.scratch[:0]
-	for i := t.heads[pos]; i != 0; i = t.segments[i-1].next {
-		t.scratch = append(t.scratch, t.segments[i-1])
+	for i := t.heads[pos]; i != 0; {
+		seg := t.segments.at(i - 1)
+		t.scratch = append(t.scratch, seg)
+		i = seg.next
 	}
 	return t.scratch
+}
+
+// followSegmentChunk is the length of every full chunk of followSegments.
+const followSegmentChunk = 1 << 14
+
+// followSegments stores segments in chunks: the first grows by doubling, so
+// small tables allocate as a slice would, and the rest are allocated full,
+// so the store never copies a full chunk or holds more than one spare chunk.
+type followSegments struct {
+	chunks [][]followSegment
+}
+
+func (s *followSegments) len() int {
+	if len(s.chunks) == 0 {
+		return 0
+	}
+	return (len(s.chunks)-1)*followSegmentChunk + len(s.chunks[len(s.chunks)-1])
+}
+
+func (s *followSegments) append(seg followSegment) {
+	last := len(s.chunks) - 1
+	switch {
+	case last < 0:
+		s.chunks = append(s.chunks, nil)
+		last = 0
+	case len(s.chunks[last]) == followSegmentChunk:
+		s.chunks = append(s.chunks, make([]followSegment, 0, followSegmentChunk))
+		last++
+	}
+	if last == 0 {
+		s.chunks[0] = appendDoubling(s.chunks[0], seg)
+		return
+	}
+	s.chunks[last] = append(s.chunks[last], seg)
+}
+
+func (s *followSegments) at(i uint32) followSegment {
+	return s.chunks[i/followSegmentChunk][i%followSegmentChunk]
 }
 
 // chargeNormalization charges normalizing the follow set of every position:
@@ -196,8 +253,7 @@ func (t *followTable) chargePosition(segs []followSegment, spend func(int) error
 
 // segmentCharge counts one step per entry of seg plus its guards and actions.
 func (t *followTable) segmentCharge(seg followSegment) int {
-	p := t.prefixes[seg.prefix]
-	return len(t.sets[seg.set].positions) * (1 + len(p.guards) + len(p.actions))
+	return len(t.sets[seg.set].positions) * (1 + t.prefixes[seg.prefix].len())
 }
 
 // class returns the follow class of pos, materializing its follow set the
@@ -217,11 +273,22 @@ func (t *followTable) class(pos int) (*followClass, error) {
 	return &t.classes[ref.id], nil
 }
 
+// classEntries returns the normalized follow set of pos, which class must
+// have resolved, in storage that the next materialization reuses.
+func (t *followTable) classEntries(pos int) []dfaStateEntry {
+	if t.entriesOf != t.classOf[pos] {
+		t.materialize(t.positionSegments(pos))
+		t.entriesOf = t.classOf[pos]
+	}
+	return t.entries
+}
+
 func (t *followTable) classID(segs []followSegment) (uint32, error) {
 	if len(segs) == 1 && segs[0].prefix == 0 {
 		set := &t.sets[segs[0].set]
 		if !set.class.known {
-			id, err := t.addClass(t.segmentEntries(segs[0], make([]dfaEntry, 0, t.setLen(segs[0].set))))
+			t.entries = t.segmentEntries(segs[0], t.entries[:0])
+			id, err := t.addClass()
 			if err != nil {
 				return 0, err
 			}
@@ -231,13 +298,14 @@ func (t *followTable) classID(segs []followSegment) (uint32, error) {
 	}
 	t.key = t.key[:0]
 	for _, seg := range segs {
-		t.key = binary.LittleEndian.AppendUint32(t.key, seg.prefix)
-		t.key = binary.LittleEndian.AppendUint32(t.key, seg.set)
+		t.key = binary.AppendUvarint(t.key, uint64(seg.prefix))
+		t.key = binary.AppendUvarint(t.key, uint64(seg.set))
 	}
 	if id, ok := t.classIDs[string(t.key)]; ok {
 		return id, nil
 	}
-	id, err := t.addClass(t.materialize(segs))
+	t.materialize(segs)
+	id, err := t.addClass()
 	if err != nil {
 		return 0, err
 	}
@@ -245,37 +313,59 @@ func (t *followTable) classID(segs []followSegment) (uint32, error) {
 	return id, nil
 }
 
-func (t *followTable) addClass(entries []dfaEntry) (uint32, error) {
+// addClass adds the class whose follow set entries holds.
+func (t *followTable) addClass() (uint32, error) {
 	id, err := followTableID(len(t.classes))
 	if err != nil {
 		return 0, err
 	}
-	charge := len(entries) + 1
-	for _, e := range entries {
-		charge += len(e.Guards) + len(e.Actions)
-	}
-	t.classes = appendDoubling(t.classes, followClass{entries: entries, charge: charge})
+	t.classes = appendDoubling(t.classes, followClass{charge: t.entriesCharge(t.entries)})
+	t.entriesOf = dfaStateID{id: id, known: true}
 	return id, nil
 }
 
-func (t *followTable) materialize(segs []followSegment) []dfaEntry {
-	n := 0
-	for _, seg := range segs {
-		n += len(t.sets[seg.set].positions)
+// entriesCharge is what admitting entries as a state costs: one step, and
+// one per entry and per guard and action it takes.
+func (t *followTable) entriesCharge(entries []dfaStateEntry) int {
+	charge := len(entries) + 1
+	for _, e := range entries {
+		charge += t.prefixes[e.Prefix].len()
 	}
-	entries := make([]dfaEntry, 0, n)
-	for _, seg := range segs {
-		entries = t.segmentEntries(seg, entries)
-	}
-	return slices.Clip(normalizeDFAEntries(entries))
+	return charge
 }
 
-// segmentEntries appends the entries of seg to entries. They share the
-// prefix's guard and action lists, which are never modified.
-func (t *followTable) segmentEntries(seg followSegment, entries []dfaEntry) []dfaEntry {
-	p := t.prefixes[seg.prefix]
+func (t *followTable) materialize(segs []followSegment) {
+	t.entries = t.entries[:0]
+	for _, seg := range segs {
+		t.entries = t.segmentEntries(seg, t.entries)
+	}
+	t.entries = t.normalize(t.entries)
+}
+
+func (t *followTable) segmentEntries(seg followSegment, entries []dfaStateEntry) []dfaStateEntry {
 	for _, pos := range t.sets[seg.set].positions {
-		entries = append(entries, dfaEntry{Pos: pos, Guards: p.guards, Actions: p.actions})
+		entries = append(entries, dfaStateEntry{Pos: pos, Prefix: seg.prefix})
 	}
 	return entries
+}
+
+// normalize sorts entries in place by position, then by the content of their
+// guards and actions as compareDFAEntry orders it, and removes duplicates.
+func (t *followTable) normalize(entries []dfaStateEntry) []dfaStateEntry {
+	slices.SortFunc(entries, t.compareEntries)
+	return slices.Compact(entries)
+}
+
+func (t *followTable) compareEntries(a, b dfaStateEntry) int {
+	if n := cmp.Compare(a.Pos, b.Pos); n != 0 {
+		return n
+	}
+	if a.Prefix == b.Prefix {
+		return 0
+	}
+	pa, pb := t.prefixes[a.Prefix], t.prefixes[b.Prefix]
+	if n := compareCompiledGuards(pa.guards, pb.guards); n != 0 {
+		return n
+	}
+	return compareCompiledActions(pa.actions, pb.actions)
 }

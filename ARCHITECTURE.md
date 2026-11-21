@@ -1254,8 +1254,17 @@ graph preserves these ownership rules:
   references reach 640 MiB of heap. Each tail instead records one segment
   naming the shared first set and its interned guard and action prefix
   (`followTable`), sibling entry sets are unioned by appending, and each
-  distinct follow set is materialized once, so heap stays under the measured per-step
-  bound in `docs/RESOURCE_LIMITS.md`. Charging those entries more steps was
+  distinct follow set is materialized once, into reused storage, when a state
+  first reaches it. A queued state keeps only its key, a varint pair of
+  position and prefix per entry, which its row decodes, so composed entries
+  exist only while one row is built. Keeping each materialized set until its
+  state's row was built was rejected: the start row of a sequence of optional
+  elements reaches every position, so every follow set, at 56 bytes per entry,
+  was live at once, 143 MiB for 1,700 positions. Direct compilation of a
+  sequence gives each row a window of one shared edge run, since the rows an
+  edge leaves are always a contiguous run ending at the newest row, instead of
+  storing an edge per row and later element. Together these keep heap under the measured per-step bound in
+  `docs/RESOURCE_LIMITS.md`. Charging those entries more steps was
   rejected because it moves existing schemas toward or past
   `MaxContentModelAnalysisSteps`; a separate memory option was rejected because
   the analysis budget expresses the bound once each step admits bounded state.

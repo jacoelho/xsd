@@ -51,19 +51,24 @@ Finite `minOccurs` and `maxOccurs` values cannot exceed `4294967295`.
 model to its automaton uses, because each step admits a bounded amount of
 automaton state. A model group referenced many times is not copied: each
 position followed by the first positions of a referenced group shares that
-group's set, and each distinct follow set is built once. In the shapes
-measured, this heap stays under 8 bytes per analysis step, so under 128 MiB
-when one content model exhausts the default budget. The bound is measured,
-not derived. Parsing, the model table and the compiled tables a schema keeps
-fall under the other limits. In the two costliest shapes measured, the last
-two rows, each position has its own follow set:
+group's set, each distinct follow set is built when a state first reaches it,
+and a state waiting for its row keeps only a compact key. A sequence compiled
+directly to a table shares one run of edges among the rows that take them. In
+the shapes measured, this heap stays under 2.5 bytes per analysis step; the
+bound, with margin, is 3 bytes per step, so under 48 MiB when one content
+model exhausts the default budget. The bound is measured, not derived.
+Parsing, the model table and the compiled tables a schema keeps fall under the
+other limits. In the optional-particle sequences, the last four rows, each
+position is followed by every later one:
 
 | Content model at the default limits | Peak heap | Total allocated |
 | --- | ---: | ---: |
-| A choice of 256 elements doubled by 10 to 12 nested group references, a sequence of two references each | about 6 MiB | about 14 MiB |
-| A choice of 2,048 elements with `maxOccurs="unbounded"` | about 3 MiB | about 5 MiB |
-| A sequence of 1,060 optional elements with `maxOccurs="2"` | about 116 MiB | about 125 MiB |
-| A sequence of 2,060 optional elements, compiled directly to a table with an edge to each later element | about 108 MiB | about 200 MiB |
+| A choice of 256 elements doubled by 10 to 12 nested group references, a sequence of two references each | about 4 MiB | about 11 MiB |
+| A choice of 2,048 elements with `maxOccurs="unbounded"` | about 2 MiB | about 4 MiB |
+| A sequence of 1,060 optional elements with `maxOccurs="2"` | about 16 MiB | about 17 MiB |
+| A sequence of 2,060 optional elements, compiled directly to a table | about 3 MiB | about 5 MiB |
+| A sequence of one required and 1,720 optional elements with `maxOccurs="unbounded"` | about 30 MiB | about 32 MiB |
+| A sequence of one required element and 1,900 optional wildcards, each of its own namespace, with `maxOccurs="unbounded"` | about 35 MiB | about 92 MiB |
 
 Each shape stops with `schema.limit` at its content model. Raising
 `MaxContentModelAnalysisSteps` raises the bound with it.

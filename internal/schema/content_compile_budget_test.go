@@ -73,7 +73,7 @@ func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {
 		if err := b.normalizeFollows(); err != nil {
 			t.Fatalf("normalizeFollows() error = %v", err)
 		}
-		if _, err := b.row([]dfaEntry{{Pos: 0}}); err != nil {
+		if _, err := b.row([]dfaStateEntry{{Pos: 0}}); err != nil {
 			t.Fatalf("row() error = %v", err)
 		}
 	})
@@ -84,10 +84,10 @@ func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {
 		if err := b.normalizeFollows(); err != nil {
 			t.Fatalf("normalizeFollows() error = %v", err)
 		}
-		if _, err := b.row([]dfaEntry{{Pos: 0}}); err != nil {
+		if _, err := b.row([]dfaStateEntry{{Pos: 0}}); err != nil {
 			t.Fatalf("first row() error = %v", err)
 		}
-		_, err := b.row([]dfaEntry{{Pos: 0}})
+		_, err := b.row([]dfaStateEntry{{Pos: 0}})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	})
 }

@@ -73,6 +73,19 @@ func wideGroupFanOutSchema(width, depth int) string {
 	return b.String()
 }
 
+// optionalSequenceSchema is a sequence of head and width optional elements,
+// repeated up to maxOccurs times. Each optional position is followed by every
+// later one, so each has its own follow set.
+func optionalSequenceSchema(head string, width int, maxOccurs string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence maxOccurs="%s">%s`, maxOccurs, head)
+	for i := range width {
+		fmt.Fprintf(&b, `<xs:element name="e%d" minOccurs="0"/>`, i)
+	}
+	b.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	return b.String()
+}
+
 type automatonConstructionCase struct {
 	name         string
 	schema       string
@@ -85,10 +98,10 @@ type automatonConstructionCase struct {
 // determinization bounds are about four times the compiled tables each schema
 // reaches: 3.1 MiB of rows and edges at the state limit, and 16.6 MiB summed
 // over the separately determinized models in choice. The fan-out bound is
-// about 1.2 KiB per position over the 49,000 positions of g1 to g13. The
-// wide fan-out exhausts the default MaxContentModelAnalysisSteps; its bound is
-// two bytes per step of that budget, a quarter of the measured per-step bound
-// in docs/RESOURCE_LIMITS.md.
+// about 1.2 KiB per position over the 49,000 positions of g1 to g13. The other
+// schemas exhaust the default MaxContentModelAnalysisSteps. The bound of the
+// repeated optional sequence, the costliest element shape measured, is the
+// per-step bound in docs/RESOURCE_LIMITS.md; the others are two bytes per step.
 func automatonConstructionCases() []automatonConstructionCase {
 	return []automatonConstructionCase{
 		{name: "nested-counted-sequences", schema: nestedCountedSequenceSchema(17), limitErr: true, maxMiB: 12},
@@ -97,6 +110,9 @@ func automatonConstructionCases() []automatonConstructionCase {
 		{name: "wide-group-fan-out-10", schema: wideGroupFanOutSchema(256, 10), stepLimitErr: true, maxMiB: 32},
 		{name: "wide-group-fan-out-11", schema: wideGroupFanOutSchema(256, 11), stepLimitErr: true, maxMiB: 32},
 		{name: "wide-group-fan-out-12", schema: wideGroupFanOutSchema(256, 12), stepLimitErr: true, maxMiB: 32},
+		{name: "counted-optional-sequence", schema: optionalSequenceSchema("", 1060, "2"), stepLimitErr: true, maxMiB: 32},
+		{name: "direct-optional-sequence", schema: optionalSequenceSchema("", 2060, "1"), stepLimitErr: true, maxMiB: 32},
+		{name: "repeated-optional-sequence", schema: optionalSequenceSchema(`<xs:element name="z"/>`, 1720, "unbounded"), stepLimitErr: true, maxMiB: 48},
 	}
 }
 
