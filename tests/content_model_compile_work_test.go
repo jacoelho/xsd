@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -109,9 +108,6 @@ func TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps(t *te
 func buildCompileWorkDriver(t *testing.T, dir string) string {
 	t.Helper()
 	out := filepath.Join(dir, "compilework")
-	if runtime.GOOS == "windows" {
-		out += ".exe"
-	}
 	// The driver itself is instrumented because coverage.ClearCounters rejects
 	// a program whose main package is not.
 	//nolint:gosec // test-controlled go build arguments only.
