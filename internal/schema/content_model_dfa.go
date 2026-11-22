@@ -267,6 +267,15 @@ func (c *deterministicModelCompilation) table() []compiledModelRow {
 	return rows
 }
 
+// deterministicRow builds the row of one state. Its edges are the dominant heap
+// term of determinization in the shapes measured, and the budget bounds them:
+// each edge is one transition group, and before the group's edge is allocated
+// collectConfig has charged a step for the source edge that opened the group,
+// collectEdge a step for passing it, and the group count a step for the group.
+// An edge is 32 bytes on every supported platform, so live row edges take at
+// most 32/3 bytes per step. appendTransition charges at least two more steps
+// per edge, so the edges of finished rows take at most 32/5 bytes per step;
+// the 32/3 allows for the row in progress when the budget runs out.
 func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, stateID func([]dfaConfig) (uint32, error)) (compiledModelRow, error) {
 	var row compiledModelRow
 	c.groups = c.groups[:0]

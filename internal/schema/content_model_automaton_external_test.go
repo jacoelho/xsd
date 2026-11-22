@@ -112,8 +112,9 @@ type automatonConstructionCase struct {
 // over the separately determinized models in choice. The fan-out bound is
 // about 1.2 KiB per position over the 49,000 positions of g1 to g13. The other
 // schemas exhaust the default MaxContentModelAnalysisSteps. The bound of the
-// repeated optional sequence, the costliest element shape measured, is the
-// per-step bound in docs/RESOURCE_LIMITS.md; the others are two bytes per step.
+// repeated optional sequence, the costliest optional-element shape measured,
+// is three bytes per step, and the others two; both are measured margins
+// under the derived row-edge bound in docs/RESOURCE_LIMITS.md.
 func automatonConstructionCases() []automatonConstructionCase {
 	return []automatonConstructionCase{
 		{name: "nested-counted-sequences", schema: nestedCountedSequenceSchema(17), limitErr: true, maxMiB: 12},
@@ -181,8 +182,9 @@ func BenchmarkCompileContentModelAutomata(b *testing.B) {
 	}
 }
 
-// The shape is the one docs/RESOURCE_LIMITS.md lists with the largest peak
-// heap, and the bound is its documented 3 bytes per step. A 1 ms HeapInuse
+// The shape is the repeated optional wildcard sequence docs/RESOURCE_LIMITS.md
+// lists, and the bound, 3 bytes per step, is a measured margin over its peak
+// under the derived row-edge bound documented there. A 1 ms HeapInuse
 // sampler sees a lower bound on the true peak, so the floor rejects a run in
 // which it missed construction instead of passing it.
 func TestContentModelAutomatonConstructionPeakHeapIsBounded(t *testing.T) {

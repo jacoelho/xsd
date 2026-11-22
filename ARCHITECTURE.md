@@ -197,8 +197,10 @@ schema owns facet admission, final constraints and schema-use policy.
 `MaxSchemaDependencySteps` bounds loading, planning and resolution;
 `MaxContentModelAnalysisSteps` bounds the content-model work `workBudgetKind`
 lists, and through that work the heap that automaton
-construction uses (measured bound in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): each step
-admits bounded automaton state. Spent work is never refunded. Retained derived records
+construction uses (derived row-edge bound and measured heap in
+[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): each step admits bounded
+automaton state. That bound is per content model; nothing yet bounds the
+compiled tables summed across models, and a separate change owns that bound. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
 `appendModelParticles` is the only append to retained model particles and
 charges one step per particle before allocating (the restriction normalizer
@@ -1278,8 +1280,11 @@ graph preserves these ownership rules:
   was live at once, 143 MiB for 1,700 positions. Direct compilation of a
   sequence gives each row a window of one shared edge run, since the rows an
   edge leaves are always a contiguous run ending at the newest row, instead of
-  storing an edge per row and later element. Together these keep heap under the measured per-step bound in
-  `docs/RESOURCE_LIMITS.md`. Charging those entries more steps was
+  storing an edge per row and later element. Together these keep the measured
+  heap of one model at about 4 bytes per step or less. Its dominant term in
+  the shapes measured is row edges, which `deterministicRow` charges at least three steps
+  each before allocating, so they take at most 32/3 bytes per step (derived in
+  its Go doc; figures in `docs/RESOURCE_LIMITS.md`). Charging those entries more steps was
   rejected because it moves existing schemas toward or past
   `MaxContentModelAnalysisSteps`; a separate memory option was rejected because
   the analysis budget expresses the bound once each step admits bounded state.
@@ -1287,6 +1292,14 @@ graph preserves these ownership rules:
   installs particles through `completeModel`, and shared variants would be
   charged for copies that do not happen. Cloning content models on read was
   rejected: it is uncharged work proportional to references times group size.
+- Giving each {content type} particle its own root record was rejected. It
+  would stop copying a group's record when a type's whole content is a
+  repeated reference to that group. A full implementation kept verdicts,
+  diagnostics and compiled tables identical and lowered steps on about 417
+  corpus schemas, but it added 227 net production lines for a root table and
+  its identity rules, still needed the clone of the base root and
+  `chargedParticles`, and raised compile B/op 3.5% on the reachable
+  benchmarks.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
   `compileDeferredModelChildren`): each child particle keeps its own mapping,

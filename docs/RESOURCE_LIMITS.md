@@ -53,18 +53,36 @@ automaton state. A model group referenced many times is not copied: each
 position followed by the first positions of a referenced group shares that
 group's set, each distinct follow set is built when a state first reaches it,
 and a state waiting for its row keeps only a compact key. A sequence compiled
-directly to a table shares one run of edges among the rows that take them. In
-the shapes measured, this heap stays under 2.5 bytes per analysis step; the
-bound, with margin, is 3 bytes per step, so under 48 MiB when one content
-model exhausts the default budget. The bound is measured, not derived.
-Parsing, the model table and the compiled tables a schema keeps fall under the
-other limits. In the optional-particle sequences, the last four rows, each
-position is followed by every later one:
+directly to a table shares one run of edges among the rows that take them.
+
+In the shapes measured, the dominant term of that heap is the edges of the
+determinized automaton's rows. An edge is 32 bytes on every supported platform,
+and determinization charges at least three steps for each edge before it
+allocates the edge, so those edges take at most 32/3, about 10.7, bytes per
+analysis step:
+under 171 MiB when one content model exhausts the default budget. This figure
+is derived, not measured; the derivation is in the Go doc of `deterministicRow`
+in `internal/schema/content_model_dfa.go`. It covers row edges only. A new
+automaton state also keeps its key, 8 bytes per configuration, and a new
+counter value its interned vector; both grow with the steps too and are
+outside the figure. A model's rows, and the edges of a table compiled
+directly, which holds at most one edge per state, grow with its states, which
+`MaxContentModelStates` caps.
+
+The figure bounds one content model. The compiled tables a schema keeps until
+publication, summed over its content models, are not bounded by it, and no
+limit in this document bounds that sum; a separate change owns that bound.
+
+The peak heap measured for whole content models, below, includes keys, counter
+vectors, follow sets and scratch, and reaches about 4 bytes per step at most. In the
+optional-particle sequences, the last four rows, each position is followed by
+every later one:
 
 | Content model at the default limits | Peak heap | Total allocated |
 | --- | ---: | ---: |
 | A choice of 256 elements doubled by 10 to 12 nested group references, a sequence of two references each | about 4 MiB | about 11 MiB |
 | A choice of 2,048 elements with `maxOccurs="unbounded"` | about 2 MiB | about 4 MiB |
+| A choice of 120 elements with `maxOccurs="16000"` | about 65 MiB | about 66 MiB |
 | A sequence of 1,060 optional elements with `maxOccurs="2"` | about 16 MiB | about 17 MiB |
 | A sequence of 2,060 optional elements, compiled directly to a table | about 3 MiB | about 5 MiB |
 | A sequence of one required and 1,720 optional elements with `maxOccurs="unbounded"` | about 30 MiB | about 32 MiB |
