@@ -457,16 +457,10 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, rea
 	if choiceNeedsRuntimeSplit(model, reached) {
 		return true, nil
 	}
-	if err := c.work.spend(1); err != nil {
+	first, err := c.visitRuntimeSplitModel(id, seen, tag)
+	if err != nil || !first {
 		return false, err
 	}
-	if !validUint32Index(uint32(id), len(seen)) {
-		return false, xsderrors.InternalInvariant("UPA runtime-split check references content model outside its visit table")
-	}
-	if seen[id] == tag {
-		return false, nil
-	}
-	seen[id] = tag
 	if choiceNeedsRuntimeSplit(model, model.Occurs) {
 		return true, nil
 	}
@@ -480,6 +474,22 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, rea
 		}
 	}
 	return false, nil
+}
+
+// visitRuntimeSplitModel marks model id visited for the root tag and reports
+// whether this is its first visit.
+func (c *contentModelCompiler) visitRuntimeSplitModel(id contentModelID, seen []uint64, tag uint64) (bool, error) {
+	if err := c.work.spend(1); err != nil {
+		return false, err
+	}
+	if !validUint32Index(uint32(id), len(seen)) {
+		return false, xsderrors.InternalInvariant("UPA runtime-split check references content model outside its visit table")
+	}
+	if seen[id] == tag {
+		return false, nil
+	}
+	seen[id] = tag
+	return true, nil
 }
 
 func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle contentParticle, seen []uint64, tag uint64) (bool, error) {
@@ -590,15 +600,23 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 		if err != nil {
 			return false, err
 		}
-		for _, candidates := range sets {
-			for _, candidate := range candidates {
-				if candidate.Kind != particleWildcard {
-					continue
-				}
-				overlap, err := c.wildcardCandidateOverlaps(model.Particles[i+1:], candidate)
-				if err != nil || overlap {
-					return overlap, err
-				}
+		overlap, err := c.wildcardContinuationOverlaps(sets, model.Particles[i+1:])
+		if err != nil || overlap {
+			return overlap, err
+		}
+	}
+	return false, nil
+}
+
+func (c *contentModelCompiler) wildcardContinuationOverlaps(sets continuationSets, following []contentParticle) (bool, error) {
+	for _, candidates := range sets {
+		for _, candidate := range candidates {
+			if candidate.Kind != particleWildcard {
+				continue
+			}
+			overlap, err := c.wildcardCandidateOverlaps(following, candidate)
+			if err != nil || overlap {
+				return overlap, err
 			}
 		}
 	}
