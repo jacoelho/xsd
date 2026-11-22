@@ -8,8 +8,9 @@
 //	compilework <schema.xsd>
 //
 // It prints "<analysis steps> <dependency steps>": for each budget, the least
-// limit under which the schema compiles. The counters it leaves in GOCOVERDIR
-// count only the final compilation under default options.
+// limit under which the schema compiles. It clears the counters before a final
+// compilation under default options, so the internal/schema counters it leaves
+// in GOCOVERDIR count that compilation only.
 package main
 
 import (

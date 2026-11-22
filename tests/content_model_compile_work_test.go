@@ -1,4 +1,4 @@
-//go:build amd64 || arm64
+//go:build !(386 || arm || mips || mipsle || wasm)
 
 package tests_test
 
@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +19,10 @@ import (
 const (
 	compileWorkDriver  = "github.com/jacoelho/xsd/tests/internal/compilework"
 	compileWorkPackage = "github.com/jacoelho/xsd/internal/schema"
+	// compileWorkGrowthLimit lies between the growth with every mapping-search
+	// read charged (0.99) and the growth of the cheapest counted skip over
+	// mapped base particles, one if statement per skipped particle (1.95).
+	compileWorkGrowthLimit = 1.4
 )
 
 type compileWorkSample struct {
@@ -54,28 +59,25 @@ func sequenceRestrictingAllSchema(restrictors, particles int) string {
 	return b.String()
 }
 
-// TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps
-// compiles, through the public API, a base all group of 256 and of 1024
-// particles with one and with three restricting sequences. Work is the number
-// of statements of internal/schema the compilation executes, counted by a
-// coverage build of tests/internal/compilework, and steps are the least
-// MaxContentModelAnalysisSteps and MaxSchemaDependencySteps limits under which
-// it compiles. The work per step of the two added restrictions may grow by at
-// most 1.25 when the group grows fourfold: it stays within 1.01 while each
-// base particle the mapping search reads is one it compares and charges, and
-// reaches 1.64 when the search walks past the base particles already mapped.
-// Work per step of the whole compilation does not show that walk, because the
-// base group's own charged checks grow quadratically too.
+// TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps pins
+// the mapping search of findMappedGroupParticle to the base particles it
+// charges: the statements of internal/schema per charged step that each added
+// restriction costs may grow by at most compileWorkGrowthLimit when the group
+// grows sixteenfold. Whole-compilation work per step would not show a skip,
+// because the base group's own charged checks are quadratic too.
 //
-// It sees only statements of internal/schema, counts a builtin or library call
-// as one statement, and measures only compilations that succeed. It runs on
-// 64-bit hosts only, because the counts do not depend on the architecture.
+// Work counts executed statements of internal/schema only, so it does not see
+// a skip in a for-clause condition or post statement, inside a library or
+// builtin call such as slices.Index or copy, or in another package. Only
+// compilations that succeed are measured. The test does not build on 32-bit
+// or WebAssembly targets: the counts do not depend on the architecture, so
+// the 32-bit target would repeat it, and WebAssembly cannot run the go command.
 func TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	driver := buildCompileWorkDriver(t, dir)
-	const small, large = 256, 1024
+	const small, large = 128, 2048
 	sizes := [4][2]int{{1, small}, {3, small}, {1, large}, {3, large}}
 	var samples [4]compileWorkSample
 	var errs [4]error
@@ -92,16 +94,26 @@ func TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps(t *te
 	}
 	addedSmall := samples[1].minus(samples[0])
 	addedLarge := samples[3].minus(samples[2])
+	for _, added := range []compileWorkSample{addedSmall, addedLarge} {
+		if added.work <= 0 || added.steps <= 0 {
+			t.Fatalf("two added restrictions measured work %d and steps %d, want both positive", added.work, added.steps)
+		}
+	}
 	growth := addedLarge.perStep() / addedSmall.perStep()
-	if growth > 1.25 {
-		t.Errorf("two added restrictions: %d particles: work %d / steps %d = %.2f; %d particles: work %d / steps %d = %.2f; growth %.3f, want at most 1.25",
-			small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth)
+	if !(growth <= compileWorkGrowthLimit) {
+		t.Errorf("two added restrictions: %d particles: work %d / steps %d = %.2f; %d particles: work %d / steps %d = %.2f; growth %.3f, want at most %.2f",
+			small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth, compileWorkGrowthLimit)
 	}
 }
 
 func buildCompileWorkDriver(t *testing.T, dir string) string {
 	t.Helper()
 	out := filepath.Join(dir, "compilework")
+	if runtime.GOOS == "windows" {
+		out += ".exe"
+	}
+	// The driver itself is instrumented because coverage.ClearCounters rejects
+	// a program whose main package is not.
 	//nolint:gosec // test-controlled go build arguments only.
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-cover", "-covermode=atomic",
 		"-coverpkg="+compileWorkPackage+","+compileWorkDriver, "-o", out, compileWorkDriver)
