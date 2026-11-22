@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-// attributeDerivationSchema returns a base type with attributes attributes
-// and derivations types that each extend it with nothing or restrict it by
-// redeclaring every attribute.
+// attributeDerivationSchema returns a base type declaring the given number of
+// attributes and the given number of derived types, each extending it with
+// nothing or restricting it by redeclaring every attribute.
 func attributeDerivationSchema(method string, derivations, attributes int) string {
 	var b strings.Builder
 	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t">`)
@@ -49,6 +49,8 @@ func TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps(t *testing.T
 	const small, large = 128, 2048
 	for _, method := range []string{"extension", "restriction"} {
 		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
 			sizes := [4][2]int{{1, small}, {3, small}, {1, large}, {3, large}}
 			var samples [4]compileWorkSample
 			var errs [4]error

@@ -391,7 +391,7 @@ func validateAttributeUseSetRestriction(
 	if err := validateNewRestrictedAttributeUses(rt, base, derived.Uses); err != nil {
 		return err
 	}
-	return validateRestrictedAttributeWildcard(rt, base, derived, binding)
+	return validateRestrictedAttributeWildcard(base, derived, binding)
 }
 
 // attributeWildcardBinding identifies whether restriction wildcard provenance
@@ -445,7 +445,6 @@ func validateNewRestrictedAttributeUses(
 }
 
 func validateRestrictedAttributeWildcard(
-	rt *schemaBuild,
 	base, derived attributeUseSet,
 	binding attributeWildcardBinding,
 ) error {

@@ -375,27 +375,23 @@ func otherAllowsAnyNamespace(other wildcardRuntime, namespaces []namespaceID) bo
 
 // unionWildcard returns the union of two wildcard namespace sets.
 func unionWildcard(wa, wb wildcardRuntime, process ProcessContents, spend func(int) error) (wildcardRuntime, error) {
-	if sameNamespaceListMode(wa, wb) {
+	switch {
+	case sameNamespaceListMode(wa, wb):
 		namespaces, err := mergeNamespaceLists(wa.Namespaces, wb.Namespaces, spend)
 		if err != nil {
 			return wildcardRuntime{}, err
 		}
 		return namespaceListResult(wa, wb, namespaces, process), nil
-	}
-	if sameUnlistedNamespaces(wa, wb) {
+	case sameUnlistedNamespaces(wa, wb):
 		wa.Process = process
 		return wa, nil
-	}
-	if wa.Mode == WildcardAny || wb.Mode == WildcardAny {
+	case wa.Mode == WildcardAny || wb.Mode == WildcardAny:
 		return wildcardRuntime{Mode: WildcardAny, Process: process}, nil
-	}
-	if wa.Mode == WildcardOther && wb.Mode == WildcardOther {
+	case wa.Mode == WildcardOther && wb.Mode == WildcardOther:
 		return wildcardRuntime{Mode: WildcardOther, OtherThan: emptyNamespaceID, Process: process}, nil
-	}
-	if wa.Mode == WildcardOther {
+	case wa.Mode == WildcardOther:
 		return unionOtherWithFinite(wa, wb, process)
-	}
-	if wb.Mode == WildcardOther {
+	case wb.Mode == WildcardOther:
 		return unionOtherWithFinite(wb, wa, process)
 	}
 	namespaces, err := mergeNamespaceLists(wildcardFiniteNamespaces(wa), wildcardFiniteNamespaces(wb), spend)

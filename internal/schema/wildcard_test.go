@@ -324,12 +324,9 @@ func modelWildcardAdmits(w wildcardRuntime, ns namespaceID) bool {
 		return ns != emptyNamespaceID && ns != w.OtherThan
 	case WildcardLocal:
 		return ns == emptyNamespaceID
+	case WildcardTargetNamespace, WildcardList:
+		return slices.Contains(w.Namespaces, ns)
 	default:
-		for _, member := range w.Namespaces {
-			if member == ns {
-				return true
-			}
-		}
 		return false
 	}
 }
