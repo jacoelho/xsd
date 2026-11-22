@@ -41,16 +41,18 @@ type wildcardRuntime struct {
 	Process    ProcessContents
 }
 
-// wildcardByID resolves and clones a wildcard from a wildcard table.
+// wildcardByID resolves a wildcard from a wildcard table. The result shares
+// the admitted namespace list, which is immutable.
 func wildcardByID(wildcards []wildcardRuntime, id WildcardID) (wildcardRuntime, bool) {
 	if !validWildcardID(id, len(wildcards)) {
 		return wildcardRuntime{}, false
 	}
-	return cloneWildcard(wildcards[id]), true
+	return wildcards[id], true
 }
 
 // WildcardView is a read-only validation view over a frozen wildcard. Its
-// namespaces are in text order, the order diagnostics list them in.
+// namespaces are in text order, the order diagnostics list them in and
+// AllowsURI binary-searches.
 type WildcardView struct {
 	otherThan  string
 	namespaces []string
@@ -140,7 +142,8 @@ func (v WildcardView) AllowsURI(uri string) bool {
 	case WildcardTargetNamespace:
 		return len(v.namespaces) != 0 && v.namespaces[0] == uri
 	case WildcardList:
-		return slices.Contains(v.namespaces, uri)
+		_, found := slices.BinarySearch(v.namespaces, uri)
+		return found
 	default:
 		return false
 	}
@@ -241,13 +244,31 @@ func normalizeNamespaceList(namespaces []namespaceID) []namespaceID {
 	return slices.Compact(namespaces)
 }
 
+// Admitted namespace lists are immutable, sorted and strictly increasing
+// (validWildcardNamespaceList), so readers share them and set operations look
+// namespaces up by binary search or merge two lists. An operation charges spend
+// before it visits a list: one step per namespace it looks up or merges.
+// Overlap and intersection look up the shorter of the two runs that lie inside
+// the range the other list spans, since no namespace outside it can match;
+// subset looks up each namespace of the subset list; union merges both lists;
+// intersection with ##other copies the finite list; equality compares lists
+// of equal length. Union and intersection of two lists of the same mode
+// charge no separate equality check: their result has the length of both
+// lists exactly when the lists are equal. Membership of one namespace is one
+// binary search, and a list compared with ##other, which rejects at most two
+// namespaces, visits at most three; callers do these once per item they have
+// already charged, a name, a particle pair or an attribute use.
+
 // wildcardNamespaceEqual reports whether two wildcards represent the same
 // namespace set, ignoring process contents.
-func wildcardNamespaceEqual(a, b wildcardRuntime) bool {
-	if a.Mode != b.Mode || a.OtherThan != b.OtherThan {
-		return false
+func wildcardNamespaceEqual(a, b wildcardRuntime, spend func(int) error) (bool, error) {
+	if a.Mode != b.Mode || a.OtherThan != b.OtherThan || len(a.Namespaces) != len(b.Namespaces) {
+		return false, nil
 	}
-	return slices.Equal(a.Namespaces, b.Namespaces)
+	if err := spend(len(a.Namespaces)); err != nil {
+		return false, err
+	}
+	return slices.Equal(a.Namespaces, b.Namespaces), nil
 }
 
 // wildcardAllowsNamespace reports whether w admits namespace id.
@@ -259,10 +280,8 @@ func wildcardAllowsNamespace(w wildcardRuntime, ns namespaceID) bool {
 		return ns != emptyNamespaceID && ns != w.OtherThan
 	case WildcardLocal:
 		return ns == emptyNamespaceID
-	case WildcardTargetNamespace:
-		return len(w.Namespaces) != 0 && w.Namespaces[0] == ns
-	case WildcardList:
-		return slices.Contains(w.Namespaces, ns)
+	case WildcardTargetNamespace, WildcardList:
+		return containsNamespace(w.Namespaces, ns)
 	default:
 		return false
 	}
@@ -270,51 +289,64 @@ func wildcardAllowsNamespace(w wildcardRuntime, ns namespaceID) bool {
 
 // wildcardSubset reports whether derived admits only namespaces admitted by
 // base and is no less strict in processContents.
-func wildcardSubset(derived, base wildcardRuntime) bool {
-	return derived.Process <= base.Process && wildcardNamespaceSubset(derived, base)
+func wildcardSubset(derived, base wildcardRuntime, spend func(int) error) (bool, error) {
+	if derived.Process > base.Process {
+		return false, nil
+	}
+	return wildcardNamespaceSubset(derived, base, spend)
 }
 
-func wildcardNamespaceSubset(derived, base wildcardRuntime) bool {
+func wildcardNamespaceSubset(derived, base wildcardRuntime, spend func(int) error) (bool, error) {
 	switch derived.Mode {
 	case WildcardAny:
-		return base.Mode == WildcardAny
+		return base.Mode == WildcardAny, nil
 	case WildcardOther:
-		return base.Mode == WildcardAny || (base.Mode == WildcardOther && base.OtherThan == derived.OtherThan)
+		return base.Mode == WildcardAny || (base.Mode == WildcardOther && base.OtherThan == derived.OtherThan), nil
 	case WildcardLocal:
-		return wildcardAllowsNamespace(base, emptyNamespaceID)
+		return wildcardAllowsNamespace(base, emptyNamespaceID), nil
 	case WildcardTargetNamespace:
-		return len(derived.Namespaces) != 0 && wildcardAllowsNamespace(base, derived.Namespaces[0])
+		return len(derived.Namespaces) != 0 && wildcardAllowsNamespace(base, derived.Namespaces[0]), nil
 	case WildcardList:
-		for _, ns := range derived.Namespaces {
-			if !wildcardAllowsNamespace(base, ns) {
-				return false
-			}
-		}
-		return true
+		return wildcardAllowsNamespaces(base, derived.Namespaces, spend)
 	default:
-		return false
+		return false, nil
+	}
+}
+
+func wildcardAllowsNamespaces(w wildcardRuntime, namespaces []namespaceID, spend func(int) error) (bool, error) {
+	switch w.Mode {
+	case WildcardAny:
+		return true, nil
+	case WildcardOther:
+		return !containsNamespace(namespaces, emptyNamespaceID) && !containsNamespace(namespaces, w.OtherThan), nil
+	case WildcardLocal:
+		return len(namespaces) == 0 || len(namespaces) == 1 && namespaces[0] == emptyNamespaceID, nil
+	case WildcardTargetNamespace, WildcardList:
+		return sortedNamespaceSubset(namespaces, w.Namespaces, spend)
+	default:
+		return len(namespaces) == 0, nil
 	}
 }
 
 // wildcardsOverlap reports whether two wildcards can admit the same namespace.
-func wildcardsOverlap(a, b wildcardRuntime) bool {
+func wildcardsOverlap(a, b wildcardRuntime, spend func(int) error) (bool, error) {
 	if a.Mode == WildcardList && len(a.Namespaces) == 0 ||
 		b.Mode == WildcardList && len(b.Namespaces) == 0 {
-		return false
+		return false, nil
 	}
 	if wildcardsAlwaysOverlap(a, b) {
-		return true
+		return true, nil
 	}
 	if a.Mode == WildcardOther {
-		return finiteWildcardsOverlap(b, a)
+		return otherAllowsAnyNamespace(a, wildcardFiniteNamespaces(b)), nil
 	}
 	if b.Mode == WildcardOther {
-		return finiteWildcardsOverlap(a, b)
+		return otherAllowsAnyNamespace(b, wildcardFiniteNamespaces(a)), nil
 	}
 	if overlap, handled := localWildcardOverlap(a, b); handled {
-		return overlap
+		return overlap, nil
 	}
-	return finiteWildcardsOverlap(a, b)
+	return sortedNamespacesOverlap(a.Namespaces, b.Namespaces, spend)
 }
 
 func wildcardsAlwaysOverlap(a, b wildcardRuntime) bool {
@@ -332,9 +364,9 @@ func localWildcardOverlap(a, b wildcardRuntime) (overlap, handled bool) {
 	return false, false
 }
 
-func finiteWildcardsOverlap(a, b wildcardRuntime) bool {
-	for _, ns := range wildcardNamespaces(a) {
-		if wildcardAllowsNamespace(b, ns) {
+func otherAllowsAnyNamespace(other wildcardRuntime, namespaces []namespaceID) bool {
+	for _, ns := range namespaces {
+		if wildcardAllowsNamespace(other, ns) {
 			return true
 		}
 	}
@@ -342,82 +374,108 @@ func finiteWildcardsOverlap(a, b wildcardRuntime) bool {
 }
 
 // unionWildcard returns the union of two wildcard namespace sets.
-func unionWildcard(wa, wb wildcardRuntime, process ProcessContents) (wildcardRuntime, error) {
-	if wildcardNamespaceEqual(wa, wb) {
-		out := cloneWildcard(wa)
-		out.Process = process
-		return out, nil
-	}
-	if wa.Mode == WildcardAny || wb.Mode == WildcardAny {
+func unionWildcard(wa, wb wildcardRuntime, process ProcessContents, spend func(int) error) (wildcardRuntime, error) {
+	switch {
+	case sameNamespaceListMode(wa, wb):
+		namespaces, err := mergeNamespaceLists(wa.Namespaces, wb.Namespaces, spend)
+		if err != nil {
+			return wildcardRuntime{}, err
+		}
+		return namespaceListResult(wa, wb, namespaces, process), nil
+	case sameUnlistedNamespaces(wa, wb):
+		wa.Process = process
+		return wa, nil
+	case wa.Mode == WildcardAny || wb.Mode == WildcardAny:
 		return wildcardRuntime{Mode: WildcardAny, Process: process}, nil
-	}
-	if wa.Mode == WildcardOther && wb.Mode == WildcardOther {
+	case wa.Mode == WildcardOther && wb.Mode == WildcardOther:
 		return wildcardRuntime{Mode: WildcardOther, OtherThan: emptyNamespaceID, Process: process}, nil
-	}
-	if wa.Mode == WildcardOther {
+	case wa.Mode == WildcardOther:
 		return unionOtherWithFinite(wa, wb, process)
-	}
-	if wb.Mode == WildcardOther {
+	case wb.Mode == WildcardOther:
 		return unionOtherWithFinite(wb, wa, process)
 	}
-	namespaces := append(wildcardFiniteNamespaces(wa), wildcardFiniteNamespaces(wb)...)
-	namespaces = normalizeNamespaceList(namespaces)
+	namespaces, err := mergeNamespaceLists(wildcardFiniteNamespaces(wa), wildcardFiniteNamespaces(wb), spend)
+	if err != nil {
+		return wildcardRuntime{}, err
+	}
 	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}, nil
 }
 
 // intersectWildcard returns the intersection of two wildcard namespace sets.
-func intersectWildcard(wa, wb wildcardRuntime, process ProcessContents) (wildcardRuntime, error) {
-	if wildcardNamespaceEqual(wa, wb) {
-		out := cloneWildcard(wa)
-		out.Process = process
-		return out, nil
-	}
-	if wa.Mode == WildcardAny {
-		out := cloneWildcard(wb)
-		out.Process = process
-		return out, nil
-	}
-	if wb.Mode == WildcardAny {
-		out := cloneWildcard(wa)
-		out.Process = process
-		return out, nil
-	}
-	if wa.Mode == WildcardOther && wb.Mode == WildcardOther {
-		return intersectOtherWildcards(wa, wb, process)
-	}
-	return intersectFiniteWildcards(wa, wb, process), nil
-}
-
-func intersectOtherWildcards(wa, wb wildcardRuntime, process ProcessContents) (wildcardRuntime, error) {
-	if wa.OtherThan == emptyNamespaceID {
-		out := cloneWildcard(wb)
-		out.Process = process
-		return out, nil
-	}
-	if wb.OtherThan == emptyNamespaceID {
-		out := cloneWildcard(wa)
-		out.Process = process
-		return out, nil
-	}
-	return wildcardRuntime{}, errors.New("attribute wildcard intersection is not expressible")
-}
-
-func intersectFiniteWildcards(wa, wb wildcardRuntime, process ProcessContents) wildcardRuntime {
-	candidates := append(wildcardFiniteNamespaces(wa), wildcardFiniteNamespaces(wb)...)
-	candidates = normalizeNamespaceList(candidates)
-	var namespaces []namespaceID
-	for _, ns := range candidates {
-		if wildcardAllowsNamespace(wa, ns) && wildcardAllowsNamespace(wb, ns) {
-			namespaces = append(namespaces, ns)
+func intersectWildcard(wa, wb wildcardRuntime, process ProcessContents, spend func(int) error) (wildcardRuntime, error) {
+	switch {
+	case sameNamespaceListMode(wa, wb):
+		namespaces, err := intersectNamespaceLists(wa.Namespaces, wb.Namespaces, spend)
+		if err != nil {
+			return wildcardRuntime{}, err
 		}
+		return namespaceListResult(wa, wb, namespaces, process), nil
+	case sameUnlistedNamespaces(wa, wb), wb.Mode == WildcardAny:
+		wa.Process = process
+		return wa, nil
+	case wa.Mode == WildcardAny:
+		wb.Process = process
+		return wb, nil
+	case wa.Mode == WildcardOther && wb.Mode == WildcardOther:
+		return intersectOtherWildcards(wa, wb, process)
+	case wa.Mode == WildcardOther:
+		return intersectOtherWithFinite(wa, wb, process, spend)
+	case wb.Mode == WildcardOther:
+		return intersectOtherWithFinite(wb, wa, process, spend)
+	}
+	namespaces, err := intersectNamespaceLists(wildcardFiniteNamespaces(wa), wildcardFiniteNamespaces(wb), spend)
+	if err != nil {
+		return wildcardRuntime{}, err
+	}
+	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}, nil
+}
+
+func sameNamespaceListMode(wa, wb wildcardRuntime) bool {
+	return wa.Mode == wb.Mode && (wa.Mode == WildcardTargetNamespace || wa.Mode == WildcardList)
+}
+
+func sameUnlistedNamespaces(wa, wb wildcardRuntime) bool {
+	return wa.Mode == wb.Mode && wa.OtherThan == wb.OtherThan && len(wa.Namespaces) == 0 && len(wb.Namespaces) == 0
+}
+
+func namespaceListResult(wa, wb wildcardRuntime, namespaces []namespaceID, process ProcessContents) wildcardRuntime {
+	if len(namespaces) == len(wa.Namespaces) && len(namespaces) == len(wb.Namespaces) {
+		wa.Process = process
+		return wa
 	}
 	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}
 }
 
+func intersectOtherWildcards(wa, wb wildcardRuntime, process ProcessContents) (wildcardRuntime, error) {
+	if wa.OtherThan == emptyNamespaceID {
+		wb.Process = process
+		return wb, nil
+	}
+	if wb.OtherThan == emptyNamespaceID {
+		wa.Process = process
+		return wa, nil
+	}
+	return wildcardRuntime{}, errors.New("attribute wildcard intersection is not expressible")
+}
+
+func intersectOtherWithFinite(other, finite wildcardRuntime, process ProcessContents, spend func(int) error) (wildcardRuntime, error) {
+	candidates := wildcardFiniteNamespaces(finite)
+	if err := spend(len(candidates)); err != nil {
+		return wildcardRuntime{}, err
+	}
+	var namespaces []namespaceID
+	for _, ns := range candidates {
+		if wildcardAllowsNamespace(other, ns) {
+			namespaces = append(namespaces, ns)
+		}
+	}
+	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}, nil
+}
+
 func unionOtherWithFinite(other, finite wildcardRuntime, process ProcessContents) (wildcardRuntime, error) {
 	namespaces := wildcardFiniteNamespaces(finite)
-	hasAbsent := slices.Contains(namespaces, emptyNamespaceID)
-	hasNegated := slices.Contains(namespaces, other.OtherThan)
+	hasAbsent := containsNamespace(namespaces, emptyNamespaceID)
+	hasNegated := containsNamespace(namespaces, other.OtherThan)
 	if other.OtherThan == emptyNamespaceID {
 		if hasAbsent {
 			return wildcardRuntime{Mode: WildcardAny, Process: process}, nil
@@ -441,7 +499,7 @@ func wildcardFiniteNamespaces(w wildcardRuntime) []namespaceID {
 	case WildcardLocal:
 		return []namespaceID{emptyNamespaceID}
 	case WildcardTargetNamespace, WildcardList:
-		return slices.Clone(w.Namespaces)
+		return w.Namespaces
 	case WildcardAny, WildcardOther:
 		return nil
 	default:
@@ -449,9 +507,89 @@ func wildcardFiniteNamespaces(w wildcardRuntime) []namespaceID {
 	return nil
 }
 
-func wildcardNamespaces(w wildcardRuntime) []namespaceID {
-	if w.Mode == WildcardTargetNamespace || w.Mode == WildcardList {
-		return w.Namespaces
+func containsNamespace(namespaces []namespaceID, ns namespaceID) bool {
+	_, found := slices.BinarySearch(namespaces, ns)
+	return found
+}
+
+// namespacesWithin returns the run of sorted namespaces inside the range that
+// the sorted list bounds spans.
+func namespacesWithin(namespaces, bounds []namespaceID) []namespaceID {
+	if len(namespaces) == 0 || len(bounds) == 0 {
+		return nil
 	}
-	return nil
+	start, _ := slices.BinarySearch(namespaces, bounds[0])
+	end, found := slices.BinarySearch(namespaces, bounds[len(bounds)-1])
+	if found {
+		end++
+	}
+	return namespaces[start:end]
+}
+
+// overlappingRuns returns the runs of a and b inside the range the other list
+// spans, the shorter first.
+func overlappingRuns(a, b []namespaceID) (shorter, longer []namespaceID) {
+	runA, runB := namespacesWithin(a, b), namespacesWithin(b, a)
+	if len(runA) <= len(runB) {
+		return runA, runB
+	}
+	return runB, runA
+}
+
+func sortedNamespacesOverlap(a, b []namespaceID, spend func(int) error) (bool, error) {
+	shorter, longer := overlappingRuns(a, b)
+	if err := spend(len(shorter)); err != nil {
+		return false, err
+	}
+	for _, ns := range shorter {
+		if containsNamespace(longer, ns) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func sortedNamespaceSubset(subset, set []namespaceID, spend func(int) error) (bool, error) {
+	if err := spend(len(subset)); err != nil {
+		return false, err
+	}
+	for _, ns := range subset {
+		if !containsNamespace(set, ns) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func intersectNamespaceLists(a, b []namespaceID, spend func(int) error) ([]namespaceID, error) {
+	shorter, longer := overlappingRuns(a, b)
+	if err := spend(len(shorter)); err != nil {
+		return nil, err
+	}
+	var out []namespaceID
+	for _, ns := range shorter {
+		if containsNamespace(longer, ns) {
+			out = append(out, ns)
+		}
+	}
+	return out, nil
+}
+
+func mergeNamespaceLists(a, b []namespaceID, spend func(int) error) ([]namespaceID, error) {
+	if err := spend(len(a) + len(b)); err != nil {
+		return nil, err
+	}
+	out := make([]namespaceID, 0, len(a)+len(b))
+	for len(a) != 0 && len(b) != 0 {
+		switch {
+		case a[0] < b[0]:
+			out, a = append(out, a[0]), a[1:]
+		case a[0] > b[0]:
+			out, b = append(out, b[0]), b[1:]
+		default:
+			out, a, b = append(out, a[0]), a[1:], b[1:]
+		}
+	}
+	out = append(out, a...)
+	return append(out, b...), nil
 }

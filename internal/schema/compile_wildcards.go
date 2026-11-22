@@ -48,3 +48,9 @@ func (c *compiler) Wildcard(id WildcardID) (wildcardRuntime, bool) {
 func (c *compiler) AddWildcard(w wildcardRuntime) (WildcardID, error) {
 	return c.appendWildcard(w)
 }
+
+// SpendWildcardWork charges wildcard comparison work to
+// MaxSchemaDependencySteps.
+func (c *compiler) SpendWildcardWork(steps int) error {
+	return c.dependencyWork.spend(steps)
+}

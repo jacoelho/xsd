@@ -326,8 +326,9 @@ func (c *compiler) completeIdentity(id IdentityConstraintID, identity identityCo
 // particle appended to a content model costs one step, charged before the
 // append by appendModelParticles; admitting a model record costs one step,
 // an attribute-use set len(Uses) and a wildcard len(Namespaces). An admitted
-// model is immutable and reads share it. A new retained table must charge in
-// its admission function.
+// model or wildcard is immutable and reads share it; a wildcard's namespace
+// list is stored clipped, so a reader's append copies it instead of writing
+// past it. A new retained table must charge in its admission function.
 // These functions return unlocated budget errors; componentScope.leave locates
 // them at the component being compiled.
 func (c *compiler) appendWildcard(wildcard wildcardRuntime) (WildcardID, error) {
@@ -338,6 +339,7 @@ func (c *compiler) appendWildcard(wildcard wildcardRuntime) (WildcardID, error) 
 	if err := c.dependencyWork.spend(len(wildcard.Namespaces)); err != nil {
 		return NoWildcard, err
 	}
+	wildcard.Namespaces = slices.Clip(wildcard.Namespaces)
 	c.rt.Wildcards = append(c.rt.Wildcards, wildcard)
 	return id, nil
 }

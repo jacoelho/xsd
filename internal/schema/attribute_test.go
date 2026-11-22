@@ -366,7 +366,7 @@ func TestValidateAttributeWildcardProvenance(t *testing.T) {
 	)
 	base := wildcardRuntime{Mode: WildcardAny, Process: ProcessLax}
 	declared := wildcardRuntime{Mode: WildcardTargetNamespace, Namespaces: []namespaceID{1}, Process: processStrict}
-	union, err := unionWildcard(declared, base, declared.Process)
+	union, err := unionWildcard(declared, base, declared.Process, unlimitedWildcardWork)
 	if err != nil {
 		t.Fatalf("UnionWildcard() error = %v", err)
 	}
@@ -469,20 +469,17 @@ func TestValidateAttributeWildcardDerivation(t *testing.T) {
 	t.Parallel()
 
 	const baseID WildcardID = 1
-	rt := attributeWildcardFixture{
-		baseID: {Mode: WildcardLocal, Process: processStrict},
-	}
 	base := attributeWildcardUseSet(baseID, NoWildcard, NoWildcard, attributeWildcardNone)
 	derived := attributeWildcardUseSet(baseID, baseID, NoWildcard, attributeWildcardExtension)
-	if err := validateAttributeWildcardDerivation(rt.build(), base, derived, attributeWildcardExtension); err != nil {
+	if err := validateAttributeWildcardDerivation(base, derived, attributeWildcardExtension); err != nil {
 		t.Fatalf("ValidateAttributeWildcardDerivation() error = %v", err)
 	}
-	if err := validateAttributeWildcardDerivation(rt.build(), base, derived, attributeWildcardRestriction); err == nil ||
+	if err := validateAttributeWildcardDerivation(base, derived, attributeWildcardRestriction); err == nil ||
 		!strings.Contains(err.Error(), "attribute wildcard derivation does not match owning type") {
 		t.Fatalf("ValidateAttributeWildcardDerivation() wrong derivation error = %v", err)
 	}
 	derived.WildcardBase = NoWildcard
-	if err := validateAttributeWildcardDerivation(rt.build(), base, derived, attributeWildcardExtension); err == nil ||
+	if err := validateAttributeWildcardDerivation(base, derived, attributeWildcardExtension); err == nil ||
 		!strings.Contains(err.Error(), "attribute wildcard base does not match owning type") {
 		t.Fatalf("ValidateAttributeWildcardDerivation() wrong base error = %v", err)
 	}
@@ -804,8 +801,10 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 
 			baseSet := tt.baseState
 			baseSet.Uses = base
+			baseSet.Index = attributeUseIndexForTest(t, base)
 			derivedSet := tt.derivedState
 			derivedSet.Uses = tt.derived
+			derivedSet.Index = attributeUseIndexForTest(t, tt.derived)
 			err := validateAttributeUseSetRestriction(rt.build(), baseSet, derivedSet, tt.binding)
 			if tt.wantErr == "" {
 				if err != nil {
@@ -945,7 +944,10 @@ func TestValidateAttributeUseSetExtension(t *testing.T) {
 			if tt.mutate != nil {
 				derived = tt.mutate(derived)
 			}
-			err := validateAttributeUseSetExtension(attributeUseSet{Uses: base}, attributeUseSet{Uses: derived})
+			err := validateAttributeUseSetExtension(
+				attributeUseSet{Uses: base, Index: attributeUseIndexForTest(t, base)},
+				attributeUseSet{Uses: derived, Index: attributeUseIndexForTest(t, derived)},
+			)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateAttributeUseSetExtension() error = %v", err)
@@ -1063,4 +1065,17 @@ func (f attributeUseRestrictionFixture) build() *schemaBuild {
 	b := f.derivationFixture.build()
 	b.Wildcards = fixtureMapSlice(f.attributeWildcardFixture)
 	return b
+}
+
+func attributeUseIndexForTest(t *testing.T, uses []attributeUse) map[QName]uint32 {
+	t.Helper()
+	index := make(map[QName]uint32, len(uses))
+	for i, use := range uses {
+		slot, ok := newUint32Index(i)
+		if !ok {
+			t.Fatalf("attribute use slot %d out of range", i)
+		}
+		index[use.Name] = slot
+	}
+	return index
 }

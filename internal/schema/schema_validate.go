@@ -679,7 +679,7 @@ func validateSimpleBaseComplexDerivation(rt *schemaValidation, baseID SimpleType
 	if err := validateComplexTypeSimpleBaseExtensionRuntime(rt.build, baseID, ct); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return checkDerivedAttributeWildcard(rt, attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard}, rt.build.AttributeUseSets[ct.Attrs], attributeWildcardExtension)
+	return checkDerivedAttributeWildcard(attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard}, rt.build.AttributeUseSets[ct.Attrs], attributeWildcardExtension)
 }
 
 func validateComplexExtensionRuntime(rt *schemaValidation, ct complexTypeMetadata) error {
@@ -746,7 +746,7 @@ func validateAttributeUsesExtend(rt *schemaValidation, baseID, derivedID attribu
 	if err := validateAttributeUseSetExtension(base, derived); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
-	return checkDerivedAttributeWildcard(rt, base, derived, attributeWildcardExtension)
+	return checkDerivedAttributeWildcard(base, derived, attributeWildcardExtension)
 }
 
 func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attributeUseSetID, binding attributeWildcardBinding) error {
@@ -764,6 +764,9 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 }
 
 func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, set attributeUseSet) error {
+	if err := validateAttributeWildcardProvenance(rt.build, set); err != nil {
+		return xsderrors.InternalInvariant(err.Error())
+	}
 	if err := validateAttributeUseSetRecord(&rt.build.Names, rt.build, set); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -778,8 +781,8 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, s
 	return nil
 }
 
-func checkDerivedAttributeWildcard(rt *schemaValidation, base, derived attributeUseSet, expected attributeWildcardDerivation) error {
-	if err := validateAttributeWildcardDerivation(rt.build, base, derived, expected); err != nil {
+func checkDerivedAttributeWildcard(base, derived attributeUseSet, expected attributeWildcardDerivation) error {
+	if err := validateAttributeWildcardDerivation(base, derived, expected); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
 	return nil

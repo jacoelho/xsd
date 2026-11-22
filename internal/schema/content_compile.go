@@ -581,8 +581,11 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 		emptiable, err := c.analysis.ParticleEmptiable(next)
 		return !emptiable, err
 	}
-	if !modelOccurs.IsExactlyOne() && c.wildcardEquivalentOverlap(candidate, next) {
-		return false, nil
+	if !modelOccurs.IsExactlyOne() {
+		equivalent, err := c.wildcardEquivalentOverlap(candidate, next)
+		if err != nil || equivalent {
+			return false, err
+		}
 	}
 	return false, c.upaError("UPA violation: duplicate element in sequence", name)
 }
@@ -628,8 +631,9 @@ func (c *contentModelCompiler) wildcardCandidateOverlaps(following []contentPart
 		if err := c.work.spend(1); err != nil {
 			return false, err
 		}
-		if c.wildcardEquivalentOverlap(candidate, next) {
-			return true, nil
+		overlap, err := c.wildcardEquivalentOverlap(candidate, next)
+		if err != nil || overlap {
+			return overlap, err
 		}
 		emptiable, err := c.analysis.ParticleEmptiable(next)
 		if err != nil || !emptiable {
@@ -639,19 +643,19 @@ func (c *contentModelCompiler) wildcardCandidateOverlaps(following []contentPart
 	return false, nil
 }
 
-func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b contentParticle) bool {
+func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b contentParticle) (bool, error) {
 	if a.Kind != particleWildcard || b.Kind != particleWildcard {
-		return false
+		return false, nil
 	}
 	wa, ok := wildcardByID(c.rt.Wildcards, a.Wildcard)
 	if !ok {
-		return false
+		return false, nil
 	}
 	wb, ok := wildcardByID(c.rt.Wildcards, b.Wildcard)
 	if !ok {
-		return false
+		return false, nil
 	}
-	return wildcardNamespaceEqual(wa, wb)
+	return wildcardNamespaceEqual(wa, wb, c.work.spend)
 }
 
 func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledModel, error) {

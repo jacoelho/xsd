@@ -29,13 +29,13 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaSources` | `1024` | Max explicit source descriptors, and, separately, max distinct schema documents loaded (explicit and resolver-loaded together). An unavailable include/import target loads nothing and is not counted; the document that exceeds the count is opened and closed without being read. |
 | `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read from schema sources. Each document is charged when first loaded; an opener source reached again is reopened and charged again; a file source is read once; an in-memory source is compared by digest without charge. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
-| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, and each model record costs one step. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. Each derived type still compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types exceeds that limit instead. |
+| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. Each derived type still compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types exceeds that limit instead. |
 | `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. The content model of each complex type is compiled with its nested groups; a named model group that no complex type's content model reaches is not compiled and is not subject to this limit. |
-| `MaxContentModelAnalysisSteps` | `16_777_216` | Max content-model traversal, determinization, and ambiguity-analysis work. |
+| `MaxContentModelAnalysisSteps` | `16_777_216` | Max content-model traversal, determinization, and ambiguity-analysis work. Comparing two wildcard namespace lists, for ambiguity or for a wildcard restriction, costs one step per namespace looked up. |
 | `MaxSubstitutionClosureEntries` | `1_000_000` | Max aggregate transitive substitution-group relationships. |
 | `MaxSimpleUnionMemberEntries` | `1_000_000` | Max aggregate flattened simple-union members. |
 | `MaxSchemaPatternWork` | `536_870_912` | Max regular-expression matching work for one schema literal (enumeration, bound, fixed or default value). Same unit as `MaxInstancePatternWork`. Unsigned. |
@@ -53,18 +53,37 @@ automaton state. A model group referenced many times is not copied: each
 position followed by the first positions of a referenced group shares that
 group's set, each distinct follow set is built when a state first reaches it,
 and a state waiting for its row keeps only a compact key. A sequence compiled
-directly to a table shares one run of edges among the rows that take them. In
-the shapes measured, this heap stays under 2.5 bytes per analysis step; the
-bound, with margin, is 3 bytes per step, so under 48 MiB when one content
-model exhausts the default budget. The bound is measured, not derived.
-Parsing, the model table and the compiled tables a schema keeps fall under the
-other limits. In the optional-particle sequences, the last four rows, each
-position is followed by every later one:
+directly to a table shares one run of edges among the rows that take them.
+
+In the shapes measured, the dominant term of that heap is the edges of the
+determinized automaton's rows. An edge is 32 bytes on every supported platform,
+and determinization charges at least three steps for each edge before it
+allocates the edge, so those edges request at most 32/3, about 10.7, bytes per
+analysis step. Each row's edges are one allocation, which the Go allocator
+rounds up by at most about 1.249 (1025 edges: 32,800 bytes rounded to 40,960),
+so the edges take at most about 13.3 allocated bytes per step: under 214 MiB
+when one content model exhausts the default budget of 16,777,216 steps. This
+figure is derived, not measured; the derivation is in the Go doc of `deterministicRow`
+in `internal/schema/content_model_dfa.go`. It covers row edges only. A new
+automaton state also keeps its key, 8 bytes per configuration, and a new
+counter value its interned vector; both grow with the steps too and are
+outside the figure. A model's rows, and the edges of a table compiled
+directly, which holds at most one edge per state, grow with its states, which
+`MaxContentModelStates` caps.
+
+The figure bounds one content model. The compiled tables a schema keeps until
+publication, summed over its content models, are not bounded by it.
+
+The peak heap measured for whole content models, below, includes keys, counter
+vectors, follow sets and scratch, and reaches about 4 bytes per step at most. In the
+optional-particle sequences, the last four rows, each position is followed by
+every later one:
 
 | Content model at the default limits | Peak heap | Total allocated |
 | --- | ---: | ---: |
 | A choice of 256 elements doubled by 10 to 12 nested group references, a sequence of two references each | about 4 MiB | about 11 MiB |
 | A choice of 2,048 elements with `maxOccurs="unbounded"` | about 2 MiB | about 4 MiB |
+| A choice of 120 elements with `maxOccurs="16000"` | about 65 MiB | about 66 MiB |
 | A sequence of 1,060 optional elements with `maxOccurs="2"` | about 16 MiB | about 17 MiB |
 | A sequence of 2,060 optional elements, compiled directly to a table | about 3 MiB | about 5 MiB |
 | A sequence of one required and 1,720 optional elements with `maxOccurs="unbounded"` | about 30 MiB | about 32 MiB |
