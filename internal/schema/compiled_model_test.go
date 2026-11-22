@@ -82,7 +82,7 @@ func TestIndexCompiledModelRows(t *testing.T) {
 			{Edges: edges[:compiledDFARowIndexMinEdges-1]},
 		},
 	})
-	if err := newDFARowIndexAnalysis(rt.build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model); err != nil {
+	if err := newDFARowIndexAnalysis(rt.build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model, nil); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
 	if model.Rows[0].indexKind != publishedDFAMap {
@@ -134,7 +134,7 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 			return budgetExceeded
 		}
 		return nil
-	}, testDependencyWork()).indexModel(&model)
+	}, testDependencyWork()).indexModel(&model, nil)
 	if !errors.Is(err, budgetExceeded) {
 		t.Fatalf("IndexCompiledModelsRows() error = %v, want budget error", err)
 	}
@@ -163,7 +163,7 @@ func TestIndexCompiledModelRowsKeepsLinearScanForDuplicateNames(t *testing.T) {
 		Kind: compiledModelDFA,
 		Rows: []compiledModelRow{{Edges: edges}},
 	})
-	if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: elementNames}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model); err != nil {
+	if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: elementNames}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model, nil); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
 	if model.Rows[0].indexKind != publishedDFALinear {
@@ -183,7 +183,7 @@ func TestIndexCompiledModelRowsRejectsInvalidElement(t *testing.T) {
 		Kind: compiledModelDFA,
 		Rows: []compiledModelRow{{Edges: edges}},
 	})
-	err := newDFARowIndexAnalysis((dfaRowIndexFixture{}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model)
+	err := newDFARowIndexAnalysis((dfaRowIndexFixture{}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model, nil)
 	if err == nil || !strings.Contains(err.Error(), "compiled content model index references invalid element") {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
@@ -222,7 +222,7 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			compiled := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}
 			model := testProjectedModel(compiled)
 			want := testProjectedModel(compiled)
-			err := newDFARowIndexAnalysis(build, tc.work, testDependencyWork()).indexModel(&model)
+			err := newDFARowIndexAnalysis(build, tc.work, testDependencyWork()).indexModel(&model, nil)
 			if tc.work == nil {
 				if err == nil {
 					t.Fatalf("missing work error = %v, want required-budget error", err)
@@ -233,7 +233,7 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			if !reflect.DeepEqual(model, want) {
 				t.Fatalf("admission failure changed the published model: got %#v, want %#v", model, want)
 			}
-			if err := newDFARowIndexAnalysis(build, unlimitedContentModelWork, testDependencyWork()).indexModel(&model); err != nil {
+			if err := newDFARowIndexAnalysis(build, unlimitedContentModelWork, testDependencyWork()).indexModel(&model, nil); err != nil {
 				t.Fatalf("retry error = %v", err)
 			}
 			for _, entry := range []struct {

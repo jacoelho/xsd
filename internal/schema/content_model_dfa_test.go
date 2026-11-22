@@ -179,7 +179,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	}
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	err = newContentModelUPACheck(&names, rt.build(), 1, &work, analysis).checkModel(0)
+	err = newContentModelUPACheck(&names, rt.build(), 1, &work, testDependencyWork(), analysis).checkModel(0)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -212,7 +212,7 @@ func TestCheckContentModelsUPARejectsCorruptRuntimeSplitInputs(t *testing.T) {
 			rt := compiledModelFixture{models: tt.models}
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, analysis).checkModel(0)
+			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, testDependencyWork(), analysis).checkModel(0)
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}

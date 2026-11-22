@@ -13,11 +13,16 @@ func unlimitedContentModelAnalysis(rt *schemaBuild) *contentModelAnalysis {
 // testProjectedModel projects model to its published form without indexing
 // it.
 func testProjectedModel(model compiledModel) compiledModelRead {
-	read, err := newCompiledModelRead(model, unlimitedContentModelWork)
+	read, _ := testProjectedModelRun(model)
+	return read
+}
+
+func testProjectedModelRun(model compiledModel) (compiledModelRead, []compiledModelEdgeRead) {
+	read, run, err := newCompiledModelRead(model, unlimitedContentModelWork)
 	if err != nil {
 		panic(err)
 	}
-	return read
+	return read, run
 }
 
 // testIndexedModels projects and indexes models as compilation does.
@@ -25,8 +30,9 @@ func testIndexedModels(rt *schemaBuild, models ...compiledModel) []compiledModel
 	analysis := newDFARowIndexAnalysis(rt, unlimitedContentModelWork, testDependencyWork())
 	reads := make([]compiledModelRead, len(models))
 	for i, model := range models {
-		reads[i] = testProjectedModel(model)
-		if err := analysis.indexModel(&reads[i]); err != nil {
+		read, run := testProjectedModelRun(model)
+		reads[i] = read
+		if err := analysis.indexModel(&reads[i], run); err != nil {
 			panic(err)
 		}
 	}

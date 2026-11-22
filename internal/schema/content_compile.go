@@ -82,9 +82,10 @@ type cachedID struct {
 // contentModelCompiler charges compilation work to work and each record of
 // a compiled table to retained before allocating it: two units per compiled
 // model, whose record the compiled table and the published table both hold,
-// and one per row, edge reference and xs:all term. A model's rows and edge
-// references are its published ones, so the charge also bounds the tables
-// publication keeps.
+// and one per row, edge and xs:all term. The rows of a direct sequence share
+// one run of edges, so each of its edges counts once. A model's rows and edges
+// are its published ones, so the charge also bounds the tables publication
+// keeps.
 type contentModelCompiler struct {
 	names                 *nameTable
 	rt                    *schemaBuild
@@ -159,10 +160,11 @@ func newContentModelUPACheck(
 	rt *schemaBuild,
 	count int,
 	work *workBudget,
+	retained *workBudget,
 	analysis *contentModelAnalysis,
 ) *contentModelUPACheck {
 	return &contentModelUPACheck{
-		compiler: newContentModelCompiler(names, rt, 0, work, nil, analysis),
+		compiler: newContentModelCompiler(names, rt, 0, work, retained, analysis),
 		seen:     make([]uint64, count),
 	}
 }
@@ -870,15 +872,17 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 	return compiledModel{
 		Kind:  compiledModelDFA,
 		Rows:  rows,
+		Run:   compilation.edges[:len(compilation.edges):len(compilation.edges)],
 		Start: 0,
 		Empty: rows[0].Accept,
 	}, true, nil
 }
 
 // directSequenceCompilation compiles a sequence of element and wildcard
-// particles. The rows that take a particle's edge are always a contiguous
-// run ending at the last row, so each row's edges are one run of a shared
-// edge array.
+// particles. Each particle appends one row and one edge to that row, so edge k
+// targets row k+1, and the rows that take an edge are always a contiguous run
+// ending at the last row, so each row's edges are a window of the shared edge
+// array.
 type directSequenceCompilation struct {
 	compiler *contentModelCompiler
 	rows     []compiledModelRow
@@ -924,14 +928,10 @@ func (b *directSequenceCompilation) addEdge(particle contentParticle, row compil
 	if err := b.compiler.work.spend(int(to - b.active)); err != nil {
 		return err
 	}
-	repeats := particle.Occurs.Unbounded || particle.Occurs.Max > 1
-	references := int(to - b.active)
-	if repeats {
-		references++
-	}
-	if err := b.compiler.retained.spend(references); err != nil {
+	if err := b.compiler.retained.spend(1); err != nil {
 		return err
 	}
+	repeats := particle.Occurs.Unbounded || particle.Occurs.Max > 1
 	edge := len(b.edges)
 	b.edges = append(b.edges, compiledModelEdge{Particle: singleParticle(particle), To: to})
 	start := edge + 1

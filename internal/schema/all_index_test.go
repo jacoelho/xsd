@@ -45,7 +45,7 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 				return exhausted
 			}
 			return nil
-		}, testDependencyWork()).indexModel(&read)
+		}, testDependencyWork()).indexModel(&read, nil)
 		return read, err
 	}
 	if read, err := index(plain); err != nil || read.allNames == nil {
@@ -80,7 +80,7 @@ func TestAllContentIndexMapsEachTermOfAnIndexableModel(t *testing.T) {
 			t.Parallel()
 			names := allTermNames(tt.model)
 			read := testProjectedModel(tt.model)
-			if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: names}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&read); err != nil {
+			if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: names}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&read, nil); err != nil {
 				t.Fatalf("indexModel() error = %v", err)
 			}
 			if !tt.indexed {

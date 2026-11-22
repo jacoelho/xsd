@@ -142,7 +142,7 @@ func TestCompiledModelReadProjectionAllocatesOneTablePerKind(t *testing.T) {
 		model.Rows = append(model.Rows, compiledModelRow{Edges: []compiledModelEdge{{To: uint32(i)}, {To: uint32(i + 1)}}})
 	}
 	allocs := testing.AllocsPerRun(3, func() {
-		read, err := newCompiledModelRead(model, unlimitedContentModelWork)
+		read, _, err := newCompiledModelRead(model, unlimitedContentModelWork)
 		if err != nil {
 			panic(err)
 		}

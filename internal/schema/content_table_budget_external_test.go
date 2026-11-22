@@ -11,8 +11,8 @@ import (
 // The schemas of each pair declare the same components and particles and
 // differ only in the compiled table of one content model, so the difference
 // in their least MaxSchemaDependencySteps is the difference in table units:
-// rows, edge references and index entries.
-func TestCompiledContentTablesChargeEveryRowEdgeReferenceAndIndexEntry(t *testing.T) {
+// rows, edges and index entries.
+func TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry(t *testing.T) {
 	t.Parallel()
 	elements := func(count int, attrs string) string {
 		var b strings.Builder
@@ -27,13 +27,23 @@ func TestCompiledContentTablesChargeEveryRowEdgeReferenceAndIndexEntry(t *testin
 		wantDifference int
 	}{
 		{
-			// Ten optional elements give row i the edges of elements i to 9:
-			// 55 edge references against 10, and the rows of 10, 9 and 8 edges
-			// are indexed, 27 entries.
+			// Both sequences hold eleven rows and one run of ten edges. The
+			// optional elements' rows of 10, 9 and 8 edges share one index of
+			// the run: ten names and the wildcard count.
 			name:           "optional against required sequence",
 			larger:         `<xs:sequence>` + elements(10, ` minOccurs="0"`) + `</xs:sequence>`,
 			base:           `<xs:sequence>` + elements(10, "") + `</xs:sequence>`,
-			wantDifference: 55 - 10 + 27,
+			wantDifference: 10 + 1,
+		},
+		{
+			// Both sequences hold twenty rows and one run of nineteen edges.
+			// The optional run names e0 to e8 twice, around the required x,
+			// so its shared index holds ten names, the wildcard count, and for
+			// each repeated name its position count and two positions.
+			name:           "optional sequence repeating its names against required",
+			larger:         `<xs:sequence>` + elements(9, ` minOccurs="0"`) + `<xs:element name="x"/>` + elements(9, ` minOccurs="0"`) + `</xs:sequence>`,
+			base:           `<xs:sequence>` + elements(9, "") + `<xs:element name="x"/>` + elements(9, "") + `</xs:sequence>`,
+			wantDifference: 10 + 1 + 9*3,
 		},
 		{
 			// Every element of a repeated choice of eight elements has the

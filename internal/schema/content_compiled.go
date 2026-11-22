@@ -207,10 +207,16 @@ const (
 	publishedDFALinear publishedDFAIndexKind = iota
 	publishedDFAMap
 	publishedDFADense
+	// publishedDFARun marks a row whose edges are a window of its model's edge
+	// run and whose index is the run's, shared by the run's other indexed
+	// rows (dfaRowIndexAnalysis.indexRun).
+	publishedDFARun
 )
 
-// Map data is ordered wildcard positions; dense data is metadata and slots.
-// The row kind owns interpretation, so metadata never enters wildcard iteration.
+// Map data is ordered wildcard positions; dense data is metadata and slots;
+// run data is the wildcard count, the ordered wildcard positions and the
+// positions of repeated names. The row kind owns interpretation, so metadata
+// never enters wildcard iteration.
 type publishedDFAIndex struct {
 	nameToEdge map[QName]uint32
 	data       []uint32
@@ -320,19 +326,31 @@ func publishedContentModels(models []compiledModelRead, entered []int) []compile
 // newCompiledModelRead projects one compiled model to its published form,
 // charging one unit of work per model, row, edge and xs:all term. Each table
 // is allocated at its exact length, and each row's Edges has no spare
-// capacity, so appending to it never writes into another row's edges.
-func newCompiledModelRead(model compiledModel, work contentModelWork) (compiledModelRead, error) {
+// capacity, so appending to it never writes into another row's edges. When
+// the model's rows are windows of one run of edges, the published rows are
+// windows of its projected run, which newCompiledModelRead also returns.
+func newCompiledModelRead(model compiledModel, work contentModelWork) (compiledModelRead, []compiledModelEdgeRead, error) {
 	if err := chargeCompiledModelProjectionWork(model, work); err != nil {
-		return compiledModelRead{}, err
+		return compiledModelRead{}, nil, err
+	}
+	run := readEdges(model.Run)
+	var rows []compiledModelRowRead
+	if model.Run == nil {
+		rows = readRows(model.Rows)
+	} else {
+		var err error
+		if rows, err = readRunRows(model.Rows, run); err != nil {
+			return compiledModelRead{}, nil, err
+		}
 	}
 	return compiledModelRead{
-		Rows:      readRows(model.Rows),
+		Rows:      rows,
 		All:       readAll(model.All),
 		Start:     model.Start,
 		AllBitLen: model.AllBitLen,
 		Kind:      model.Kind,
 		Empty:     model.Empty,
-	}, nil
+	}, run, nil
 }
 
 func readRows(source []compiledModelRow) []compiledModelRowRead {
@@ -350,22 +368,65 @@ func readRows(source []compiledModelRow) []compiledModelRowRead {
 		rowEdges := edges[:end:end]
 		edges = edges[end:]
 		for j, edge := range row.Edges {
-			rowEdges[j] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
+			rowEdges[j] = newCompiledModelEdgeRead(edge)
 		}
 		if end == 0 {
 			rowEdges = nil
 		}
-		rows[i] = compiledModelRowRead{
-			Edges:         rowEdges,
-			CountParticle: newCompiledParticleRead(row.CountParticle),
-			Min:           row.Min,
-			Max:           row.Max,
-			Accept:        row.Accept,
-			Counted:       row.Counted,
-			Unbounded:     row.Unbounded,
-		}
+		rows[i] = newCompiledModelRowRead(row, rowEdges)
 	}
 	return rows
+}
+
+// readRunRows projects rows whose edges are windows of run. Edge k of run
+// targets row k+1, so a window's first target locates it in run.
+func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead) ([]compiledModelRowRead, error) {
+	for k, edge := range run {
+		if uint64(edge.To) != uint64(k)+1 {
+			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows")
+		}
+	}
+	rows := make([]compiledModelRowRead, len(source))
+	for i, row := range source {
+		var window []compiledModelEdgeRead
+		if len(row.Edges) > 0 {
+			start := uint64(row.Edges[0].To) - 1
+			end := start + uint64(len(row.Edges))
+			if row.Edges[0].To == 0 || end > uint64(len(run)) || uint64(row.Edges[len(row.Edges)-1].To) != end {
+				return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run")
+			}
+			window = run[start:end:end]
+		}
+		rows[i] = newCompiledModelRowRead(row, window)
+	}
+	return rows, nil
+}
+
+func newCompiledModelRowRead(row compiledModelRow, edges []compiledModelEdgeRead) compiledModelRowRead {
+	return compiledModelRowRead{
+		Edges:         edges,
+		CountParticle: newCompiledParticleRead(row.CountParticle),
+		Min:           row.Min,
+		Max:           row.Max,
+		Accept:        row.Accept,
+		Counted:       row.Counted,
+		Unbounded:     row.Unbounded,
+	}
+}
+
+func readEdges(source []compiledModelEdge) []compiledModelEdgeRead {
+	if len(source) == 0 {
+		return nil
+	}
+	edges := make([]compiledModelEdgeRead, len(source))
+	for i, edge := range source {
+		edges[i] = newCompiledModelEdgeRead(edge)
+	}
+	return edges
+}
+
+func newCompiledModelEdgeRead(edge compiledModelEdge) compiledModelEdgeRead {
+	return compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
 }
 
 func readAll(source []compiledAllTerm) []compiledAllTermRead {
@@ -379,12 +440,19 @@ func readAll(source []compiledAllTerm) []compiledAllTermRead {
 	return all
 }
 
+// chargeCompiledModelProjectionWork charges one unit per model, row, xs:all
+// term and published edge: each edge of a run once, and otherwise each edge of
+// each row.
 func chargeCompiledModelProjectionWork(model compiledModel, work contentModelWork) error {
-	if err := spendContentModelWorkN(work, 1+len(model.All)); err != nil {
+	if err := spendContentModelWorkN(work, 1+len(model.All)+len(model.Run)); err != nil {
 		return err
 	}
 	for _, row := range model.Rows {
-		if err := spendContentModelWorkN(work, 1+len(row.Edges)); err != nil {
+		edges := len(row.Edges)
+		if model.Run != nil {
+			edges = 0
+		}
+		if err := spendContentModelWorkN(work, 1+edges); err != nil {
 			return err
 		}
 	}
@@ -592,8 +660,8 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
-	if row.indexKind == publishedDFAMap {
-		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
+	if row.indexKind == publishedDFAMap || row.indexKind == publishedDFARun {
+		return rt.nextPublishedIndexedDFAContent(st, model, row, in)
 	}
 	if row.indexKind == publishedDFADense {
 		return rt.nextPublishedDenseDFAContent(st, model, row, in)
@@ -649,8 +717,8 @@ func completePublishedDFAContent(st ContentState, model *compiledModelRead) Cont
 	return contentCompletionIncomplete
 }
 
-func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx publishedDFAIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	candidates := newPublishedDFACandidates(idx, in)
+func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	candidates := newPublishedDFACandidates(row, in)
 	for {
 		pos, ok := candidates.next()
 		if !ok {
@@ -672,26 +740,71 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 	}
 }
 
+// publishedDFACandidates yields, in edge order, the edges of an indexed row
+// that may match one input: its wildcard edges and the element edge the
+// input's name selects. Wildcard positions are offset by the row's first
+// position in its model's edge run, which is zero for a row that owns its
+// edges.
 type publishedDFACandidates struct {
 	wildcards []uint32
+	offset    uint32
 	element   int
 	nextWild  int
 }
 
-func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishedDFACandidates {
+func newPublishedDFACandidates(row *compiledModelRowRead, in ContentInput) publishedDFACandidates {
+	if row.indexKind == publishedDFARun {
+		return newPublishedRunCandidates(row, in)
+	}
 	element := -1
 	if in.Name.Known {
-		if pos, ok := idx.nameToEdge[in.Name.Name]; ok {
+		if pos, ok := row.index.nameToEdge[in.Name.Name]; ok {
 			element = int(pos)
 		}
 	}
-	return &publishedDFACandidates{wildcards: idx.data, element: element}
+	return publishedDFACandidates{wildcards: row.index.data, element: element}
+}
+
+// newPublishedRunCandidates selects the candidates of a row whose edges are
+// the run positions from start, the position its first edge's target
+// follows, to end.
+func newPublishedRunCandidates(row *compiledModelRowRead, in ContentInput) publishedDFACandidates {
+	start := row.Edges[0].To - 1
+	end := start + uint32(len(row.Edges))
+	data := row.index.data
+	wildcards := data[1 : 1+data[0]]
+	low, _ := slices.BinarySearch(wildcards, start)
+	high, _ := slices.BinarySearch(wildcards, end)
+	element := -1
+	if in.Name.Known {
+		if value, ok := row.index.nameToEdge[in.Name.Name]; ok {
+			if pos, ok := publishedRunPosition(data, value, start); ok && pos < end {
+				element = int(pos - start)
+			}
+		}
+	}
+	return publishedDFACandidates{wildcards: wildcards[low:high], offset: start, element: element}
+}
+
+// publishedRunPosition returns the first run position at or after start of
+// the name a run index maps to value.
+func publishedRunPosition(data []uint32, value, start uint32) (uint32, bool) {
+	if value&publishedRunRepeated == 0 {
+		return value, value >= start
+	}
+	group := data[value&^publishedRunRepeated:]
+	positions := group[1 : 1+group[0]]
+	i, _ := slices.BinarySearch(positions, start)
+	if i == len(positions) {
+		return 0, false
+	}
+	return positions[i], true
 }
 
 func (c *publishedDFACandidates) next() (int, bool) {
 	switch {
-	case c.nextWild < len(c.wildcards) && (c.element < 0 || int(c.wildcards[c.nextWild]) < c.element):
-		position := int(c.wildcards[c.nextWild])
+	case c.nextWild < len(c.wildcards) && (c.element < 0 || int(c.wildcards[c.nextWild]-c.offset) < c.element):
+		position := int(c.wildcards[c.nextWild] - c.offset)
 		c.nextWild++
 		return position, true
 	case c.element >= 0:

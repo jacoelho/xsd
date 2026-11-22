@@ -68,7 +68,7 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 			t.Parallel()
 			work := newWorkBudget(contentModelWorkBudget, tt.limit)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			upa := newContentModelUPACheck(nil, rt.build(), 4, &work, analysis)
+			upa := newContentModelUPACheck(nil, rt.build(), 4, &work, testDependencyWork(), analysis)
 			var err error
 			for id := range contentModelID(4) {
 				if err = upa.checkModel(id); err != nil {
@@ -91,7 +91,7 @@ func checkUPAWithin(t *testing.T, models map[contentModelID]contentModelNode, ro
 	rt := compiledModelFixture{models: models}
 	work := newWorkBudget(contentModelWorkBudget, limit)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	upa := newContentModelUPACheck(nil, rt.build(), len(models), &work, analysis)
+	upa := newContentModelUPACheck(nil, rt.build(), len(models), &work, testDependencyWork(), analysis)
 	for _, id := range roots {
 		if err := upa.checkModel(id); err != nil {
 			return work.limit - work.remaining, err

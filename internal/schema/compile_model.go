@@ -393,18 +393,18 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIn
 	if _, root := slices.BinarySearch(roots, id); !root {
 		return compiledModelRead{Kind: compiled.Kind}, nil
 	}
-	model, err := newCompiledModelRead(compiled, c.contentWork.spend)
+	model, run, err := newCompiledModelRead(compiled, c.contentWork.spend)
 	if err != nil {
 		return compiledModelRead{}, err
 	}
-	if err := index.indexModel(&model); err != nil {
+	if err := index.indexModel(&model, run); err != nil {
 		return compiledModelRead{}, err
 	}
 	return model, nil
 }
 
 func (c *compiler) checkCompiledModelsUPA(reached []contentModelID) error {
-	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, c.contentAnalysis)
+	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, &c.dependencyWork, c.contentAnalysis)
 	for _, id := range reached {
 		if err := c.checkModelUPA(upa, id); err != nil {
 			return err

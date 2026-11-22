@@ -260,8 +260,7 @@ func appendDoubling[S ~[]E, E any](s S, e E) S {
 	return append(s, e)
 }
 
-// table returns the built rows at their exact length; compiled models live
-// until publication.
+// table returns the built rows as compiled rows.
 func (c *deterministicModelCompilation) table() []compiledModelRow {
 	rows := make([]compiledModelRow, len(c.rows))
 	for i, row := range c.rows {
