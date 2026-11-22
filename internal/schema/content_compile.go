@@ -587,7 +587,14 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 	return false, nil
 }
 
+// candidatesHaveWildcardEquivalentOverlap reads candidates only when a member
+// follows, so it reads no more candidates than wildcardCandidateOverlaps
+// charges: the candidates of the last member can be a continuation set shared
+// with every model that ends in the same group.
 func (c *contentModelCompiler) candidatesHaveWildcardEquivalentOverlap(particles, candidates []contentParticle, start int) (bool, error) {
+	if start == len(particles) {
+		return false, nil
+	}
 	for _, candidate := range candidates {
 		overlap, err := c.wildcardCandidateOverlaps(particles, candidate, start)
 		if err != nil || overlap {
