@@ -3,6 +3,8 @@ package schema
 import (
 	"errors"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -180,6 +182,44 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 	err = newContentModelUPACheck(&names, rt.build(), 1, &work, analysis).checkModel(0)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
+}
+
+func TestCheckContentModelsUPARejectsCorruptRuntimeSplitInputs(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	twice := occurrence{Min: 1, Max: 2}
+	for _, tt := range []struct {
+		name    string
+		models  map[contentModelID]contentModelNode
+		visited int
+	}{
+		{
+			name:    "particle names a missing model",
+			models:  map[contentModelID]contentModelNode{0: {Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(5, twice)}}},
+			visited: 1,
+		},
+		{
+			name: "model outside the visit table",
+			models: map[contentModelID]contentModelNode{
+				0: {Kind: modelSequence, Occurs: one, Particles: []contentParticle{modelParticle(1, twice)}},
+				1: {Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}},
+			},
+			visited: 1,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			rt := compiledModelFixture{models: tt.models}
+			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, analysis).checkModel(0)
+			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if diag, _ := errors.AsType[*xsderrors.Error](err); !strings.HasPrefix(diag.Message(), "UPA runtime-split check references") {
+				t.Fatalf("checkModel() error = %v, want the runtime-split invariant", err)
+			}
+		})
+	}
 }
 
 func TestCheckElementDeclarationsConsistentRejectsSameNameDifferentType(t *testing.T) {
@@ -680,6 +720,9 @@ func compiledModelRuntimeFixture(t *testing.T, kind modelKind) (nameTable, compi
 
 func (f compiledModelFixture) build() *schemaBuild {
 	b := &schemaBuild{Models: fixtureMapSlice(f.models), Wildcards: fixtureMapSlice(f.wildcards), AnyType: f.anyType}
+	for i := range b.Models {
+		b.Models[i].NonUnitParticle = slices.ContainsFunc(b.Models[i].Particles, nonUnitParticle)
+	}
 	names := fixtureMapSlice(f.elementNames)
 	rs := fixtureMapSlice(f.elementRestrictions)
 	b.Elements = fixtureElements(names, rs)

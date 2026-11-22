@@ -169,15 +169,12 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []ui
 		return xsderrors.InternalInvariant("UPA check references missing content model")
 	}
 	needsSplit, err := c.modelNeedsRuntimeSplitSeen(id, model, seen, tag)
-	if err != nil {
+	if err != nil || needsSplit {
 		return err
 	}
 	wildcardOverlap, err := c.sequenceHasWildcardEquivalentOverlap(model)
-	if err != nil {
+	if err != nil || wildcardOverlap {
 		return err
-	}
-	if needsSplit || wildcardOverlap {
-		return nil
 	}
 	return c.checkDirectUPA(model)
 }
@@ -453,13 +450,14 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, mod
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
-	if validUint32Index(uint32(id), len(seen)) {
-		if seen[id] == tag {
-			return false, nil
-		}
-		seen[id] = tag
+	if !validUint32Index(uint32(id), len(seen)) {
+		return false, xsderrors.InternalInvariant("UPA runtime-split check references content model outside its visit table")
 	}
-	if choiceNeedsRuntimeSplit(model, model.Occurs) {
+	if seen[id] == tag {
+		return false, nil
+	}
+	seen[id] = tag
+	if c.choiceNeedsRuntimeSplit(id, model.Occurs) {
 		return true, nil
 	}
 	for _, p := range model.Particles {
@@ -483,16 +481,20 @@ func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle contentParticl
 	}
 	model, ok := contentModelByID(c.rt.Models, particle.Model)
 	if !ok {
-		return false, nil
+		return false, xsderrors.InternalInvariant("UPA runtime-split check references missing content model")
 	}
-	if choiceNeedsRuntimeSplit(model, particle.Occurs) {
+	if c.choiceNeedsRuntimeSplit(particle.Model, particle.Occurs) {
 		return true, nil
 	}
 	return c.modelNeedsRuntimeSplitSeen(particle.Model, model, seen, tag)
 }
 
-func choiceNeedsRuntimeSplit(model contentModelNode, occurs occurrence) bool {
-	return model.Kind == modelChoice && !occurs.IsExactlyOne() && model.NonUnitParticle
+// choiceNeedsRuntimeSplit reports whether the table model id, reached with
+// occurs, is a repeated choice with a non-unit particle. It takes an ID
+// because NonUnitParticle holds only on table records.
+func (c *contentModelCompiler) choiceNeedsRuntimeSplit(id contentModelID, occurs occurrence) bool {
+	model, ok := contentModelByID(c.rt.Models, id)
+	return ok && model.Kind == modelChoice && !occurs.IsExactlyOne() && model.NonUnitParticle
 }
 
 func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
@@ -510,8 +512,12 @@ func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 	return nil
 }
 
+// checkSequenceUPA compares the continuations of each member with the members
+// after it. The last member has none after it, so its continuations, which
+// can be a set shared with every model ending in the same group, are never
+// computed or read.
 func (c *contentModelCompiler) checkSequenceUPA(model contentModelNode) error {
-	for i := range model.Particles {
+	for i := range len(model.Particles) - 1 {
 		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
 		if err != nil {
 			return err
@@ -572,7 +578,7 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 	if model.Kind != modelSequence {
 		return false, nil
 	}
-	for i := range model.Particles {
+	for i := range len(model.Particles) - 1 {
 		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
 		if err != nil {
 			return false, err
@@ -587,14 +593,7 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 	return false, nil
 }
 
-// candidatesHaveWildcardEquivalentOverlap reads candidates only when a member
-// follows, so it reads no more candidates than wildcardCandidateOverlaps
-// charges: the candidates of the last member can be a continuation set shared
-// with every model that ends in the same group.
 func (c *contentModelCompiler) candidatesHaveWildcardEquivalentOverlap(particles, candidates []contentParticle, start int) (bool, error) {
-	if start == len(particles) {
-		return false, nil
-	}
 	for _, candidate := range candidates {
 		overlap, err := c.wildcardCandidateOverlaps(particles, candidate, start)
 		if err != nil || overlap {
