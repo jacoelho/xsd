@@ -17,10 +17,16 @@ import (
 // particleListReaders are the functions of internal/schema, keyed by receiver
 // type and name, allowed to read a content model's particle list other than
 // through chargedParticles, each with the owner that charges the particles it
-// reads. Reading only the length, or an element at an integer-literal index,
-// is not a read. The guard catches a function that starts reading a particle
-// list; it does not catch an uncharged loop added inside a listed function, or
-// a helper that is handed the particle slice and reads it uncharged.
+// reads. A function is a function declaration or a function literal bound to a
+// package-level variable, keyed by the variable's name. It reads a list when it
+// selects the Particles field, or when it ranges over or indexes a
+// []contentParticle parameter that the field, or a subslice of it, reaches
+// through static calls within the package; reading only the length, or an
+// element at an integer-literal index, is not a read. The guard does not catch
+// an uncharged loop added inside a listed function, a list stored in a
+// variable, field or closure, or returned, before it is read, a list passed to
+// a variadic parameter or through a function value, or a derived list such as
+// a continuation set.
 var particleListReaders = map[string]string{
 	"chargedParticles":           "the charged accessor",
 	"appendModelParticles":       "the table writer that charges each particle it appends",
@@ -58,6 +64,27 @@ var particleListReaders = map[string]string{
 	"contentModelAnalysis.modelEmptiableValue": "callees allParticlesEmptiable and anyParticleEmptiable charge each particle through cachedParticleEmptiable, once per model",
 	"contentModelAnalysis.modelStartOverlap":   "callee modelStartParticleOverlap charges each particle",
 	"contentModelAnalysis.modelTermCountRange": "callees sequenceCountRange and choiceCountRange charge each particle through ParticleCountRange",
+
+	"contentModelCompiler.particlesNeedUPACheck":                    "callee particleSetNeedsUPACheck charges each pair it reads",
+	"contentModelCompiler.checkPairwiseUPA":                         "particlesNeedUPACheck and checkParticleAgainstFollowingUPA charge each pair",
+	"contentModelCompiler.checkParticleAgainstFollowingUPA":         "charges each following particle it reads",
+	"contentModelCompiler.wildcardCandidateOverlaps":                "charges each following member it reads",
+	"dfaBuilder.sequenceNode":                                       "callee particleNode charges each particle",
+	"dfaBuilder.choiceNode":                                         "callee particleNode charges each particle",
+	"elementDeclarationConsistencyChecker.collectParticles":         "charges each particle, once per model",
+	"elementDeclarationConsistencyChecker.particleDeclarationsHint": "caller collectParticles charges the same particles, once per model",
+	"contentRestrictionValidator.matchDerivedChoiceSpan":            "callee matchChoiceSpanBranch compares and charges a base particle for each derived particle it reads",
+	"contentRestrictionValidator.matchChoiceSpanBranch":             "compareParticleRestriction charges each base particle compared",
+	"contentRestrictionValidator.choiceRestrictionBranchAllowed":    "compareParticleRestriction charges each base particle compared",
+	"contentRestrictionValidator.matchChoiceRestrictionBranch":      "compareParticleRestriction charges each base particle compared",
+	"contentRestrictionValidator.findMappedGroupParticle":           "reads only unmapped base particles, each charged by compareParticleRestriction",
+	"contentRestrictionValidator.validateUnmappedGroupParticles":    "reads only unmapped base particles, each charged by ParticleEmptiable",
+	"contentModelAnalysis.ParticleContinuations":                    "charges the one particle it reads",
+	"contentModelAnalysis.sequenceStart":                            "charges each particle it reads",
+	"contentModelAnalysis.sequenceCountRange":                       "callee ParticleCountRange charges each particle",
+	"contentModelAnalysis.choiceCountRange":                         "callee ParticleCountRange charges each particle",
+	"contentModelAnalysis.allParticlesEmptiable":                    "callee cachedParticleEmptiable charges each particle",
+	"contentModelAnalysis.anyParticleEmptiable":                     "callee cachedParticleEmptiable charges each particle",
 }
 
 func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
@@ -78,7 +105,11 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 		}
 		files = append(files, file)
 	}
-	info := &types.Info{Selections: map[*ast.SelectorExpr]*types.Selection{}}
+	info := &types.Info{
+		Selections: map[*ast.SelectorExpr]*types.Selection{},
+		Defs:       map[*ast.Ident]types.Object{},
+		Uses:       map[*ast.Ident]types.Object{},
+	}
 	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
 	pkg, err := conf.Check("github.com/jacoelho/xsd/internal/schema", fset, files, info)
 	if err != nil {
@@ -93,20 +124,22 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 		t.Fatal("contentModelNode has no Particles field")
 	}
 
+	functions := packageFunctions(files)
+	lists := particleListFlow{info: info, particles: particles, params: map[*types.Var]bool{}}
+	lists.taintParams(functions)
 	readers := map[string]bool{}
-	for _, file := range files {
-		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok {
-				continue
-			}
-			key := funcKey(fn)
-			for _, sel := range particleListReads(fn, info, particles) {
-				readers[key] = true
-				if _, ok := particleListReaders[key]; !ok {
-					t.Errorf("%s: %s reads a content model's particle list without chargedParticles", fset.Position(sel.Pos()), key)
-				}
-			}
+	report := func(key string, at token.Pos, how string) {
+		readers[key] = true
+		if _, ok := particleListReaders[key]; !ok {
+			t.Errorf("%s: %s %s without chargedParticles", fset.Position(at), key, how)
+		}
+	}
+	for _, fn := range functions {
+		for _, sel := range lists.fieldReads(fn.node) {
+			report(fn.key, sel.Pos(), "reads a content model's particle list")
+		}
+		for _, at := range lists.paramReads(fn.node) {
+			report(fn.key, at, "reads a particle list handed to it")
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(particleListReaders)) {
@@ -114,6 +147,38 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 			t.Errorf("allowed particle-list reader %s does not exist or reads no particle list", name)
 		}
 	}
+}
+
+// packageFunction is a function declaration, or a function literal bound to a
+// package-level variable, with the name the allowlist knows it by.
+type packageFunction struct {
+	node ast.Node
+	key  string
+}
+
+func packageFunctions(files []*ast.File) []packageFunction {
+	var functions []packageFunction
+	for _, file := range files {
+		for _, decl := range file.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				functions = append(functions, packageFunction{node: d, key: funcKey(d)})
+			case *ast.GenDecl:
+				for _, spec := range d.Specs {
+					value, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, v := range value.Values {
+						if lit, ok := v.(*ast.FuncLit); ok && i < len(value.Names) {
+							functions = append(functions, packageFunction{node: lit, key: value.Names[i].Name})
+						}
+					}
+				}
+			}
+		}
+	}
+	return functions
 }
 
 // funcKey names fn by its receiver's type name, if any, and its own name.
@@ -131,9 +196,85 @@ func funcKey(fn *ast.FuncDecl) string {
 	return fn.Name.Name
 }
 
-// particleListReads returns the selectors in fn that read the particles field
-// other than as the operand of len or indexed by an integer literal.
-func particleListReads(fn *ast.FuncDecl, info *types.Info, particles *types.Var) []*ast.SelectorExpr {
+// particleListFlow follows a content model's particle list from the
+// Particles field into the []contentParticle parameters it is passed to,
+// directly or as a subslice, through any chain of static calls in the
+// package. params holds every parameter so reached.
+type particleListFlow struct {
+	info      *types.Info
+	particles *types.Var
+	params    map[*types.Var]bool
+}
+
+func (f *particleListFlow) taintParams(functions []packageFunction) {
+	for changed := true; changed; {
+		changed = false
+		for _, fn := range functions {
+			ast.Inspect(fn.node, func(n ast.Node) bool {
+				call, ok := n.(*ast.CallExpr)
+				if !ok || call.Ellipsis.IsValid() {
+					return true
+				}
+				callee := f.callee(call)
+				if callee == nil {
+					return true
+				}
+				sig := callee.Signature()
+				for i, arg := range call.Args {
+					if i >= sig.Params().Len() || (sig.Variadic() && i >= sig.Params().Len()-1) {
+						break
+					}
+					param := sig.Params().At(i)
+					if _, done := f.params[param]; done || !f.carriesList(arg) {
+						continue
+					}
+					f.params[param] = true
+					changed = true
+				}
+				return true
+			})
+		}
+	}
+}
+
+func (f *particleListFlow) callee(call *ast.CallExpr) *types.Func {
+	var id *ast.Ident
+	switch fun := call.Fun.(type) {
+	case *ast.Ident:
+		id = fun
+	case *ast.SelectorExpr:
+		id = fun.Sel
+	default:
+		return nil
+	}
+	fn, ok := f.info.Uses[id].(*types.Func)
+	if !ok || fn.Pkg() == nil || fn.Pkg() != f.particles.Pkg() {
+		return nil
+	}
+	return fn
+}
+
+// carriesList reports whether expr is a particle list: the Particles field, a
+// parameter the list reached, or a subslice of either.
+func (f *particleListFlow) carriesList(expr ast.Expr) bool {
+	if slice, ok := expr.(*ast.SliceExpr); ok {
+		expr = slice.X
+	}
+	switch x := expr.(type) {
+	case *ast.SelectorExpr:
+		selection := f.info.Selections[x]
+		return selection != nil && selection.Obj() == f.particles
+	case *ast.Ident:
+		v, ok := f.info.Uses[x].(*types.Var)
+		_, reached := f.params[v]
+		return ok && reached
+	}
+	return false
+}
+
+// fieldReads returns the selectors in fn that read the particles field other
+// than as the operand of len or indexed by an integer literal.
+func (f *particleListFlow) fieldReads(fn ast.Node) []*ast.SelectorExpr {
 	bounded := map[*ast.SelectorExpr]bool{}
 	ast.Inspect(fn, func(n ast.Node) bool {
 		switch x := n.(type) {
@@ -157,10 +298,36 @@ func particleListReads(fn *ast.FuncDecl, info *types.Info, particles *types.Var)
 		if !ok || bounded[sel] {
 			return true
 		}
-		if selection := info.Selections[sel]; selection != nil && selection.Obj() == particles {
+		if selection := f.info.Selections[sel]; selection != nil && selection.Obj() == f.particles {
 			reads = append(reads, sel)
 		}
 		return true
 	})
 	return reads
+}
+
+// paramReads returns where fn, including the closures it contains, ranges
+// over a parameter the particle list reached, or a subslice of one, or indexes
+// one other than by an integer literal.
+func (f *particleListFlow) paramReads(fn ast.Node) []token.Pos {
+	var reads []token.Pos
+	ast.Inspect(fn, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.RangeStmt:
+			if f.isParamList(x.X) {
+				reads = append(reads, x.X.Pos())
+			}
+		case *ast.IndexExpr:
+			if _, constant := x.Index.(*ast.BasicLit); !constant && f.isParamList(x.X) {
+				reads = append(reads, x.Pos())
+			}
+		}
+		return true
+	})
+	return reads
+}
+
+func (f *particleListFlow) isParamList(expr ast.Expr) bool {
+	_, field := expr.(*ast.SelectorExpr)
+	return !field && f.carriesList(expr)
 }
