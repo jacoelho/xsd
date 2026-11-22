@@ -19,14 +19,18 @@ import (
 // through chargedParticles, each with the owner that charges the particles it
 // reads. A function is a function declaration or a function literal bound to a
 // package-level variable, keyed by the variable's name. It reads a list when it
-// selects the Particles field, or when it ranges over or indexes a
-// []contentParticle parameter that the field, or a subslice of it, reaches
-// through static calls within the package; reading only the length, or an
-// element at an integer-literal index, is not a read. The guard does not catch
-// an uncharged loop added inside a listed function, a list stored in a
-// variable, field or closure, or returned, before it is read, a list passed to
-// a variadic parameter or through a function value, or a derived list such as
-// a continuation set.
+// selects the Particles field, or uses a parameter that the field, or a
+// subslice of it, reaches as an argument of static calls within the package,
+// including the receiver of a method expression. Using the list only as the
+// operand of len, indexed by an integer literal, or as an argument, whole or
+// subsliced, that is followed into another function, is not a read.
+//
+// The guard does not catch an uncharged loop added inside a listed function, a
+// list passed through interface method dispatch, a function value, a variadic
+// parameter or an ellipsis, a reader that is a function literal nested inside
+// a package-level initializer, a list stored in a variable, field or closure,
+// or returned, and read by another function, or a list derived from the
+// particles, such as a continuation set.
 var particleListReaders = map[string]string{
 	"chargedParticles":           "the charged accessor",
 	"appendModelParticles":       "the table writer that charges each particle it appends",
@@ -85,6 +89,8 @@ var particleListReaders = map[string]string{
 	"contentModelAnalysis.choiceCountRange":                         "callee ParticleCountRange charges each particle",
 	"contentModelAnalysis.allParticlesEmptiable":                    "callee cachedParticleEmptiable charges each particle",
 	"contentModelAnalysis.anyParticleEmptiable":                     "callee cachedParticleEmptiable charges each particle",
+	"contentModelAnalysis.leafContinuations":                        "returns as a continuation set the one particle its caller ParticleContinuations charged",
+	"restrictionNormalizer.copyPrefix":                              "charges the whole list before copying its prefix",
 }
 
 func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
@@ -197,9 +203,9 @@ func funcKey(fn *ast.FuncDecl) string {
 }
 
 // particleListFlow follows a content model's particle list from the
-// Particles field into the []contentParticle parameters it is passed to,
-// directly or as a subslice, through any chain of static calls in the
-// package. params holds every parameter so reached.
+// Particles field into the parameters it is passed to, directly or as a
+// subslice, through any chain of static calls in the package, including the
+// receiver of a method expression. params holds every parameter so reached.
 type particleListFlow struct {
 	info      *types.Info
 	particles *types.Var
@@ -212,20 +218,11 @@ func (f *particleListFlow) taintParams(functions []packageFunction) {
 		for _, fn := range functions {
 			ast.Inspect(fn.node, func(n ast.Node) bool {
 				call, ok := n.(*ast.CallExpr)
-				if !ok || call.Ellipsis.IsValid() {
+				if !ok {
 					return true
 				}
-				callee := f.callee(call)
-				if callee == nil {
-					return true
-				}
-				sig := callee.Signature()
-				for i, arg := range call.Args {
-					if i >= sig.Params().Len() || (sig.Variadic() && i >= sig.Params().Len()-1) {
-						break
-					}
-					param := sig.Params().At(i)
-					if _, done := f.params[param]; done || !f.carriesList(arg) {
+				for i, param := range f.argParams(call) {
+					if param == nil || f.params[param] || !f.carriesList(call.Args[i]) {
 						continue
 					}
 					f.params[param] = true
@@ -237,21 +234,52 @@ func (f *particleListFlow) taintParams(functions []packageFunction) {
 	}
 }
 
-func (f *particleListFlow) callee(call *ast.CallExpr) *types.Func {
+// argParams returns, for each argument of a static call to a function of the
+// package, the parameter it binds, or nil for an argument the flow does not
+// follow: one bound to a variadic parameter or spread with an ellipsis.
+func (f *particleListFlow) argParams(call *ast.CallExpr) []*types.Var {
 	var id *ast.Ident
+	methodExpr := false
 	switch fun := call.Fun.(type) {
 	case *ast.Ident:
 		id = fun
 	case *ast.SelectorExpr:
 		id = fun.Sel
+		if selection := f.info.Selections[fun]; selection != nil {
+			methodExpr = selection.Kind() == types.MethodExpr
+		}
 	default:
 		return nil
 	}
 	fn, ok := f.info.Uses[id].(*types.Func)
-	if !ok || fn.Pkg() == nil || fn.Pkg() != f.particles.Pkg() {
+	if !ok || fn.Pkg() != f.particles.Pkg() || call.Ellipsis.IsValid() {
 		return nil
 	}
-	return fn
+	sig := fn.Signature()
+	var params []*types.Var
+	if methodExpr {
+		params = append(params, sig.Recv())
+	}
+	for i := range sig.Params().Len() {
+		if sig.Variadic() && i == sig.Params().Len()-1 {
+			break
+		}
+		params = append(params, sig.Params().At(i))
+	}
+	bound := make([]*types.Var, len(call.Args))
+	copy(bound, params)
+	return bound
+}
+
+// passedOn reports whether expr is an argument that argParams follows.
+func (f *particleListFlow) passedOn(call *ast.CallExpr, expr ast.Expr) bool {
+	params := f.argParams(call)
+	for i, arg := range call.Args {
+		if arg == expr {
+			return i < len(params) && params[i] != nil
+		}
+	}
+	return false
 }
 
 // carriesList reports whether expr is a particle list: the Particles field, a
@@ -266,8 +294,7 @@ func (f *particleListFlow) carriesList(expr ast.Expr) bool {
 		return selection != nil && selection.Obj() == f.particles
 	case *ast.Ident:
 		v, ok := f.info.Uses[x].(*types.Var)
-		_, reached := f.params[v]
-		return ok && reached
+		return ok && f.params[v]
 	}
 	return false
 }
@@ -306,28 +333,47 @@ func (f *particleListFlow) fieldReads(fn ast.Node) []*ast.SelectorExpr {
 	return reads
 }
 
-// paramReads returns where fn, including the closures it contains, ranges
-// over a parameter the particle list reached, or a subslice of one, or indexes
-// one other than by an integer literal.
+// paramReads returns every use, in fn and the closures it contains, of a
+// parameter the particle list reached, other than as the operand of len, an
+// index by an integer literal, or an argument, whole or subsliced, that the
+// flow follows into another function.
 func (f *particleListFlow) paramReads(fn ast.Node) []token.Pos {
 	var reads []token.Pos
+	var stack []ast.Node
 	ast.Inspect(fn, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.RangeStmt:
-			if f.isParamList(x.X) {
-				reads = append(reads, x.X.Pos())
-			}
-		case *ast.IndexExpr:
-			if _, constant := x.Index.(*ast.BasicLit); !constant && f.isParamList(x.X) {
-				reads = append(reads, x.Pos())
+		if n == nil {
+			stack = stack[:len(stack)-1]
+			return true
+		}
+		if id, ok := n.(*ast.Ident); ok {
+			if v, ok := f.info.Uses[id].(*types.Var); ok && f.params[v] && !f.boundedUse(id, stack) {
+				reads = append(reads, id.Pos())
 			}
 		}
+		stack = append(stack, n)
 		return true
 	})
 	return reads
 }
 
-func (f *particleListFlow) isParamList(expr ast.Expr) bool {
-	_, field := expr.(*ast.SelectorExpr)
-	return !field && f.carriesList(expr)
+func (f *particleListFlow) boundedUse(id *ast.Ident, stack []ast.Node) bool {
+	if len(stack) == 0 {
+		return false
+	}
+	var expr ast.Expr = id
+	parent := stack[len(stack)-1]
+	if slice, ok := parent.(*ast.SliceExpr); ok && slice.X == id && len(stack) > 1 {
+		expr, parent = slice, stack[len(stack)-2]
+	}
+	switch p := parent.(type) {
+	case *ast.CallExpr:
+		if fun, ok := p.Fun.(*ast.Ident); ok && expr == id && fun.Name == "len" && f.info.Uses[fun] == types.Universe.Lookup("len") {
+			return true
+		}
+		return f.passedOn(p, expr)
+	case *ast.IndexExpr:
+		lit, ok := p.Index.(*ast.BasicLit)
+		return expr == id && p.X == id && ok && lit.Kind == token.INT
+	}
+	return false
 }
