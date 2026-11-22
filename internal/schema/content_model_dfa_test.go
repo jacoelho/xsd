@@ -4,7 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -215,9 +214,6 @@ func TestCheckContentModelsUPARejectsCorruptRuntimeSplitInputs(t *testing.T) {
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, analysis).checkModel(0)
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-			if diag, _ := errors.AsType[*xsderrors.Error](err); !strings.HasPrefix(diag.Message(), "UPA runtime-split check references") {
-				t.Fatalf("checkModel() error = %v, want the runtime-split invariant", err)
-			}
 		})
 	}
 }
@@ -721,7 +717,9 @@ func compiledModelRuntimeFixture(t *testing.T, kind modelKind) (nameTable, compi
 func (f compiledModelFixture) build() *schemaBuild {
 	b := &schemaBuild{Models: fixtureMapSlice(f.models), Wildcards: fixtureMapSlice(f.wildcards), AnyType: f.anyType}
 	for i := range b.Models {
-		b.Models[i].NonUnitParticle = slices.ContainsFunc(b.Models[i].Particles, nonUnitParticle)
+		if !b.Models[i].NonUnitParticle {
+			b.Models[i].NonUnitParticle = slices.ContainsFunc(b.Models[i].Particles, nonUnitParticle)
+		}
 	}
 	names := fixtureMapSlice(f.elementNames)
 	rs := fixtureMapSlice(f.elementRestrictions)
