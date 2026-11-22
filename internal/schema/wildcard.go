@@ -249,7 +249,10 @@ func normalizeNamespaceList(namespaces []namespaceID) []namespaceID {
 // Overlap and intersection look up the shorter of the two runs that lie inside
 // the range the other list spans, since no namespace outside it can match;
 // subset looks up each namespace of the subset list; union merges both lists;
-// equality compares lists of equal length. Membership of one namespace is one
+// intersection with ##other copies the finite list; equality compares lists
+// of equal length. Union and intersection of two lists of the same mode
+// charge no separate equality check: their result has the length of both
+// lists exactly when the lists are equal. Membership of one namespace is one
 // binary search, and a list compared with ##other, which rejects at most two
 // namespaces, visits at most three; callers do these once per item they have
 // already charged, a name, a particle pair or an attribute use.
@@ -370,11 +373,14 @@ func otherAllowsAnyNamespace(other wildcardRuntime, namespaces []namespaceID) bo
 
 // unionWildcard returns the union of two wildcard namespace sets.
 func unionWildcard(wa, wb wildcardRuntime, process ProcessContents, spend func(int) error) (wildcardRuntime, error) {
-	equal, err := wildcardNamespaceEqual(wa, wb, spend)
-	if err != nil {
-		return wildcardRuntime{}, err
+	if sameNamespaceListMode(wa, wb) {
+		namespaces, err := mergeNamespaceLists(wa.Namespaces, wb.Namespaces, spend)
+		if err != nil {
+			return wildcardRuntime{}, err
+		}
+		return namespaceListResult(wa, wb, namespaces, process), nil
 	}
-	if equal {
+	if sameUnlistedNamespaces(wa, wb) {
 		wa.Process = process
 		return wa, nil
 	}
@@ -399,12 +405,14 @@ func unionWildcard(wa, wb wildcardRuntime, process ProcessContents, spend func(i
 
 // intersectWildcard returns the intersection of two wildcard namespace sets.
 func intersectWildcard(wa, wb wildcardRuntime, process ProcessContents, spend func(int) error) (wildcardRuntime, error) {
-	equal, err := wildcardNamespaceEqual(wa, wb, spend)
-	if err != nil {
-		return wildcardRuntime{}, err
-	}
 	switch {
-	case equal, wb.Mode == WildcardAny:
+	case sameNamespaceListMode(wa, wb):
+		namespaces, err := intersectNamespaceLists(wa.Namespaces, wb.Namespaces, spend)
+		if err != nil {
+			return wildcardRuntime{}, err
+		}
+		return namespaceListResult(wa, wb, namespaces, process), nil
+	case sameUnlistedNamespaces(wa, wb), wb.Mode == WildcardAny:
 		wa.Process = process
 		return wa, nil
 	case wa.Mode == WildcardAny:
@@ -422,6 +430,30 @@ func intersectWildcard(wa, wb wildcardRuntime, process ProcessContents, spend fu
 		return wildcardRuntime{}, err
 	}
 	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}, nil
+}
+
+// sameNamespaceListMode reports whether wa and wb are both targetNamespace or
+// both list wildcards. Their union or intersection needs no equality check
+// first: it has the length of both lists exactly when the lists are equal.
+func sameNamespaceListMode(wa, wb wildcardRuntime) bool {
+	return wa.Mode == wb.Mode && (wa.Mode == WildcardTargetNamespace || wa.Mode == WildcardList)
+}
+
+// sameUnlistedNamespaces reports whether two wildcards without namespace
+// lists admit the same namespaces.
+func sameUnlistedNamespaces(wa, wb wildcardRuntime) bool {
+	return wa.Mode == wb.Mode && wa.OtherThan == wb.OtherThan && len(wa.Namespaces) == 0 && len(wb.Namespaces) == 0
+}
+
+// namespaceListResult returns wa when namespaces, the union or intersection of
+// the lists of wa and wb, shows the two lists equal, and a list wildcard of
+// namespaces otherwise.
+func namespaceListResult(wa, wb wildcardRuntime, namespaces []namespaceID, process ProcessContents) wildcardRuntime {
+	if len(namespaces) == len(wa.Namespaces) && len(namespaces) == len(wb.Namespaces) {
+		wa.Process = process
+		return wa
+	}
+	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}
 }
 
 func intersectOtherWildcards(wa, wb wildcardRuntime, process ProcessContents) (wildcardRuntime, error) {

@@ -46,9 +46,9 @@ func TestWildcardNamespaceComparisonsChargeEveryNamespaceCompared(t *testing.T) 
 		{
 			name:  "attribute wildcard intersection",
 			limit: dependencyLimit,
-			compared: anyAttributeGroups(even, odd) +
+			compared: anyAttributeGroups(even, odd[1:]) +
 				`<xs:complexType name="T"><xs:attributeGroup ref="GA"/><xs:attributeGroup ref="GB"/></xs:complexType>`,
-			separate: anyAttributeGroups(even, odd) +
+			separate: anyAttributeGroups(even, odd[1:]) +
 				`<xs:complexType name="T"><xs:attributeGroup ref="GA"/></xs:complexType>` +
 				`<xs:complexType name="U"><xs:attributeGroup ref="GB"/></xs:complexType>`,
 		},
