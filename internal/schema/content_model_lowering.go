@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"slices"
+
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -86,7 +88,12 @@ func appendModelParticles(work *workBudget, models []contentModelNode, model *co
 		return err
 	}
 	model.Particles = append(model.Particles, particles...)
+	model.NonUnitParticle = model.NonUnitParticle || slices.ContainsFunc(particles, nonUnitParticle)
 	return nil
+}
+
+func nonUnitParticle(p contentParticle) bool {
+	return !p.Occurs.IsExactlyOne()
 }
 
 // appendParticle admits p as a child of model and appends it. Zero-count

@@ -60,6 +60,14 @@ type contentModelNode struct {
 	Particles []contentParticle
 	Occurs    occurrence
 	Kind      modelKind
+	// NonUnitParticle reports whether the occurrence of some particle is not
+	// exactly one. appendModelParticles sets it as it admits each particle,
+	// and a record that shares another's particles copies it with them, so
+	// the runtime-split check reads it instead of the particles however many
+	// records share them. The publication audit checks it on every retained record;
+	// the transient nodes of the execution projection and the restriction
+	// normalizer leave it unset.
+	NonUnitParticle bool
 }
 
 // chargedParticles returns the particles of model after charging work one
@@ -255,6 +263,9 @@ func (a *contentModelTableAudit) enter(id contentModelID) error {
 	}
 	if err := validateContentModelKindShape(model); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
+	}
+	if model.NonUnitParticle != slices.ContainsFunc(particles, nonUnitParticle) {
+		return xsderrors.InternalInvariant("content model non-unit particle flag disagrees with its particles")
 	}
 	a.state[id] = contentModelGraphChecking
 	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{particles: particles, id: id}, len(a.models))

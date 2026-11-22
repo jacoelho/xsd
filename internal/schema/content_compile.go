@@ -492,15 +492,7 @@ func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle contentParticl
 }
 
 func choiceNeedsRuntimeSplit(model contentModelNode, occurs occurrence) bool {
-	if model.Kind != modelChoice || occurs.IsExactlyOne() {
-		return false
-	}
-	for _, p := range model.Particles {
-		if !p.Occurs.IsExactlyOne() {
-			return true
-		}
-	}
-	return false
+	return model.Kind == modelChoice && !occurs.IsExactlyOne() && model.NonUnitParticle
 }
 
 func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
