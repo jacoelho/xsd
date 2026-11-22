@@ -20,7 +20,8 @@ type workBudget struct {
 // restriction, the walk to the models complex types reach, UPA, compilation and
 // sealing. Dependency work also covers
 // records appended to or retained by compiled components: content-model
-// particles and models, attribute-use sets and wildcard namespaces. Spent work is never refunded,
+// particles and models, compiled content-model tables, attribute-use sets and
+// wildcard namespaces. Spent work is never refunded,
 // including when publication fails.
 type workBudgetKind uint8
 

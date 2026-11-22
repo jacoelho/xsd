@@ -9,8 +9,10 @@ import (
 
 // PublishSchema validates compiler-owned state, constructs one immutable
 // validation program, and seals the result. The caller must provide exclusive
-// access to build for the duration of the call. On success, build is cleared
-// and the returned schema owns all validation-facing storage; previously
+// access to build for the duration of the call. A rejected build is left
+// unchanged. On success, build is cleared and the returned schema owns all
+// validation-facing storage. The schema takes the compiled content tables
+// and the substitution table without copying them; other previously
 // retained aliases may be mutated without affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
@@ -61,6 +63,10 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program")
 	}
 	program.Value = valueProgram
+	// Dense conversion rewrites rows that build still shares, so it follows
+	// the last step that can reject the build.
+	dense := defaultDenseIndexBudget()
+	addDenseDFAIndexes(program.CompiledModels, &dense)
 	return program, nil
 }
 
@@ -115,15 +121,6 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	entered := content.Models
-	compiled := build.CompiledContent.Models
-	compiledModels, mayHaveDenseRows, err := newCompiledModelReads(compiled, entered, work)
-	if err != nil {
-		return schemaProgram{}, err
-	}
-	if err = indexAllContentModels(compiled, entered, compiledModels, build, work); err != nil {
-		return schemaProgram{}, err
-	}
 	typeDerivations, err := newTypeDerivationReadForTypes(
 		build.AnyType,
 		build.SimpleTypes,
@@ -136,10 +133,6 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 		if workErr := spendContentModelWorkN(work, count); workErr != nil {
 			return schemaProgram{}, workErr
 		}
-	}
-	if mayHaveDenseRows {
-		optional := defaultDenseIndexBudget()
-		addDenseDFAIndexes(compiledModels, &optional)
 	}
 	names := newNameReadView(&build.Names)
 	reads := schemaProgram{
@@ -155,7 +148,7 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
 		ComplexTypes:          newComplexTypeReads(build.ComplexTypes, content.Published),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
-		CompiledModels:        compiledModels,
+		CompiledModels:        publishedContentModels(build.CompiledContent.Models, content.Models),
 		Elements:              newElementReadTable(build.Elements),
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}

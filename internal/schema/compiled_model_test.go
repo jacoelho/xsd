@@ -32,17 +32,6 @@ func TestCompleteContentModelKinds(t *testing.T) {
 	}
 }
 
-func TestDFARowIndexEnabledState(t *testing.T) {
-	t.Parallel()
-
-	if (dfaRowIndex{}).enabled() {
-		t.Fatal("zero-value row index is enabled")
-	}
-	if !(dfaRowIndex{nameToEdge: map[QName]uint32{}}).enabled() {
-		t.Fatal("enabled row index reported disabled")
-	}
-}
-
 func TestCompiledCountingException(t *testing.T) {
 	t.Parallel()
 
@@ -86,17 +75,17 @@ func TestIndexCompiledModelRows(t *testing.T) {
 			head: {subName: ElementID(2)},
 		},
 	}
-	model := compiledModel{
+	model := testProjectedModel(compiledModel{
 		Kind: compiledModelDFA,
 		Rows: []compiledModelRow{
 			{Edges: edges},
 			{Edges: edges[:compiledDFARowIndexMinEdges-1]},
 		},
-	}
-	if err := newDFARowIndexAnalysis(rt.build(), unlimitedContentModelWork).indexModel(&model); err != nil {
+	})
+	if err := newDFARowIndexAnalysis(rt.build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
-	if !model.Rows[0].index.enabled() {
+	if model.Rows[0].indexKind != publishedDFAMap {
 		t.Fatal("wide row was not indexed")
 	}
 	if got, ok := model.Rows[0].index.nameToEdge[headName]; !ok || got != 0 {
@@ -105,10 +94,10 @@ func TestIndexCompiledModelRows(t *testing.T) {
 	if got, ok := model.Rows[0].index.nameToEdge[subName]; !ok || got != 0 {
 		t.Fatalf("substitution index = %d, %v; want 0, true", got, ok)
 	}
-	if got := model.Rows[0].index.wildcardEdges; len(got) != 1 || got[0] != 1 {
+	if got := model.Rows[0].index.data; len(got) != 1 || got[0] != 1 {
 		t.Fatalf("wildcard index = %v, want [1]", got)
 	}
-	if model.Rows[1].index.enabled() {
+	if model.Rows[1].indexKind != publishedDFALinear {
 		t.Fatal("narrow row was indexed")
 	}
 }
@@ -133,23 +122,23 @@ func TestIndexCompiledModelsRowsBoundsSubstitutionExpansion(t *testing.T) {
 			},
 		},
 	}
-	models := []compiledModel{{
+	model := testProjectedModel(compiledModel{
 		Kind: compiledModelDFA,
 		Rows: []compiledModelRow{{Edges: edges}},
-	}}
+	})
 	budgetExceeded := errors.New("content work exceeded")
 	remaining := 10 // model + row + eight edges; expansion must charge more.
-	err := indexCompiledModelsRows(rt.build(), models, func(steps int) error {
+	err := newDFARowIndexAnalysis(rt.build(), func(steps int) error {
 		remaining -= steps
 		if remaining < 0 {
 			return budgetExceeded
 		}
 		return nil
-	})
+	}, testDependencyWork()).indexModel(&model)
 	if !errors.Is(err, budgetExceeded) {
 		t.Fatalf("IndexCompiledModelsRows() error = %v, want budget error", err)
 	}
-	if models[0].Rows[0].index.enabled() {
+	if model.Rows[0].indexKind != publishedDFALinear {
 		t.Fatal("budget failure published a partial row index")
 	}
 }
@@ -170,14 +159,14 @@ func TestIndexCompiledModelRowsKeepsLinearScanForDuplicateNames(t *testing.T) {
 		}
 		edges = append(edges, compiledModelEdge{Particle: elementParticle(id, one), To: 1})
 	}
-	model := compiledModel{
+	model := testProjectedModel(compiledModel{
 		Kind: compiledModelDFA,
 		Rows: []compiledModelRow{{Edges: edges}},
-	}
-	if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: elementNames}).build(), unlimitedContentModelWork).indexModel(&model); err != nil {
+	})
+	if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: elementNames}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model); err != nil {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
-	if model.Rows[0].index.enabled() {
+	if model.Rows[0].indexKind != publishedDFALinear {
 		t.Fatal("ambiguous row was indexed")
 	}
 }
@@ -190,11 +179,11 @@ func TestIndexCompiledModelRowsRejectsInvalidElement(t *testing.T) {
 	for i := range edges {
 		edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i+1), one), To: 1}
 	}
-	model := compiledModel{
+	model := testProjectedModel(compiledModel{
 		Kind: compiledModelDFA,
 		Rows: []compiledModelRow{{Edges: edges}},
-	}
-	err := newDFARowIndexAnalysis((dfaRowIndexFixture{}).build(), unlimitedContentModelWork).indexModel(&model)
+	})
+	err := newDFARowIndexAnalysis((dfaRowIndexFixture{}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&model)
 	if err == nil || !strings.Contains(err.Error(), "compiled content model index references invalid element") {
 		t.Fatalf("IndexCompiledModelRows() error = %v", err)
 	}
@@ -230,11 +219,10 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 				edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i+1), one), To: 1}
 			}
 			build := (dfaRowIndexFixture{elementNames: elementNames}).build()
-			models := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}}
-			want := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{
-				{Edges: append([]compiledModelEdge(nil), edges...)}, {Accept: true},
-			}}}
-			err := indexCompiledModelsRows(build, models, tc.work)
+			compiled := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}
+			model := testProjectedModel(compiled)
+			want := testProjectedModel(compiled)
+			err := newDFARowIndexAnalysis(build, tc.work, testDependencyWork()).indexModel(&model)
 			if tc.work == nil {
 				if err == nil {
 					t.Fatalf("missing work error = %v, want required-budget error", err)
@@ -242,10 +230,10 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			} else if !errors.Is(err, budgetFailure) {
 				t.Fatalf("admission error = %v, want budget failure", err)
 			}
-			if !reflect.DeepEqual(models, want) {
-				t.Fatalf("admission failure changed compiled models: got %#v, want %#v", models, want)
+			if !reflect.DeepEqual(model, want) {
+				t.Fatalf("admission failure changed the published model: got %#v, want %#v", model, want)
 			}
-			if err := indexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
+			if err := newDFARowIndexAnalysis(build, unlimitedContentModelWork, testDependencyWork()).indexModel(&model); err != nil {
 				t.Fatalf("retry error = %v", err)
 			}
 			for _, entry := range []struct {
@@ -254,7 +242,7 @@ func TestIndexCompiledModelsRowsAdmissionFailureAllowsRetry(t *testing.T) {
 			}{
 				{name: QName{Local: 1}, edge: 0}, {name: QName{Local: 8}, edge: 7},
 			} {
-				if got, ok := models[0].Rows[0].index.nameToEdge[entry.name]; !ok || got != entry.edge {
+				if got, ok := model.Rows[0].index.nameToEdge[entry.name]; !ok || got != entry.edge {
 					t.Fatalf("retry index[%v] = %d, %v; want %d, true", entry.name, got, ok, entry.edge)
 				}
 			}

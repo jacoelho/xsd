@@ -215,6 +215,9 @@ func (c *deterministicModelCompilation) compileRows() error {
 		if err := c.builder.c.work.spend(len(configs) + 1); err != nil {
 			return err
 		}
+		if err := c.builder.c.retained.spend(1); err != nil {
+			return err
+		}
 		row, err := c.deterministicRow(configs, c.stateIDNormalized)
 		if err != nil {
 			return err
@@ -291,6 +294,9 @@ func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, st
 		}
 	}
 	if err := c.builder.c.work.spend(len(c.groups)); err != nil {
+		return compiledModelRow{}, err
+	}
+	if err := c.builder.c.retained.spend(len(c.groups)); err != nil {
 		return compiledModelRow{}, err
 	}
 	slices.SortFunc(c.groups, func(a, b dfaTransitionSet) int {

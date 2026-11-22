@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-	"maps"
 	"math"
 	"slices"
 
@@ -190,7 +188,7 @@ type compiledModelRead struct {
 // compiledModelRowRead has a per-architecture storage ceiling
 // (TestCompiledModelRowReadStorageCeiling); optional dispatch metadata must not
 // enlarge it. Each published row owns exactly one index variant, named by
-// indexKind; mutable construction indexes never reach it.
+// indexKind.
 type compiledModelRowRead struct {
 	Edges         []compiledModelEdgeRead
 	index         publishedDFAIndex
@@ -216,16 +214,6 @@ const (
 type publishedDFAIndex struct {
 	nameToEdge map[QName]uint32
 	data       []uint32
-}
-
-func newPublishedDFAMapIndex(source dfaRowIndex) (publishedDFAIndex, publishedDFAIndexKind) {
-	if !source.enabled() {
-		return publishedDFAIndex{}, publishedDFALinear
-	}
-	return publishedDFAIndex{
-		nameToEdge: maps.Clone(source.nameToEdge),
-		data:       slices.Clone(source.wildcardEdges),
-	}, publishedDFAMap
 }
 
 type compiledModelEdgeRead struct {
@@ -263,10 +251,9 @@ type enteredContent struct {
 // Complex-type roots are the only entry points: nested groups are compiled into
 // their ancestors' rows, so no published particle references another model.
 // Every empty-kind model compiles to the same read, so empty roots share the
-// lowest such position and publication keeps one row for them; projection
-// work is still charged per compiled model. A compiled all model that no
-// complex type enters is an internal invariant violation, because
-// indexAllContentModels indexes only entered models.
+// lowest such position and publication keeps one row for them. A compiled
+// all model that no complex type enters violates All Group Limited and is an
+// internal invariant violation.
 func enterContentModels(types []complexTypeMetadata, content *compiledContent) (enteredContent, error) {
 	roots, err := contentRoots(types, content)
 	if err != nil {
@@ -306,7 +293,7 @@ func contentRoots(types []complexTypeMetadata, content *compiledContent) ([]int,
 	return roots, nil
 }
 
-func foldEmptyRoots(roots []int, models []compiledModel) {
+func foldEmptyRoots(roots []int, models []compiledModelRead) {
 	empty := -1
 	for _, root := range roots {
 		if models[root].Kind == compiledModelEmpty && (empty < 0 || root < empty) {
@@ -320,196 +307,85 @@ func foldEmptyRoots(roots []int, models []compiledModel) {
 	}
 }
 
-// newCompiledModelReads publishes the entered models in entered order.
-// Projection work is still charged for every compiled model, so admission does
-// not depend on which models validation can enter.
-func newCompiledModelReads(models []compiledModel, entered []int, work contentModelWork) ([]compiledModelRead, bool, error) {
-	if err := requireContentModelWork(work); err != nil {
-		return nil, false, err
-	}
-	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
-		return nil, false, err
-	}
-	builder := newCompiledModelReadBuilder(models, entered)
+// publishedContentModels returns the entered models in entered order. They
+// share their tables with models.
+func publishedContentModels(models []compiledModelRead, entered []int) []compiledModelRead {
 	reads := make([]compiledModelRead, len(entered))
-	var mayHaveDenseRows bool
 	for i, id := range entered {
-		read, mayHaveDense := builder.readModel(models[id])
-		reads[i] = read
-		mayHaveDenseRows = mayHaveDenseRows || mayHaveDense
+		reads[i] = models[id]
 	}
-	return reads, mayHaveDenseRows, nil
+	return reads
 }
 
-// Large all-groups dispatch by expanded name. The index uses the same
-// substitution expansion as DFA rows; occurrence bits remain document-owned.
-// All Group Limited admits an all group only as the whole content of a complex
-// type, so every compiled all model is an entered root, as enterContentModels
-// asserts, and indexing the entered models charges the same work whichever
-// other models are entered.
-func indexAllContentModels(models []compiledModel, entered []int, reads []compiledModelRead, rt *schemaBuild, work contentModelWork) error {
-	if err := requireContentModelWork(work); err != nil {
-		return err
+// newCompiledModelRead projects one compiled model to its published form,
+// charging one unit of work per model, row, edge and xs:all term. Each table
+// is allocated at its exact length, and each row's Edges has no spare
+// capacity, so appending to it never writes into another row's edges.
+func newCompiledModelRead(model compiledModel, work contentModelWork) (compiledModelRead, error) {
+	if err := chargeCompiledModelProjectionWork(model, work); err != nil {
+		return compiledModelRead{}, err
 	}
-	analysis := newDFARowIndexAnalysis(rt, work)
-	for slot, id := range entered {
-		if err := indexAllContentModel(&reads[slot], &models[id], analysis); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// indexAllContentModel installs the name index of model in read when model is
-// a large all model whose terms can be indexed.
-func indexAllContentModel(read *compiledModelRead, model *compiledModel, analysis *dfaRowIndexAnalysis) error {
-	if model.Kind != compiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
-		return nil
-	}
-	if err := spendContentModelWorkN(analysis.work, len(model.All)); err != nil {
-		return err
-	}
-	index := make(map[QName]uint32, len(model.All))
-	indexed, err := indexAllContentTerms(index, model.All, analysis)
-	if err != nil {
-		return err
-	}
-	if indexed {
-		read.allNames = index
-	}
-	return nil
-}
-
-// indexAllContentTerms fills the empty map index with terms' names after the
-// caller has charged one unit per term. It reports false when a term cannot be
-// indexed, leaving index partly filled.
-func indexAllContentTerms(index map[QName]uint32, terms []compiledAllTerm, analysis *dfaRowIndexAnalysis) (bool, error) {
-	for i, term := range terms {
-		if term.Particle.Kind != particleElement {
-			return false, errors.New("all-group index requires element particles")
-		}
-		indexed, err := analysis.indexElementEdge(index, uint32(i), term.Particle.Element)
-		if err != nil {
-			return false, err
-		}
-		if !indexed {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-type compiledModelReadBuilder struct {
-	rows       []compiledModelRowRead
-	edges      []compiledModelEdgeRead
-	all        []compiledAllTermRead
-	rowOffset  int
-	edgeOffset int
-	allOffset  int
-}
-
-func newCompiledModelReadBuilder(models []compiledModel, entered []int) compiledModelReadBuilder {
-	rowCount, edgeCount, allCount := compiledModelReadCounts(models, entered)
-	return compiledModelReadBuilder{
-		rows:  make([]compiledModelRowRead, rowCount),
-		edges: make([]compiledModelEdgeRead, edgeCount),
-		all:   make([]compiledAllTermRead, allCount),
-	}
-}
-
-func (b *compiledModelReadBuilder) readModel(model compiledModel) (compiledModelRead, bool) {
-	rows, mayHaveDenseRows := b.readRows(model.Rows)
 	return compiledModelRead{
-		Rows:      rows,
-		All:       b.readAll(model.All),
+		Rows:      readRows(model.Rows),
+		All:       readAll(model.All),
 		Start:     model.Start,
 		AllBitLen: model.AllBitLen,
 		Kind:      model.Kind,
 		Empty:     model.Empty,
-	}, model.Kind == compiledModelDFA && mayHaveDenseRows
+	}, nil
 }
 
-func (b *compiledModelReadBuilder) readRows(source []compiledModelRow) ([]compiledModelRowRead, bool) {
+func readRows(source []compiledModelRow) []compiledModelRowRead {
 	if len(source) == 0 {
-		return nil, false
+		return nil
 	}
-	end := b.rowOffset + len(source)
-	rows := b.rows[b.rowOffset:end:end]
-	b.rowOffset = end
-	var mayHaveDenseRows bool
+	edgeCount := 0
+	for i := range source {
+		edgeCount += len(source[i].Edges)
+	}
+	rows := make([]compiledModelRowRead, len(source))
+	edges := make([]compiledModelEdgeRead, edgeCount)
 	for i, row := range source {
-		rows[i] = b.readRow(row)
-		mayHaveDenseRows = mayHaveDenseRows || mayUseDenseDFA(&rows[i])
+		end := len(row.Edges)
+		rowEdges := edges[:end:end]
+		edges = edges[end:]
+		for j, edge := range row.Edges {
+			rowEdges[j] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
+		}
+		if end == 0 {
+			rowEdges = nil
+		}
+		rows[i] = compiledModelRowRead{
+			Edges:         rowEdges,
+			CountParticle: newCompiledParticleRead(row.CountParticle),
+			Min:           row.Min,
+			Max:           row.Max,
+			Accept:        row.Accept,
+			Counted:       row.Counted,
+			Unbounded:     row.Unbounded,
+		}
 	}
-	return rows, mayHaveDenseRows
+	return rows
 }
 
-func (b *compiledModelReadBuilder) readRow(row compiledModelRow) compiledModelRowRead {
-	index, kind := newPublishedDFAMapIndex(row.index)
-	return compiledModelRowRead{
-		Edges:         b.readEdges(row.Edges),
-		index:         index,
-		indexKind:     kind,
-		CountParticle: newCompiledParticleRead(row.CountParticle),
-		Min:           row.Min,
-		Max:           row.Max,
-		Accept:        row.Accept,
-		Counted:       row.Counted,
-		Unbounded:     row.Unbounded,
-	}
-}
-
-func (b *compiledModelReadBuilder) readEdges(source []compiledModelEdge) []compiledModelEdgeRead {
+func readAll(source []compiledAllTerm) []compiledAllTermRead {
 	if len(source) == 0 {
 		return nil
 	}
-	end := b.edgeOffset + len(source)
-	edges := b.edges[b.edgeOffset:end:end]
-	b.edgeOffset = end
-	for i, edge := range source {
-		edges[i] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
-	}
-	return edges
-}
-
-func (b *compiledModelReadBuilder) readAll(source []compiledAllTerm) []compiledAllTermRead {
-	if len(source) == 0 {
-		return nil
-	}
-	end := b.allOffset + len(source)
-	all := b.all[b.allOffset:end:end]
-	b.allOffset = end
+	all := make([]compiledAllTermRead, len(source))
 	for i, term := range source {
 		all[i] = compiledAllTermRead{Particle: newCompiledParticleRead(term.Particle), Required: term.Required}
 	}
 	return all
 }
 
-func chargeCompiledModelProjectionWork(models []compiledModel, work contentModelWork) error {
-	for _, model := range models {
-		if err := spendContentModelWork(work); err != nil {
-			return err
-		}
-		if err := spendContentModelWorkN(work, len(model.All)); err != nil {
-			return err
-		}
-		if err := chargeCompiledModelRows(model.Rows, work); err != nil {
-			return err
-		}
+func chargeCompiledModelProjectionWork(model compiledModel, work contentModelWork) error {
+	if err := spendContentModelWorkN(work, 1+len(model.All)); err != nil {
+		return err
 	}
-	return nil
-}
-
-func chargeCompiledModelRows(rows []compiledModelRow, work contentModelWork) error {
-	for _, row := range rows {
-		if err := spendContentModelWork(work); err != nil {
+	for _, row := range model.Rows {
+		if err := spendContentModelWorkN(work, 1+len(row.Edges)); err != nil {
 			return err
-		}
-		counts := [...]int{len(row.Edges), len(row.index.nameToEdge), len(row.index.wildcardEdges)}
-		for _, count := range counts {
-			if err := spendContentModelWorkN(work, count); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -522,25 +398,6 @@ func spendContentModelWorkN(work contentModelWork, count int) error {
 		}
 	}
 	return nil
-}
-
-func compiledModelReadCounts(models []compiledModel, entered []int) (rows, edges, all int) {
-	for _, id := range entered {
-		model := &models[id]
-		rows = addCompiledModelReadCount(rows, len(model.Rows))
-		all = addCompiledModelReadCount(all, len(model.All))
-		for j := range model.Rows {
-			edges = addCompiledModelReadCount(edges, len(model.Rows[j].Edges))
-		}
-	}
-	return rows, edges, all
-}
-
-func addCompiledModelReadCount(total, count int) int {
-	if count > math.MaxInt-total {
-		panic("compiled model read projection size exceeds int capacity")
-	}
-	return total + count
 }
 
 func sameCompiledParticleRead(a, b compiledParticleRead) bool {

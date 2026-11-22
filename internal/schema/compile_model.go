@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/xml"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -352,38 +353,54 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 }
 
 // compileContentModels compiles every model reached from a complex type, in
-// source-ID order and in the scope of its owner, then indexes the table. A
-// nested model is compiled on its own as well as in its ancestors' rows, so a
-// violation or limit inside a group stops compilation at the first model, in
-// source order, holding it. Indexing is set-wide: it only spends budget, and
-// locateSetWideLimit locates its limit failure.
+// source-ID order and in the scope of its owner. A nested model is compiled on
+// its own as well as in its ancestors' rows, so a violation or limit inside a
+// group stops compilation at the first model, in source order, holding it.
+// Only a complex type's root model can be published, so only a root keeps its
+// published form; any other model keeps its kind alone.
 func (c *compiler) compileContentModels(reached []contentModelID) error {
-	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, c.contentAnalysis)
+	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
+	index := newDFARowIndexAnalysis(&c.rt, c.contentWork.spend, &c.dependencyWork)
+	roots := make([]contentModelID, len(c.rt.ComplexTypes))
+	for i := range c.rt.ComplexTypes {
+		roots[i] = c.rt.ComplexTypes[i].Content
+	}
+	slices.Sort(roots)
 	sources := make([]contentModelID, 0, len(reached))
-	models := make([]compiledModel, 0, len(reached))
+	models := make([]compiledModelRead, 0, len(reached))
 	for _, id := range reached {
-		var compiled compiledModel
-		if err := c.compileContentModel(&cc, &compiled, id); err != nil {
+		model, err := c.compileContentModel(&cc, index, roots, id)
+		if err != nil {
 			return err
 		}
 		sources = append(sources, id)
-		models = append(models, compiled)
-	}
-	if err := indexCompiledModelsRows(&c.rt, models, c.contentWork.spend); err != nil {
-		return contentRestrictionCompileError(err)
+		models = append(models, model)
 	}
 	c.rt.CompiledContent = compiledContent{Sources: sources, Models: models}
 	return nil
 }
 
-func (c *compiler) compileContentModel(cc *contentModelCompiler, compiled *compiledModel, id contentModelID) (err error) {
+func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, id contentModelID) (_ compiledModelRead, err error) {
 	scope, err := c.enterContentModel(id)
 	if err != nil {
-		return err
+		return compiledModelRead{}, err
 	}
 	defer scope.leave(&err)
-	*compiled, err = cc.compileRootContentModel(id)
-	return err
+	compiled, err := cc.compileRootContentModel(id)
+	if err != nil {
+		return compiledModelRead{}, err
+	}
+	if _, root := slices.BinarySearch(roots, id); !root {
+		return compiledModelRead{Kind: compiled.Kind}, nil
+	}
+	model, err := newCompiledModelRead(compiled, c.contentWork.spend)
+	if err != nil {
+		return compiledModelRead{}, err
+	}
+	if err := index.indexModel(&model); err != nil {
+		return compiledModelRead{}, err
+	}
+	return model, nil
 }
 
 func (c *compiler) checkCompiledModelsUPA(reached []contentModelID) error {

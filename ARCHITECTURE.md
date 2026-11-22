@@ -199,8 +199,16 @@ schema owns facet admission, final constraints and schema-use policy.
 lists, and through that work the heap that automaton
 construction uses (derived row-edge bound and measured heap in
 [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md); derivation in the Go doc of
-`deterministicRow`). That bound is per content model; the compiled tables
-retained across models are not bounded by it. Spent work is never refunded. Retained derived records
+`deterministicRow`). That bound is per content model. `MaxSchemaDependencySteps`
+bounds the compiled tables retained across models (per-step bound in
+[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): `contentModelCompiler` charges
+each model record, row, edge reference and `xs:all` term, and
+`dfaRowIndexAnalysis` each name-index entry, before allocating it.
+`compileContentModels` keeps only the published form (`compiledModelRead`) of
+each complex type's root model, indexed in the model's scope, and the kind of
+every other reached model; publication takes those tables without copying them; `sealSchemaProgram` adds dense indexes, which
+rewrite rows the build shares, only after the last step that can reject the
+build. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
 `appendModelParticles` is the only append to retained model particles and
 charges one step per particle before allocating (the restriction normalizer
@@ -1054,6 +1062,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
 | `internal/schema/wildcard_work_external_test.go` with `internal/schema/wildcard_test.go` | The external test compiles interleaved namespace lists of 511 to 1,024 namespaces and requires at least 256 more steps of the owning budget when the lists are compared than when they are held apart, for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction. `TestWildcardSetOperationsChargeEveryNamespaceVisited` requires each set operation to charge at least its visit count on lists of unequal length: overlap and intersection the shorter in-range run, subset the subset list, union both lists, intersection with `##other` the finite list, equality the list. Neither covers a consumer that passes a budget that does not charge, attribute-wildcard union through compilation, or sequence wildcard equivalence |
+| `internal/schema/content_table_budget_external_test.go` with `TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms` | A compiled model needs exactly two steps for its record plus one per row, edge reference and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edge references, `xs:all` terms and name-index entries of the two tables. It does not cover a direct compilation that automaton construction replaces |
 | `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the functions it lists, each with the owner that charges the particles it reads. A new function that reads a particle list fails it, whether it selects the field or uses a parameter the list reaches through static in-package calls, and so does a listed function that no longer exists or reads no particle list. It does not catch an uncharged loop added inside a listed function, a list passed through interface method dispatch, a function value, a variadic parameter or an ellipsis, a reader nested inside a package-level initializer, a list stored or returned and read by another function, or a list derived from the particles |
 | `tests/content_model_compile_work_test.go` with `tests/internal/compilework` | Pins the fix that keeps the mapping search of `findMappedGroupParticle`, when a sequence restricts an all group, to the unmapped base particles it charges: the statements of `internal/schema` per charged step of an added restriction may grow by at most 1.4 when the group grows from 128 to 2048 particles. It does not see a skip in a for-clause condition or post statement, inside a library or builtin call, or in another package, and measures only compilations that succeed |
 | `tests/attribute_use_audit_work_test.go` with `tests/internal/compilework` | Pins the publication audit of a derived attribute-use set to index lookups: the statements of `internal/schema` per charged step of an added extension, or of an added restriction redeclaring every base attribute, may grow by at most 1.4 when the base grows from 128 to 2048 attributes. It has the measurement limits of the row above |
@@ -1291,6 +1300,19 @@ graph preserves these ownership rules:
   installs particles through `completeModel`, and shared variants would be
   charged for copies that do not happen. Cloning content models on read was
   rejected: it is uncharged work proportional to references times group size.
+- Bounding the compiled tables retained across models with a schema-wide
+  state cap was rejected because it does not bound edges or index entries and
+  contradicts the per-model meaning of `MaxContentModelStates`; charging them
+  to `MaxContentModelAnalysisSteps` by bytes was rejected because the largest
+  corpus schema would keep only about 4× headroom against 68× for one
+  dependency step per record; a new option was rejected as API that
+  `MaxSchemaDependencySteps`, which already claims retained derived records,
+  covers. Keeping a compiled table per model until publication and projecting
+  it then was rejected: both forms were live at publication, about 2.5× the
+  retained tables, and releasing compiled rows during publication still left
+  the whole compiled table, larger than the published one in row-heavy shapes,
+  live before publication starts. Projecting each model when it compiles
+  makes the peak the retained tables plus one model's construction.
 - Giving each {content type} particle its own root record was rejected. It
   would stop copying a group's record when a type's whole content is a
   repeated reference to that group. A full implementation kept verdicts,

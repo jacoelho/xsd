@@ -61,7 +61,7 @@ func TestContentScratchAllBitInvariants(t *testing.T) {
 	}
 }
 
-func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
+func TestCompiledModelReadProjectionIsolatesEachModelsTables(t *testing.T) {
 	t.Parallel()
 
 	models := []compiledModel{
@@ -80,7 +80,10 @@ func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
 		},
 	}
 
-	reads := testCompiledModelReads(models)
+	reads := make([]compiledModelRead, len(models))
+	for i, model := range models {
+		reads[i] = testProjectedModel(model)
+	}
 	if reads[0].Rows != nil || reads[0].All != nil {
 		t.Fatalf("empty model projection = rows %#v all %#v, want nil slices", reads[0].Rows, reads[0].All)
 	}
@@ -98,37 +101,29 @@ func TestCompiledModelReadProjectionUsesIsolatedFlatPools(t *testing.T) {
 		}
 	}
 
+	reads[2].Rows[0].Edges = append(reads[2].Rows[0].Edges, compiledModelEdgeRead{To: 97})
 	reads[2].Rows[0].Edges[0].To = 99
-	reads[2].Rows[1].Edges[0].To = 98
 	reads[2].All[0].Required = false
-	if reads[3].Rows[0].Edges[0].To != 3 || reads[3].All[0].Required {
-		t.Fatalf("projection pools overlap: model 3 = %+v", reads[3])
+	if reads[2].Rows[1].Edges[0].To != 2 || reads[3].Rows[0].Edges[0].To != 3 || reads[3].All[0].Required {
+		t.Fatalf("projected tables overlap: model 2 = %+v, model 3 = %+v", reads[2], reads[3])
 	}
 	if models[2].Rows[0].Edges[0].To != 1 || !models[2].All[0].Required {
 		t.Fatalf("projection aliases source: model 2 = %+v", models[2])
 	}
 }
 
-func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) {
+func TestPublishedContentModelsKeepsEnteredOrder(t *testing.T) {
 	t.Parallel()
 
-	models := make([]compiledModel, 5)
+	models := make([]compiledModelRead, 5)
 	for i := range models {
-		models[i] = compiledModel{
+		models[i] = testProjectedModel(compiledModel{
 			Rows: []compiledModelRow{{Edges: []compiledModelEdge{{To: uint32(10 + i)}}}},
 			All:  []compiledAllTerm{{Required: i%2 == 0}},
-		}
-	}
-	work := func(entered []int) ([]compiledModelRead, int) {
-		units := 0
-		reads, _, err := newCompiledModelReads(models, entered, func(steps int) error { units += steps; return nil })
-		if err != nil {
-			t.Fatalf("newCompiledModelReads(%v) error = %v", entered, err)
-		}
-		return reads, units
+		})
 	}
 	entered := []int{1, 3, 4}
-	reads, units := work(entered)
+	reads := publishedContentModels(models, entered)
 	if len(reads) != len(entered) {
 		t.Fatalf("published %d models, want %d", len(reads), len(entered))
 	}
@@ -137,42 +132,25 @@ func TestCompiledModelReadProjectionPublishesEnteredModelsInOrder(t *testing.T) 
 			t.Fatalf("published model %d = %+v, want source model %d", i, reads[i], id)
 		}
 	}
-	if _, all := work(allCompiledModels(len(models))); units != all {
-		t.Fatalf("projection work = %d for entered models, want %d as for every model", units, all)
-	}
 }
 
-var compiledModelReadAllocationSink []compiledModelRead
+var compiledModelReadAllocationSink compiledModelRead
 
-func TestCompiledModelReadProjectionAllocationCountIsConstant(t *testing.T) {
-	models := make([]compiledModel, 10_000)
-	for i := range models {
-		models[i].Rows = []compiledModelRow{{Edges: []compiledModelEdge{{To: uint32(i)}}}}
-		models[i].All = []compiledAllTerm{{Required: true}}
+func TestCompiledModelReadProjectionAllocatesOneTablePerKind(t *testing.T) {
+	model := compiledModel{All: []compiledAllTerm{{Required: true}}}
+	for i := range 1_000 {
+		model.Rows = append(model.Rows, compiledModelRow{Edges: []compiledModelEdge{{To: uint32(i)}, {To: uint32(i + 1)}}})
 	}
-
-	entered := allCompiledModels(len(models))
 	allocs := testing.AllocsPerRun(3, func() {
-		reads, _, err := newCompiledModelReads(models, entered, unlimitedContentModelWork)
+		read, err := newCompiledModelRead(model, unlimitedContentModelWork)
 		if err != nil {
 			panic(err)
 		}
-		compiledModelReadAllocationSink = reads
+		compiledModelReadAllocationSink = read
 	})
-	if allocs > 4 {
-		t.Fatalf("newCompiledModelReads() allocations = %v, want at most 4 flat tables", allocs)
+	if allocs > 3 {
+		t.Fatalf("newCompiledModelRead() allocations = %v, want one table each for rows, edges and xs:all terms", allocs)
 	}
-}
-
-func TestAddCompiledModelReadCountRejectsOverflow(t *testing.T) {
-	t.Parallel()
-
-	defer func() {
-		if recover() == nil {
-			t.Fatal("addCompiledModelReadCount() accepted overflowing count")
-		}
-	}()
-	addCompiledModelReadCount(math.MaxInt, 1)
 }
 
 func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
@@ -337,7 +315,6 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 				Kind: compiledModelDFA,
 				Rows: []compiledModelRow{
 					{
-						index: dfaRowIndex{nameToEdge: map[QName]uint32{memberName: 0}},
 						Edges: []compiledModelEdge{{
 							Particle: elementParticle(head, occurrence{Min: 1, Max: 1}),
 							To:       1,
@@ -350,6 +327,9 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 		elementNames: map[ElementID]QName{head: headName},
 		substitutionLookup: map[ElementID]map[QName]ElementID{
 			head: {memberName: member},
+		},
+		rowIndexes: map[contentModelID]map[int]publishedDFAIndex{
+			model: {0: {nameToEdge: map[QName]uint32{memberName: 0}}},
 		},
 	})
 	st := ContentState{model: model, present: true}
@@ -378,10 +358,6 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 				Kind: compiledModelDFA,
 				Rows: []compiledModelRow{
 					{
-						index: dfaRowIndex{
-							nameToEdge:    map[QName]uint32{name: 1},
-							wildcardEdges: []uint32{0},
-						},
 						Edges: []compiledModelEdge{
 							{
 								Particle: wildcardParticle(wildcard, occurrence{Min: 1, Max: 1}),
@@ -400,6 +376,9 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 		},
 		elementNames: map[ElementID]QName{elem: name},
 		wildcards:    map[WildcardID]wildcardRuntime{wildcard: {Mode: WildcardAny, Process: ProcessSkip}},
+		rowIndexes: map[contentModelID]map[int]publishedDFAIndex{
+			model: {0: {nameToEdge: map[QName]uint32{name: 1}, data: []uint32{0}}},
+		},
 	})
 	st := ContentState{model: model, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
@@ -508,14 +487,14 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	child := ElementID(3)
 	childName := QName{Namespace: emptyNamespaceID, Local: 1}
 	tests := []struct {
-		name  string
-		index dfaRowIndex
+		name       string
+		rowIndexes map[contentModelID]map[int]publishedDFAIndex
 	}{
 		{name: "linear"},
 		{
 			name: "indexed",
-			index: dfaRowIndex{
-				nameToEdge: map[QName]uint32{childName: 0},
+			rowIndexes: map[contentModelID]map[int]publishedDFAIndex{
+				model: {0: {nameToEdge: map[QName]uint32{childName: 0}}},
 			},
 		},
 	}
@@ -529,7 +508,6 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 						Kind: compiledModelDFA,
 						Rows: []compiledModelRow{
 							{
-								index: tc.index,
 								Edges: []compiledModelEdge{{
 									Particle: elementParticle(child, occurrence{Min: 1, Max: 1}),
 									To:       1,
@@ -539,6 +517,7 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 						},
 					},
 				},
+				rowIndexes: tc.rowIndexes,
 			})
 			st := ContentState{model: model, present: true}
 			transition, status := rt.NextContent(st, ContentInput{
@@ -651,6 +630,9 @@ type contentSchemaFixture struct {
 	elementNames       map[ElementID]QName
 	wildcards          map[WildcardID]wildcardRuntime
 	substitutionLookup map[ElementID]map[QName]ElementID
+	// rowIndexes replaces the index of the named rows after compilation's
+	// indexing, so a fixture can index a row below the index threshold.
+	rowIndexes map[contentModelID]map[int]publishedDFAIndex
 }
 
 func publishedContentSchema(s contentSchemaFixture) *Schema {
@@ -673,9 +655,16 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 			maxModel = int(id)
 		}
 	}
-	models := make([]compiledModel, maxModel+1)
+	compiled := make([]compiledModel, maxModel+1)
 	for id, model := range s.models {
-		models[id] = model
+		compiled[id] = model
+	}
+	models := testIndexedModels((dfaRowIndexFixture{elementNames: s.elementNames, substitutionByName: s.substitutionLookup}).build(), compiled...)
+	for id, rows := range s.rowIndexes {
+		for row, index := range rows {
+			models[id].Rows[row].index = index
+			models[id].Rows[row].indexKind = publishedDFAMap
+		}
 	}
 
 	maxElement := -1

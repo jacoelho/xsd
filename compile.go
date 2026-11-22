@@ -38,8 +38,8 @@ type CompileOptions struct {
 	MaxSchemaReferences int
 	// MaxSchemaDependencySteps caps aggregate schema-graph expansion, target-context
 	// propagation, component-dependency resolution and retained derived records
-	// (content-model particles and models, attribute uses, wildcard namespaces).
-	// Zero uses the default.
+	// (content-model particles and models, compiled content-model tables,
+	// attribute uses, wildcard namespaces). Zero uses the default.
 	MaxSchemaDependencySteps int
 	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
 	// including primary and chameleon-derived contexts. Zero uses the default.

@@ -186,7 +186,7 @@ func checkFollowTableMatchesPairwise(t *testing.T, models map[contentModelID]con
 func followFixtureBuilder(rt *schemaBuild) *dfaBuilder {
 	work := newWorkBudget(contentModelWorkBudget, math.MaxInt)
 	return &dfaBuilder{
-		c:      &contentModelCompiler{rt: rt, work: &work},
+		c:      &contentModelCompiler{rt: rt, work: &work, retained: testDependencyWork()},
 		follow: newFollowTable(),
 		states: make(map[string]uint32),
 		limit:  math.MaxInt,

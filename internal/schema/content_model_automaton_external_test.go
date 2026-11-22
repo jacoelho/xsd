@@ -103,7 +103,10 @@ type automatonConstructionCase struct {
 	schema       string
 	limitErr     bool
 	stepLimitErr bool
-	maxMiB       uint64
+	// tableLimitErr expects MaxSchemaDependencySteps, which the compiled
+	// tables of the model exhaust before its analysis does.
+	tableLimitErr bool
+	maxMiB        uint64
 }
 
 // automatonConstructionCases bound the bytes compilation allocates. The
@@ -111,7 +114,9 @@ type automatonConstructionCase struct {
 // reaches: 3.1 MiB of rows and edges at the state limit, and 16.6 MiB summed
 // over the separately determinized models in choice. The fan-out bound is
 // about 1.2 KiB per position over the 49,000 positions of g1 to g13. The other
-// schemas exhaust the default MaxContentModelAnalysisSteps. The bound of the
+// schemas exhaust the default MaxContentModelAnalysisSteps, except the direct
+// optional sequence, whose edge references and row indexes exhaust the
+// default MaxSchemaDependencySteps first. The bound of the
 // repeated optional sequence, the costliest optional-element shape measured,
 // is three bytes per step, and the others two; both are measured margins
 // under the derived row-edge bound in docs/RESOURCE_LIMITS.md.
@@ -124,7 +129,7 @@ func automatonConstructionCases() []automatonConstructionCase {
 		{name: "wide-group-fan-out-11", schema: wideGroupFanOutSchema(256, 11), stepLimitErr: true, maxMiB: 32},
 		{name: "wide-group-fan-out-12", schema: wideGroupFanOutSchema(256, 12), stepLimitErr: true, maxMiB: 32},
 		{name: "counted-optional-sequence", schema: optionalSequenceSchema("", 1060, "2"), stepLimitErr: true, maxMiB: 32},
-		{name: "direct-optional-sequence", schema: optionalSequenceSchema("", 2060, "1"), stepLimitErr: true, maxMiB: 32},
+		{name: "direct-optional-sequence", schema: optionalSequenceSchema("", 2060, "1"), tableLimitErr: true, maxMiB: 32},
 		{name: "repeated-optional-sequence", schema: optionalSequenceSchema(`<xs:element name="z"/>`, 1720, "unbounded"), stepLimitErr: true, maxMiB: 48},
 	}
 }
@@ -135,6 +140,13 @@ func (tt automatonConstructionCase) compile() (*xsdSchema.Schema, error) {
 
 func (tt automatonConstructionCase) check(tb testing.TB, err error) {
 	tb.Helper()
+	if tt.tableLimitErr {
+		x, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || x.Code() != xsderrors.CodeSchemaLimit || !strings.HasPrefix(x.Message(), "compiler work exceeds MaxSchemaDependencySteps") {
+			tb.Fatalf("Compile() error = %v, want the dependency step limit", err)
+		}
+		return
+	}
 	if tt.stepLimitErr {
 		x, ok := errors.AsType[*xsderrors.Error](err)
 		if !ok || x.Code() != xsderrors.CodeSchemaLimit || !strings.HasPrefix(x.Message(), "compiler work exceeds MaxContentModelAnalysisSteps") {

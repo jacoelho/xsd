@@ -1,8 +1,6 @@
 package schema
 
-import (
-	"errors"
-)
+import "github.com/jacoelho/xsd/xsderrors"
 
 // compiledModelKind identifies the runtime representation used for a compiled
 // content model.
@@ -30,29 +28,21 @@ type compiledModel struct {
 	Empty     bool
 }
 
-type dfaRowIndex struct {
-	nameToEdge    map[QName]uint32
-	wildcardEdges []uint32
-}
-
-func (idx dfaRowIndex) enabled() bool {
-	return idx.nameToEdge != nil
-}
-
-// compiledContent holds the compiled form of each content model that
-// complexTypeReachableModels returns, and no other.
+// compiledContent holds the published form of each content model that
+// complexTypeReachableModels returns, and no other. Each model's compiled
+// form lives only while that model is compiled; publication takes these
+// tables without copying them.
 type compiledContent struct {
 	// Sources holds the source IDs of the compiled models, ascending and
 	// distinct.
 	Sources []contentModelID
 	// Models is parallel to Sources.
-	Models []compiledModel
+	Models []compiledModelRead
 }
 
 // compiledModelRow stores a compiled DFA state.
 type compiledModelRow struct {
 	Edges         []compiledModelEdge
-	index         dfaRowIndex
 	CountParticle contentParticle
 	Min           uint32
 	Max           uint32
@@ -82,64 +72,60 @@ func sameCompiledParticle(a, b contentParticle) bool {
 
 const compiledDFARowIndexMinEdges = 8
 
+// dfaRowIndexAnalysis builds the name indexes of published models: the
+// edge index of each DFA row with at least compiledDFARowIndexMinEdges edges
+// and the term index of each xs:all model with at least as many terms. Each
+// substitution head's expanded names are computed once per analysis.
 type dfaRowIndexAnalysis struct {
-	rt      *schemaBuild
-	work    contentModelWork
-	entries map[ElementID][]QName
+	rt       *schemaBuild
+	work     contentModelWork
+	retained *workBudget
+	entries  map[ElementID][]QName
 }
 
-// indexCompiledModelsRows builds row indexes for a model table and
-// reuses each substitution head's expanded entries across the table.
-func indexCompiledModelsRows(rt *schemaBuild, models []compiledModel, work contentModelWork) error {
-	if err := requireContentModelWork(work); err != nil {
+// newDFARowIndexAnalysis charges index traversal to work and each index
+// entry, a name or a wildcard position, to retained before it is stored.
+func newDFARowIndexAnalysis(rt *schemaBuild, work contentModelWork, retained *workBudget) *dfaRowIndexAnalysis {
+	return &dfaRowIndexAnalysis{
+		rt:       rt,
+		work:     work,
+		retained: retained,
+		entries:  make(map[ElementID][]QName),
+	}
+}
+
+func (a *dfaRowIndexAnalysis) indexModel(model *compiledModelRead) error {
+	if err := spendContentModelWork(a.work); err != nil {
 		return err
 	}
-	analysis := newDFARowIndexAnalysis(rt, work)
-	for i := range models {
-		if err := spendContentModelWork(work); err != nil {
-			return err
+	switch model.Kind {
+	case compiledModelDFA:
+		for i := range model.Rows {
+			if err := spendContentModelWork(a.work); err != nil {
+				return err
+			}
+			if err := a.indexRow(&model.Rows[i]); err != nil {
+				return err
+			}
 		}
-		if err := analysis.indexModel(&models[i]); err != nil {
-			return err
-		}
+	case compiledModelAll:
+		return a.indexAllTerms(model)
+	case compiledModelEmpty, compiledModelAny:
 	}
 	return nil
 }
 
-func newDFARowIndexAnalysis(rt *schemaBuild, work contentModelWork) *dfaRowIndexAnalysis {
-	return &dfaRowIndexAnalysis{
-		rt:      rt,
-		work:    work,
-		entries: make(map[ElementID][]QName),
-	}
-}
-
-func (a *dfaRowIndexAnalysis) indexModel(model *compiledModel) error {
-	if model.Kind != compiledModelDFA {
-		return nil
-	}
-	for i := range model.Rows {
-		if err := spendContentModelWork(a.work); err != nil {
-			return err
-		}
-		if err := a.indexRow(&model.Rows[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (a *dfaRowIndexAnalysis) indexRow(row *compiledModelRow) error {
+func (a *dfaRowIndexAnalysis) indexRow(row *compiledModelRowRead) error {
 	if len(row.Edges) < compiledDFARowIndexMinEdges {
 		return nil
 	}
-	if err := spendContentModelWorkN(a.work, len(row.Edges)); err != nil {
+	if err := a.spendEntries(len(row.Edges)); err != nil {
 		return err
 	}
 	index := make(map[QName]uint32, len(row.Edges))
 	var wildcards []uint32
 	for pos, edge := range row.Edges {
-		indexed, err := a.indexEdge(index, &wildcards, uint32(pos), edge)
+		indexed, err := a.indexEdge(index, &wildcards, uint32(pos), edge.Particle)
 		if err != nil {
 			return err
 		}
@@ -147,33 +133,68 @@ func (a *dfaRowIndexAnalysis) indexRow(row *compiledModelRow) error {
 			return nil
 		}
 	}
-	row.index = dfaRowIndex{nameToEdge: index, wildcardEdges: wildcards}
+	row.index = publishedDFAIndex{nameToEdge: index, data: wildcards}
+	row.indexKind = publishedDFAMap
 	return nil
+}
+
+// indexAllTerms installs the name index of a large xs:all model. The index
+// uses the same substitution expansion as DFA rows; occurrence bits remain
+// document-owned.
+func (a *dfaRowIndexAnalysis) indexAllTerms(model *compiledModelRead) error {
+	if len(model.All) < compiledDFARowIndexMinEdges {
+		return nil
+	}
+	if err := a.spendEntries(len(model.All)); err != nil {
+		return err
+	}
+	index := make(map[QName]uint32, len(model.All))
+	for i, term := range model.All {
+		if term.Particle.Kind != particleElement {
+			return xsderrors.InternalInvariant("all-group index requires element particles")
+		}
+		indexed, err := a.indexElementEdge(index, uint32(i), term.Particle.Element)
+		if err != nil {
+			return err
+		}
+		if !indexed {
+			return nil
+		}
+	}
+	model.allNames = index
+	return nil
+}
+
+func (a *dfaRowIndexAnalysis) spendEntries(entries int) error {
+	if err := spendContentModelWorkN(a.work, entries); err != nil {
+		return err
+	}
+	return a.retained.spend(entries)
 }
 
 func (a *dfaRowIndexAnalysis) indexEdge(
 	index map[QName]uint32,
 	wildcards *[]uint32,
 	position uint32,
-	edge compiledModelEdge,
+	particle compiledParticleRead,
 ) (bool, error) {
-	switch edge.Particle.Kind {
+	switch particle.Kind {
 	case particleElement:
-		return a.indexElementEdge(index, position, edge.Particle.Element)
+		return a.indexElementEdge(index, position, particle.Element)
 	case particleWildcard:
 		*wildcards = append(*wildcards, position)
 		return true, nil
 	case particleModel:
 		return false, nil
 	default:
-		return false, errors.New("compiled content model index has invalid edge particle")
+		return false, xsderrors.InternalInvariant("compiled content model index has invalid edge particle")
 	}
 }
 
 func (a *dfaRowIndexAnalysis) indexElementEdge(index map[QName]uint32, position uint32, element ElementID) (bool, error) {
 	name, ok := a.rt.ElementName(element)
 	if !ok {
-		return false, errors.New("compiled content model index references invalid element")
+		return false, xsderrors.InternalInvariant("compiled content model index references invalid element")
 	}
 	if !indexEdgeName(index, name, position) {
 		return false, nil
@@ -183,7 +204,7 @@ func (a *dfaRowIndexAnalysis) indexElementEdge(index map[QName]uint32, position 
 		return false, err
 	}
 	for _, entry := range entries {
-		if err := spendContentModelWork(a.work); err != nil {
+		if err := a.spendEntries(1); err != nil {
 			return false, err
 		}
 		if !indexEdgeName(index, entry, position) {
