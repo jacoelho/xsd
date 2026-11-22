@@ -311,12 +311,10 @@ func (d AttributeDeclRead) FixedValue() (ValueConstraintRead, bool) {
 	return d.fixed, d.hasFixed
 }
 
-// validateAttributeUseSetRecord validates attribute-use set metadata directly
-// from runtime records.
+// validateAttributeUseSetRecord validates the uses and index of an
+// attribute-use set directly from runtime records. The publication audit
+// checks the set's wildcard provenance separately, once per set.
 func validateAttributeUseSetRecord(names *nameTable, rt *schemaBuild, set attributeUseSet) error {
-	if err := validateAttributeWildcardProvenance(rt, set); err != nil {
-		return err
-	}
 	if len(set.Index) != len(set.Uses) {
 		return errors.New("attribute use set index size does not match uses")
 	}
@@ -387,10 +385,10 @@ func validateAttributeUseSetRestriction(
 	base, derived attributeUseSet,
 	binding attributeWildcardBinding,
 ) error {
-	if err := validateBaseAttributeUseRestrictions(rt, base.Uses, derived.Uses); err != nil {
+	if err := validateBaseAttributeUseRestrictions(rt, base.Uses, derived); err != nil {
 		return err
 	}
-	if err := validateNewRestrictedAttributeUses(rt, base.Uses, derived.Uses, base); err != nil {
+	if err := validateNewRestrictedAttributeUses(rt, base, derived.Uses); err != nil {
 		return err
 	}
 	return validateRestrictedAttributeWildcard(rt, base, derived, binding)
@@ -409,10 +407,11 @@ const (
 
 func validateBaseAttributeUseRestrictions(
 	rt *schemaBuild,
-	base, derived []attributeUse,
+	base []attributeUse,
+	derived attributeUseSet,
 ) error {
 	for _, use := range base {
-		next, ok := attributeUseByName(derived, use.Name)
+		next, ok := derived.useNamed(use.Name)
 		if use.Required && !ok {
 			return errors.New("complex restriction omits required base attribute")
 		}
@@ -427,17 +426,17 @@ func validateBaseAttributeUseRestrictions(
 
 func validateNewRestrictedAttributeUses(
 	rt *schemaBuild,
-	base, derived []attributeUse,
-	baseWildcard attributeUseSet,
+	base attributeUseSet,
+	derived []attributeUse,
 ) error {
 	for _, use := range derived {
-		if _, ok := attributeUseByName(base, use.Name); ok {
+		if _, ok := base.useNamed(use.Name); ok {
 			continue
 		}
-		if baseWildcard.Wildcard == NoWildcard {
+		if base.Wildcard == NoWildcard {
 			return errors.New("complex restriction adds attribute outside base wildcard")
 		}
-		wildcard, ok := wildcardByID(rt.Wildcards, baseWildcard.Wildcard)
+		wildcard, ok := wildcardByID(rt.Wildcards, base.Wildcard)
 		if !ok || !wildcardAllowsNamespace(wildcard, use.Name.Namespace) {
 			return errors.New("complex restriction adds attribute outside base wildcard")
 		}
@@ -457,26 +456,27 @@ func validateRestrictedAttributeWildcard(
 		}
 		return nil
 	case attributeWildcardBound:
-		return validateAttributeWildcardDerivation(rt, base, derived, attributeWildcardRestriction)
+		return validateAttributeWildcardDerivation(base, derived, attributeWildcardRestriction)
 	default:
 		return errors.New("attribute wildcard binding is invalid")
 	}
 }
 
-func attributeUseByName(uses []attributeUse, name QName) (attributeUse, bool) {
-	for _, use := range uses {
-		if use.Name == name {
-			return use, true
-		}
+// useNamed reports a slot that does not hold the named use as no use instead
+// of trusting the index, which the record audit validates separately.
+func (s attributeUseSet) useNamed(name QName) (attributeUse, bool) {
+	slot, ok := s.Index[name]
+	if !ok || !validUint32Index(slot, len(s.Uses)) || s.Uses[slot].Name != name {
+		return attributeUse{}, false
 	}
-	return attributeUse{}, false
+	return s.Uses[slot], true
 }
 
 // validateAttributeUseSetExtension validates that every base attribute use is
 // preserved unchanged by a complex-type extension.
 func validateAttributeUseSetExtension(base, derived attributeUseSet) error {
 	for _, use := range base.Uses {
-		next, ok := attributeUseByName(derived.Uses, use.Name)
+		next, ok := derived.useNamed(use.Name)
 		if !ok || !attributeUseExtensionEqual(use, next) {
 			return errors.New("complex extension does not preserve base attribute use")
 		}
@@ -514,9 +514,9 @@ func validateAttributeUseRuntime(
 }
 
 // validateAttributeWildcardDerivation validates a derived use-set wildcard's
-// binding to its owning type's base and derivation.
+// binding to its owning type's base and derivation. The provenance the binding
+// names is checked with every set by validateAttributeUseSetRuntime.
 func validateAttributeWildcardDerivation(
-	rt *schemaBuild,
 	base, derived attributeUseSet,
 	expected attributeWildcardDerivation,
 ) error {
@@ -526,7 +526,7 @@ func validateAttributeWildcardDerivation(
 	if derived.WildcardBase != base.Wildcard {
 		return errors.New("attribute wildcard base does not match owning type")
 	}
-	return validateAttributeWildcardProvenance(rt, derived)
+	return nil
 }
 
 // validateAttributeWildcardProvenance validates a use-set wildcard against its
