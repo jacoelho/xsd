@@ -190,6 +190,38 @@ func TestValidateContentModelTableRejectsInvalidParticleReferences(t *testing.T)
 	}
 }
 
+func TestValidateContentModelTableRejectsNonUnitParticleFlagThatDisagreesWithParticles(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	limits := contentModelRefLimits{ElementCount: 1}
+	tests := []struct {
+		name  string
+		model contentModelNode
+		valid bool
+	}{
+		{name: "unit particles unflagged", model: contentModelNode{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}}, valid: true},
+		{name: "non-unit particle flagged", model: contentModelNode{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one), elementParticle(0, optional)}, NonUnitParticle: true}, valid: true},
+		{name: "non-unit particle unflagged", model: contentModelNode{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one), elementParticle(0, optional)}}},
+		{name: "unit particles flagged", model: contentModelNode{Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one)}, NonUnitParticle: true}},
+		{name: "empty model flagged", model: contentModelNode{Kind: modelEmpty, NonUnitParticle: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateContentModelTable([]contentModelNode{tt.model}, limits, unlimitedContentModelWork)
+			if tt.valid {
+				if err != nil {
+					t.Fatalf("validateContentModelTable() error = %v", err)
+				}
+				return
+			}
+			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
 func TestValidateContentModelTableRejectsCycles(t *testing.T) {
 	t.Parallel()
 

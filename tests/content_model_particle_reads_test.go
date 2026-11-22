@@ -14,29 +14,50 @@ import (
 	"testing"
 )
 
-// particleListReaders are the readers of a content model's particle list
-// allowed outside chargedParticles, functions keyed by receiver type and name.
-// Every other function reads the list through chargedParticles, or reads only
-// its length or an element at a constant index.
-var particleListReaders = struct {
-	files     map[string]string
-	functions map[string]string
-}{
-	files: map[string]string{
-		"content_compile.go":               "per-root analysis and Element Declarations Consistent, charged per particle visited",
-		"content_restriction.go":           "Particle Valid (Restriction), charged per particle compared",
-		"content_restriction_normalize.go": "restriction normalizer, charged per particle normalized",
-		"particle_continuation.go":         "continuation sets, memoized per model and charged per particle",
-		"particle_overlap.go":              "emptiability and count ranges, memoized per model and charged per particle",
-	},
-	functions: map[string]string{
-		"chargedParticles":           "the charged accessor",
-		"appendModelParticles":       "the table writer that charges each particle it appends",
-		"compiler.appendModel":       "the table writer",
-		"compiler.completeModel":     "the table writer",
-		"validateContentModelShape":  "called by the restriction graph check before its charged loop over the same particles",
-		"modelParticlePreservesBase": "called once per extension type, whose root automaton is compiled from the base particles and charged first",
-	},
+// particleListReaders are the functions of internal/schema, keyed by receiver
+// type and name, allowed to read a content model's particle list other than
+// through chargedParticles, each with the owner that charges the particles it
+// reads. Reading only the length, or an element at an integer-literal index,
+// is not a read. The guard catches a function that starts reading a particle
+// list; it does not catch an uncharged loop added inside a listed function, or
+// a helper that is handed the particle slice and reads it uncharged.
+var particleListReaders = map[string]string{
+	"chargedParticles":           "the charged accessor",
+	"appendModelParticles":       "the table writer that charges each particle it appends",
+	"compiler.appendModel":       "the table writer",
+	"compiler.completeModel":     "the table writer",
+	"validateContentModelShape":  "called by the restriction graph check before its charged loop over the same particles",
+	"modelParticlePreservesBase": "called once per extension type, whose root automaton is compiled from the base particles and charged first",
+
+	"normalizeSingleParticleModel":                              "reads the one particle that its caller executionModel yielded and charged",
+	"elementDeclarationConsistencyChecker.collectModel":         "callee collectParticles charges each particle, once per model",
+	"contentModelCompiler.checkAllUPA":                          "callee checkPairwiseUPA charges each pair",
+	"contentModelCompiler.checkDirectUPA":                       "callees checkPairwiseUPA and checkSequenceUPA charge each pair and member",
+	"contentModelCompiler.checkSequenceUPA":                     "callee ParticleContinuations charges each member",
+	"contentModelCompiler.checkSequenceContinuationUPA":         "charges each following member it reads",
+	"contentModelCompiler.compileAllModel":                      "callee checkAllUPA charges every pair before the term loop reads the same particles",
+	"contentModelCompiler.modelNeedsRuntimeSplitSeen":           "callee particleNeedsRuntimeSplit charges each particle, once per model per root",
+	"contentModelCompiler.sequenceHasWildcardEquivalentOverlap": "ParticleContinuations charges each member, and wildcardCandidateOverlaps, through candidatesHaveWildcardEquivalentOverlap, each following member it reads",
+	"contentModelCompiler.yieldExecutionParticles":              "callee yieldExecutionParticle charges each particle",
+	"dfaBuilder.groupNode":                                      "callees sequenceNode and choiceNode charge each particle through particleNode",
+
+	"restrictionNormalizer.children":     "callee child charges each particle through particle",
+	"restrictionNormalizer.child":        "takes a spliced group's list unread; appendChild, reached from children through replaceChild, charges each member",
+	"restrictionNormalizer.replaceChild": "callee copyPrefix charges the whole list",
+
+	"contentRestrictionValidator.modelContainsWildcard":               "callee particleContainsWildcard charges each particle",
+	"contentRestrictionValidator.validateChoiceRestriction":           "compareParticleRestriction charges each base particle compared, and validateChoiceSpans charges the base list",
+	"contentRestrictionValidator.validateContentModelGraphWithStates": "charges each particle, once per model per restriction",
+	"contentRestrictionValidator.validateMappedGroupRestriction":      "callees findMappedGroupParticle and validateUnmappedGroupParticles read only unmapped base particles, each charged by compareParticleRestriction or ParticleEmptiable",
+	"contentRestrictionValidator.validateModelRestrictsWildcard":      "callee compareParticleRestriction charges each member",
+	"contentRestrictionValidator.validateOrderedGroupRestriction":     "orderedGroupRestrictionMatcher charges each base particle it reads through compareParticleRestriction or ParticleEmptiable",
+	"contentRestrictionValidator.validateSequenceRestrictsChoice":     "compareParticleRestriction charges each base particle compared",
+
+	"contentModelAnalysis.lastParticles":       "charges each sequence member through cachedParticleEmptiable; caller continuationsOf charges each choice member, once per model",
+	"contentModelAnalysis.startParticles":      "charges each particle it returns",
+	"contentModelAnalysis.modelEmptiableValue": "callees allParticlesEmptiable and anyParticleEmptiable charge each particle through cachedParticleEmptiable, once per model",
+	"contentModelAnalysis.modelStartOverlap":   "callee modelStartParticleOverlap charges each particle",
+	"contentModelAnalysis.modelTermCountRange": "callees sequenceCountRange and choiceCountRange charge each particle through ParticleCountRange",
 }
 
 func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
@@ -73,9 +94,7 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 	}
 
 	readers := map[string]bool{}
-	readerFiles := map[string]bool{}
 	for _, file := range files {
-		name := filepath.Base(fset.Position(file.Pos()).Filename)
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok {
@@ -84,25 +103,15 @@ func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
 			key := funcKey(fn)
 			for _, sel := range particleListReads(fn, info, particles) {
 				readers[key] = true
-				readerFiles[name] = true
-				if _, ok := particleListReaders.files[name]; ok {
-					continue
+				if _, ok := particleListReaders[key]; !ok {
+					t.Errorf("%s: %s reads a content model's particle list without chargedParticles", fset.Position(sel.Pos()), key)
 				}
-				if _, ok := particleListReaders.functions[key]; ok {
-					continue
-				}
-				t.Errorf("%s: %s reads a content model's particle list without chargedParticles", fset.Position(sel.Pos()), key)
 			}
 		}
 	}
-	for _, name := range slices.Sorted(maps.Keys(particleListReaders.functions)) {
+	for _, name := range slices.Sorted(maps.Keys(particleListReaders)) {
 		if !readers[name] {
 			t.Errorf("allowed particle-list reader %s does not exist or reads no particle list", name)
-		}
-	}
-	for _, name := range slices.Sorted(maps.Keys(particleListReaders.files)) {
-		if !readerFiles[name] {
-			t.Errorf("allowed particle-list file %s does not exist or reads no particle list", name)
 		}
 	}
 }

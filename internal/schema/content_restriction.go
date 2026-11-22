@@ -410,30 +410,55 @@ func (v contentRestrictionValidator) validateSequenceRestrictsAll(base, derived 
 }
 
 func (v contentRestrictionValidator) validateMappedGroupRestriction(base, derived contentModelNode, particleMsg, omittedMsg string) error {
-	mapped := make([]bool, len(base.Particles))
+	unmapped := newUnmappedParticles(len(base.Particles))
 	for _, derivedParticle := range derived.Particles {
-		match, err := v.findMappedGroupParticle(base.Particles, mapped, derivedParticle)
+		match, err := v.findMappedGroupParticle(base.Particles, &unmapped, derivedParticle)
 		if err != nil {
 			return err
 		}
 		if match < 0 {
 			return contentRestrictionMismatch(particleMsg)
 		}
-		mapped[match] = true
+		unmapped.remove(match)
 	}
-	return v.validateUnmappedGroupParticles(base.Particles, mapped, omittedMsg)
+	return v.validateUnmappedGroupParticles(base.Particles, &unmapped, omittedMsg)
+}
+
+// unmappedParticles lists, in base order, the indexes of the base particles
+// that no derived particle has mapped to yet, so each search reads only those
+// particles and every particle it reads is charged by its comparison.
+type unmappedParticles struct {
+	// next and prev link the indexes in a ring through the sentinel index
+	// len(next)-1.
+	next []int
+	prev []int
+}
+
+func newUnmappedParticles(count int) unmappedParticles {
+	l := unmappedParticles{next: make([]int, count+1), prev: make([]int, count+1)}
+	for i := range count + 1 {
+		l.next[i] = (i + 1) % (count + 1)
+		l.prev[(i+1)%(count+1)] = i
+	}
+	return l
+}
+
+func (l *unmappedParticles) sentinel() int { return len(l.next) - 1 }
+
+func (l *unmappedParticles) first() int { return l.next[l.sentinel()] }
+
+func (l *unmappedParticles) remove(i int) {
+	l.next[l.prev[i]] = l.next[i]
+	l.prev[l.next[i]] = l.prev[i]
 }
 
 func (v contentRestrictionValidator) findMappedGroupParticle(
 	base []contentParticle,
-	mapped []bool,
+	unmapped *unmappedParticles,
 	derived contentParticle,
 ) (int, error) {
-	for i, baseParticle := range base {
-		if mapped[i] {
-			continue
-		}
-		err := v.compareParticleRestriction(baseParticle, derived)
+	for i := unmapped.first(); i != unmapped.sentinel(); i = unmapped.next[i] {
+		err := v.compareParticleRestriction(base[i], derived)
 		if err == nil {
 			return i, nil
 		}
@@ -446,14 +471,11 @@ func (v contentRestrictionValidator) findMappedGroupParticle(
 
 func (v contentRestrictionValidator) validateUnmappedGroupParticles(
 	base []contentParticle,
-	mapped []bool,
+	unmapped *unmappedParticles,
 	message string,
 ) error {
-	for i, baseParticle := range base {
-		if mapped[i] {
-			continue
-		}
-		emptiable, err := v.analysis.ParticleEmptiable(baseParticle)
+	for i := unmapped.first(); i != unmapped.sentinel(); i = unmapped.next[i] {
+		emptiable, err := v.analysis.ParticleEmptiable(base[i])
 		if err != nil {
 			return err
 		}
