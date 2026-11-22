@@ -49,6 +49,117 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 	}
 }
 
+func checkUPAWithin(t *testing.T, models map[contentModelID]contentModelNode, roots []contentModelID, limit int) (int, error) {
+	t.Helper()
+	rt := compiledModelFixture{models: models}
+	work := newWorkBudget(contentModelWorkBudget, limit)
+	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+	upa := newContentModelUPACheck(nil, rt.build(), len(models), &work, analysis)
+	for _, id := range roots {
+		if err := upa.checkModel(id); err != nil {
+			return work.limit - work.remaining, err
+		}
+	}
+	return work.limit - work.remaining, nil
+}
+
+func expectChargeLimit(t *testing.T, limit int, run func(limit int) (int, error)) {
+	t.Helper()
+	if _, err := run(limit); err != nil {
+		t.Fatalf("check at limit %d error = %v, want none", limit, err)
+	}
+	_, err := run(limit - 1)
+	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func TestCheckContentModelsUPAChargesNothingForContinuationsOfTheLastSequenceMember(t *testing.T) {
+	t.Parallel()
+
+	const roots, width = 6, 40
+	one := occurrence{Min: 1, Max: 1}
+	twice := occurrence{Min: 1, Max: 2}
+	sequencesEndingIn := func(memberOccurs occurrence) map[contentModelID]contentModelNode {
+		group := make([]contentParticle, width)
+		for i := range group {
+			group[i] = elementParticle(ElementID(i), memberOccurs)
+		}
+		models := map[contentModelID]contentModelNode{0: {Kind: modelChoice, Occurs: one, Particles: group}}
+		for r := 1; r <= roots; r++ {
+			models[contentModelID(r)] = contentModelNode{Kind: modelSequence, Occurs: one, Particles: []contentParticle{
+				elementParticle(ElementID(width+r), one),
+				modelParticle(0, one),
+			}}
+		}
+		return models
+	}
+	ids := make([]contentModelID, 0, roots)
+	for r := 1; r <= roots; r++ {
+		ids = append(ids, contentModelID(r))
+	}
+	withoutContinuations, err := checkUPAWithin(t, sequencesEndingIn(one), ids, 1_000_000)
+	if err != nil {
+		t.Fatalf("checkModel() error = %v", err)
+	}
+	expectChargeLimit(t, withoutContinuations, func(limit int) (int, error) {
+		return checkUPAWithin(t, sequencesEndingIn(twice), ids, limit)
+	})
+}
+
+func TestCheckContentModelsUPAChargesNothingAfterASplitIsDecided(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	twice := occurrence{Min: 1, Max: 2}
+	splitRootWith := func(members int) map[contentModelID]contentModelNode {
+		particles := []contentParticle{modelParticle(1, twice)}
+		for i := range members {
+			particles = append(particles, elementParticle(ElementID(10+i), optional))
+		}
+		return map[contentModelID]contentModelNode{
+			0: {Kind: modelSequence, Occurs: one, Particles: particles},
+			1: {Kind: modelChoice, Occurs: one, Particles: []contentParticle{elementParticle(0, one), elementParticle(1, optional)}},
+		}
+	}
+	oneMember, err := checkUPAWithin(t, splitRootWith(1), []contentModelID{0}, 1_000_000)
+	if err != nil {
+		t.Fatalf("checkModel() error = %v", err)
+	}
+	expectChargeLimit(t, oneMember, func(limit int) (int, error) {
+		return checkUPAWithin(t, splitRootWith(30), []contentModelID{0}, limit)
+	})
+}
+
+func TestWildcardOverlapPassChargesNothingForElementCandidates(t *testing.T) {
+	t.Parallel()
+
+	const following = 30
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	pass := func(first occurrence, limit int) (int, error) {
+		particles := []contentParticle{elementParticle(0, first)}
+		for i := range following {
+			particles = append(particles, elementParticle(ElementID(1+i), optional))
+		}
+		rt := compiledModelFixture{models: map[contentModelID]contentModelNode{0: {Kind: modelSequence, Occurs: one, Particles: particles}}}
+		work := newWorkBudget(contentModelWorkBudget, limit)
+		analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+		c := newContentModelCompiler(nil, rt.build(), 0, &work, analysis)
+		overlap, err := c.sequenceHasWildcardEquivalentOverlap(contentModelNode{Kind: modelSequence, Occurs: one, Particles: particles})
+		if overlap {
+			t.Fatal("sequenceHasWildcardEquivalentOverlap() = true for a sequence without wildcards")
+		}
+		return work.limit - work.remaining, err
+	}
+	withoutCandidate, err := pass(one, 1_000_000)
+	if err != nil {
+		t.Fatalf("sequenceHasWildcardEquivalentOverlap() error = %v", err)
+	}
+	expectChargeLimit(t, withoutCandidate, func(limit int) (int, error) {
+		return pass(occurrence{Min: 1, Max: 2}, limit)
+	})
+}
+
 func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {
 	t.Parallel()
 

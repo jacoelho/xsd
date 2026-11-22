@@ -412,69 +412,65 @@ func (v contentRestrictionValidator) validateSequenceRestrictsAll(base, derived 
 func (v contentRestrictionValidator) validateMappedGroupRestriction(base, derived contentModelNode, particleMsg, omittedMsg string) error {
 	unmapped := newUnmappedParticles(len(base.Particles))
 	for _, derivedParticle := range derived.Particles {
-		match, err := v.findMappedGroupParticle(base.Particles, &unmapped, derivedParticle)
+		before, found, err := v.findMappedGroupParticle(base.Particles, unmapped, derivedParticle)
 		if err != nil {
 			return err
 		}
-		if match < 0 {
+		if !found {
 			return contentRestrictionMismatch(particleMsg)
 		}
-		unmapped.remove(match)
+		unmapped.removeAfter(before)
 	}
-	return v.validateUnmappedGroupParticles(base.Particles, &unmapped, omittedMsg)
+	return v.validateUnmappedGroupParticles(base.Particles, unmapped, omittedMsg)
 }
 
 // unmappedParticles lists, in base order, the indexes of the base particles
 // that no derived particle has mapped to yet, so each search reads only those
-// particles and every particle it reads is charged by its comparison.
-type unmappedParticles struct {
-	// next and prev link the indexes in a ring through the sentinel index
-	// len(next)-1.
-	next []int
-	prev []int
-}
+// particles and every particle it reads is charged by its comparison. Each
+// entry links to the next unmapped index; the last entry, the head, is the
+// sentinel the list starts after and ends at.
+type unmappedParticles []int
 
 func newUnmappedParticles(count int) unmappedParticles {
-	l := unmappedParticles{next: make([]int, count+1), prev: make([]int, count+1)}
-	for i := range count + 1 {
-		l.next[i] = (i + 1) % (count + 1)
-		l.prev[(i+1)%(count+1)] = i
+	l := make(unmappedParticles, count+1)
+	for i := range l {
+		l[i] = (i + 1) % len(l)
 	}
 	return l
 }
 
-func (l *unmappedParticles) sentinel() int { return len(l.next) - 1 }
+func (l unmappedParticles) head() int { return len(l) - 1 }
 
-func (l *unmappedParticles) first() int { return l.next[l.sentinel()] }
-
-func (l *unmappedParticles) remove(i int) {
-	l.next[l.prev[i]] = l.next[i]
-	l.prev[l.next[i]] = l.prev[i]
+// removeAfter unlinks the index that follows before.
+func (l unmappedParticles) removeAfter(before int) {
+	l[before] = l[l[before]]
 }
 
+// findMappedGroupParticle returns the unmapped index before the first
+// unmapped base particle that derived restricts, and whether there is one.
 func (v contentRestrictionValidator) findMappedGroupParticle(
 	base []contentParticle,
-	unmapped *unmappedParticles,
+	unmapped unmappedParticles,
 	derived contentParticle,
-) (int, error) {
-	for i := unmapped.first(); i != unmapped.sentinel(); i = unmapped.next[i] {
+) (int, bool, error) {
+	for before, i := unmapped.head(), unmapped[unmapped.head()]; i != unmapped.head(); before, i = i, unmapped[i] {
 		err := v.compareParticleRestriction(base[i], derived)
 		if err == nil {
-			return i, nil
+			return before, true, nil
 		}
 		if !isContentRestrictionMismatch(err) {
-			return -1, err
+			return 0, false, err
 		}
 	}
-	return -1, nil
+	return 0, false, nil
 }
 
 func (v contentRestrictionValidator) validateUnmappedGroupParticles(
 	base []contentParticle,
-	unmapped *unmappedParticles,
+	unmapped unmappedParticles,
 	message string,
 ) error {
-	for i := unmapped.first(); i != unmapped.sentinel(); i = unmapped.next[i] {
+	for i := unmapped[unmapped.head()]; i != unmapped.head(); i = unmapped[i] {
 		emptiable, err := v.analysis.ParticleEmptiable(base[i])
 		if err != nil {
 			return err

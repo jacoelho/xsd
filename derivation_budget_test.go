@@ -283,19 +283,16 @@ func TestContentModelReadsShareStoredParticles(t *testing.T) {
 		name    string
 		k, refs int
 		occurs  string
+		code    xsderrors.Code
 		maxMiB  uint64
 	}{
-		{"4000x4000", 4000, 4000, "", 128},
-		// The 1M expanded particles are walked by the element-declaration
-		// consistency checker, which allocates about 145 bytes per visit
-		// under MaxContentModelAnalysisSteps; that is not copying on read.
-		{"1000x1000 optional", 1000, 1000, ` minOccurs="0"`, 256},
+		{"4000x4000", 4000, 4000, "", xsderrors.CodeSchemaLimit, 128},
+		// An optional reference lets e0 match it or the reference after it.
+		{"1000x1000 optional", 1000, 1000, ` minOccurs="0"`, xsderrors.CodeSchemaContentModel, 256},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			alloc, err := compileAllocated(t, choiceSchema(test.k, test.refs, test.occurs))
-			if err != nil {
-				expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
-			}
+			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, test.code)
 			expectAllocUnder(t, alloc, test.maxMiB)
 		})
 	}

@@ -60,13 +60,13 @@ type contentModelNode struct {
 	Particles []contentParticle
 	Occurs    occurrence
 	Kind      modelKind
-	// NonUnitParticle reports whether the occurrence of some particle is not
-	// exactly one. appendModelParticles sets it as it admits each particle,
-	// and a record that shares another's particles copies it with them, so
-	// the runtime-split check reads it instead of the particles however many
-	// records share them. The publication audit checks it on every retained record;
-	// the transient nodes of the execution projection and the restriction
-	// normalizer leave it unset.
+	// NonUnitParticle reports, for a record of the model table, whether the
+	// occurrence of some particle is not exactly one. appendModelParticles
+	// sets it as it admits each particle, and a copy of a record keeps it with
+	// the particles it shares, so the runtime-split check reads it instead of
+	// the particles however many records share them. A node built outside
+	// the table leaves it unset, so the check reads it only from a record it
+	// looks up by contentModelID (modelNeedsRuntimeSplitSeen).
 	NonUnitParticle bool
 }
 
@@ -220,10 +220,11 @@ type contentModelGraphFrame struct {
 	next      int
 }
 
-// validateContentModelTable proves that every model has a valid shape, that
-// every particle is well formed and references a valid element, wildcard or
-// model, and that the models form an acyclic graph. It enters every model
-// once and reads its particles through chargedParticles.
+// validateContentModelTable proves that every model has a valid shape and a
+// NonUnitParticle flag that agrees with its particles, that every particle is
+// well formed and references a valid element, wildcard or model, and that the
+// models form an acyclic graph. It enters every model once and reads its
+// particles through chargedParticles.
 func validateContentModelTable(models []contentModelNode, limits contentModelRefLimits, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
 		return err
