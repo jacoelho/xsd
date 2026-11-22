@@ -58,10 +58,12 @@ directly to a table shares one run of edges among the rows that take them.
 In the shapes measured, the dominant term of that heap is the edges of the
 determinized automaton's rows. An edge is 32 bytes on every supported platform,
 and determinization charges at least three steps for each edge before it
-allocates the edge, so those edges take at most 32/3, about 10.7, bytes per
-analysis step:
-under 171 MiB when one content model exhausts the default budget. This figure
-is derived, not measured; the derivation is in the Go doc of `deterministicRow`
+allocates the edge, so those edges request at most 32/3, about 10.7, bytes per
+analysis step. Each row's edges are one allocation, which the Go allocator
+rounds up by at most about 1.249 (1025 edges: 32,800 bytes rounded to 40,960),
+so the edges take at most about 13.3 allocated bytes per step: under 214 MiB
+when one content model exhausts the default budget of 16,777,216 steps. This
+figure is derived, not measured; the derivation is in the Go doc of `deterministicRow`
 in `internal/schema/content_model_dfa.go`. It covers row edges only. A new
 automaton state also keeps its key, 8 bytes per configuration, and a new
 counter value its interned vector; both grow with the steps too and are
@@ -70,8 +72,7 @@ directly, which holds at most one edge per state, grow with its states, which
 `MaxContentModelStates` caps.
 
 The figure bounds one content model. The compiled tables a schema keeps until
-publication, summed over its content models, are not bounded by it, and no
-limit in this document bounds that sum; a separate change owns that bound.
+publication, summed over its content models, are not bounded by it.
 
 The peak heap measured for whole content models, below, includes keys, counter
 vectors, follow sets and scratch, and reaches about 4 bytes per step at most. In the

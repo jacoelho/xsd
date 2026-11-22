@@ -198,9 +198,9 @@ schema owns facet admission, final constraints and schema-use policy.
 `MaxContentModelAnalysisSteps` bounds the content-model work `workBudgetKind`
 lists, and through that work the heap that automaton
 construction uses (derived row-edge bound and measured heap in
-[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): each step admits bounded
-automaton state. That bound is per content model; nothing yet bounds the
-compiled tables summed across models, and a separate change owns that bound. Spent work is never refunded. Retained derived records
+[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md); derivation in the Go doc of
+`deterministicRow`). That bound is per content model; the compiled tables
+retained across models are not bounded by it. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
 `appendModelParticles` is the only append to retained model particles and
 charges one step per particle before allocating (the restriction normalizer
@@ -209,16 +209,15 @@ builds transient comparison nodes that it charges to
 `completeModel` write the model table, and `completeModel` installs only
 particles already charged; `addAttributeUseSet` charges `len(Uses)` and
 `appendWildcard` charges `len(Namespaces)`. Admitted models and wildcards are
-immutable; `contentModelByID` and `wildcardByID` share them on read, and
-`appendWildcard` stores each namespace list clipped so that no reader's append
-writes into it. Wildcard set operations (`wildcard.go`) take the budget they
-charge as a required argument and charge one step per namespace they look up
-or merge before visiting a list: UPA overlap, sequence wildcard equivalence
-and content restriction subset charge `MaxContentModelAnalysisSteps`;
-attribute-wildcard intersection, union and restriction subset charge
-`MaxSchemaDependencySteps`. The publication audit re-derives each use set's
-wildcard once, uncharged, because it repeats a comparison that compilation
-charged for the same set, and finds attribute uses through each set's index. A new retained table must charge in its admission function. Admission functions return unlocated budget errors. The
+immutable; `contentModelByID` and `wildcardByID` share them on read (see
+`appendWildcard`). Wildcard set operations take the budget they charge as a
+required argument (cost model in the `wildcard.go` comment on admitted namespace
+lists): UPA overlap, sequence wildcard equivalence and content
+restriction subset charge `MaxContentModelAnalysisSteps`; attribute-wildcard
+intersection, union and restriction subset charge `MaxSchemaDependencySteps`.
+The publication audit re-derives each attribute use set's wildcard exactly
+once, through `admittedWildcardWork`, uncharged because compilation charged
+the same comparison. A new retained table must charge in its admission function. Admission functions return unlocated budget errors. The
 builtin components are seeded before the caller's `MaxSchemaDependencySteps`
 budget is installed and spend none of it, so every dependency-limit failure
 has a schema document to locate it.
@@ -1283,9 +1282,8 @@ graph preserves these ownership rules:
   edge leaves are always a contiguous run ending at the newest row, instead of
   storing an edge per row and later element. Together these keep the measured
   heap of one model at about 4 bytes per step or less. Its dominant term in
-  the shapes measured is row edges, which `deterministicRow` charges at least three steps
-  each before allocating, so they take at most 32/3 bytes per step (derived in
-  its Go doc; figures in `docs/RESOURCE_LIMITS.md`). Charging those entries more steps was
+  the shapes measured is row edges, bounded per step as the Go doc of
+  `deterministicRow` derives (figures in `docs/RESOURCE_LIMITS.md`). Charging those entries more steps was
   rejected because it moves existing schemas toward or past
   `MaxContentModelAnalysisSteps`; a separate memory option was rejected because
   the analysis budget expresses the bound once each step admits bounded state.
