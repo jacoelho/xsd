@@ -441,7 +441,6 @@ func newUnmappedParticles(count int) unmappedParticles {
 
 func (l unmappedParticles) head() int { return len(l) - 1 }
 
-// removeAfter unlinks the index that follows before.
 func (l unmappedParticles) removeAfter(before int) {
 	l[before] = l[l[before]]
 }
