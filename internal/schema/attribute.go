@@ -462,8 +462,7 @@ func validateRestrictedAttributeWildcard(
 	}
 }
 
-// useNamed reports a slot that does not hold the named use as no use instead
-// of trusting the index, which the record audit validates separately.
+// The index is not trusted here: the record audit validates it separately.
 func (s attributeUseSet) useNamed(name QName) (attributeUse, bool) {
 	slot, ok := s.Index[name]
 	if !ok || !validUint32Index(slot, len(s.Uses)) || s.Uses[slot].Name != name {

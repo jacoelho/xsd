@@ -498,8 +498,6 @@ func unionOtherWithFinite(other, finite wildcardRuntime, process ProcessContents
 	}
 }
 
-// wildcardFiniteNamespaces shares the admitted list of a targetNamespace or
-// list wildcard.
 func wildcardFiniteNamespaces(w wildcardRuntime) []namespaceID {
 	switch w.Mode {
 	case WildcardLocal:

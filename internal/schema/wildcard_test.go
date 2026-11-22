@@ -406,7 +406,6 @@ func TestWildcardSetOperationsMatchNamespaceMembership(t *testing.T) {
 	}
 }
 
-// Structures §3.10.6 Attribute Wildcard Union clause 5.4.
 func unionOtherFiniteInexpressible(other, finite wildcardRuntime) bool {
 	if finite.Mode == WildcardAny || finite.Mode == WildcardOther || other.OtherThan == emptyNamespaceID {
 		return false
