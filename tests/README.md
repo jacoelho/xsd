@@ -26,6 +26,7 @@ the violated contract, not preserve incidental control flow.
 - `harness_test.go`: Go test runner for this corpus.
 - `harness_manifest_test.go`: verifies the manifest closure: every referenced file exists and every corpus file is referenced.
 - `oracle_observations_test.go`: verifies the oracle rules of the [Corpus Contract](#corpus-contract) against the observations.
+- `internal/compilework/`: the command that `content_model_compile_work_test.go` builds with coverage counters to count the statements and charged steps of one compilation.
 - `oracle-backlog.txt`: sorted, unique IDs of measured cases with a provider difference that no record owns yet.
 - `corpus/`: all schema, XML, and auxiliary files referenced by the manifest.
 - `corpus/w3c`: copied W3C files with original relative layout preserved.
