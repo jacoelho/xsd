@@ -303,8 +303,6 @@ func unlimitedWildcardWork(int) error {
 	return nil
 }
 
-// wildcardRelationOf returns a function that unwraps a set relation and fails
-// t if computing it failed.
 func wildcardRelationOf(t *testing.T) func(bool, error) bool {
 	t.Helper()
 	return func(holds bool, err error) bool {
@@ -316,9 +314,8 @@ func wildcardRelationOf(t *testing.T) func(bool, error) bool {
 	}
 }
 
-// modelWildcardAdmits is the namespace membership of Structures §3.10.1,
-// written apart from wildcardAllowsNamespace as the expectation for the set
-// operations.
+// modelWildcardAdmits is kept apart from wildcardAllowsNamespace so that the
+// set-operation expectations do not reuse the code under test.
 func modelWildcardAdmits(w wildcardRuntime, ns namespaceID) bool {
 	switch w.Mode {
 	case WildcardAny:
@@ -377,8 +374,7 @@ func TestWildcardSetOperationsMatchNamespaceMembership(t *testing.T) {
 			}
 			bothOther := a.Mode == WildcardOther && b.Mode == WildcardOther
 			if bothOther && a.OtherThan != b.OtherThan {
-				// Structures §3.10.6 Wildcard Subset clause 2: two not
-				// wildcards are subsets only when they negate the same name.
+				// Structures §3.10.6 Wildcard Subset clause 2.
 				wantSubset = false
 			}
 			wantUnionErr := a.Mode == WildcardOther && unionOtherFiniteInexpressible(a, b) ||
@@ -410,9 +406,7 @@ func TestWildcardSetOperationsMatchNamespaceMembership(t *testing.T) {
 	}
 }
 
-// unionOtherFiniteInexpressible reports the union that Structures §3.10.6
-// Attribute Wildcard Union clause 5.4 leaves unexpressible: a not of a
-// namespace name with a finite set holding absent but not that name.
+// Structures §3.10.6 Attribute Wildcard Union clause 5.4.
 func unionOtherFiniteInexpressible(other, finite wildcardRuntime) bool {
 	if finite.Mode == WildcardAny || finite.Mode == WildcardOther || other.OtherThan == emptyNamespaceID {
 		return false

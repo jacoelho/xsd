@@ -432,22 +432,14 @@ func intersectWildcard(wa, wb wildcardRuntime, process ProcessContents, spend fu
 	return wildcardRuntime{Mode: WildcardList, Namespaces: namespaces, Process: process}, nil
 }
 
-// sameNamespaceListMode reports whether wa and wb are both targetNamespace or
-// both list wildcards. Their union or intersection needs no equality check
-// first: it has the length of both lists exactly when the lists are equal.
 func sameNamespaceListMode(wa, wb wildcardRuntime) bool {
 	return wa.Mode == wb.Mode && (wa.Mode == WildcardTargetNamespace || wa.Mode == WildcardList)
 }
 
-// sameUnlistedNamespaces reports whether two wildcards without namespace
-// lists admit the same namespaces.
 func sameUnlistedNamespaces(wa, wb wildcardRuntime) bool {
 	return wa.Mode == wb.Mode && wa.OtherThan == wb.OtherThan && len(wa.Namespaces) == 0 && len(wb.Namespaces) == 0
 }
 
-// namespaceListResult returns wa when namespaces, the union or intersection of
-// the lists of wa and wb, shows the two lists equal, and a list wildcard of
-// namespaces otherwise.
 func namespaceListResult(wa, wb wildcardRuntime, namespaces []namespaceID, process ProcessContents) wildcardRuntime {
 	if len(namespaces) == len(wa.Namespaces) && len(namespaces) == len(wb.Namespaces) {
 		wa.Process = process
@@ -504,8 +496,8 @@ func unionOtherWithFinite(other, finite wildcardRuntime, process ProcessContents
 	}
 }
 
-// wildcardFiniteNamespaces returns the namespaces a finite wildcard admits. A
-// targetNamespace or list wildcard shares its admitted list.
+// wildcardFiniteNamespaces shares the admitted list of a targetNamespace or
+// list wildcard.
 func wildcardFiniteNamespaces(w wildcardRuntime) []namespaceID {
 	switch w.Mode {
 	case WildcardLocal:
