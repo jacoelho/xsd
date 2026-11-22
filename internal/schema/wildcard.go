@@ -51,7 +51,8 @@ func wildcardByID(wildcards []wildcardRuntime, id WildcardID) (wildcardRuntime, 
 }
 
 // WildcardView is a read-only validation view over a frozen wildcard. Its
-// namespaces are in text order, the order diagnostics list them in.
+// namespaces are in text order, the order diagnostics list them in and
+// AllowsURI binary-searches.
 type WildcardView struct {
 	otherThan  string
 	namespaces []string
@@ -141,7 +142,8 @@ func (v WildcardView) AllowsURI(uri string) bool {
 	case WildcardTargetNamespace:
 		return len(v.namespaces) != 0 && v.namespaces[0] == uri
 	case WildcardList:
-		return slices.Contains(v.namespaces, uri)
+		_, found := slices.BinarySearch(v.namespaces, uri)
+		return found
 	default:
 		return false
 	}
