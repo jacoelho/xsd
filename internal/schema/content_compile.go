@@ -168,7 +168,7 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []ui
 	if !ok {
 		return xsderrors.InternalInvariant("UPA check references missing content model")
 	}
-	needsSplit, err := c.modelNeedsRuntimeSplitSeen(id, model, seen, tag)
+	needsSplit, err := c.modelNeedsRuntimeSplitSeen(id, occurrence{Min: 1, Max: 1}, seen, tag)
 	if err != nil || needsSplit {
 		return err
 	}
@@ -446,7 +446,17 @@ func (c *elementDeclarationConsistencyChecker) hasNamedType(typ TypeID) (bool, e
 	return scope == declarationScopeGlobal && ok && bound == typ, nil
 }
 
-func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, model contentModelNode, seen []uint64, tag uint64) (bool, error) {
+// modelNeedsRuntimeSplitSeen reports whether the table model id, reached
+// with the occurrence reached, or a model it reaches that the root tag has not
+// visited, is a repeated choice with a non-unit particle.
+func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, reached occurrence, seen []uint64, tag uint64) (bool, error) {
+	model, ok := contentModelByID(c.rt.Models, id)
+	if !ok {
+		return false, xsderrors.InternalInvariant("UPA runtime-split check references missing content model")
+	}
+	if choiceNeedsRuntimeSplit(model, reached) {
+		return true, nil
+	}
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
@@ -457,7 +467,7 @@ func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, mod
 		return false, nil
 	}
 	seen[id] = tag
-	if c.choiceNeedsRuntimeSplit(id, model.Occurs) {
+	if choiceNeedsRuntimeSplit(model, model.Occurs) {
 		return true, nil
 	}
 	for _, p := range model.Particles {
@@ -479,22 +489,15 @@ func (c *contentModelCompiler) particleNeedsRuntimeSplit(particle contentParticl
 	if particle.Kind != particleModel {
 		return false, nil
 	}
-	model, ok := contentModelByID(c.rt.Models, particle.Model)
-	if !ok {
-		return false, xsderrors.InternalInvariant("UPA runtime-split check references missing content model")
-	}
-	if c.choiceNeedsRuntimeSplit(particle.Model, particle.Occurs) {
-		return true, nil
-	}
-	return c.modelNeedsRuntimeSplitSeen(particle.Model, model, seen, tag)
+	return c.modelNeedsRuntimeSplitSeen(particle.Model, particle.Occurs, seen, tag)
 }
 
-// choiceNeedsRuntimeSplit reports whether the table model id, reached with
-// occurs, is a repeated choice with a non-unit particle. It takes an ID
-// because NonUnitParticle holds only on table records.
-func (c *contentModelCompiler) choiceNeedsRuntimeSplit(id contentModelID, occurs occurrence) bool {
-	model, ok := contentModelByID(c.rt.Models, id)
-	return ok && model.Kind == modelChoice && !occurs.IsExactlyOne() && model.NonUnitParticle
+// choiceNeedsRuntimeSplit reports whether model, reached with occurs, is a
+// repeated choice with a non-unit particle. model is a record of the model
+// table, which modelNeedsRuntimeSplitSeen alone looks up: NonUnitParticle
+// holds only there.
+func choiceNeedsRuntimeSplit(model contentModelNode, occurs occurrence) bool {
+	return model.Kind == modelChoice && !occurs.IsExactlyOne() && model.NonUnitParticle
 }
 
 func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
@@ -574,6 +577,10 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 	return false, c.upaError("UPA violation: duplicate element in sequence", name)
 }
 
+// sequenceHasWildcardEquivalentOverlap reports whether a wildcard that can
+// continue a member of the sequence model meets a following member that is a
+// wildcard with the same namespaces. Only a wildcard candidate can meet one,
+// so the following members are walked for wildcard candidates only.
 func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model contentModelNode) (bool, error) {
 	if model.Kind != modelSequence {
 		return false, nil
@@ -584,34 +591,29 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 			return false, err
 		}
 		for _, candidates := range sets {
-			overlap, err := c.candidatesHaveWildcardEquivalentOverlap(model.Particles, candidates, i+1)
-			if err != nil || overlap {
-				return overlap, err
+			for _, candidate := range candidates {
+				if candidate.Kind != particleWildcard {
+					continue
+				}
+				overlap, err := c.wildcardCandidateOverlaps(model.Particles[i+1:], candidate)
+				if err != nil || overlap {
+					return overlap, err
+				}
 			}
 		}
 	}
 	return false, nil
 }
 
-func (c *contentModelCompiler) candidatesHaveWildcardEquivalentOverlap(particles, candidates []contentParticle, start int) (bool, error) {
-	for _, candidate := range candidates {
-		overlap, err := c.wildcardCandidateOverlaps(particles, candidate, start)
-		if err != nil || overlap {
-			return overlap, err
-		}
-	}
-	return false, nil
-}
-
-func (c *contentModelCompiler) wildcardCandidateOverlaps(particles []contentParticle, candidate contentParticle, start int) (bool, error) {
-	for i := start; i < len(particles); i++ {
+func (c *contentModelCompiler) wildcardCandidateOverlaps(following []contentParticle, candidate contentParticle) (bool, error) {
+	for _, next := range following {
 		if err := c.work.spend(1); err != nil {
 			return false, err
 		}
-		if c.wildcardEquivalentOverlap(candidate, particles[i]) {
+		if c.wildcardEquivalentOverlap(candidate, next) {
 			return true, nil
 		}
-		emptiable, err := c.analysis.ParticleEmptiable(particles[i])
+		emptiable, err := c.analysis.ParticleEmptiable(next)
 		if err != nil || !emptiable {
 			return false, err
 		}

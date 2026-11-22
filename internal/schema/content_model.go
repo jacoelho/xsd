@@ -62,11 +62,11 @@ type contentModelNode struct {
 	Kind      modelKind
 	// NonUnitParticle reports, for a record of the model table, whether the
 	// occurrence of some particle is not exactly one. appendModelParticles
-	// sets it as it admits each particle, and a record that shares another's
-	// particles copies it with them, so the runtime-split check reads it
-	// instead of the particles however many records share them. Every node
-	// outside the model table leaves it unset, so it is read only through a
-	// contentModelID (contentModelCompiler.choiceNeedsRuntimeSplit).
+	// sets it as it admits each particle, and a copy of a record keeps it with
+	// the particles it shares, so the runtime-split check reads it instead of
+	// the particles however many records share them. A node built outside
+	// the table leaves it unset, so the check reads it only from a record it
+	// looks up by contentModelID (modelNeedsRuntimeSplitSeen).
 	NonUnitParticle bool
 }
 

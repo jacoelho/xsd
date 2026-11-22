@@ -43,7 +43,7 @@ var particleListReaders = map[string]string{
 	"contentModelCompiler.checkSequenceContinuationUPA":         "charges each following member it reads",
 	"contentModelCompiler.compileAllModel":                      "callee checkAllUPA charges every pair before the term loop reads the same particles",
 	"contentModelCompiler.modelNeedsRuntimeSplitSeen":           "callee particleNeedsRuntimeSplit charges each particle, once per model per root",
-	"contentModelCompiler.sequenceHasWildcardEquivalentOverlap": "ParticleContinuations charges each member, and wildcardCandidateOverlaps, through candidatesHaveWildcardEquivalentOverlap, each following member it reads",
+	"contentModelCompiler.sequenceHasWildcardEquivalentOverlap": "ParticleContinuations charges each member but the last, and wildcardCandidateOverlaps each following member it reads for a wildcard candidate",
 	"contentModelCompiler.yieldExecutionParticles":              "callee yieldExecutionParticle charges each particle",
 	"dfaBuilder.groupNode":                                      "callees sequenceNode and choiceNode charge each particle through particleNode",
 
