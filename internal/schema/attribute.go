@@ -575,7 +575,11 @@ func validateAttributeWildcardRestriction(rt *schemaBuild, state attributeUseSet
 	if !ok {
 		return errors.New("attribute use set references invalid base wildcard")
 	}
-	if !wildcardNamespaceSubset(declared, base) || state.Wildcard != state.WildcardDeclared {
+	subset, err := wildcardNamespaceSubset(declared, base, admittedWildcardWork)
+	if err != nil {
+		return err
+	}
+	if !subset || state.Wildcard != state.WildcardDeclared {
 		return errors.New("attribute wildcard restriction does not match provenance")
 	}
 	return nil
@@ -619,13 +623,26 @@ func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state attributeUse
 	if !ok {
 		return errors.New("attribute use set references invalid wildcard")
 	}
-	union, err := unionWildcard(declared, base, declared.Process)
+	union, err := unionWildcard(declared, base, declared.Process, admittedWildcardWork)
 	if err != nil {
 		return errors.New("attribute wildcard extension cannot be rederived")
 	}
-	if !wildcardsEqual(actual, union) {
+	equal, err := wildcardNamespaceEqual(actual, union, admittedWildcardWork)
+	if err != nil {
+		return err
+	}
+	if !equal || actual.Process != union.Process {
 		return errors.New("attribute wildcard extension does not match provenance")
 	}
+	return nil
+}
+
+// admittedWildcardWork charges nothing. Re-deriving a use set's wildcard
+// repeats the subset or union comparison that finishRestriction or
+// finishExtension charged to MaxSchemaDependencySteps when the set was
+// compiled, and the equality check after a union visits no more namespaces
+// than the union merged.
+func admittedWildcardWork(int) error {
 	return nil
 }
 
@@ -633,15 +650,8 @@ func validateAttributeWildcardID(rt *schemaBuild, id WildcardID, msg string) err
 	if id == NoWildcard {
 		return nil
 	}
-	if _, ok := wildcardByID(rt.Wildcards, id); !ok {
+	if !validWildcardID(id, len(rt.Wildcards)) {
 		return errors.New(msg)
 	}
 	return nil
-}
-
-func wildcardsEqual(a, b wildcardRuntime) bool {
-	return a.Mode == b.Mode &&
-		a.Process == b.Process &&
-		a.OtherThan == b.OtherThan &&
-		slices.Equal(a.Namespaces, b.Namespaces)
 }

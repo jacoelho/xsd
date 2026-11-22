@@ -366,7 +366,7 @@ func TestValidateAttributeWildcardProvenance(t *testing.T) {
 	)
 	base := wildcardRuntime{Mode: WildcardAny, Process: ProcessLax}
 	declared := wildcardRuntime{Mode: WildcardTargetNamespace, Namespaces: []namespaceID{1}, Process: processStrict}
-	union, err := unionWildcard(declared, base, declared.Process)
+	union, err := unionWildcard(declared, base, declared.Process, unlimitedWildcardWork)
 	if err != nil {
 		t.Fatalf("UnionWildcard() error = %v", err)
 	}

@@ -724,7 +724,11 @@ func (v contentRestrictionValidator) validateWildcardRestrictsWildcard(base, der
 	if err != nil {
 		return err
 	}
-	if !wildcardSubset(derivedWildcard, baseWildcard) {
+	subset, err := wildcardSubset(derivedWildcard, baseWildcard, v.spend)
+	if err != nil {
+		return err
+	}
+	if !subset {
 		return contentRestrictionMismatch("wildcard restriction is not subset of base")
 	}
 	return nil

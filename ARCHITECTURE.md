@@ -206,9 +206,17 @@ builds transient comparison nodes that it charges to
 `MaxContentModelAnalysisSteps` and never retains); `addModel` (one step per record) and
 `completeModel` write the model table, and `completeModel` installs only
 particles already charged; `addAttributeUseSet` charges `len(Uses)` and
-`appendWildcard` charges `len(Namespaces)`. Admitted models are immutable and
-`contentModelByID` shares them on read. A new retained table must charge in its
-admission function. Admission functions return unlocated budget errors. The
+`appendWildcard` charges `len(Namespaces)`. Admitted models and wildcards are
+immutable; `contentModelByID` and `wildcardByID` share them on read, and
+`appendWildcard` stores each namespace list clipped so that no reader's append
+writes into it. Wildcard set operations (`wildcard.go`) take the budget they
+charge as a required argument and charge one step per namespace they look up
+or merge before visiting a list: UPA overlap, sequence wildcard equivalence
+and content restriction subset charge `MaxContentModelAnalysisSteps`;
+attribute-wildcard intersection, union and restriction subset charge
+`MaxSchemaDependencySteps`. The publication audit re-derives a use set's
+wildcard uncharged, because it repeats a comparison that compilation charged
+for the same set. A new retained table must charge in its admission function. Admission functions return unlocated budget errors. The
 builtin components are seeded before the caller's `MaxSchemaDependencySteps`
 budget is installed and spend none of it, so every dependency-limit failure
 has a schema document to locate it.
@@ -1044,6 +1052,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
+| `internal/schema/wildcard_work_external_test.go` | Comparing two interleaved wildcard namespace lists of 512 namespaces for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction needs at least 256 more steps of the owning budget than holding the same lists apart. It does not cover a new comparison consumer, union, whose admitted result already scales, or sequence wildcard equivalence; `wildcard_test.go` checks each set operation's charge directly |
 | `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the functions it lists, each with the owner that charges the particles it reads. A new function that reads a particle list fails it, whether it selects the field or uses a parameter the list reaches through static in-package calls, and so does a listed function that no longer exists or reads no particle list. It does not catch an uncharged loop added inside a listed function, a list passed through interface method dispatch, a function value, a variadic parameter or an ellipsis, a reader nested inside a package-level initializer, a list stored or returned and read by another function, or a list derived from the particles |
 | `tests/content_model_compile_work_test.go` with `tests/internal/compilework` | Pins the fix that keeps the mapping search of `findMappedGroupParticle`, when a sequence restricts an all group, to the unmapped base particles it charges: the statements of `internal/schema` per charged step of an added restriction may grow by at most 1.4 when the group grows from 128 to 2048 particles. It does not see a skip in a for-clause condition or post statement, inside a library or builtin call, or in another package, and measures only compilations that succeed |
 | `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |

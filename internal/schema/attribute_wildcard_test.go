@@ -167,6 +167,10 @@ func (s *attributeWildcardStore) AddWildcard(w wildcardRuntime) (WildcardID, err
 	return WildcardID(id), nil
 }
 
+func (*attributeWildcardStore) SpendWildcardWork(int) error {
+	return nil
+}
+
 func (s *attributeWildcardStore) mustAdd(w wildcardRuntime) WildcardID {
 	id, err := s.AddWildcard(w)
 	if err != nil {

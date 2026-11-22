@@ -22,11 +22,13 @@ const (
 	attributeMergeRestriction
 )
 
-// schemaAttributeWildcardRuntime supplies compile-time wildcard metadata and stores
-// wildcard values produced by intersection or union.
+// schemaAttributeWildcardRuntime supplies compile-time wildcard metadata, stores
+// wildcard values produced by intersection or union, and charges the
+// namespace-list work of comparing wildcards.
 type schemaAttributeWildcardRuntime interface {
 	Wildcard(id WildcardID) (wildcardRuntime, bool)
 	AddWildcard(w wildcardRuntime) (WildcardID, error)
+	SpendWildcardWork(steps int) error
 }
 
 // attributeWildcardBuilder owns compile-time attribute-wildcard construction.
@@ -98,9 +100,9 @@ func (b *attributeWildcardBuilder) add(rt schemaAttributeWildcardRuntime, id Wil
 	if err != nil {
 		return err
 	}
-	intersection, err := intersectWildcard(current, next, process)
+	intersection, err := intersectWildcard(current, next, process, rt.SpendWildcardWork)
 	if err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
+		return wildcardOperationError(err)
 	}
 	intersectionID, err := rt.AddWildcard(intersection)
 	if err != nil {
@@ -141,9 +143,9 @@ func (b *attributeWildcardBuilder) finishExtension(rt schemaAttributeWildcardRun
 	if err != nil {
 		return NoWildcard, err
 	}
-	union, err := unionWildcard(declared, inherited, declared.Process)
+	union, err := unionWildcard(declared, inherited, declared.Process, rt.SpendWildcardWork)
 	if err != nil {
-		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
+		return NoWildcard, wildcardOperationError(err)
 	}
 	return rt.AddWildcard(union)
 }
@@ -163,7 +165,11 @@ func (b *attributeWildcardBuilder) finishRestriction(rt schemaAttributeWildcardR
 	if err != nil {
 		return NoWildcard, err
 	}
-	if !wildcardNamespaceSubset(declared, inherited) {
+	subset, err := wildcardNamespaceSubset(declared, inherited, rt.SpendWildcardWork)
+	if err != nil {
+		return NoWildcard, err
+	}
+	if !subset {
 		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
 	}
 	return b.wildcard, nil
@@ -184,6 +190,15 @@ func schemaAttributeWildcardDerivation(mode attributeMergeMode) (attributeWildca
 	default:
 		return attributeWildcardNone, xsderrors.InternalInvariant("unknown attribute merge mode")
 	}
+}
+
+// wildcardOperationError reports an inexpressible union or intersection as a
+// schema error and returns a budget failure unchanged.
+func wildcardOperationError(err error) error {
+	if isSchemaLimit(err) {
+		return err
+	}
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
 }
 
 func requiredAttributeWildcard(rt schemaAttributeWildcardRuntime, id WildcardID) (wildcardRuntime, error) {

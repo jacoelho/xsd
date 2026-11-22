@@ -2,12 +2,6 @@ package schema
 
 import "slices"
 
-// cloneWildcard deep-clones wildcard metadata.
-func cloneWildcard(in wildcardRuntime) wildcardRuntime {
-	in.Namespaces = slices.Clone(in.Namespaces)
-	return in
-}
-
 // cloneSimpleTypeDerivation deep-clones simple-type derivation projection
 // metadata.
 func cloneSimpleTypeDerivation(in simpleTypeDerivation) simpleTypeDerivation {

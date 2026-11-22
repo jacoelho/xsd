@@ -23,10 +23,15 @@ func schemaCompileAt(n schemaLocated, code xsderrors.Code, msg string) error {
 // returned as is: location is attached only to a direct diagnostic, and a
 // budget failure must stay locatable by the enclosing component scope.
 func wrapUnlessLimit(err error, context string) error {
-	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic.Code() == xsderrors.CodeSchemaLimit {
+	if isSchemaLimit(err) {
 		return err
 	}
 	return fmt.Errorf("%s: %w", context, err)
+}
+
+func isSchemaLimit(err error) bool {
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	return ok && diagnostic.Code() == xsderrors.CodeSchemaLimit
 }
 
 func withSchemaCompileLocation(n schemaLocated, err error) error {

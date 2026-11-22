@@ -8,17 +8,6 @@ import (
 )
 
 func TestRuntimePublicationCloneHelpersDoNotAliasMutableState(t *testing.T) {
-	wildcards := []wildcardRuntime{{
-		Namespaces: []namespaceID{1, 2},
-		Mode:       WildcardList,
-		Process:    processStrict,
-	}}
-	clonedWildcard := cloneWildcard(wildcards[0])
-	wildcards[0].Namespaces[0] = 9
-	if clonedWildcard.Namespaces[0] != 1 {
-		t.Fatalf("CloneWildcard aliased namespace slice: %#v", clonedWildcard.Namespaces)
-	}
-
 	simpleDerivation := simpleTypeDerivation{Union: []SimpleTypeID{1, 2}}
 	clonedSimpleDerivation := cloneSimpleTypeDerivation(simpleDerivation)
 	simpleDerivation.Union[0] = 9

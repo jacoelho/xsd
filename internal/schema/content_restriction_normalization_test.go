@@ -355,7 +355,8 @@ func snapshotRestrictionBuild(rt *schemaBuild) restrictionBuildSnapshot {
 		before.elements[i].ValueConstraint = cloneValueConstraint(declaration.ValueConstraint)
 	}
 	for i, wildcard := range rt.Wildcards {
-		before.wildcards[i] = cloneWildcard(wildcard)
+		wildcard.Namespaces = slices.Clone(wildcard.Namespaces)
+		before.wildcards[i] = wildcard
 	}
 	return before
 }

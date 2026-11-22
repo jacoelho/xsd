@@ -241,7 +241,11 @@ func (a *contentModelAnalysis) Overlap(left, right contentParticle) (QName, bool
 func (a *contentModelAnalysis) wildcardOverlap(left, right WildcardID) (QName, bool, error) {
 	leftWildcard, leftOK := wildcardByID(a.rt.Wildcards, left)
 	rightWildcard, rightOK := wildcardByID(a.rt.Wildcards, right)
-	return QName{}, leftOK && rightOK && wildcardsOverlap(leftWildcard, rightWildcard), nil
+	if !leftOK || !rightOK {
+		return QName{}, false, nil
+	}
+	overlap, err := wildcardsOverlap(leftWildcard, rightWildcard, a.work)
+	return QName{}, overlap, err
 }
 
 func (a *contentModelAnalysis) elementParticleOverlap(left, right contentParticle) (QName, bool, error) {
