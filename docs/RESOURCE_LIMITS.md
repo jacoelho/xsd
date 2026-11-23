@@ -134,6 +134,50 @@ every later one:
 Each shape stops with `schema.limit` at its content model. Raising
 `MaxContentModelAnalysisSteps` raises the bound with it.
 
+A compiled schema also retains a fixed record for each published component
+and the text of its names and value constraints. `MaxSchemaInstantiatedNodes`
+bounds the records through the source nodes they come from, and
+`MaxSchemaTotalBytes` bounds the text; no option charges them by size. On
+64-bit platforms an element declaration holds an 8-byte name, a 40-byte record
+and, when it has a default or fixed value, a 104-byte value-constraint record,
+each in a slice allocated to its exact length. A global declaration adds an
+entry of 12 bytes to a map keyed by expanded name, and a distinct local name
+an entry of 24 bytes to a map keyed by string plus a 16-byte string header. A
+Go map that has just grown fills 7 of every 16 slots and keeps a control
+byte per slot, so its entries take at most (12 + 1) × 16/7, about 30 bytes,
+and (24 + 1) × 16/7, about 57 bytes. A global element declaration with a
+value constraint and a distinct name therefore retains at most about
+8 + 40 + 104 + 30 + 57 + 16 = 255 bytes plus its name. 999,000 of them, one
+node each at the default node limit, with names of up to seven bytes, are
+bounded at about 250 MiB and measured at about 246 MiB. Text is retained
+about once, at about 1.02 bytes per name or value byte, and a name that many
+components use is interned once. The figures below and in the next paragraph
+are measured approximations, taken with Go 1.27.3 on darwin/arm64 under the
+default options; no test pins them:
+
+| Component | Source nodes | Retained |
+| --- | ---: | ---: |
+| Global element declaration | 1 | about 123 bytes |
+| Global element declaration with a default | 1 | about 259 bytes |
+| Global attribute declaration | 1 | about 187 bytes |
+| Named simple type restricting `xs:string` | 2 | about 366 bytes |
+| Local element with an anonymous complex type holding one element | 4 | about 695 bytes |
+| Key with its selector and field | 3 | about 470 bytes |
+| Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
+| The same element with an anonymous complex type and a key | 7 | about 586 bytes |
+
+In these shapes a node retains at most about 260 bytes plus its text, so
+the records stay under about 250 MiB at the default node limit and the text
+adds at most about `MaxSchemaTotalBytes`. Four sources of 249,000 global
+elements with defaults and 200-byte names, about 255 MB together, compile at
+the defaults and retain about 444 MiB. Compiling them reaches about 1.5 GB of
+live heap, so the compilation peak, not the retained schema, is the larger
+memory term. An element with `minOccurs` and `maxOccurs` 0 is no declaration
+(Structures §3.3.2) and retains nothing; the type and identity constraints
+nested in it retain as they would elsewhere, except that such a detached
+identity constraint keeps its name but no evaluation program or dispatch
+branch.
+
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand
 into states), 1,000,000 retained character ranges, and nesting depth 1,024.
