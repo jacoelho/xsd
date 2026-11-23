@@ -302,10 +302,10 @@ type identityConstraintSpec struct {
 	Name     QName
 	Refer    IdentityConstraintID
 	Kind     IdentityKind
-	// Detached marks a constraint declared under an xs:element with
-	// minOccurs and maxOccurs 0. It is a component of the schema (Structures
-	// §3.11.2), but no element declaration owns it and no instance element
-	// evaluates it; every other constraint has exactly one owner.
+	// Detached marks a constraint no reachable element declaration owns
+	// (detachUnreachableComponents). It is a component of the schema
+	// (Structures §3.11.2), but no instance element evaluates it; every other
+	// constraint has exactly one owner.
 	Detached bool
 }
 

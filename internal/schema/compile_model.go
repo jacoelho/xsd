@@ -371,41 +371,43 @@ func (c *compiler) compileContentModels(reached []reachedModel) error {
 	slices.Sort(roots)
 	sources := make([]contentModelID, 0, len(reached))
 	models := make([]compiledModelRead, 0, len(reached))
+	runs := make([][]compiledModelEdgeRead, 0, len(reached))
 	for _, r := range reached {
-		model, err := c.compileContentModel(&cc, index, roots, r)
+		model, run, err := c.compileContentModel(&cc, index, roots, r)
 		if err != nil {
 			return err
 		}
 		sources = append(sources, r.id)
 		models = append(models, model)
+		runs = append(runs, run)
 	}
-	c.rt.CompiledContent = compiledContent{Sources: sources, Models: models}
+	c.rt.CompiledContent = compiledContent{Sources: sources, Models: models, Runs: runs}
 	return nil
 }
 
-func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, reached reachedModel) (_ compiledModelRead, err error) {
+func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
 	id := reached.id
 	scope, err := c.enterContentModel(id)
 	if err != nil {
-		return compiledModelRead{}, err
+		return compiledModelRead{}, nil, err
 	}
 	defer scope.leave(&err)
 	typed := cc.forType(c.complexTypeLabel(reached.complexType))
 	compiled, err := typed.compileRootContentModel(id)
 	if err != nil {
-		return compiledModelRead{}, err
+		return compiledModelRead{}, nil, err
 	}
 	if _, root := slices.BinarySearch(roots, id); !root {
-		return compiledModelRead{Kind: compiled.Kind}, nil
+		return compiledModelRead{Kind: compiled.Kind}, nil, nil
 	}
 	model, run, err := newCompiledModelRead(compiled, c.contentWork.spend)
 	if err != nil {
-		return compiledModelRead{}, err
+		return compiledModelRead{}, nil, err
 	}
 	if err := index.indexModel(&model, run); err != nil {
-		return compiledModelRead{}, err
+		return compiledModelRead{}, nil, err
 	}
-	return model, nil
+	return model, run, nil
 }
 
 func (c *compiler) checkCompiledModelsUPA(reached []reachedModel) error {

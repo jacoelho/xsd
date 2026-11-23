@@ -31,8 +31,12 @@ type schemaBuild struct {
 	Elements              []elementDecl
 	Identities            []identityConstraintSpec
 	ComplexTypes          []complexTypeMetadata
-	Names                 nameTable
-	AnyType               ComplexTypeID
+	// ReachableElements is parallel to Elements and reports whether an
+	// instance element can be assessed against each declaration
+	// (detachUnreachableComponents).
+	ReachableElements []bool
+	Names             nameTable
+	AnyType           ComplexTypeID
 }
 
 // schemaProgram is the immutable validation representation produced by one

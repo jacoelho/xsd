@@ -80,9 +80,9 @@ type complexTypeMetadata struct {
 	Block              DerivationMask
 	Final              DerivationMask
 	Scope              declarationScope
-	// Detached marks the anonymous type of an xs:element with minOccurs and
-	// maxOccurs 0. No element declaration has it as its type, so publication
-	// keeps its ID but no content model or attribute uses for it.
+	// Detached marks a type no instance element reaches
+	// (detachUnreachableComponents). Publication keeps its ID but no content
+	// model or attribute uses for it.
 	Detached bool
 }
 

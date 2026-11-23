@@ -298,7 +298,22 @@ particles (`complexTypeReachableModels`), so a model no complex type reaches is
 neither checked nor compiled and spends no automaton work or
 `MaxContentModelStates` budget. The compiled table (`compiledContent`) holds
 the reached models with their source IDs, and publication enters only the
-roots of complex types that are not detached. Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
+roots of complex types that are not detached. After compilation,
+`detachUnreachableComponents` walks from every global element declaration
+and global complex type through element types, complex-type content models
+and their element particles, each model once by ID, charging
+`MaxSchemaDependencySteps`; it alone marks the complex types it does not reach
+and the identity constraints no reached element owns `Detached`, and records
+which element declarations it reached. An instance names only global
+components (root, `xsi:type`, wildcard, substitution member), so an
+unreached component is never assessed. Publication keeps a detached type's ID
+and derivation record and a detached constraint's ID for keyref `refer` and
+diagnostics, but no content model, attribute uses or evaluation program, and
+`validateReachableHolders` rejects a detached global type, a reached element
+with a detached type, and a published content model naming an unreached
+element. Unique Particle Attribution, restriction and automaton construction
+still cover unreached components, so reachability changes no verdict.
+Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
 count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
 no alternative to a choice. `baseIsUrType` alone decides the ur-type
@@ -678,7 +693,7 @@ Cross-module contracts:
   validation work buffers, so one schema serves concurrent sessions.
 - `internal/schema` publishes identity selector/field programs, a dispatch index
   without self branches, `SelectsSelf`, and `AttributeFieldBaseDepths` for
-  every constraint an element declaration owns; a detached constraint keeps
+  every constraint a reachable element declaration owns; a detached constraint keeps
   its ID for keyref `refer` and diagnostics but has no program or branch;
   validate owns all matching state, scopes, and tables, and enables identity
   evaluation only when some element declaration owns a constraint.
@@ -1382,18 +1397,16 @@ graph preserves these ownership rules:
   declaration names), and the definitions nested in it keep their own
   mapping: its inline type definition, as for a prohibited attribute
   ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
-  and its identity constraints (§3.11.2). The build marks its inline complex
-  type and its identity constraints `Detached`: no element declaration has
-  that type or owns those constraints, publication rejects an element
-  declaration with a detached type and any other unowned constraint, and no
-  instance element reaches them. Publication keeps the type's ID and
-  derivation record, and the constraints' IDs for keyref `refer`, but gives
-  the type no content model or attribute uses and the constraints no
-  evaluation program. Only the inline definitions of a zero-count element are
-  detached: declarations nested inside a detached type, and the children of
-  a zero-count compositor, publish as live components. Treating the whole
-  subtree as absent was rejected: §3.11.2 maps every identity constraint
-  regardless of its parent.
+  and its identity constraints (§3.11.2). No instance element reaches those
+  definitions, the declarations nested in them, or the children of a
+  zero-count compositor, so instance reachability detaches them (see
+  `internal/schema`). Treating the whole subtree as absent was rejected:
+  §3.11.2 maps every identity constraint regardless of its parent.
+- Marking detachment lexically, on the definitions nested under a zero-count
+  element or compositor, was rejected: a local element declaration is
+  compiled once per source node, so a named group referenced by both a
+  detached and a live type shares its declarations, and marking them from the
+  detached reference would stop evaluating keys the live type reaches.
 - Declaring identity constraints as the components holding them compile,
   with a later pass for the rest, was rejected: types and named groups
   compiled first, so a keyref in them resolved its `refer` before a constraint

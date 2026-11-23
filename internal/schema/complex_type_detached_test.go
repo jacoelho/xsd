@@ -131,3 +131,75 @@ func TestPublicationRejectsGlobalDetachedComplexType(t *testing.T) {
 		t.Fatalf("publishSchema() error = %v, want a detached global complex type rejected", err)
 	}
 }
+
+func TestPublicationRejectsContentModelNamingUnreachableElement(t *testing.T) {
+	t.Parallel()
+
+	build := compiledTestBuild(t, detachedComplexTypeFixture())
+	marked := false
+	for i := range build.Elements {
+		if build.Elements[i].Scope == declarationScopeNonGlobal && build.ReachableElements[i] {
+			build.ReachableElements[i] = false
+			marked = true
+			break
+		}
+	}
+	if !marked {
+		t.Fatal("fixture has no reachable local element declaration")
+	}
+	_, err := publishSchema(build, unlimitedContentModelWork)
+	if err == nil || !strings.Contains(err.Error(), "published content model names an unreachable element declaration") {
+		t.Fatalf("publishSchema() error = %v, want a content model naming an unreachable element rejected", err)
+	}
+}
+
+func TestAnonymousTypesNoInstanceReachesPublishNoContentModelOrAttributeUses(t *testing.T) {
+	t.Parallel()
+
+	const nested = `<xs:element name="mid"><xs:complexType><xs:sequence>
+      <xs:element name="inner" maxOccurs="2"><xs:complexType><xs:sequence><xs:element name="leaf"/></xs:sequence><xs:attribute name="i"/></xs:complexType></xs:element>
+    </xs:sequence><xs:attribute name="m"/></xs:complexType></xs:element>`
+	schema := func(holder string) string {
+		return `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root"><xs:complexType><xs:sequence>` + holder + `<xs:element name="live" type="xs:string"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>`
+	}
+	publish := func(text string) (*Schema, int) {
+		t.Helper()
+		build := compiledTestBuild(t, text)
+		attached := 0
+		for i := range build.ComplexTypes {
+			if !build.ComplexTypes[i].Detached {
+				attached++
+			}
+		}
+		rt, err := publishSchema(build, unlimitedContentModelWork)
+		if err != nil {
+			t.Fatalf("publishSchema() error = %v", err)
+		}
+		return rt, attached
+	}
+	without, attachedWithout := publish(schema(""))
+	for _, test := range []struct {
+		name   string
+		holder string
+	}{
+		{name: "two levels inside a zero-count element", holder: `<xs:element name="gone" minOccurs="0" maxOccurs="0"><xs:complexType><xs:sequence>` + nested + `</xs:sequence></xs:complexType></xs:element>`},
+		{name: "under a zero-count sequence", holder: `<xs:sequence minOccurs="0" maxOccurs="0">` + nested + `</xs:sequence>`},
+		{name: "under a zero-count choice", holder: `<xs:choice minOccurs="0" maxOccurs="0">` + nested + `</xs:choice>`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			with, attached := publish(schema(test.holder))
+			if attached != attachedWithout {
+				t.Errorf("complex types not detached = %d, want %d as without the unreachable types", attached, attachedWithout)
+			}
+			if got, want := len(with.program.CompiledModels), len(without.program.CompiledModels); got != want {
+				t.Errorf("published content models = %d, want %d as without the unreachable types", got, want)
+			}
+			if got, want := len(with.program.AttributeUseSets), len(without.program.AttributeUseSets); got != want {
+				t.Errorf("published attribute-use sets = %d, want %d as without the unreachable types", got, want)
+			}
+		})
+	}
+}

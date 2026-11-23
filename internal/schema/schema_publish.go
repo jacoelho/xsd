@@ -105,7 +105,7 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 // source models, one compiled model each.
 func validateCompiledContent(build *schemaBuild) error {
 	content := &build.CompiledContent
-	if len(content.Sources) != len(content.Models) {
+	if len(content.Sources) != len(content.Models) || len(content.Runs) != len(content.Models) {
 		return xsderrors.InternalInvariant("schema compiled content-model table does not match its sources")
 	}
 	for i, id := range content.Sources {
@@ -119,6 +119,9 @@ func validateCompiledContent(build *schemaBuild) error {
 func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
 	content, err := enterContentModels(build.ComplexTypes, &build.CompiledContent)
 	if err != nil {
+		return schemaProgram{}, err
+	}
+	if err := validateReachableHolders(build, content.Models); err != nil {
 		return schemaProgram{}, err
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(

@@ -341,18 +341,24 @@ func TestPublishSchemaRejectsCompiledContentThatMisnamesItsSources(t *testing.T)
 		{name: "model missing", message: lengthMismatch, corrupt: func(build *xsdSchema.SchemaBuild) {
 			build.CompiledContent.Models = build.CompiledContent.Models[:len(build.CompiledContent.Models)-1]
 		}},
+		{name: "run missing", message: lengthMismatch, corrupt: func(build *xsdSchema.SchemaBuild) {
+			build.CompiledContent.Runs = build.CompiledContent.Runs[:len(build.CompiledContent.Runs)-1]
+		}},
 		{name: "source repeated", message: unordered, corrupt: func(build *xsdSchema.SchemaBuild) {
 			build.CompiledContent.Sources = append(build.CompiledContent.Sources, build.CompiledContent.Sources[len(build.CompiledContent.Sources)-1])
 			build.CompiledContent.Models = append(build.CompiledContent.Models, xsdSchema.CompiledModel{})
+			build.CompiledContent.Runs = append(build.CompiledContent.Runs, nil)
 		}},
 		{name: "source outside the model table", message: unordered, corrupt: func(build *xsdSchema.SchemaBuild) {
 			build.CompiledContent.Sources = append(build.CompiledContent.Sources, xsdSchema.NoContentModel)
 			build.CompiledContent.Models = append(build.CompiledContent.Models, xsdSchema.CompiledModel{})
+			build.CompiledContent.Runs = append(build.CompiledContent.Runs, nil)
 		}},
 		{name: "root missing", message: rootMissing, corrupt: func(build *xsdSchema.SchemaBuild) {
 			i := root(build)
 			build.CompiledContent.Sources = slices.Delete(build.CompiledContent.Sources, i, i+1)
 			build.CompiledContent.Models = slices.Delete(build.CompiledContent.Models, i, i+1)
+			build.CompiledContent.Runs = slices.Delete(build.CompiledContent.Runs, i, i+1)
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -360,10 +366,12 @@ func TestPublishSchemaRejectsCompiledContentThatMisnamesItsSources(t *testing.T)
 			valid := build.CompiledContent
 			build.CompiledContent.Sources = slices.Clone(valid.Sources)
 			build.CompiledContent.Models = slices.Clone(valid.Models)
+			build.CompiledContent.Runs = slices.Clone(valid.Runs)
 			test.corrupt(build)
 			expected := mutableSchemaBuild(t, schema)
 			expected.CompiledContent.Sources = slices.Clone(expected.CompiledContent.Sources)
 			expected.CompiledContent.Models = slices.Clone(expected.CompiledContent.Models)
+			expected.CompiledContent.Runs = slices.Clone(expected.CompiledContent.Runs)
 			test.corrupt(expected)
 
 			published, err := publishSchema(build)

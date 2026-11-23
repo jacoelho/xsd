@@ -259,8 +259,8 @@ type enteredContent struct {
 // enterContentModels derives the entered models from the complex types.
 // Complex-type roots are the only entry points: nested groups are compiled into
 // their ancestors' rows, so no published particle references another model.
-// A detached type is never an element's type, so validation never enters its
-// root. Every empty-kind model compiles to the same read, so empty roots share
+// A detached type is the type of no reachable element declaration, so
+// validation never enters its root. Every empty-kind model compiles to the same read, so empty roots share
 // the lowest such position and publication keeps one row for them. A compiled
 // all model that is the content of no complex type violates All Group Limited
 // and is an internal invariant violation.
