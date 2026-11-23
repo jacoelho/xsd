@@ -12,8 +12,10 @@ import (
 // access to build for the duration of the call. A rejected build is left
 // unchanged. On success, build is cleared and the returned schema owns all
 // validation-facing storage. The schema takes the compiled content tables
-// and the substitution table without copying them; other previously
-// retained aliases may be mutated without affecting the schema.
+// that need no renumbering without copying them, and copies the others and
+// the substitution table over published element IDs while sharing their name
+// indexes with build; other previously retained aliases may be mutated
+// without affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
 		return nil, errors.New("nil schema build")
@@ -116,12 +118,46 @@ func validateCompiledContent(build *schemaBuild) error {
 	return nil
 }
 
+// publishedElementReads are the published holders of element IDs, built over
+// published IDs (publishedElements).
+type publishedElementReads struct {
+	globals       map[QName]ElementID
+	models        []compiledModelRead
+	substitutions substitutionTable
+	elements      elementReadTable
+}
+
+func newPublishedElementReads(build *schemaBuild, entered []int) (publishedElementReads, error) {
+	elements, err := newPublishedElements(build)
+	if err != nil {
+		return publishedElementReads{}, err
+	}
+	if err = validateReachableHolders(build); err != nil {
+		return publishedElementReads{}, err
+	}
+	models, err := publishedContentModels(build, entered, elements)
+	if err != nil {
+		return publishedElementReads{}, err
+	}
+	globals, substitutions, err := publishedElementMaps(build, elements)
+	if err != nil {
+		return publishedElementReads{}, err
+	}
+	return publishedElementReads{
+		globals:       globals,
+		models:        models,
+		substitutions: substitutions,
+		elements:      newElementReadTable(build.Elements, elements),
+	}, nil
+}
+
 func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
 	content, err := enterContentModels(build.ComplexTypes, &build.CompiledContent)
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	if err = validateReachableHolders(build, content.Models); err != nil {
+	elementReads, err := newPublishedElementReads(build, content.Models)
+	if err != nil {
 		return schemaProgram{}, err
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(
@@ -141,17 +177,17 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 	reads := schemaProgram{
 		DiagnosticNames:       newDiagnosticNames(build),
 		GlobalAttributes:      maps.Clone(build.GlobalAttributes),
-		GlobalElements:        maps.Clone(build.GlobalElements),
+		GlobalElements:        elementReads.globals,
 		GlobalTypes:           maps.Clone(build.GlobalTypes),
-		Substitutions:         build.Substitutions,
+		Substitutions:         elementReads.substitutions,
 		Names:                 names,
 		Notations:             newNotationReadMap(&build.Names, build.Notations),
 		Attributes:            newAttributeDeclReadsForDecls(build.Attributes),
 		TypeDerivations:       typeDerivations,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
-		CompiledModels:        publishedContentModels(build.CompiledContent.Models, content.Models),
-		Elements:              newElementReadTable(build.Elements, build.ReachableElements),
+		CompiledModels:        elementReads.models,
+		Elements:              elementReads.elements,
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}
 	if err = validatePublishedIdentityConstraints(&reads.Elements, build.Identities); err != nil {

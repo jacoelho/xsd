@@ -122,8 +122,20 @@ func TestPublishedContentModelsKeepsEnteredOrder(t *testing.T) {
 			All:  []compiledAllTerm{{Required: i%2 == 0}},
 		})
 	}
+	build := &schemaBuild{
+		Elements:          make([]elementDecl, 1),
+		ReachableElements: []bool{true},
+		CompiledContent:   compiledContent{Models: models, Runs: make([][]compiledModelEdgeRead, len(models))},
+	}
+	elements, err := newPublishedElements(build)
+	if err != nil {
+		t.Fatal(err)
+	}
 	entered := []int{1, 3, 4}
-	reads := publishedContentModels(models, entered)
+	reads, err := publishedContentModels(build, entered, elements)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(reads) != len(entered) {
 		t.Fatalf("published %d models, want %d", len(reads), len(entered))
 	}

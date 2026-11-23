@@ -336,14 +336,20 @@ func foldEmptyRoots(roots []int, models []compiledModelRead) {
 	}
 }
 
-// publishedContentModels returns the entered models in entered order. They
-// share their tables with models.
-func publishedContentModels(models []compiledModelRead, entered []int) []compiledModelRead {
+// publishedContentModels returns copies of the entered models in entered
+// order over published element IDs (publishedElements.publishedModel). They
+// share only their name indexes with content.
+func publishedContentModels(build *schemaBuild, entered []int, elements publishedElements) ([]compiledModelRead, error) {
+	content := &build.CompiledContent
 	reads := make([]compiledModelRead, len(entered))
 	for i, id := range entered {
-		reads[i] = models[id]
+		read, err := elements.publishedModel(build, content.Models[id], content.Runs[id])
+		if err != nil {
+			return nil, err
+		}
+		reads[i] = read
 	}
-	return reads
+	return reads, nil
 }
 
 // newCompiledModelRead projects one compiled model to its published form,

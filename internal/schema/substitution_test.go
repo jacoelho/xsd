@@ -327,26 +327,36 @@ func TestBuildSubstitutionTableDetectsDeepCycleWithoutRecursion(t *testing.T) {
 	}
 }
 
-func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
+func TestPublishedSubstitutionTableNamesPublishedMembersAndLeavesTheBuildTable(t *testing.T) {
 	t.Parallel()
 
 	table := newSubstitutionTable(
-		[]substitutionSpan{{start: 0, count: 1}, {start: 1}},
-		[]substitutionEntry{{name: QName{Local: 1}, member: 1, effective: true}},
+		[]substitutionSpan{{}, {start: 0, count: 1}, {start: 1}},
+		[]substitutionEntry{{name: QName{Local: 1}, member: 2, effective: true}},
 		compareQName,
 	)
 	build := schemaBuild{
-		Substitutions:    table,
-		ComplexTypes:     []complexTypeMetadata{{Derivation: derivationKindNone}},
-		AttributeUseSets: []attributeUseSet{{}},
-		CompiledContent:  compiledContent{Sources: []contentModelID{0}, Models: []compiledModelRead{{}}, Runs: [][]compiledModelEdgeRead{nil}},
+		Substitutions:     table,
+		Elements:          make([]elementDecl, 3),
+		ReachableElements: []bool{false, true, true},
+		ComplexTypes:      []complexTypeMetadata{{Derivation: derivationKindNone}},
+		AttributeUseSets:  []attributeUseSet{{}},
+		CompiledContent:   compiledContent{Sources: []contentModelID{0}, Models: []compiledModelRead{{}}, Runs: [][]compiledModelEdgeRead{nil}},
 	}
 	reads, err := newSchemaProgram(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaProgram() error = %v", err)
 	}
-	if &reads.Substitutions.entries[0] != &build.Substitutions.entries[0] {
-		t.Fatal("newSchemaProgram() cloned immutable substitution entries")
+	var members []ElementID
+	reads.Substitutions.ForEachMember(0, func(id ElementID) bool {
+		members = append(members, id)
+		return true
+	})
+	if !slices.Equal(members, []ElementID{1}) {
+		t.Fatalf("published members of head 0 = %v, want [1]", members)
+	}
+	if build.Substitutions.entries[0].member != 2 {
+		t.Fatalf("build substitution member = %d after publication, want 2", build.Substitutions.entries[0].member)
 	}
 }
 

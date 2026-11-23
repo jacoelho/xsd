@@ -209,9 +209,11 @@ the run (`publishedDFARun`), so its tables grow linearly with its particles.
 `compileContentModels` keeps only the published form (`compiledModelRead`) of
 each complex type's root model, indexed in the model's scope, and the kind of
 every other reached model, whose rows are still charged because its Unique
-Particle Attribution check reads them; publication takes those tables without copying
-them; `sealSchemaProgram` adds dense indexes, which rewrite rows the build
-shares, only after the last step that can reject the build. Spent work is never refunded. Retained derived records
+Particle Attribution check reads them; publication takes a table without
+copying it when every element it names keeps its ID in the published
+numbering, and copies it otherwise; `sealSchemaProgram` adds dense indexes,
+which rewrite rows the build shares, only after the last step that can reject
+the build. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
 `appendModelParticles` is the only append to retained model particles and
 charges one step per particle before allocating (the restriction normalizer
@@ -303,12 +305,17 @@ what is detached: an instance names only global components (root, `xsi:type`,
 wildcard, substitution member), so a complex type or identity constraint no
 walk from them reaches is never assessed. `detachUnreachableComponents` owns
 that decision and charges no budget, because it reads only models
-`complexTypeReachableModels` already charged; element declarations and simple
-types it does not reach are kept. Publication keeps a detached type's ID and
-derivation record and a detached constraint's ID for keyref `refer` and
-diagnostics, but no content model, attribute uses or evaluation program, and
-`validateReachableHolders` and `validatePublishedIdentityConstraints` reject
-a published holder that names a detached or unreached component. Unique
+`complexTypeReachableModels` already charged; simple types it does not reach
+are kept. Publication keeps a detached type's ID and derivation record and a
+detached constraint's ID for keyref `refer` and diagnostics, but no content
+model, attribute uses or evaluation program. Unreached element declarations
+are not published, and validation sees only published element IDs, which
+`publishedElements` owns. A published holder of element IDs is either a build
+table that names only declarations whose published ID is their build ID or a
+copy built over published IDs, never a table that mixes the two.
+`validateReachableHolders`, `validatePublishedIdentityConstraints` and
+`publishedElements` reject a published holder that names a detached or
+unreached component. Unique
 Particle Attribution, restriction and automaton construction still cover
 unreached components, so reachability changes no verdict.
 Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
@@ -1399,9 +1406,26 @@ graph preserves these ownership rules:
   complex types and identity constraints among those definitions, the
   declarations nested in them and the children of a zero-count compositor,
   unless a live type also reaches them, as it does a declaration in a named
-  group that a live type references; it keeps the element declarations and
-  simple types (see `internal/schema`). Treating the whole subtree as absent was rejected:
+  group that a live type references; it keeps the simple types and does not
+  publish the element declarations (see `internal/schema`). Treating the whole subtree as absent was rejected:
   §3.11.2 maps every identity constraint regardless of its parent.
+- Writing published element IDs while the compiled content tables are
+  projected, before publication, was rejected: the name indexes built with
+  them read build IDs against the declarations and the substitution table,
+  the root tables of detached types name declarations that have no published
+  ID, and publication's restriction checks read the substitution table in
+  build IDs, so the build would hold two element ID spaces.
+- Rewriting the element IDs of the build's content tables and substitution
+  entries in place after the last step that can reject the build was
+  rejected: its correctness rested on that ordering and on every particle
+  being reached exactly once, so a table whose rows shared an edge array
+  would be renumbered twice without any check failing.
+- Copying every content table at publication was rejected: on a schema with
+  no unreached declaration it raised the compilation peak and total
+  allocation by about a fifth (a choice of 120 elements with `maxOccurs`
+  16,000) to renumber nothing. Publication copies only a table that names a
+  declaration whose published ID differs from its build ID, which every
+  declaration below the first unreached one keeps.
 - Marking detachment lexically, on the definitions nested under a zero-count
   element or compositor, was rejected: a local element declaration is
   compiled once per source node, so a named group referenced by both a

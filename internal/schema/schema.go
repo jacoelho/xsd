@@ -33,7 +33,8 @@ type schemaBuild struct {
 	ComplexTypes          []complexTypeMetadata
 	// ReachableElements is parallel to Elements and reports whether an
 	// instance element can be assessed against each declaration
-	// (detachUnreachableComponents).
+	// (detachUnreachableComponents). Only reached declarations are published
+	// (publishedElements).
 	ReachableElements []bool
 	Names             nameTable
 	AnyType           ComplexTypeID

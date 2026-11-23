@@ -131,7 +131,9 @@ applies before it builds a row, so a sequence or choice that automaton
 construction compiles is charged for the automaton's table alone. While a
 model compiles, the heap also holds that model's construction state, which
 `MaxContentModelAnalysisSteps` bounds as above, and its transient name indexes, so the peak is the retained tables
-plus one model's construction. Name indexing also keeps, for the whole
+plus one model's construction. Publication adds a copy of each table that
+names an element declaration renumbered because an earlier one is unreached
+(see `internal/schema`); a schema whose declarations are all reached adds none. Name indexing also keeps, for the whole
 compilation, the member names of each substitution head an indexed edge
 names, at most the entries `MaxSubstitutionClosureEntries` caps. The dense
 dispatch indexes that publication adds to rows of at least 16 edges that own
@@ -186,8 +188,8 @@ default options; no test pins them:
 | Key with its selector and field | 3 | about 470 bytes |
 | Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
 | The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 299 bytes |
-| The same element with an anonymous complex type holding one element | 4 | about 94 bytes |
-| The same element with an anonymous complex type and a key | 7 | about 176 bytes |
+| The same element with an anonymous complex type holding one element | 4 | about 46 bytes |
+| The same element with an anonymous complex type and a key | 7 | about 128 bytes |
 
 In these shapes a node retains at most about 260 bytes plus its text, so
 the records stay under about 250 MiB at the default node limit and the text
@@ -202,9 +204,10 @@ element, those nested inside its type, and those under a zero-count
 compositor, except those reached through a named group that a live type also
 references. A detached complex type keeps its ID and derivation record but no
 content model or attribute uses, and a detached identity constraint keeps its
-name but no evaluation program or dispatch branch. Element declarations and
-simple types no instance element reaches are kept and retain as they would
-elsewhere.
+name but no evaluation program or dispatch branch. An element declaration no
+instance element reaches is not published and retains nothing in the element
+table, though its local name stays in the name table. Simple types no
+instance element reaches are kept and retain as they would elsewhere.
 
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand

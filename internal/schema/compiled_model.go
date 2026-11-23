@@ -39,8 +39,9 @@ type compiledModel struct {
 
 // compiledContent holds one record for each content model that
 // complexTypeReachableModels returns, and no other. A complex type's root
-// model holds its published form, which publication takes without copying;
-// any other model holds only its kind.
+// model holds its published form over build element IDs, which publication
+// copies over published IDs (publishedElements.publishedModel); any other
+// model holds only its kind.
 type compiledContent struct {
 	// Sources holds the source IDs of the compiled models, ascending and
 	// distinct.
@@ -49,7 +50,7 @@ type compiledContent struct {
 	Models []compiledModelRead
 	// Runs is parallel to Models: the edge run that every row of a root's
 	// published table is a window of, or nil when each row holds its own
-	// edges. It lets publication read each published edge once.
+	// edges. It lets publication copy each published edge once.
 	Runs [][]compiledModelEdgeRead
 }
 

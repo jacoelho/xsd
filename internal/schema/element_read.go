@@ -35,32 +35,31 @@ type elementReadTable struct {
 	constraints []elementConstraintRead
 }
 
-// newElementReadTable publishes decls. reachable is parallel to decls; an
-// element declaration no instance element reaches publishes no identity
-// constraints, since no scope ever opens them.
-func newElementReadTable(decls []elementDecl, reachable []bool) elementReadTable {
-	identityCount, constraintCount := elementReadStorageCounts(decls, reachable)
+// newElementReadTable publishes the declarations of decls that have a
+// published ID, each at that ID. An unreached declaration is not published:
+// no instance element is assessed against it.
+func newElementReadTable(decls []elementDecl, published publishedElements) elementReadTable {
+	identityCount, constraintCount := elementReadStorageCounts(decls, published)
 	table := elementReadTable{
-		names:       make([]QName, len(decls)),
-		meta:        make([]elementReadMeta, len(decls)),
+		names:       make([]QName, published.count),
+		meta:        make([]elementReadMeta, published.count),
 		identities:  make([]IdentityConstraintID, 0, identityCount),
 		constraints: make([]elementConstraintRead, 0, constraintCount),
 	}
 	for i := range decls {
-		identities := decls[i].Identity
-		if !reachable[i] {
-			identities = nil
+		if id, ok := published.id(ElementID(i)); ok { // #nosec G115 -- decls is an element-declaration table.
+			table.addDeclaration(int(id), decls[i])
 		}
-		table.addDeclaration(i, decls[i], identities)
 	}
 	return table
 }
 
-func elementReadStorageCounts(decls []elementDecl, reachable []bool) (identityCount, constraintCount int) {
+func elementReadStorageCounts(decls []elementDecl, published publishedElements) (identityCount, constraintCount int) {
 	for i := range decls {
-		if reachable[i] {
-			identityCount += len(decls[i].Identity)
+		if _, ok := published.id(ElementID(i)); !ok { // #nosec G115 -- decls is an element-declaration table.
+			continue
 		}
+		identityCount += len(decls[i].Identity)
 		if decls[i].ValueConstraint != nil {
 			constraintCount++
 		}
@@ -68,17 +67,17 @@ func elementReadStorageCounts(decls []elementDecl, reachable []bool) (identityCo
 	return identityCount, constraintCount
 }
 
-func (t *elementReadTable) addDeclaration(index int, decl elementDecl, identities []IdentityConstraintID) {
+func (t *elementReadTable) addDeclaration(index int, decl elementDecl) {
 	t.names[index] = decl.Name
 	meta := elementReadMeta{
 		typ:           decl.Type,
 		block:         decl.Block,
 		identityStart: len(t.identities),
-		identityCount: len(identities),
+		identityCount: len(decl.Identity),
 		constraint:    -1,
 		flags:         elementFlags(decl),
 	}
-	t.identities = append(t.identities, identities...)
+	t.identities = append(t.identities, decl.Identity...)
 	meta.constraint = t.addValueConstraint(decl)
 	t.meta[index] = meta
 }
