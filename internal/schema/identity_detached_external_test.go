@@ -52,3 +52,20 @@ func TestDetachedIdentityConstraintPublishesNoProgramOrSelectorBranch(t *testing
 		t.Fatalf("SelectorExact(k) branch constraint = %d, want owned %d", branch.Constraint(), owned)
 	}
 }
+
+func TestSchemaWithOnlyDetachedIdentityConstraintsHasNoneToEvaluate(t *testing.T) {
+	t.Parallel()
+	rt := mustCompile(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="root"><xs:complexType><xs:sequence>
+  <xs:element name="gone" minOccurs="0" maxOccurs="0">
+    <xs:complexType><xs:attribute name="a"/></xs:complexType>
+    <xs:key name="detached"><xs:selector xpath="."/><xs:field xpath="@a"/></xs:key>
+  </xs:element>
+</xs:sequence></xs:complexType></xs:element></xs:schema>`)
+	if rt.HasIdentityConstraints() {
+		t.Fatal("HasIdentityConstraints() = true for a schema whose only constraint is detached")
+	}
+	if got := rt.IdentityDispatch().ConstraintCount(); got != 1 {
+		t.Fatalf("ConstraintCount() = %d, want the detached constraint counted", got)
+	}
+}

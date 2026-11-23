@@ -11,9 +11,11 @@ func (rt *Schema) ElementIdentityConstraints(id ElementID) (IdentityConstraintID
 	return rt.program.Elements.identityConstraints(id)
 }
 
-// HasIdentityConstraints reports whether the schema has identity constraints.
+// HasIdentityConstraints reports whether an element declaration owns an
+// identity constraint, so validation has a constraint to evaluate. A schema
+// whose only constraints are detached has none.
 func (rt *Schema) HasIdentityConstraints() bool {
-	return rt.program.IdentityDispatch.ConstraintCount() != 0
+	return rt.program.IdentityDispatch.hasPrograms()
 }
 
 // IdentityDispatch returns the immutable selector and field dispatch index
