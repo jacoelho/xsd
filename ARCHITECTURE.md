@@ -197,8 +197,8 @@ schema owns facet admission, final constraints and schema-use policy.
 `MaxSchemaDependencySteps` bounds loading, planning and resolution;
 `MaxContentModelAnalysisSteps` bounds the content-model work `workBudgetKind`
 lists, and through that work the heap that automaton
-construction uses (derived bounds for row edges, state keys and counter
-vectors, and measured heap, in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md);
+construction uses (derived bounds for row edges and state keys, a measured
+bound for counter vectors, and measured heap, in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md);
 derivations in the Go docs of `deterministicRow` and `dfaCounterVectors`). That bound is per content model. `MaxSchemaDependencySteps`
 bounds the compiled tables retained across models (per-step bound in
 [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): `contentModelCompiler` charges

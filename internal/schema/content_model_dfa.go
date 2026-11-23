@@ -33,11 +33,11 @@ const dfaConfigKeyBytes = 8
 // A vector of width w is new only when an action changed it, so before intern
 // stores it, collectConfig has charged a step for its source edge and
 // collectEdge w + 1 and at least one per action: at least w + 3 steps. A new
-// vector holds its values, a copy of them as its ids key and an ids entry,
-// measured at no more than 67 live bytes at width 1 over 1,024 to 1,048,576
-// vectors and fewer per step at widths up to 64, so vectors take at most
-// about 17 live bytes per step. Fewer than 1,024 vectors measured under
-// 600 KiB in all.
+// vector holds its values, a copy of them as its ids key and an ids entry.
+// With Go 1.27.3 on darwin/arm64 these held at most 67 live bytes, spare
+// slice and map capacity included, at width 1 over 1,024 to 1,048,576 vectors,
+// and fewer per step at widths up to 64, so vectors take at most about 17
+// live bytes per step; fewer than 1,024 vectors held under 600 KiB in all.
 type dfaCounterVectors struct {
 	ids    map[string]dfaCounterVectorID
 	values []uint32
