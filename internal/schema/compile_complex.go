@@ -146,7 +146,7 @@ func (c *compiler) complexTypePlaceholder(q QName) complexTypeMetadata {
 }
 
 func (c *compiler) complexTypeCycleError(id ComplexTypeID, use *schemaNode) error {
-	err := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+c.complexTypeLabel(id).label(&c.rt.Names))
+	err := schemaComponentCycleError(c.complexTypeLabel(id).label(&c.rt.Names))
 	if use == nil {
 		use = c.complexDefinitions[id].source.sourceNode()
 	}

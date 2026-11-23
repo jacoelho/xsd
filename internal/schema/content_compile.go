@@ -207,8 +207,8 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []ui
 // elementDeclarationConsistencyChecker is the one charged, model-cached EDC
 // check shared by compilation and publication. Distinct same-named element
 // declarations, including effective transitive substitution members, must
-// share one named global type; generated internal names never make an
-// anonymous type named. One declaration reached through several particles,
+// share one named global type, which an anonymous type, being non-global, never
+// is. One declaration reached through several particles,
 // groups or substitution heads counts once (I-026 in
 // docs/spec/INTERPRETATIONS.md). A single particle is visited once regardless
 // of its occurrence range. Declarations are collected and merged in particle

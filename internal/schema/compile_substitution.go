@@ -180,20 +180,32 @@ func (c *compiler) substitutionTableError(err error, elements []elementDecl) err
 	}
 	if membership, ok := errors.AsType[substitutionMembershipError](err); ok &&
 		validElementID(membership.Member, len(elements)) && validElementID(membership.Head, len(elements)) {
-		member := elements[membership.Member]
-		head := elements[membership.Head]
-		diagnostic := substitutionMembershipDiagnostic(membership.Cause, substitutionMembershipLabels{
-			MemberName: c.rt.formatName(member.Name),
-			MemberType: c.rt.elementTypeLabel(member.Type),
-			HeadName:   c.rt.formatName(head.Name),
-			HeadType:   c.rt.elementTypeLabel(head.Type),
-		})
-		return c.atGlobalElement(member.Name, diagnostic)
+		return c.substitutionMembershipError(membership, elements[membership.Member], elements[membership.Head])
 	}
 	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
 	return xsderrors.InternalInvariant(err.Error())
+}
+
+// substitutionMembershipError reports the rejected membership of member in
+// the substitution group of head, located at member.
+func (c *compiler) substitutionMembershipError(membership substitutionMembershipError, member, head elementDecl) error {
+	memberType, err := c.rt.elementTypeLabel(member.Type)
+	if err != nil {
+		return err
+	}
+	headType, err := c.rt.elementTypeLabel(head.Type)
+	if err != nil {
+		return err
+	}
+	diagnostic := substitutionMembershipDiagnostic(membership.Cause, substitutionMembershipLabels{
+		MemberName: c.rt.formatName(member.Name),
+		MemberType: memberType,
+		HeadName:   c.rt.formatName(head.Name),
+		HeadType:   headType,
+	})
+	return c.atGlobalElement(member.Name, diagnostic)
 }
 
 func substitutionCycleElement(start ElementID, elements []elementDecl) (ElementID, error) {

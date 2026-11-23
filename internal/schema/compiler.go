@@ -594,7 +594,7 @@ func (c *compiler) rejectSimpleTypeCycle(q QName, label string) error {
 	if !c.compilingSimple[q] {
 		return nil
 	}
-	err := schemaComponentCycleError(schemaComponentSimpleType, label)
+	err := schemaComponentCycleError(schemaComponentSimpleTypeLabel + " " + label)
 	if raw, ok := c.simpleComponents[q]; ok {
 		return withSchemaCompileLocation(raw.sourceNode(), err)
 	}

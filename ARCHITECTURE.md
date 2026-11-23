@@ -427,13 +427,10 @@ element holding it compiles, or before global elements compile
 compiles. A constraint is named once its interned name is set. Every name therefore takes its name ID in compilation order, which
 is not only a diagnostic concern: the dense DFA index depends on the
 local-name IDs of a content-model row's elements (`addDenseDFAIndexes`).
-Only names a schema spells are interned. An anonymous type has no name
-(`noQName`), and publication rejects a non-global type that has one, apart from
-the two intrinsics `intrinsicNamedSimpleType` admits. A diagnostic names an
-anonymous complex type by the element declaration holding it
-(`complexTypeLabel`) and the type of an element by its variety when it is
-anonymous (`elementTypeLabel`). `MaxSchemaNames` therefore does not count
-anonymous types; `MaxSchemaInstantiatedNodes` bounds them, since each takes at
+An anonymous type interns no name; the type declaration's scope, checked at
+publication by `typeOwnership`, decides whether it has one. `MaxSchemaNames`
+(`nameTable`) therefore does not count anonymous types, and
+`MaxSchemaInstantiatedNodes` (schema loading) bounds them, since each takes at
 least one source node occurrence of its own.
 
 Each rule has one owner: one function, called at the tag that decides it,

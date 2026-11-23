@@ -222,18 +222,25 @@ func (rt *schemaBuild) ElementRestriction(id ElementID) (particleRestrictionElem
 }
 
 // elementTypeLabel names the type t of an element declaration in a
-// diagnostic: a named type by its name, an anonymous type, which has no name,
-// by its variety.
-func (rt *schemaBuild) elementTypeLabel(t TypeID) string {
-	name, ok := typeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
-	if !ok {
-		panic("invalid runtime type ID")
+// diagnostic: a global type by its name, the unavailable-type sentinel as
+// unavailable, and any other type, which has no name, by its kind.
+func (rt *schemaBuild) elementTypeLabel(t TypeID) (string, error) {
+	if !validTypeID(t, len(rt.SimpleTypes), len(rt.ComplexTypes)) {
+		return "", xsderrors.InternalInvariant("element type label references an invalid type")
 	}
-	if name != noQName() {
-		return "type " + rt.Names.Format(name)
+	if id, simple := t.Simple(); simple {
+		typ := rt.SimpleTypes[id]
+		switch {
+		case typ.Scope == declarationScopeGlobal:
+			return "type " + rt.Names.Format(typ.Name), nil
+		case typ.Missing:
+			return "unavailable type", nil
+		}
+		return "local simple type", nil
 	}
-	if _, simple := t.Simple(); simple {
-		return "local simple type"
+	id, _ := t.Complex()
+	if typ := rt.ComplexTypes[id]; typ.Scope == declarationScopeGlobal {
+		return "type " + rt.Names.Format(typ.Name), nil
 	}
-	return "local complex type"
+	return "local complex type", nil
 }

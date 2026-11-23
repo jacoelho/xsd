@@ -67,8 +67,8 @@ func (rt *Schema) DiagnosticIdentityName(id IdentityConstraintID) (ExpandedName,
 	return rt.diagnosticName(rt.program.DiagnosticNames.identities[id])
 }
 
-// DiagnosticTypeName returns a named type's expanded name. Anonymous types have
-// no diagnostic name; generated compiler names are not instance-facing facts.
+// DiagnosticTypeName returns a global type's expanded name. A non-global type,
+// anonymous or intrinsic, has no diagnostic name.
 func (rt *Schema) DiagnosticTypeName(id TypeID) (ExpandedName, bool) {
 	if rt == nil {
 		return ExpandedName{}, false
