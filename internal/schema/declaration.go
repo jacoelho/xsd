@@ -23,7 +23,9 @@ const (
 	// declarationScopeInvalid is the unset construction-provenance state.
 	declarationScopeInvalid declarationScope = iota
 	// declarationScopeNonGlobal identifies local, anonymous, sentinel, or
-	// compiler-synthetic declarations without a global registry binding.
+	// compiler-synthetic declarations without a global registry binding. A
+	// non-global type is named noQName, except the intrinsics
+	// intrinsicNamedSimpleType admits.
 	declarationScopeNonGlobal
 	// declarationScopeGlobal identifies declarations requiring an exact global
 	// registry binding.

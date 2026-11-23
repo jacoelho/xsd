@@ -52,40 +52,6 @@ func TestSchemaTypeNameConflictError(t *testing.T) {
 	}
 }
 
-func TestSchemaComponentCycleError(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		kind schemaComponentKind
-		want string
-	}{
-		{name: "simple type", kind: schemaComponentSimpleType, want: "cyclic simple type p:T"},
-		{name: "complex type", kind: schemaComponentComplexType, want: "cyclic complex type p:T"},
-		{name: "attribute", kind: schemaComponentAttribute, want: "cyclic attribute declaration p:T"},
-		{name: "element", kind: schemaComponentElement, want: "cyclic element declaration p:T"},
-		{name: "attribute group", kind: schemaComponentAttributeGroup, want: "cyclic attribute group p:T"},
-		{name: "model group", kind: schemaComponentModelGroup, want: "cyclic model group p:T"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := schemaComponentCycleError(tt.kind, "p:T")
-			xerr, ok := errors.AsType[*xsderrors.Error](err)
-			if !ok {
-				t.Fatalf("SchemaComponentCycleError() error = %T %v, want *xsderrors.Error", err, err)
-			}
-			if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != xsderrors.CodeSchemaReference {
-				t.Fatalf("diagnostic = %s/%s, want schema compile reference", xerr.Category(), xerr.Code())
-			}
-			if xerr.Message() != tt.want {
-				t.Fatalf("message = %q, want %q", xerr.Message(), tt.want)
-			}
-		})
-	}
-}
-
 func TestSchemaComponentRecursionError(t *testing.T) {
 	t.Parallel()
 

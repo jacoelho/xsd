@@ -3,7 +3,6 @@ package schema
 import (
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"math"
 	"slices"
 
@@ -595,7 +594,7 @@ func (c *compiler) rejectSimpleTypeCycle(q QName, label string) error {
 	if !c.compilingSimple[q] {
 		return nil
 	}
-	err := schemaComponentCycleError(schemaComponentSimpleType, label)
+	err := schemaComponentCycleError(schemaComponentSimpleTypeLabel + " " + label)
 	if raw, ok := c.simpleComponents[q]; ok {
 		return withSchemaCompileLocation(raw.sourceNode(), err)
 	}
@@ -624,12 +623,8 @@ func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode)
 		return NoSimpleType, err
 	}
 	defer scope.leave(&err)
-	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
-	if err != nil {
-		return NoSimpleType, err
-	}
 	id, err := c.addSimpleType(simpleType{
-		Name: q,
+		Name: noQName(),
 		ValueSpec: value.TypeSpec{
 			Variety: value.Atomic, Primitive: value.PrimitiveString,
 			Whitespace: value.WhitespacePreserve, WhitespacePresent: true,
@@ -639,11 +634,10 @@ func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode)
 	if err != nil {
 		return NoSimpleType, err
 	}
-	st, err := c.compileSimpleType(ctx, n, q)
+	st, err := c.compileSimpleType(ctx, n, noQName())
 	if err != nil {
 		return NoSimpleType, err
 	}
-	st.Name = q
 	final, err := simpleFinalMaskWithDefaultChecked(n, ctx.doc.defaults.FinalDefault)
 	if err != nil {
 		return NoSimpleType, err

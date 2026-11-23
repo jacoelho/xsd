@@ -12,9 +12,9 @@ func TestSubstitutionMembershipDiagnosticMapsRejectedEdges(t *testing.T) {
 
 	labels := substitutionMembershipLabels{
 		MemberName: "m",
-		MemberType: "memberType",
+		MemberType: "type memberType",
 		HeadName:   "h",
-		HeadType:   "headType",
+		HeadType:   "type headType",
 	}
 	rt := substitutionMembershipFixture{
 		complex: map[ComplexTypeID]complexTypeDerivation{

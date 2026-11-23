@@ -20,7 +20,8 @@ type QName struct {
 	Local     localNameID
 }
 
-// noQName returns the absent QName sentinel used in runtime identity paths.
+// noQName returns the absent QName: the sentinel of runtime identity paths and
+// the name of an anonymous type, which interns no name.
 func noQName() QName {
 	return QName{Namespace: namespaceID(invalidID), Local: localNameID(invalidID)}
 }

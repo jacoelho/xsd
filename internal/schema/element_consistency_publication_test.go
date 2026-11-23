@@ -33,17 +33,17 @@ func TestPublishSchemaRejectsRepeatedAnonymousTypeAndAllowsRetry(t *testing.T) {
 				t.Fatal("missing named type")
 			}
 			typ := c.rt.GlobalTypes[name]
-			setScope := func(scope declarationScope) {
+			setDeclaration := func(scope declarationScope, name QName) {
 				if id, simple := typ.Simple(); simple {
 					c.rt.SimpleTypes[id].Scope = scope
+					c.rt.SimpleTypes[id].Name = name
 				} else {
 					id, _ := typ.Complex()
 					c.rt.ComplexTypes[id].Scope = scope
+					c.rt.ComplexTypes[id].Name = name
 				}
 			}
-			// Anonymous construction records still have an internal QName. Only
-			// declaration provenance and its exact binding establish a type name.
-			setScope(declarationScopeNonGlobal)
+			setDeclaration(declarationScopeNonGlobal, noQName())
 			delete(c.rt.GlobalTypes, name)
 			published, err := c.publishSchema()
 			expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
@@ -53,7 +53,7 @@ func TestPublishSchemaRejectsRepeatedAnonymousTypeAndAllowsRetry(t *testing.T) {
 			if _, bound := c.rt.GlobalTypes[name]; bound {
 				t.Fatal("failed publication restored the removed type binding")
 			}
-			setScope(declarationScopeGlobal)
+			setDeclaration(declarationScopeGlobal, name)
 			c.rt.GlobalTypes[name] = typ
 			if published, err := c.publishSchema(); err != nil || published == nil {
 				t.Fatalf("publication retry: %v, %v", published, err)

@@ -60,19 +60,6 @@ func (k schemaComponentKind) missingLabel() string {
 	}
 }
 
-func (k schemaComponentKind) cycleLabel() string {
-	switch k {
-	case schemaComponentAttribute:
-		return attributeDeclarationLabel
-	case schemaComponentElement:
-		return elementDeclarationLabel
-	case schemaComponentSimpleType, schemaComponentComplexType, schemaComponentAttributeGroup, schemaComponentModelGroup, schemaComponentType:
-		return k.missingLabel()
-	default:
-	}
-	return k.missingLabel()
-}
-
 // addSchemaComponent inserts one named schema component and rejects duplicates.
 func addSchemaComponent[T any](components map[QName]T, name QName, component T, label string) error {
 	if _, exists := components[name]; exists {
@@ -82,10 +69,10 @@ func addSchemaComponent[T any](components map[QName]T, name QName, component T, 
 	return nil
 }
 
-// schemaComponentCycleError reports recursive compilation of one named schema
-// component.
-func schemaComponentCycleError(kind schemaComponentKind, label string) error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+kind.cycleLabel()+" "+label)
+// schemaComponentCycleError reports recursive compilation of the type
+// definition component, a diagnostic label such as `simple type "T"`.
+func schemaComponentCycleError(component string) error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+component)
 }
 
 // schemaComponentRecursionError reports a recursive reference to one named

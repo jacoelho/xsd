@@ -22,8 +22,8 @@ func substitutionMembershipDiagnostic(err error, labels substitutionMembershipLa
 	case errors.Is(err, errSubstitutionMemberTypeNotDerived):
 		return xsderrors.SchemaCompile(
 			xsderrors.CodeSchemaReference,
-			"substitution group member "+labels.MemberName+" type "+labels.MemberType+
-				" is not derived from head "+labels.HeadName+" type "+labels.HeadType,
+			"substitution group member "+labels.MemberName+" "+labels.MemberType+
+				" is not derived from head "+labels.HeadName+" "+labels.HeadType,
 		)
 	case errors.Is(err, errSubstitutionMemberTypeExcludedDerivation):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "substitution group member type uses excluded derivation")

@@ -162,15 +162,6 @@ type Schema struct {
 	program schemaProgram
 }
 
-// TypeName returns a compiler-owned type name.
-func (rt *schemaBuild) TypeName(t TypeID) QName {
-	name, ok := typeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
-	if !ok {
-		panic("invalid runtime type ID")
-	}
-	return name
-}
-
 func (rt *schemaBuild) spendTypeDerivationWork(steps int) error {
 	if rt.typeWork == nil {
 		return nil
@@ -230,7 +221,26 @@ func (rt *schemaBuild) ElementRestriction(id ElementID) (particleRestrictionElem
 	}, true
 }
 
-// TypeLabel formats a compiler-owned type name for diagnostics.
-func (rt *schemaBuild) TypeLabel(t TypeID) string {
-	return rt.Names.Format(rt.TypeName(t))
+// elementTypeLabel names the type t of an element declaration in a
+// diagnostic: a global type by its name, the unavailable-type sentinel as
+// unavailable, and any other type, which has no name, by its kind.
+func (rt *schemaBuild) elementTypeLabel(t TypeID) (string, error) {
+	if !validTypeID(t, len(rt.SimpleTypes), len(rt.ComplexTypes)) {
+		return "", xsderrors.InternalInvariant("element type label references an invalid type")
+	}
+	if id, simple := t.Simple(); simple {
+		typ := rt.SimpleTypes[id]
+		switch {
+		case typ.Scope == declarationScopeGlobal:
+			return "type " + rt.Names.Format(typ.Name), nil
+		case typ.Missing:
+			return "unavailable type", nil
+		}
+		return "local simple type", nil
+	}
+	id, _ := t.Complex()
+	if typ := rt.ComplexTypes[id]; typ.Scope == declarationScopeGlobal {
+		return "type " + rt.Names.Format(typ.Name), nil
+	}
+	return "local complex type", nil
 }

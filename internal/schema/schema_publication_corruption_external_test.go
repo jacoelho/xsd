@@ -4,6 +4,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
@@ -2064,6 +2065,63 @@ func TestPublishSchemaRejectsSimpleTypeAvailabilityThatDiffersFromSimpleTypes(t 
 			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 			if published != nil {
 				t.Fatal("PublishSchema() returned a schema whose availability table differs from its simple types")
+			}
+		})
+	}
+}
+
+func TestPublishSchemaRejectsANamedAnonymousType(t *testing.T) {
+	t.Parallel()
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="complex"><xs:complexType/></xs:element>
+  <xs:element name="simple"><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:element>
+</xs:schema>`
+	if published, err := publishSchema(mutableSchemaBuild(t, schema)); err != nil || published == nil {
+		t.Fatalf("PublishSchema() of unaltered anonymous types = %v, %v", published, err)
+	}
+	for _, element := range []string{"complex", "simple"} {
+		t.Run(element, func(t *testing.T) {
+			t.Parallel()
+			build := mutableSchemaBuild(t, schema)
+			name := mustQName(t, &build.Names, element)
+			typ := build.Elements[build.GlobalElements[name]].Type
+			if id, ok := typ.Complex(); ok {
+				build.ComplexTypes[id].Name = name
+			} else {
+				id, _ := typ.Simple()
+				build.SimpleTypes[id].Name = name
+			}
+			published, err := publishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil || !strings.Contains(err.Error(), "non-global "+element+" type has a name") {
+				t.Fatalf("PublishSchema() = %v, %v; want the named non-global %s type rejected", published, err, element)
+			}
+		})
+	}
+}
+
+func TestPublishSchemaRejectsAGlobalTypeWithAnUninternedName(t *testing.T) {
+	t.Parallel()
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="complex"/>
+  <xs:simpleType name="simple"><xs:restriction base="xs:string"/></xs:simpleType>
+</xs:schema>`
+	for _, kind := range []string{"complex", "simple"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			build := mutableSchemaBuild(t, schema)
+			typ := build.GlobalTypes[mustQName(t, &build.Names, kind)]
+			uninterned := xsdSchema.QName{Namespace: 99, Local: 99}
+			if id, ok := typ.Complex(); ok {
+				build.ComplexTypes[id].Name = uninterned
+			} else {
+				id, _ := typ.Simple()
+				build.SimpleTypes[id].Name = uninterned
+			}
+			published, err := publishSchema(build)
+			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			if published != nil || !strings.Contains(err.Error(), "global "+kind+" type is missing its exact name binding") {
+				t.Fatalf("PublishSchema() = %v, %v; want the global %s type with an uninterned name rejected", published, err, kind)
 			}
 		})
 	}
