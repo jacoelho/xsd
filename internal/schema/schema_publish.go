@@ -121,7 +121,7 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	if err := validateReachableHolders(build, content.Models); err != nil {
+	if err = validateReachableHolders(build, content.Models); err != nil {
 		return schemaProgram{}, err
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(

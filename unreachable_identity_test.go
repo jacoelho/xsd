@@ -22,7 +22,7 @@ func TestKeyInGroupSharedByZeroCountAndLiveTypesIsEvaluated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
-	if err := engine.Validate(strings.NewReader(`<root><live><list><k>a</k><k>b</k></list></live></root>`)); err != nil {
+	if err = engine.Validate(strings.NewReader(`<root><live><list><k>a</k><k>b</k></list></live></root>`)); err != nil {
 		t.Fatalf("Validate(distinct keys) error = %v, want valid", err)
 	}
 	err = engine.Validate(strings.NewReader(`<root><live><list><k>a</k><k>a</k></list></live></root>`))

@@ -28,29 +28,9 @@ type componentReach struct {
 // once, and compilation charged at least one step to create each, so its work
 // is bounded by steps already spent.
 func (c *compiler) detachUnreachableComponents() error {
-	r := componentReach{
-		elements:     make([]bool, len(c.rt.Elements)),
-		complexTypes: make([]bool, len(c.rt.ComplexTypes)),
-		models:       make([]bool, len(c.rt.Models)),
-	}
-	for i := range c.rt.ComplexTypes {
-		if c.rt.ComplexTypes[i].Scope == declarationScopeGlobal {
-			if err := c.reachComplexType(&r, ComplexTypeID(i)); err != nil {
-				return err
-			}
-		}
-	}
-	for i := range c.rt.Elements {
-		if c.rt.Elements[i].Scope == declarationScopeGlobal {
-			if err := c.reachElement(&r, ElementID(i)); err != nil {
-				return err
-			}
-		}
-	}
-	for next := 0; next < len(r.queue); next++ {
-		if err := c.reachParticleElements(&r, r.queue[next]); err != nil {
-			return err
-		}
+	r, err := c.reachFromGlobals()
+	if err != nil {
+		return err
 	}
 	for i := range c.rt.ComplexTypes {
 		c.rt.ComplexTypes[i].Detached = !r.complexTypes[i]
@@ -62,14 +42,61 @@ func (c *compiler) detachUnreachableComponents() error {
 		if !r.elements[i] {
 			c.rt.Elements[i].Identity = nil
 		}
-		for _, id := range c.rt.Elements[i].Identity {
-			if !validIdentityConstraintID(id, len(c.rt.Identities)) {
-				return xsderrors.InternalInvariant("element declaration references invalid identity constraint")
-			}
-			c.rt.Identities[id].Detached = false
+		if err := c.attachIdentities(c.rt.Elements[i].Identity); err != nil {
+			return err
 		}
 	}
 	c.rt.ReachableElements = r.elements
+	return nil
+}
+
+func (c *compiler) attachIdentities(ids []IdentityConstraintID) error {
+	for _, id := range ids {
+		if !validIdentityConstraintID(id, len(c.rt.Identities)) {
+			return xsderrors.InternalInvariant("element declaration references invalid identity constraint")
+		}
+		c.rt.Identities[id].Detached = false
+	}
+	return nil
+}
+
+func (c *compiler) reachFromGlobals() (componentReach, error) {
+	r := componentReach{
+		elements:     make([]bool, len(c.rt.Elements)),
+		complexTypes: make([]bool, len(c.rt.ComplexTypes)),
+		models:       make([]bool, len(c.rt.Models)),
+	}
+	if err := c.reachGlobalDeclarations(&r); err != nil {
+		return componentReach{}, err
+	}
+	// The queue grows while it is read, so its length is re-read each step.
+	for next := 0; next < len(r.queue); {
+		id := r.queue[next]
+		next++
+		if err := c.reachParticleElements(&r, id); err != nil {
+			return componentReach{}, err
+		}
+	}
+	return r, nil
+}
+
+func (c *compiler) reachGlobalDeclarations(r *componentReach) error {
+	for i := range c.rt.ComplexTypes {
+		if c.rt.ComplexTypes[i].Scope != declarationScopeGlobal {
+			continue
+		}
+		if err := c.reachComplexType(r, ComplexTypeID(i)); err != nil {
+			return err
+		}
+	}
+	for i := range c.rt.Elements {
+		if c.rt.Elements[i].Scope != declarationScopeGlobal {
+			continue
+		}
+		if err := c.reachElement(r, ElementID(i)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -139,51 +166,84 @@ func validateReachableHolders(build *schemaBuild, entered []int) error {
 	if len(build.ReachableElements) != len(build.Elements) {
 		return xsderrors.InternalInvariant("element reachability does not cover the element declarations")
 	}
-	for _, typ := range build.ComplexTypes {
+	if err := validateGlobalComplexTypesAttached(build.ComplexTypes); err != nil {
+		return err
+	}
+	for i := range build.Elements {
+		if err := validateElementReach(build, ElementID(i)); err != nil {
+			return err
+		}
+	}
+	for _, root := range entered {
+		if err := validateReachableContent(build, build.CompiledContent.Models[root], build.CompiledContent.Runs[root]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateGlobalComplexTypesAttached(types []complexTypeMetadata) error {
+	for _, typ := range types {
 		if typ.Detached && typ.Scope == declarationScopeGlobal {
 			return xsderrors.InternalInvariant("global complex type is detached")
 		}
 	}
-	for i, decl := range build.Elements {
-		if !build.ReachableElements[i] && len(decl.Identity) != 0 {
-			return xsderrors.InternalInvariant("unreachable element declaration owns an identity constraint")
-		}
-		typ, ok := decl.Type.Complex()
-		if ok && build.ReachableElements[i] && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
-			return xsderrors.InternalInvariant("reachable element declaration has a detached complex type")
-		}
+	return nil
+}
+
+// validateElementReach checks element declaration id against whether the
+// walk reached it: an unreached declaration owns no identity constraint, and
+// a reached one's type is not detached.
+func validateElementReach(build *schemaBuild, id ElementID) error {
+	decl, reached := &build.Elements[id], build.ReachableElements[id]
+	if !reached && len(decl.Identity) != 0 {
+		return xsderrors.InternalInvariant("unreachable element declaration owns an identity constraint")
 	}
-	unreachable := func(p compiledParticleRead) bool {
-		return p.Kind == particleElement && (!validElementID(p.Element, len(build.Elements)) || !build.ReachableElements[p.Element])
+	typ, ok := decl.Type.Complex()
+	if reached && ok && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
+		return xsderrors.InternalInvariant("reachable element declaration has a detached complex type")
 	}
-	content := &build.CompiledContent
-	for _, root := range entered {
-		model, run := content.Models[root], content.Runs[root]
-		for _, term := range model.All {
-			if unreachable(term.Particle) {
-				return unreachableContentElementError()
-			}
+	return nil
+}
+
+// validateReachableContent checks the particles of one published table; run
+// is the edge run its rows are windows of, or nil when each row holds its own
+// edges.
+func validateReachableContent(build *schemaBuild, model compiledModelRead, run []compiledModelEdgeRead) error {
+	if !reachableTerms(build, model.All) || !reachableEdges(build, run) {
+		return unreachableContentElementError()
+	}
+	for _, row := range model.Rows {
+		if row.Counted && !reachableParticle(build, row.CountParticle) {
+			return unreachableContentElementError()
 		}
-		for _, edge := range run {
-			if unreachable(edge.Particle) {
-				return unreachableContentElementError()
-			}
-		}
-		for _, row := range model.Rows {
-			if row.Counted && unreachable(row.CountParticle) {
-				return unreachableContentElementError()
-			}
-			if run != nil {
-				continue
-			}
-			for _, edge := range row.Edges {
-				if unreachable(edge.Particle) {
-					return unreachableContentElementError()
-				}
-			}
+		if run == nil && !reachableEdges(build, row.Edges) {
+			return unreachableContentElementError()
 		}
 	}
 	return nil
+}
+
+func reachableTerms(build *schemaBuild, terms []compiledAllTermRead) bool {
+	for _, term := range terms {
+		if !reachableParticle(build, term.Particle) {
+			return false
+		}
+	}
+	return true
+}
+
+func reachableEdges(build *schemaBuild, edges []compiledModelEdgeRead) bool {
+	for _, edge := range edges {
+		if !reachableParticle(build, edge.Particle) {
+			return false
+		}
+	}
+	return true
+}
+
+func reachableParticle(build *schemaBuild, p compiledParticleRead) bool {
+	return p.Kind != particleElement || (validElementID(p.Element, len(build.Elements)) && build.ReachableElements[p.Element])
 }
 
 func unreachableContentElementError() error {
