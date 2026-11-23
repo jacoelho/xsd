@@ -25,18 +25,21 @@ func (rt *Schema) IdentityDispatch() IdentityDispatchRead {
 }
 
 // publishedComplexType returns the read of a complex type validation can
-// reach; it reports false for an invalid ID and for a detached type.
-func (rt *Schema) publishedComplexType(id ComplexTypeID) (complexTypeRead, bool) {
+// reach, or nil for an invalid ID and for a detached type.
+func (rt *Schema) publishedComplexType(id ComplexTypeID) *complexTypeRead {
 	if !validComplexTypeID(id, len(rt.program.ComplexTypes)) {
-		return complexTypeRead{}, false
+		return nil
 	}
-	read := rt.program.ComplexTypes[id]
-	return read, read.flags&complexTypeReadDetached == 0
+	read := &rt.program.ComplexTypes[id]
+	if read.flags&complexTypeReadDetached != 0 {
+		return nil
+	}
+	return read
 }
 
 func (rt *Schema) complexAttributeUses(id ComplexTypeID) (AttributeUseSetRead, bool) {
-	read, ok := rt.publishedComplexType(id)
-	if !ok {
+	read := rt.publishedComplexType(id)
+	if read == nil {
 		return AttributeUseSetRead{}, false
 	}
 	set := read.attributeUseSet
@@ -95,8 +98,8 @@ func (rt *Schema) simpleElementFrame(frame ElementFrameRead, id SimpleTypeID) (E
 }
 
 func (rt *Schema) complexElementFrame(frame ElementFrameRead, id ComplexTypeID) (ElementFrameRead, bool) {
-	read, ok := rt.publishedComplexType(id)
-	if !ok {
+	read := rt.publishedComplexType(id)
+	if read == nil {
 		return ElementFrameRead{}, false
 	}
 	content, valid := rt.contentFrameForModel(read.contentModel)
