@@ -665,7 +665,9 @@ Cross-module contracts:
 - It reads only the sealed `*schema.Schema`; immutable schema tables never hold
   validation work buffers, so one schema serves concurrent sessions.
 - `internal/schema` publishes identity selector/field programs, a dispatch index
-  without self branches, `SelectsSelf`, and `AttributeFieldBaseDepths`;
+  without self branches, `SelectsSelf`, and `AttributeFieldBaseDepths` for
+  every constraint an element declaration owns; a detached constraint keeps
+  its ID for keyref `refer` and diagnostics but has no program or branch.
   validate owns all matching state, scopes, and tables.
 - `internal/schema` strips XSI attribute-use defaults and fixed values, so the
   four intrinsic XSI attributes use dedicated assessment only.
@@ -1348,7 +1350,8 @@ graph preserves these ownership rules:
   ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
   and its identity constraints (§3.11.2), which the build marks
   `Detached`: no element declaration owns them, publication rejects any other
-  unowned constraint, and no instance element evaluates them. Treating the whole subtree as absent was
+  unowned constraint, and no instance element evaluates them, so publication
+  gives them no evaluation program (`newIdentityDispatchRead`). Treating the whole subtree as absent was
   rejected: §3.11.2 maps every identity constraint regardless of its parent.
 - Declaring identity constraints as the components holding them compile,
   with a later pass for the rest, was rejected: types and named groups

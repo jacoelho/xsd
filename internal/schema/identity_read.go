@@ -264,7 +264,10 @@ type IdentityConstraintProgramRead struct {
 	kind               IdentityKind
 	// selectsSelf is derived from selectors at construction.
 	selectsSelf bool
-	fieldCount  int
+	// owned is false only in the zero program a detached constraint keeps
+	// in its slot (newIdentityDispatchRead).
+	owned      bool
+	fieldCount int
 }
 
 // Selectors returns selector path programs.
@@ -445,8 +448,10 @@ func (d IdentityDispatchRead) AttributeFieldBaseDepths(currentDepth int) (from, 
 func (d IdentityDispatchRead) ConstraintCount() int { return len(d.programs) }
 
 // Program returns the immutable dispatch program for an identity constraint.
+// It reports false for an invalid ID and for a detached constraint, which no
+// scope evaluates and so has no program.
 func (d IdentityDispatchRead) Program(id IdentityConstraintID) (IdentityConstraintProgramRead, bool) {
-	if !validIdentityConstraintID(id, len(d.programs)) {
+	if !validIdentityConstraintID(id, len(d.programs)) || !d.programs[id].owned {
 		return IdentityConstraintProgramRead{}, false
 	}
 	return d.programs[id], true
@@ -487,13 +492,19 @@ func (d IdentityDispatchRead) ElementSelf() IdentityFieldDispatchReads {
 	return IdentityFieldDispatchReads{values: d.elementSelf}
 }
 
+// newIdentityDispatchRead publishes a program and dispatch branches for each
+// owned constraint. A detached constraint keeps its ID, which a keyref refer
+// and diagnostics name, but no scope ever opens it, so a program or branch
+// for it would be retained and scanned without being evaluated.
 func newIdentityDispatchRead(identities []identityConstraintSpec, names nameReadView) IdentityDispatchRead {
 	dispatch := IdentityDispatchRead{programs: make([]IdentityConstraintProgramRead, len(identities))}
 	constraint := IdentityConstraintID(0)
 	for _, identity := range identities {
-		program := newIdentityConstraintProgramRead(identity)
-		dispatch.programs[constraint] = program
-		addIdentityConstraintDispatch(&dispatch, constraint, program, names)
+		if !identity.Detached {
+			program := newIdentityConstraintProgramRead(identity)
+			dispatch.programs[constraint] = program
+			addIdentityConstraintDispatch(&dispatch, constraint, program, names)
+		}
 		constraint++
 	}
 	return dispatch
@@ -583,6 +594,7 @@ func newIdentityConstraintProgramRead(identity identityConstraintSpec) IdentityC
 		selectors:  newIdentitySelectorPathProgramReads(identity.Selector),
 		refer:      identity.Refer,
 		kind:       identity.Kind,
+		owned:      true,
 		fieldCount: len(identity.Fields),
 	}
 	program.selectsSelf = slices.ContainsFunc(program.selectors, IdentityPathProgramRead.Self)
