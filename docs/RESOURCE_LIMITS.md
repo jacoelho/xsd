@@ -147,10 +147,13 @@ Go map that has just grown fills 7 of every 16 slots and keeps a control
 byte per slot, so its entries take at most (12 + 1) × 16/7, about 30 bytes,
 and (24 + 1) × 16/7, about 57 bytes. A global element declaration with a
 value constraint and a distinct name therefore retains at most about
-8 + 40 + 104 + 30 + 57 + 16 = 255 bytes plus its name: 999,000 of them, one
-node each at the default node limit, retain about 246 MiB. Text is retained
+8 + 40 + 104 + 30 + 57 + 16 = 255 bytes plus its name. 999,000 of them, one
+node each at the default node limit, with names of up to seven bytes, are
+bounded at about 250 MiB and measured at about 246 MiB. Text is retained
 about once, at about 1.02 bytes per name or value byte, and a name that many
-components use is interned once. Measured per component under the defaults:
+components use is interned once. The figures below and in the next paragraph
+are measured approximations, taken with Go 1.27.3 on darwin/arm64 under the
+default options; no test pins them:
 
 | Component | Source nodes | Retained |
 | --- | ---: | ---: |
@@ -161,7 +164,7 @@ components use is interned once. Measured per component under the defaults:
 | Local element with an anonymous complex type holding one element | 4 | about 695 bytes |
 | Key with its selector and field | 3 | about 470 bytes |
 | Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
-| The same element with an anonymous complex type and a key | 7 | about 674 bytes |
+| The same element with an anonymous complex type and a key | 7 | about 586 bytes |
 
 In these shapes a node retains at most about 260 bytes plus its text, so
 the records stay under about 250 MiB at the default node limit and the text
