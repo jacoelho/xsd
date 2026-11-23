@@ -36,8 +36,12 @@ type schemaBuild struct {
 	// (detachUnreachableComponents). Only reached declarations are published
 	// (publishedElements).
 	ReachableElements []bool
-	Names             nameTable
-	AnyType           ComplexTypeID
+	// ReachableSimpleTypes is parallel to SimpleTypes and reports whether a
+	// published holder can name each type (detachUnreachableComponents).
+	// Publication seals the value program keeping only these.
+	ReachableSimpleTypes []bool
+	Names                nameTable
+	AnyType              ComplexTypeID
 }
 
 // schemaProgram is the immutable validation representation produced by one

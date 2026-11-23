@@ -57,7 +57,10 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	if build.valueBuilder == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("schema build has no value program builder")
 	}
-	valueProgram, err := build.valueBuilder.Seal()
+	if err = validatePublishedSimpleTypes(&program, build.ReachableSimpleTypes); err != nil {
+		return schemaProgram{}, err
+	}
+	valueProgram, err := build.valueBuilder.SealKeeping(build.ReachableSimpleTypes)
 	if err != nil {
 		return schemaProgram{}, schemaValueError(Limits{}, xsderrors.CodeSchemaFacet, "simple type", err)
 	}

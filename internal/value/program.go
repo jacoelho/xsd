@@ -341,10 +341,21 @@ func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	return storage, nil
 }
 
-// Seal closes the incremental builder and returns its immutable value program.
-// It fails without consuming the builder while any slot is reserved (reported
-// first, naming the slot) or still being completed.
+// Seal closes the incremental builder and returns its immutable value program
+// with every type kept. It fails without consuming the builder while any slot
+// is reserved (reported first, naming the slot) or still being completed.
 func (b *Builder) Seal() (*Program, error) {
+	return b.SealKeeping(nil)
+}
+
+// SealKeeping is Seal keeping only the user types keep marks, indexed by type
+// ID; a nil keep keeps every type. A type that is not kept keeps its ID but no
+// definition, and validating it returns ErrMetadata. Builtins are always
+// kept, and keep is not retained. SealKeeping fails without consuming the
+// builder when keep does not cover every type ID or a kept type's base, list
+// item or union member is not kept, since evaluation and diagnostics read
+// them.
+func (b *Builder) SealKeeping(keep []bool) (*Program, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return nil, ErrMetadata
 	}
@@ -354,9 +365,55 @@ func (b *Builder) Seal() (*Program, error) {
 	if err := b.verifyComplete(); err != nil {
 		return nil, err
 	}
+	if keep != nil {
+		if err := b.program.verifyKeptDependencies(keep); err != nil {
+			return nil, err
+		}
+		b.program.discardUnkept(keep)
+	}
 	b.program.complete = nil
 	b.program.sealed = true
 	return b.program, nil
+}
+
+func (p *Program) verifyKeptDependencies(keep []bool) error {
+	if len(keep) != int(BuiltinTypeCount)+len(p.types) {
+		return ErrMetadata
+	}
+	for i := range p.types {
+		if keep[int(BuiltinTypeCount)+i] && !keepsDependencies(&p.types[i], keep) {
+			return fmt.Errorf(msgTypeMetadata, userTypeID(i), ErrMetadata)
+		}
+	}
+	return nil
+}
+
+// keepsDependencies reports whether keep keeps the base, list item and union
+// members of t. Builtins and NoType are always kept.
+func keepsDependencies(t *typeDef, keep []bool) bool {
+	kept := func(id TypeID) bool {
+		return id < BuiltinTypeCount || id == NoType || uint64(id) < uint64(len(keep)) && keep[id]
+	}
+	if !kept(t.base) || !kept(t.listItem) {
+		return false
+	}
+	for _, member := range t.union {
+		if !kept(member) {
+			return false
+		}
+	}
+	return true
+}
+
+// discardUnkept replaces each unkept definition with the discarded marker. It
+// drops only the record's references: a kept derived type may share the
+// arrays of its base's facets.
+func (p *Program) discardUnkept(keep []bool) {
+	for i := range p.types {
+		if !keep[int(BuiltinTypeCount)+i] {
+			p.types[i] = typeDef{variety: varietyDiscarded}
+		}
+	}
 }
 
 func (b *Builder) verifyComplete() error {

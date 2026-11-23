@@ -426,7 +426,7 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget 
 	if !ok {
 		return NoType, true, ErrMetadata
 	}
-	switch t.variety {
+	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
 		return validateAtomicBytesFast(t, lexical, scratch, budget)
 	case Union:
@@ -1080,7 +1080,7 @@ func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *pars
 		normalized = normalize(lexical, t.whitespace)
 	}
 	var err error
-	switch t.variety {
+	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
 		err = evalAtomic(id, t, normalized, options, out)
 	case List:

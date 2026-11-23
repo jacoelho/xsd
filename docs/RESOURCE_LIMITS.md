@@ -188,6 +188,7 @@ default options; no test pins them:
 | Key with its selector and field | 3 | about 470 bytes |
 | Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
 | The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 299 bytes |
+| The same element with an anonymous simple type restricting `xs:string` by a pattern and two enumerations | 6 | about 299 bytes |
 | The same element with an anonymous complex type holding one element | 4 | about 46 bytes |
 | The same element with an anonymous complex type and a key | 7 | about 128 bytes |
 
@@ -206,8 +207,13 @@ references. A detached complex type keeps its ID and derivation record but no
 content model or attribute uses, and a detached identity constraint keeps its
 name but no evaluation program or dispatch branch. An element declaration no
 instance element reaches is not published and retains nothing in the element
-table, though its local name stays in the name table. Simple types no
-instance element reaches are kept and retain as they would elsewhere.
+table, though its local name stays in the name table. A simple type no
+instance element reaches keeps its ID, its derivation record and its
+value-program slot, about 250 bytes with slice growth, but no facets,
+patterns or enumerations, so the same element retains the same whatever
+facets its type has. Such a type is still compiled and checked first, so its
+patterns and facet literals charge the pattern, storage and work limits as a
+reached type's do.
 
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand

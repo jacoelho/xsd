@@ -156,7 +156,7 @@ func (b *Builder) ConstructorUses(id TypeID) (ConstructorUses, bool) {
 	if !ok {
 		return ConstructorUses{}, false
 	}
-	switch t.variety {
+	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
 		return ConstructorUses{}, true
 	case List:
@@ -227,7 +227,7 @@ func (p *Program) typeNeedsQNameKnownChildren(t typeDef, depth int) (needs bool,
 	if depth+1 >= int(p.maxDepth) && (t.variety == List || t.variety == Union) {
 		return false, true
 	}
-	switch t.variety {
+	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
 		return false, true
 	case List:

@@ -72,6 +72,9 @@ const (
 	List
 	// Union identifies a choice among member value spaces.
 	Union
+	// varietyDiscarded marks a sealed type SealKeeping did not keep. No
+	// TypeSpec can carry it, and every variety switch rejects it.
+	varietyDiscarded
 )
 
 // WhitespaceMode is the XSD whiteSpace facet mode.
