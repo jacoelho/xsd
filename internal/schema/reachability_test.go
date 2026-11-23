@@ -104,6 +104,11 @@ func TestPublicationRejectsReachabilityCorruption(t *testing.T) {
 				}
 			}
 		}},
+		{name: "constraint detached from its reached declarer", message: "identity constraint is not attached to its declaring element declaration", corrupt: func(t *testing.T, build *schemaBuild) {
+			t.Helper()
+			constraint := identity(t, build, false)
+			build.Elements[constraint.Declarer].Identity = nil
+		}},
 		{name: "row edges outside the edge run", message: "published content-model row edges are not a window of the model's edge run", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			model, _ := run(t, build)

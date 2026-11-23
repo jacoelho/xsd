@@ -694,7 +694,7 @@ Cross-module contracts:
   every constraint a reachable element declaration owns; a detached constraint keeps
   its ID for keyref `refer` and diagnostics but has no program or branch;
   validate owns all matching state, scopes, and tables, and enables identity
-  evaluation only when some element declaration owns a constraint.
+  evaluation only when some reachable element declaration owns a constraint.
 - `internal/schema` strips XSI attribute-use defaults and fixed values, so the
   four intrinsic XSI attributes use dedicated assessment only.
 - Schema-location hints never participate in component selection. On assessed
