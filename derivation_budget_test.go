@@ -213,27 +213,46 @@ func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 	})
 }
 
-func TestOnlyExtensionsThatAddParticlesChargeTheirOwnContentModel(t *testing.T) {
+func TestOnlyExtensionsWithEffectiveContentChargeTheirOwnContentModel(t *testing.T) {
 	t.Parallel()
 	const extensions = 50
-	base := `<xs:schema ` + xsNS + `><xs:complexType name="base"><xs:sequence>`
-	for i := range 30 {
-		base += fmt.Sprintf(`<xs:element name="e%d" minOccurs="0"/>`, i)
-	}
-	base += `</xs:sequence></xs:complexType>`
-	schema := func(extension string) string {
-		s := base
+	schema := func(baseMixed bool, extension string) string {
+		s := fmt.Sprintf(`<xs:schema `+xsNS+`><xs:complexType name="base" mixed="%t"><xs:sequence>`, baseMixed)
+		for i := range 30 {
+			s += fmt.Sprintf(`<xs:element name="e%d" minOccurs="0"/>`, i)
+		}
+		s += `</xs:sequence></xs:complexType>`
 		for i := range extensions {
-			s += fmt.Sprintf(`<xs:complexType name="d%d"><xs:complexContent>%s</xs:complexContent></xs:complexType>`, i, extension)
+			s += fmt.Sprintf(`<xs:complexType name="d%d"%s</xs:complexType>`, i, extension)
 		}
 		return s + `</xs:schema>`
 	}
 	opts := xsd.CompileOptions{MaxContentModelAnalysisSteps: 50_000}
-	if _, err := xsd.CompileWithOptions(opts, xsd.Bytes("ext.xsd", []byte(schema(`<xs:extension base="base"/>`)))); err != nil {
-		t.Fatalf("%d empty extensions: %v", extensions, err)
+	for _, test := range []struct {
+		name      string
+		baseMixed bool
+		extension string
+		ownModel  bool
+	}{
+		{name: "no model group", extension: `><xs:complexContent><xs:extension base="base"/></xs:complexContent>`},
+		{name: "empty sequence", extension: `><xs:complexContent><xs:extension base="base"><xs:sequence/></xs:extension></xs:complexContent>`},
+		{name: "attributes only", extension: `><xs:complexContent><xs:extension base="base"><xs:attribute name="a"/></xs:extension></xs:complexContent>`},
+		{name: "one element", extension: `><xs:complexContent><xs:extension base="base"><xs:sequence><xs:element name="x"/></xs:sequence></xs:extension></xs:complexContent>`, ownModel: true},
+		{name: "empty choice", extension: `><xs:complexContent><xs:extension base="base"><xs:choice/></xs:extension></xs:complexContent>`, ownModel: true},
+		{name: "mixed over mixed base", baseMixed: true, extension: ` mixed="true"><xs:complexContent><xs:extension base="base"/></xs:complexContent>`, ownModel: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := xsd.CompileWithOptions(opts, xsd.Bytes("ext.xsd", []byte(schema(test.baseMixed, test.extension))))
+			if !test.ownModel {
+				if err != nil {
+					t.Fatalf("%d extensions: %v", extensions, err)
+				}
+				return
+			}
+			expectNamedLimit(t, err, "MaxContentModelAnalysisSteps")
+		})
 	}
-	_, err := xsd.CompileWithOptions(opts, xsd.Bytes("ext.xsd", []byte(schema(`<xs:extension base="base"><xs:sequence><xs:element name="x"/></xs:sequence></xs:extension>`))))
-	expectNamedLimit(t, err, "MaxContentModelAnalysisSteps")
 }
 
 func attributeList(prefix string, n int) string {
