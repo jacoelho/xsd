@@ -9,8 +9,6 @@ import (
 
 // diagnosticNames retains names needed only when assessment fails. These
 // columns do not enlarge the component reads copied by successful validation.
-// wildcards holds each wildcard's expectation, built by the
-// wildcardExpectation that schema diagnostics use too.
 type diagnosticNames struct {
 	locals       []string
 	identities   []QName
