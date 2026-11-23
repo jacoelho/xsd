@@ -851,14 +851,15 @@ func (c *contentModelCompiler) executionSingleton(p contentParticle) (contentPar
 // charges a row, so a model that automaton construction compiles instead
 // keeps no direct rows and spends no MaxSchemaDependencySteps on them. The
 // build walks the particles again under a budget of exactly the steps the
-// first walk spent, which the second walk, the same traversal, cannot exceed.
+// first walk spent, which the second walk, the same traversal, cannot exceed,
+// and builds no more rows than admission counted.
 func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compiledModel, bool, error) {
 	if !model.Occurs.IsExactlyOne() || (model.Kind != modelSequence && model.Kind != modelChoice) {
 		return compiledModel{}, false, nil
 	}
 	before := c.work.remaining
-	supported, err := c.directModelSupported(model)
-	if err != nil || !supported {
+	admission, err := c.admitDirectModel(model)
+	if err != nil || !admission.supported {
 		return compiledModel{}, false, err
 	}
 	walk := *c
@@ -866,36 +867,49 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 	walk.work = &walkBudget
 	var compiled compiledModel
 	if model.Kind == modelSequence {
-		compiled, err = c.compileDirectSequenceModel(model, &walk)
+		compiled, err = c.compileDirectSequenceModel(model, &walk, admission.rows)
 	} else {
-		compiled, err = c.compileDirectChoiceModel(model, &walk)
+		compiled, err = c.compileDirectChoiceModel(model, &walk, admission.rows)
 	}
 	return compiled, err == nil, err
 }
 
 // directParticles passes each execution particle of model, as
-// executionParticle reduces it, to add.
+// executionParticle reduces it, to add. c is the walk compileDirectModel
+// builds with, so an error of the walk itself means it diverged from the
+// admission walk.
 func (c *contentModelCompiler) directParticles(model contentModelNode, add func(contentParticle) error) error {
-	return c.executionParticles(model, func(particle contentParticle) (bool, error) {
+	var addErr error
+	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
 		particle, err := c.executionParticle(particle)
 		if err != nil {
 			return false, err
 		}
-		return true, add(particle)
+		addErr = add(particle)
+		return addErr == nil, nil
 	})
+	if addErr != nil {
+		return addErr
+	}
+	if err != nil {
+		return xsderrors.InternalInvariant("direct content model build walk diverged from its admission: " + err.Error())
+	}
+	return nil
 }
 
-// directModelSupported reports whether every execution particle of model is an
-// element or wildcard. It rejects a model whose direct table would exceed
-// MaxContentModelStates at the particle that would add the excess row.
-func (c *contentModelCompiler) directModelSupported(model contentModelNode) (bool, error) {
+// admitDirectModel walks model and admits it to direct compilation when every
+// execution particle is an element or wildcard. It rejects a model whose
+// direct table would exceed MaxContentModelStates at the particle that would
+// add the excess row.
+func (c *contentModelCompiler) admitDirectModel(model contentModelNode) (directModelAdmission, error) {
 	admission := directModelAdmission{compiler: c, rows: 1, supported: true}
 	err := c.executionParticles(model, admission.admit)
-	return admission.supported, err
+	return admission, err
 }
 
-// directModelAdmission counts the rows a direct table would hold while
-// directModelSupported walks a model.
+// directModelAdmission owns the rules of direct compilation: which particles
+// it takes and how many rows its table holds. The builders fail with an
+// internal invariant when they meet a particle or row it did not admit.
 type directModelAdmission struct {
 	compiler  *contentModelCompiler
 	rows      int
@@ -911,7 +925,7 @@ func (a *directModelAdmission) admit(particle contentParticle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if particle.Kind != particleElement && particle.Kind != particleWildcard {
+	if !directParticleKind(particle) {
 		a.supported = false
 		return false, nil
 	}
@@ -925,11 +939,19 @@ func (a *directModelAdmission) admit(particle contentParticle) (bool, error) {
 	return true, nil
 }
 
-func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode, walk *contentModelCompiler) (compiledModel, error) {
+func directParticleKind(particle contentParticle) bool {
+	return particle.Kind == particleElement || particle.Kind == particleWildcard
+}
+
+func unadmittedDirectParticle() error {
+	return xsderrors.InternalInvariant("direct content model build met a particle its admission rejected")
+}
+
+func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode, walk *contentModelCompiler, admittedRows int) (compiledModel, error) {
 	if err := c.retained.spend(1); err != nil {
 		return compiledModel{}, err
 	}
-	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, spans: []directSequenceSpan{{}}}
+	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, spans: []directSequenceSpan{{}}, admittedRows: admittedRows}
 	if err := walk.directParticles(model, compilation.addParticle); err != nil {
 		return compiledModel{}, err
 	}
@@ -952,11 +974,12 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 // ending at the last row, so each row's edges are a window of the shared edge
 // array.
 type directSequenceCompilation struct {
-	compiler *contentModelCompiler
-	rows     []compiledModelRow
-	spans    []directSequenceSpan
-	edges    []compiledModelEdge
-	active   uint32
+	compiler     *contentModelCompiler
+	rows         []compiledModelRow
+	spans        []directSequenceSpan
+	edges        []compiledModelEdge
+	active       uint32
+	admittedRows int
 }
 
 // directSequenceSpan is a row's run of edges. The run of an active row
@@ -966,6 +989,9 @@ type directSequenceSpan struct {
 }
 
 func (b *directSequenceCompilation) addParticle(particle contentParticle) error {
+	if !directParticleKind(particle) {
+		return unadmittedDirectParticle()
+	}
 	if particle.Occurs.IsAbsent() {
 		return nil
 	}
@@ -1009,7 +1035,7 @@ func (b *directSequenceCompilation) appendRow(row compiledModelRow) (uint32, err
 	if err != nil {
 		return 0, err
 	}
-	b.rows, err = b.compiler.appendCompiledModelRow(b.rows, row)
+	b.rows, err = b.compiler.appendCompiledModelRow(b.rows, row, b.admittedRows)
 	return to, err
 }
 
@@ -1029,11 +1055,11 @@ func (b *directSequenceCompilation) table() []compiledModelRow {
 	return b.rows
 }
 
-func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode, walk *contentModelCompiler) (compiledModel, error) {
+func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode, walk *contentModelCompiler, admittedRows int) (compiledModel, error) {
 	if err := c.retained.spend(1); err != nil {
 		return compiledModel{}, err
 	}
-	compilation := directChoiceCompilation{compiler: c, rows: []compiledModelRow{{}}}
+	compilation := directChoiceCompilation{compiler: c, rows: []compiledModelRow{{}}, admittedRows: admittedRows}
 	if err := walk.directParticles(model, compilation.addParticle); err != nil {
 		return compiledModel{}, err
 	}
@@ -1049,11 +1075,15 @@ func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode, 
 }
 
 type directChoiceCompilation struct {
-	compiler *contentModelCompiler
-	rows     []compiledModelRow
+	compiler     *contentModelCompiler
+	rows         []compiledModelRow
+	admittedRows int
 }
 
 func (b *directChoiceCompilation) addParticle(particle contentParticle) error {
+	if !directParticleKind(particle) {
+		return unadmittedDirectParticle()
+	}
 	if particle.Occurs.IsAbsent() {
 		b.rows[0].Accept = true
 		return nil
@@ -1075,7 +1105,7 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 		row = compiledModelRow{Accept: true}
 	}
 	var err error
-	b.rows, err = b.compiler.appendCompiledModelRow(b.rows, row)
+	b.rows, err = b.compiler.appendCompiledModelRow(b.rows, row, b.admittedRows)
 	if err != nil {
 		return err
 	}
@@ -1094,9 +1124,12 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 	return nil
 }
 
-// appendCompiledModelRow appends a row of a direct table, whose row count
-// directModelSupported has held to MaxContentModelStates.
-func (c *contentModelCompiler) appendCompiledModelRow(rows []compiledModelRow, row compiledModelRow) ([]compiledModelRow, error) {
+// appendCompiledModelRow appends a row of a direct table whose admission
+// counted admittedRows rows, which MaxContentModelStates bounds.
+func (c *contentModelCompiler) appendCompiledModelRow(rows []compiledModelRow, row compiledModelRow, admittedRows int) ([]compiledModelRow, error) {
+	if len(rows) >= admittedRows {
+		return nil, xsderrors.InternalInvariant("direct content model build exceeds the rows its admission counted")
+	}
 	if err := c.retained.spend(1); err != nil {
 		return nil, err
 	}
