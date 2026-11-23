@@ -283,7 +283,7 @@ func TestComplexTypeReadDerivesValidationViews(t *testing.T) {
 		Block:       DerivationExtension,
 		Abstract:    true,
 	}
-	read := newComplexTypeRead(ct, ct.Content)
+	read := newComplexTypeRead(ct, ct.Content, ct.Attrs)
 	if read.contentModel != ct.Content || read.attributeUseSet != ct.Attrs {
 		t.Fatalf("complex type IDs = content %d attrs %d", read.contentModel, read.attributeUseSet)
 	}

@@ -9,10 +9,13 @@ import (
 func TestSchemaTypeInfoProjection(t *testing.T) {
 	t.Parallel()
 
-	reads, _ := newComplexTypeReads([]complexTypeMetadata{
+	reads, _, err := newComplexTypeReads([]complexTypeMetadata{
 		{Block: DerivationRestriction, Abstract: true},
 		{Block: DerivationRestriction},
-	}, []contentModelID{0, 0}, nil)
+	}, []contentModelID{0, 0}, []attributeUseSet{{}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	rt := &Schema{program: schemaProgram{ComplexTypes: reads}}
 	info, ok := rt.TypeInfo(ComplexRef(0))
 	if !ok || info != (TypeInfo{Block: DerivationRestriction, Abstract: true}) {

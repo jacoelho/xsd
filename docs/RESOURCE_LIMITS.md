@@ -196,12 +196,14 @@ elements with defaults and 200-byte names, about 255 MB together, compile at
 the defaults and retain about 444 MiB. Compiling them reaches about 1.5 GB of
 live heap, so the compilation peak, not the retained schema, is the larger
 memory term. An element with `minOccurs` and `maxOccurs` 0 is no declaration
-(Structures §3.3.2) and retains nothing. The definitions nested in it are
-detached: no instance element reaches them. A detached complex type keeps its
-ID, synthetic name and derivation record but no content model or attribute
-uses, and a detached identity constraint keeps its name but no evaluation
-program or dispatch branch. A detached simple type, and the declarations
-nested inside a detached complex type, retain as they would elsewhere.
+(Structures §3.3.2) and retains nothing. Its inline complex type and its
+identity constraints are detached: no instance element reaches them. A
+detached complex type keeps its ID, synthetic name and derivation record but
+no content model or attribute uses, and a detached identity constraint keeps
+its name but no evaluation program or dispatch branch. An anonymous simple
+type under such an element, the declarations nested inside a detached complex
+type, and the children of a zero-count compositor retain as they would
+elsewhere.
 
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand

@@ -69,6 +69,19 @@ func TestDetachedComplexTypesPublishNoContentModelOrAttributeUses(t *testing.T) 
 	if got, want := len(withTypes.program.AttributeUseSets), len(withoutTypes.program.AttributeUseSets); got != want {
 		t.Fatalf("published attribute-use sets = %d, want %d as without the detached types", got, want)
 	}
+	nameB, okB := withTypes.LookupQName("", "B")
+	nameAttr, okAttr := withTypes.LookupQName("", "b")
+	typeB, okType := withTypes.GlobalType(nameB)
+	if !okB || !okAttr || !okType {
+		t.Fatalf("lookup of type B and attribute b = %v %v %v, want all found", okB, okAttr, okType)
+	}
+	setB, present, valid := withTypes.AttributeUseSetForType(typeB)
+	if !present || !valid || setB.UseCount() != 1 {
+		t.Fatalf("AttributeUseSetForType(B) = %d uses, present %v valid %v, want its one declared use", setB.UseCount(), present, valid)
+	}
+	if _, _, found := setB.DeclaredUse(nameAttr); !found {
+		t.Fatal("AttributeUseSetForType(B) lacks declared use b")
+	}
 	for _, id := range detached {
 		if info, ok := withTypes.TypeInfo(ComplexRef(id)); ok {
 			t.Fatalf("TypeInfo(detached %d) = %+v, want no read", id, info)
@@ -95,5 +108,26 @@ func TestPublicationRejectsElementDeclarationWithDetachedType(t *testing.T) {
 	_, err := publishSchema(build, unlimitedContentModelWork)
 	if err == nil || !strings.Contains(err.Error(), "detached complex type") {
 		t.Fatalf("publishSchema() error = %v, want an element declaration with a detached type rejected", err)
+	}
+}
+
+func TestPublicationRejectsGlobalDetachedComplexType(t *testing.T) {
+	t.Parallel()
+
+	build := compiledTestBuild(t, detachedComplexTypeFixture())
+	marked := false
+	for i := range build.ComplexTypes {
+		if build.ComplexTypes[i].Scope == declarationScopeGlobal {
+			build.ComplexTypes[i].Detached = true
+			marked = true
+			break
+		}
+	}
+	if !marked {
+		t.Fatal("fixture has no global complex type")
+	}
+	_, err := publishSchema(build, unlimitedContentModelWork)
+	if err == nil || !strings.Contains(err.Error(), "global complex type is detached") {
+		t.Fatalf("publishSchema() error = %v, want a detached global complex type rejected", err)
 	}
 }

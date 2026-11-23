@@ -152,7 +152,10 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}
 	var sets []attributeUseSet
-	reads.ComplexTypes, sets = newComplexTypeReads(build.ComplexTypes, content.Published, build.AttributeUseSets)
+	reads.ComplexTypes, sets, err = newComplexTypeReads(build.ComplexTypes, content.Published, build.AttributeUseSets)
+	if err != nil {
+		return schemaProgram{}, err
+	}
 	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, sets, build.valueBuilder)
 	if err != nil {
 		return schemaProgram{}, err
