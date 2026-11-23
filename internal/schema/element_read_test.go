@@ -9,7 +9,7 @@ func allReachable(n int) publishedElements {
 	for i := range reachable {
 		reachable[i] = true
 	}
-	elements, err := newPublishedElements(&schemaBuild{Elements: make([]elementDecl, n), ReachableElements: reachable}, nil)
+	elements, err := newPublishedElements(&schemaBuild{Elements: make([]elementDecl, n), ReachableElements: reachable})
 	if err != nil {
 		panic(err)
 	}

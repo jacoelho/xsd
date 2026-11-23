@@ -8,9 +8,8 @@ import (
 	"testing"
 )
 
-// publishedElementsSchema has unreached declarations in a named group no type
-// references, which compiles before every global element, under a zero-count
-// element and under a zero-count compositor.
+// The declarations of a named group compile before every global
+// declaration, so unreachedGroup shifts the published ID of every global.
 const publishedElementsSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   %s
   <xs:element name="head" type="xs:string"/>
@@ -21,6 +20,7 @@ const publishedElementsSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XML
     <xs:element name="pair"><xs:complexType><xs:all><xs:element name="c"/><xs:element name="d"/></xs:all></xs:complexType></xs:element>
     <xs:element ref="head" maxOccurs="unbounded"/>
     <xs:element name="counted" minOccurs="2" maxOccurs="20"/>
+    <xs:element name="pick"><xs:complexType><xs:choice maxOccurs="unbounded"><xs:element name="p1"/><xs:element name="p2"/></xs:choice></xs:complexType></xs:element>
     <xs:element name="seq"><xs:complexType><xs:sequence>
       <xs:element name="s1" minOccurs="0"/><xs:element name="s2" minOccurs="0"/><xs:element name="s3" minOccurs="0"/>
     </xs:sequence></xs:complexType></xs:element>
@@ -129,18 +129,76 @@ func TestPublishedElementIDsNameTheDeclarationsTheBuildNamed(t *testing.T) {
 	}
 }
 
-// newSchemaProgram is followed by steps that can still reject the build, so
-// it must leave the element IDs of the tables it shares with the build alone.
-func TestBuildingSchemaProgramLeavesSharedElementIDsUnchanged(t *testing.T) {
+func TestPublicationRejectedWhenSealingValuesLeavesBuildUnchanged(t *testing.T) {
 	t.Parallel()
 
 	schema := fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals)
 	build, want := compiledTestBuild(t, schema), compiledTestBuild(t, schema)
-	if _, _, err := newSchemaProgram(build, unlimitedContentModelWork); err != nil {
-		t.Fatalf("newSchemaProgram() error = %v", err)
+	for _, b := range []*schemaBuild{build, want} {
+		if _, err := b.valueBuilder.Reserve(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := publishSchema(build, unlimitedContentModelWork); err == nil || !strings.Contains(err.Error(), "value program metadata is invalid") {
+		t.Fatalf("publishSchema() error = %v, want an incomplete value program rejected when sealed", err)
 	}
 	if !reflect.DeepEqual(build.CompiledContent, want.CompiledContent) || !reflect.DeepEqual(build.Substitutions, want.Substitutions) {
-		t.Fatal("newSchemaProgram() changed the content tables or substitution table it shares with the build")
+		t.Fatal("rejected publishSchema() changed the build's content tables or substitution table")
+	}
+}
+
+func TestPublicationNamesTheDeclarationsOfRowsSharingEdges(t *testing.T) {
+	t.Parallel()
+
+	build := compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals))
+	names := newNameReadView(&build.Names)
+	var model *compiledModelRead
+	for _, root := range enteredContentForTest(t, build).Models {
+		candidate := &build.CompiledContent.Models[root]
+		if build.CompiledContent.Runs[root] == nil && len(candidate.Rows) > 1 && len(candidate.Rows[0].Edges) != 0 {
+			model = candidate
+			break
+		}
+	}
+	if model == nil {
+		t.Fatal("fixture publishes no model with rows owning their edges")
+	}
+	model.Rows = slices.Clone(model.Rows)
+	shared := model.Rows[0].Edges
+	for i := range model.Rows {
+		model.Rows[i].Edges = shared
+	}
+	var want []ExpandedName
+	for _, edge := range shared {
+		if edge.Particle.Kind == particleElement {
+			q := build.Elements[edge.Particle.Element].Name
+			want = append(want, ExpandedName{Namespace: names.Namespace(q.Namespace), Local: build.Names.locals[q.Local]})
+		}
+	}
+	rows := len(model.Rows)
+	schema, err := publishSchema(build, unlimitedContentModelWork)
+	if err != nil {
+		t.Fatalf("publishSchema() error = %v", err)
+	}
+	found := 0
+	for i := range schema.program.CompiledModels {
+		published := &schema.program.CompiledModels[i]
+		if len(published.Rows) != rows || len(published.Rows[0].Edges) != len(shared) {
+			continue
+		}
+		for _, row := range published.Rows {
+			got := appendContentElementNames(nil, &compiledModelRead{Rows: []compiledModelRowRead{{Edges: row.Edges}}}, func(id ElementID) ExpandedName {
+				name, _ := schema.DiagnosticElementName(id)
+				return name
+			})
+			if !slices.Equal(got, want) {
+				t.Fatalf("published row of a shared edge array names %v, want %v", got, want)
+			}
+		}
+		found++
+	}
+	if found == 0 {
+		t.Fatal("published tables hold no model with the shared rows")
 	}
 }
 
@@ -192,6 +250,11 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 			t.Helper()
 			head := build.GlobalElements[mustBuildQName(t, build, "head")]
 			build.Substitutions.spans[unreached(t, build)] = build.Substitutions.spans[head]
+		}},
+		{name: "substitution member unreached in a table without spans", message: "substitution member has no published ID", corrupt: func(t *testing.T, build *schemaBuild) {
+			t.Helper()
+			build.Substitutions.entries[0].member = unreached(t, build)
+			build.Substitutions.spans = nil
 		}},
 		{name: "substitution table shorter than the declarations", message: "substitution table does not cover the element declarations", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()

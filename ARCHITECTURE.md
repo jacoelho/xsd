@@ -306,17 +306,13 @@ that decision and charges no budget, because it reads only models
 `complexTypeReachableModels` already charged; simple types it does not reach
 are kept. Publication keeps a detached type's ID and derivation record and a
 detached constraint's ID for keyref `refer` and diagnostics, but no content
-model, attribute uses or evaluation program. It publishes only reached
-element declarations, numbered densely in declaration order
-(`publishedElements`), and every published holder of an element ID (the
-global element map, the substitution table and the compiled content tables)
-names that numbering, the only element ID space validation sees. The
-numbering is monotone, so the substitution table's member order survives it.
-The content tables and substitution entries are shared with the build, so
-their IDs are rewritten in place after the last step that can reject it.
-`validateReachableHolders`, `validatePublishedIdentityConstraints` and the
-substitution and global-map projections reject a published holder that names
-a detached or unreached component, which leaves that rewrite no failure. Unique
+model, attribute uses or evaluation program. Unreached element declarations
+are not published, and validation sees only published element IDs, which
+`publishedElements` owns; the published holders of element IDs are copies
+built over them, so publication leaves the build unchanged.
+`validateReachableHolders`, `validatePublishedIdentityConstraints` and
+`publishedElements` reject a published holder that names a detached or
+unreached component. Unique
 Particle Attribution, restriction and automaton construction still cover
 unreached components, so reachability changes no verdict.
 Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
@@ -1416,6 +1412,14 @@ graph preserves these ownership rules:
   the root tables of detached types name declarations that have no published
   ID, and publication's restriction checks read the substitution table in
   build IDs, so the build would hold two element ID spaces.
+- Rewriting the element IDs of the build's content tables and substitution
+  entries in place after the last step that can reject the build was
+  rejected: its correctness rested on that ordering and on every particle
+  being reached exactly once, so a table whose rows shared an edge array
+  would be renumbered twice without any check failing. Publication copies
+  them instead, which raises compile B/op 2.5% and allocations 6.7% on
+  `CompileRetainedContentModels/reachable_20000` and leaves retained bytes
+  unchanged.
 - Marking detachment lexically, on the definitions nested under a zero-count
   element or compositor, was rejected: a local element declaration is
   compiled once per source node, so a named group referenced by both a

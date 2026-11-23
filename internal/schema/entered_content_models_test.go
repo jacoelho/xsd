@@ -76,7 +76,7 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 
 	total := func(build *schemaBuild) int {
 		units := 0
-		if _, _, err := newSchemaProgram(build, func(steps int) error { units += steps; return nil }); err != nil {
+		if _, err := newSchemaProgram(build, func(steps int) error { units += steps; return nil }); err != nil {
 			t.Fatalf("newSchemaProgram() error = %v", err)
 		}
 		return units
@@ -88,7 +88,7 @@ func TestSchemaProgramWorkIgnoresWhichModelsAreEntered(t *testing.T) {
 	exhausted := errors.New("content work exhausted")
 	for name, build := range map[string]*schemaBuild{"spread": spread, "collapsed": collapsed} {
 		remaining := want - 1
-		_, _, err := newSchemaProgram(build, func(steps int) error {
+		_, err := newSchemaProgram(build, func(steps int) error {
 			remaining -= steps
 			if remaining < 0 {
 				return exhausted

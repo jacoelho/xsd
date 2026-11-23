@@ -1,7 +1,7 @@
 package schema
 
 import (
-	"iter"
+	"slices"
 
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -155,10 +155,8 @@ type publishedElements struct {
 	count int
 }
 
-// newPublishedElements numbers the reached declarations of build and checks
-// that every content table validation can enter, entered, names only reached
-// ones (validateReachableHolders).
-func newPublishedElements(build *schemaBuild, entered []int) (publishedElements, error) {
+// newPublishedElements numbers the reached declarations of build.
+func newPublishedElements(build *schemaBuild) (publishedElements, error) {
 	if len(build.ReachableElements) != len(build.Elements) {
 		return publishedElements{}, xsderrors.InternalInvariant("element reachability does not cover the element declarations")
 	}
@@ -171,11 +169,7 @@ func newPublishedElements(build *schemaBuild, entered []int) (publishedElements,
 			count++
 		}
 	}
-	published := publishedElements{ids: ids, count: count}
-	if err := validateReachableHolders(build, entered, published); err != nil {
-		return publishedElements{}, err
-	}
-	return published, nil
+	return publishedElements{ids: ids, count: count}, nil
 }
 
 // id returns the published ID of the declaration build names, and false when
@@ -186,18 +180,6 @@ func (p publishedElements) id(build ElementID) (ElementID, bool) {
 	}
 	id := p.ids[build]
 	return id, validElementID(id, p.count)
-}
-
-// rewriteContent rewrites the element particles of the published content
-// tables in place from build to published IDs (elementRewrite).
-func (p publishedElements) rewriteContent(models []compiledModelRead, runs [][]compiledModelEdgeRead) {
-	for i := range models {
-		for particle := range publishedParticles(&models[i], runs[i]) {
-			if particle.Kind == particleElement {
-				particle.Element = p.ids[particle.Element]
-			}
-		}
-	}
 }
 
 // publishedElementMaps returns the global element map and the substitution
@@ -220,22 +202,15 @@ func publishedElementMaps(build *schemaBuild, published publishedElements) (map[
 }
 
 // validateReachableHolders checks that what validation can read names no
-// detached or unreachable component: no global type is detached, a reachable
-// element declaration's type is not detached, and every element a published
-// content model's table names has a published ID. The tables of entered
-// models were charged edge by edge when they were projected, and this reads
-// each edge, row and xs:all term once, so it charges nothing.
-func validateReachableHolders(build *schemaBuild, entered []int, published publishedElements) error {
+// detached component: no global type is detached and a reachable element
+// declaration's type is not detached. publishedContentModels checks the
+// elements the content tables name.
+func validateReachableHolders(build *schemaBuild) error {
 	if err := validateGlobalComplexTypesAttached(build.ComplexTypes); err != nil {
 		return err
 	}
 	for i := range build.Elements {
 		if err := validateReachableElementType(build, ElementID(i)); err != nil {
-			return err
-		}
-	}
-	for _, root := range entered {
-		if err := validateReachableContent(build, published, &build.CompiledContent.Models[root], build.CompiledContent.Runs[root]); err != nil {
 			return err
 		}
 	}
@@ -259,87 +234,119 @@ func validateReachableElementType(build *schemaBuild, id ElementID) error {
 	return nil
 }
 
-// validateReachableContent checks the particles of one published table. run
-// is the edge run every row's edges are a window of, or nil when each row
-// holds its own edges; each window is checked to share the run's storage, so
-// reading the run once reads every row's edges.
-func validateReachableContent(build *schemaBuild, published publishedElements, model *compiledModelRead, run []compiledModelEdgeRead) error {
-	if err := validateRowsInRun(model.Rows, run); err != nil {
-		return err
-	}
-	for p := range publishedParticles(model, run) {
-		switch {
-		case p.Kind != particleElement:
-			continue
-		case !validElementID(p.Element, len(build.Elements)):
-			return xsderrors.InternalInvariant("published content model references an invalid element declaration")
-		}
-		if _, ok := published.id(p.Element); !ok {
-			return xsderrors.InternalInvariant("published content model names an unreachable element declaration")
-		}
-	}
-	return nil
-}
-
-func validateRowsInRun(rows []compiledModelRowRead, run []compiledModelEdgeRead) error {
+// publishedModel returns a copy of one entered table whose element particles
+// name published IDs, rejecting a particle that names an invalid or unreached
+// declaration. run is the edge run every row's edges are a window of, or nil
+// when each row holds its own edges. The copy shares no particle storage with
+// model, so reading model leaves it unchanged however its rows share edges, and
+// a run is copied once, keeping each row's window of it. The tables of entered
+// models were charged edge by edge when they were projected, and the copy
+// reads each edge, row and xs:all term once, so it charges nothing.
+func (p publishedElements) publishedModel(build *schemaBuild, model compiledModelRead, run []compiledModelEdgeRead) (compiledModelRead, error) {
+	size := len(run)
 	if run == nil {
-		return nil
+		size = rowEdgeCount(model.Rows)
 	}
-	for _, row := range rows {
-		if err := validateRowEdgesInRun(row.Edges, run); err != nil {
-			return err
+	edges, err := p.publishedEdges(build, run, size)
+	if err != nil {
+		return compiledModelRead{}, err
+	}
+	if model.Rows, err = p.publishedRows(build, model.Rows, edges, run); err != nil {
+		return compiledModelRead{}, err
+	}
+	model.All = slices.Clone(model.All)
+	for i := range model.All {
+		if model.All[i].Particle, err = p.publishedParticle(build, model.All[i].Particle); err != nil {
+			return compiledModelRead{}, err
 		}
 	}
-	return nil
+	return model, nil
 }
 
-func validateRowEdgesInRun(edges, run []compiledModelEdgeRead) error {
-	if len(edges) == 0 {
-		return nil
-	}
-	start := uint64(edges[0].To) - 1
-	if edges[0].To == 0 || start+uint64(len(edges)) > uint64(len(run)) || &edges[0] != &run[start] {
-		return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
-	}
-	return nil
-}
-
-// publishedParticles yields each particle of one published table once: the
-// edges of run when the rows' edges are windows of it, else each row's edges,
-// then each counted row's count particle and each xs:all term.
-func publishedParticles(model *compiledModelRead, run []compiledModelEdgeRead) iter.Seq[*compiledParticleRead] {
-	return func(yield func(*compiledParticleRead) bool) {
-		if yieldEdgeParticles(run, yield) && yieldRowParticles(model.Rows, run, yield) {
-			for i := range model.All {
-				if !yield(&model.All[i].Particle) {
-					return
-				}
+// publishedRows returns a copy of rows whose edges are taken from edges, the
+// published run when run is set and otherwise an empty array with capacity
+// for every row's edges.
+func (p publishedElements) publishedRows(build *schemaBuild, rows []compiledModelRowRead, edges, run []compiledModelEdgeRead) ([]compiledModelRowRead, error) {
+	rows = slices.Clone(rows)
+	var err error
+	for i := range rows {
+		if rows[i].Edges, edges, err = p.publishedRowEdges(build, rows[i].Edges, edges, run); err != nil {
+			return nil, err
+		}
+		if rows[i].Counted {
+			if rows[i].CountParticle, err = p.publishedParticle(build, rows[i].CountParticle); err != nil {
+				return nil, err
 			}
 		}
 	}
+	return rows, nil
 }
 
-func yieldEdgeParticles(edges []compiledModelEdgeRead, yield func(*compiledParticleRead) bool) bool {
-	for i := range edges {
-		if !yield(&edges[i].Particle) {
-			return false
-		}
-	}
-	return true
-}
-
-// yieldRowParticles yields the particles of rows, with their edges only when
-// they are not windows of run.
-func yieldRowParticles(rows []compiledModelRowRead, run []compiledModelEdgeRead, yield func(*compiledParticleRead) bool) bool {
+func rowEdgeCount(rows []compiledModelRowRead) int {
+	count := 0
 	for i := range rows {
-		if run == nil && !yieldEdgeParticles(rows[i].Edges, yield) {
-			return false
-		}
-		if rows[i].Counted && !yield(&rows[i].CountParticle) {
-			return false
-		}
+		count += len(rows[i].Edges)
 	}
-	return true
+	return count
+}
+
+// publishedEdges returns source over published IDs in a new array of
+// capacity size.
+func (p publishedElements) publishedEdges(build *schemaBuild, source []compiledModelEdgeRead, size int) ([]compiledModelEdgeRead, error) {
+	if size == 0 {
+		return nil, nil
+	}
+	edges := make([]compiledModelEdgeRead, len(source), size)
+	for i, edge := range source {
+		particle, err := p.publishedParticle(build, edge.Particle)
+		if err != nil {
+			return nil, err
+		}
+		edges[i] = compiledModelEdgeRead{Particle: particle, To: edge.To}
+	}
+	return edges, nil
+}
+
+// publishedRowEdges returns the published edges of one row and the array the
+// next row's edges are taken from. A row of a run model takes its window of
+// the published run, once checked to be a window of run; any other row's
+// edges are appended to edges, whose capacity holds every row's edges.
+func (p publishedElements) publishedRowEdges(build *schemaBuild, row, edges, run []compiledModelEdgeRead) (_, next []compiledModelEdgeRead, err error) {
+	if len(row) == 0 {
+		return nil, edges, nil
+	}
+	if run != nil {
+		start := uint64(row[0].To) - 1
+		if row[0].To == 0 || start+uint64(len(row)) > uint64(len(run)) || &row[0] != &run[start] {
+			return nil, nil, xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
+		}
+		end := start + uint64(len(row))
+		return edges[start:end:end], edges, nil
+	}
+	start := len(edges)
+	for _, edge := range row {
+		particle, err := p.publishedParticle(build, edge.Particle)
+		if err != nil {
+			return nil, nil, err
+		}
+		edges = append(edges, compiledModelEdgeRead{Particle: particle, To: edge.To})
+	}
+	return edges[start:len(edges):len(edges)], edges, nil
+}
+
+func (p publishedElements) publishedParticle(build *schemaBuild, particle compiledParticleRead) (compiledParticleRead, error) {
+	if particle.Kind != particleElement {
+		return particle, nil
+	}
+	if !validElementID(particle.Element, len(build.Elements)) {
+		return compiledParticleRead{}, xsderrors.InternalInvariant("published content model references an invalid element declaration")
+	}
+	id, ok := p.id(particle.Element)
+	if !ok {
+		return compiledParticleRead{}, xsderrors.InternalInvariant("published content model names an unreachable element declaration")
+	}
+	particle.Element = id
+	return particle, nil
 }
 
 // validatePublishedIdentityConstraints checks that the published element

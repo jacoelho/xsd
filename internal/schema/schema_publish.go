@@ -11,10 +11,10 @@ import (
 // validation program, and seals the result. The caller must provide exclusive
 // access to build for the duration of the call. A rejected build is left
 // unchanged. On success, build is cleared and the returned schema owns all
-// validation-facing storage. The schema takes the compiled content tables
-// and the substitution entries without copying them and rewrites the element
-// IDs they hold to published IDs; other previously retained aliases may be
-// mutated without affecting the schema.
+// validation-facing storage. The schema copies the compiled content tables
+// and the substitution table over published element IDs but shares their name
+// indexes with build; other previously retained aliases may be mutated
+// without affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
 		return nil, errors.New("nil schema build")
@@ -49,7 +49,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	if err = validateSchema(&validation); err != nil {
 		return schemaProgram{}, err
 	}
-	program, rewrite, err := newSchemaProgram(build, work)
+	program, err := newSchemaProgram(build, work)
 	if err != nil {
 		return schemaProgram{}, schemaBuildValidationError(err)
 	}
@@ -64,9 +64,6 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program")
 	}
 	program.Value = valueProgram
-	// The element rewrite and dense conversion change storage that build
-	// still shares, so they follow the last step that can reject the build.
-	rewrite.apply(&program)
 	dense := defaultDenseIndexBudget()
 	addDenseDFAIndexes(program.CompiledModels, &dense)
 	return program, nil
@@ -118,43 +115,47 @@ func validateCompiledContent(build *schemaBuild) error {
 	return nil
 }
 
-// elementRewrite is the part of publication that changes storage build
-// still shares, so it follows the last step that can reject the build: the
-// element particles of the published content tables and the substitution
-// members, from build to published IDs. runs is parallel to
-// schemaProgram.CompiledModels. It cannot fail, because newSchemaProgram
-// proved that every ID it rewrites has a published ID, and it visits each
-// table and entry once.
-type elementRewrite struct {
-	runs     [][]compiledModelEdgeRead
-	elements publishedElements
+// publishedElementReads are the published holders of element IDs, built over
+// published IDs (publishedElements).
+type publishedElementReads struct {
+	globals       map[QName]ElementID
+	models        []compiledModelRead
+	substitutions substitutionTable
+	elements      elementReadTable
 }
 
-func publishedContentRuns(runs [][]compiledModelEdgeRead, entered []int) [][]compiledModelEdgeRead {
-	published := make([][]compiledModelEdgeRead, len(entered))
-	for i, root := range entered {
-		published[i] = runs[root]
+func newPublishedElementReads(build *schemaBuild, entered []int) (publishedElementReads, error) {
+	if err := validateReachableHolders(build); err != nil {
+		return publishedElementReads{}, err
 	}
-	return published
+	elements, err := newPublishedElements(build)
+	if err != nil {
+		return publishedElementReads{}, err
+	}
+	models, err := publishedContentModels(build, entered, elements)
+	if err != nil {
+		return publishedElementReads{}, err
+	}
+	globals, substitutions, err := publishedElementMaps(build, elements)
+	if err != nil {
+		return publishedElementReads{}, err
+	}
+	return publishedElementReads{
+		globals:       globals,
+		models:        models,
+		substitutions: substitutions,
+		elements:      newElementReadTable(build.Elements, elements),
+	}, nil
 }
 
-func (r elementRewrite) apply(program *schemaProgram) {
-	r.elements.rewriteContent(program.CompiledModels, r.runs)
-	program.Substitutions.rewriteMembers(r.elements)
-}
-
-func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, elementRewrite, error) {
+func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram, error) {
 	content, err := enterContentModels(build.ComplexTypes, &build.CompiledContent)
 	if err != nil {
-		return schemaProgram{}, elementRewrite{}, err
+		return schemaProgram{}, err
 	}
-	elements, err := newPublishedElements(build, content.Models)
+	elementReads, err := newPublishedElementReads(build, content.Models)
 	if err != nil {
-		return schemaProgram{}, elementRewrite{}, err
-	}
-	globalElements, substitutions, err := publishedElementMaps(build, elements)
-	if err != nil {
-		return schemaProgram{}, elementRewrite{}, err
+		return schemaProgram{}, err
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(
 		build.AnyType,
@@ -162,41 +163,41 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 		build.ComplexTypes,
 	)
 	if err != nil {
-		return schemaProgram{}, elementRewrite{}, err
+		return schemaProgram{}, err
 	}
 	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes), len(build.ComplexTypes)} {
 		if workErr := spendContentModelWorkN(work, count); workErr != nil {
-			return schemaProgram{}, elementRewrite{}, workErr
+			return schemaProgram{}, workErr
 		}
 	}
 	names := newNameReadView(&build.Names)
 	reads := schemaProgram{
 		DiagnosticNames:       newDiagnosticNames(build),
 		GlobalAttributes:      maps.Clone(build.GlobalAttributes),
-		GlobalElements:        globalElements,
+		GlobalElements:        elementReads.globals,
 		GlobalTypes:           maps.Clone(build.GlobalTypes),
-		Substitutions:         substitutions,
+		Substitutions:         elementReads.substitutions,
 		Names:                 names,
 		Notations:             newNotationReadMap(&build.Names, build.Notations),
 		Attributes:            newAttributeDeclReadsForDecls(build.Attributes),
 		TypeDerivations:       typeDerivations,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
-		CompiledModels:        publishedContentModels(build.CompiledContent.Models, content.Models),
-		Elements:              newElementReadTable(build.Elements, elements),
+		CompiledModels:        elementReads.models,
+		Elements:              elementReads.elements,
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}
 	if err = validatePublishedIdentityConstraints(&reads.Elements, build.Identities); err != nil {
-		return schemaProgram{}, elementRewrite{}, err
+		return schemaProgram{}, err
 	}
 	var sets []attributeUseSet
 	reads.ComplexTypes, sets, err = newComplexTypeReads(build.ComplexTypes, content.Published, build.AttributeUseSets)
 	if err != nil {
-		return schemaProgram{}, elementRewrite{}, err
+		return schemaProgram{}, err
 	}
 	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, sets, build.valueBuilder)
 	if err != nil {
-		return schemaProgram{}, elementRewrite{}, err
+		return schemaProgram{}, err
 	}
-	return reads, elementRewrite{runs: publishedContentRuns(build.CompiledContent.Runs, content.Models), elements: elements}, nil
+	return reads, nil
 }

@@ -1,5 +1,7 @@
 package schema
 
+import "slices"
+
 func unlimitedContentModelWork(int) error { return nil }
 
 func unlimitedContentModelAnalysis(rt *schemaBuild) *contentModelAnalysis {
@@ -39,14 +41,11 @@ func testIndexedModels(rt *schemaBuild, models ...compiledModel) []compiledModel
 	return reads
 }
 
-// testPublishedReads publishes every model of a compiled table without the
-// dense indexes publication adds.
+// testPublishedReads returns every model of a compiled table as publication
+// holds it when each element declaration keeps its ID, without the dense
+// indexes publication adds.
 func testPublishedReads(models ...compiledModelRead) []compiledModelRead {
-	positions := make([]int, len(models))
-	for i := range positions {
-		positions[i] = i
-	}
-	return publishedContentModels(models, positions)
+	return slices.Clone(models)
 }
 
 // testCompiledModelReads publishes every model of a compiled table, with the
