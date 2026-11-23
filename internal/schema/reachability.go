@@ -18,15 +18,16 @@ type componentReach struct {
 
 // detachUnreachableComponents marks the components no instance element
 // reaches. It is the one writer of complexTypeMetadata.Detached,
-// identityConstraintSpec.Detached and schemaBuild.ReachableElements. An
-// unreachable element declaration keeps its ID but owns no identity
-// constraint, so a constraint is detached exactly when no reachable element
-// declaration owns it.
+// identityConstraintSpec.Detached and schemaBuild.ReachableElements. A
+// constraint is detached when its declarer is unreached or it has none.
+// Element declarations keep their identity lists, which the restriction
+// checks compare; publication omits those of unreached declarations.
 //
-// The walk charges no budget, like the publication audit's re-derivation: it
-// visits each element declaration, complex type, model and particle at most
-// once, and compilation charged at least one step to create each, so its work
-// is bounded by steps already spent.
+// The walk charges no budget. It reads the particles of each model once, and
+// only models complexTypeReachableModels already read and charged under
+// MaxContentModelAnalysisSteps, and it visits each element declaration and
+// complex type once, from a global declaration or from such a particle, so
+// its work is bounded by steps already spent.
 func (c *compiler) detachUnreachableComponents() error {
 	r, err := c.reachFromGlobals()
 	if err != nil {
@@ -36,27 +37,10 @@ func (c *compiler) detachUnreachableComponents() error {
 		c.rt.ComplexTypes[i].Detached = !r.complexTypes[i]
 	}
 	for i := range c.rt.Identities {
-		c.rt.Identities[i].Detached = true
-	}
-	for i := range c.rt.Elements {
-		if !r.elements[i] {
-			c.rt.Elements[i].Identity = nil
-		}
-		if err := c.attachIdentities(c.rt.Elements[i].Identity); err != nil {
-			return err
-		}
+		declarer := c.rt.Identities[i].Declarer
+		c.rt.Identities[i].Detached = declarer == NoElement || !validElementID(declarer, len(r.elements)) || !r.elements[declarer]
 	}
 	c.rt.ReachableElements = r.elements
-	return nil
-}
-
-func (c *compiler) attachIdentities(ids []IdentityConstraintID) error {
-	for _, id := range ids {
-		if !validIdentityConstraintID(id, len(c.rt.Identities)) {
-			return xsderrors.InternalInvariant("element declaration references invalid identity constraint")
-		}
-		c.rt.Identities[id].Detached = false
-	}
 	return nil
 }
 
@@ -156,12 +140,11 @@ func (c *compiler) reachParticleElements(r *componentReach, id contentModelID) e
 }
 
 // validateReachableHolders checks that what validation can read names no
-// detached or unreachable component: no global type is detached, an
-// unreachable element declaration owns no identity constraint, a reachable
+// detached or unreachable component: no global type is detached, a reachable
 // element declaration's type is not detached, and every element a published
-// content model's table names is reachable. The tables of entered models
-// were charged edge by edge when they were projected, and this reads each
-// edge, row and xs:all term once, so it charges nothing.
+// content model's table names is valid and reachable. The tables of entered
+// models were charged edge by edge when they were projected, and this reads
+// each edge, row and xs:all term once, so it charges nothing.
 func validateReachableHolders(build *schemaBuild, entered []int) error {
 	if len(build.ReachableElements) != len(build.Elements) {
 		return xsderrors.InternalInvariant("element reachability does not cover the element declarations")
@@ -170,7 +153,7 @@ func validateReachableHolders(build *schemaBuild, entered []int) error {
 		return err
 	}
 	for i := range build.Elements {
-		if err := validateElementReach(build, ElementID(i)); err != nil {
+		if err := validateReachableElementType(build, ElementID(i)); err != nil {
 			return err
 		}
 	}
@@ -191,63 +174,100 @@ func validateGlobalComplexTypesAttached(types []complexTypeMetadata) error {
 	return nil
 }
 
-// validateElementReach checks element declaration id against whether the
-// walk reached it: an unreached declaration owns no identity constraint, and
-// a reached one's type is not detached.
-func validateElementReach(build *schemaBuild, id ElementID) error {
-	decl, reached := &build.Elements[id], build.ReachableElements[id]
-	if !reached && len(decl.Identity) != 0 {
-		return xsderrors.InternalInvariant("unreachable element declaration owns an identity constraint")
-	}
-	typ, ok := decl.Type.Complex()
-	if reached && ok && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
+func validateReachableElementType(build *schemaBuild, id ElementID) error {
+	typ, ok := build.Elements[id].Type.Complex()
+	if build.ReachableElements[id] && ok && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
 		return xsderrors.InternalInvariant("reachable element declaration has a detached complex type")
 	}
 	return nil
 }
 
-// validateReachableContent checks the particles of one published table; run
-// is the edge run its rows are windows of, or nil when each row holds its own
-// edges.
+// validateReachableContent checks the particles of one published table. run
+// is the edge run every row's edges are a window of, or nil when each row
+// holds its own edges; each window is checked to share the run's storage, so
+// reading the run once reads every row's edges.
 func validateReachableContent(build *schemaBuild, model compiledModelRead, run []compiledModelEdgeRead) error {
-	if !reachableTerms(build, model.All) || !reachableEdges(build, run) {
-		return unreachableContentElementError()
+	if err := reachableTerms(build, model.All); err != nil {
+		return err
+	}
+	if err := reachableEdges(build, run); err != nil {
+		return err
 	}
 	for _, row := range model.Rows {
-		if row.Counted && !reachableParticle(build, row.CountParticle) {
-			return unreachableContentElementError()
+		if row.Counted {
+			if err := reachableParticle(build, row.CountParticle); err != nil {
+				return err
+			}
 		}
-		if run == nil && !reachableEdges(build, row.Edges) {
-			return unreachableContentElementError()
+		if err := reachableRowEdges(build, row.Edges, run); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func reachableTerms(build *schemaBuild, terms []compiledAllTermRead) bool {
+func reachableRowEdges(build *schemaBuild, edges, run []compiledModelEdgeRead) error {
+	if run == nil {
+		return reachableEdges(build, edges)
+	}
+	if len(edges) == 0 {
+		return nil
+	}
+	start := uint64(edges[0].To) - 1
+	if edges[0].To == 0 || start+uint64(len(edges)) > uint64(len(run)) || &edges[0] != &run[start] {
+		return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
+	}
+	return nil
+}
+
+func reachableTerms(build *schemaBuild, terms []compiledAllTermRead) error {
 	for _, term := range terms {
-		if !reachableParticle(build, term.Particle) {
-			return false
+		if err := reachableParticle(build, term.Particle); err != nil {
+			return err
 		}
 	}
-	return true
+	return nil
 }
 
-func reachableEdges(build *schemaBuild, edges []compiledModelEdgeRead) bool {
+func reachableEdges(build *schemaBuild, edges []compiledModelEdgeRead) error {
 	for _, edge := range edges {
-		if !reachableParticle(build, edge.Particle) {
-			return false
+		if err := reachableParticle(build, edge.Particle); err != nil {
+			return err
 		}
 	}
-	return true
+	return nil
 }
 
-func reachableParticle(build *schemaBuild, p compiledParticleRead) bool {
-	return p.Kind != particleElement || (validElementID(p.Element, len(build.Elements)) && build.ReachableElements[p.Element])
+func reachableParticle(build *schemaBuild, p compiledParticleRead) error {
+	switch {
+	case p.Kind != particleElement:
+		return nil
+	case !validElementID(p.Element, len(build.Elements)):
+		return xsderrors.InternalInvariant("published content model references an invalid element declaration")
+	case !build.ReachableElements[p.Element]:
+		return xsderrors.InternalInvariant("published content model names an unreachable element declaration")
+	}
+	return nil
 }
 
-func unreachableContentElementError() error {
-	return xsderrors.InternalInvariant("published content model names an unreachable element declaration")
+// validatePublishedIdentityConstraints checks that the published element
+// reads name exactly the constraints that are not detached, each once, so
+// every constraint with an evaluation program has an element that opens its
+// scope and no element names a constraint without one.
+func validatePublishedIdentityConstraints(elements *elementReadTable, identities []identityConstraintSpec) error {
+	named := make([]bool, len(identities))
+	for _, id := range elements.identities {
+		if !validIdentityConstraintID(id, len(identities)) || named[id] {
+			return xsderrors.InternalInvariant("published element reads name an identity constraint invalidly or twice")
+		}
+		named[id] = true
+	}
+	for id := range identities {
+		if identities[id].Detached == named[id] {
+			return xsderrors.InternalInvariant("published element reads disagree with identity constraint detachment")
+		}
+	}
+	return nil
 }
 
 func uncharged(int) error { return nil }

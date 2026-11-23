@@ -696,7 +696,7 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 		Substitutions:  testSubstitutionTable(s.substitutionLookup, len(elements)),
 		ComplexTypes:   complexTypes,
 		CompiledModels: testCompiledModelReads(models),
-		Elements:       newElementReadTable(elements),
+		Elements:       newElementReadTable(elements, allReachable(len(elements))),
 		Wildcards:      wildcards,
 	}}
 }

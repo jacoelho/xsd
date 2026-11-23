@@ -151,8 +151,11 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
 		CompiledModels:        publishedContentModels(build.CompiledContent.Models, content.Models),
-		Elements:              newElementReadTable(build.Elements),
+		Elements:              newElementReadTable(build.Elements, build.ReachableElements),
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
+	}
+	if err = validatePublishedIdentityConstraints(&reads.Elements, build.Identities); err != nil {
+		return schemaProgram{}, err
 	}
 	var sets []attributeUseSet
 	reads.ComplexTypes, sets, err = newComplexTypeReads(build.ComplexTypes, content.Published, build.AttributeUseSets)

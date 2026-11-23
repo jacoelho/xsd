@@ -35,8 +35,11 @@ type elementReadTable struct {
 	constraints []elementConstraintRead
 }
 
-func newElementReadTable(decls []elementDecl) elementReadTable {
-	identityCount, constraintCount := elementReadStorageCounts(decls)
+// newElementReadTable publishes decls. reachable is parallel to decls; an
+// element declaration no instance element reaches publishes no identity
+// constraints, since no scope ever opens them.
+func newElementReadTable(decls []elementDecl, reachable []bool) elementReadTable {
+	identityCount, constraintCount := elementReadStorageCounts(decls, reachable)
 	table := elementReadTable{
 		names:       make([]QName, len(decls)),
 		meta:        make([]elementReadMeta, len(decls)),
@@ -44,14 +47,20 @@ func newElementReadTable(decls []elementDecl) elementReadTable {
 		constraints: make([]elementConstraintRead, 0, constraintCount),
 	}
 	for i := range decls {
-		table.addDeclaration(i, decls[i])
+		identities := decls[i].Identity
+		if !reachable[i] {
+			identities = nil
+		}
+		table.addDeclaration(i, decls[i], identities)
 	}
 	return table
 }
 
-func elementReadStorageCounts(decls []elementDecl) (identityCount, constraintCount int) {
+func elementReadStorageCounts(decls []elementDecl, reachable []bool) (identityCount, constraintCount int) {
 	for i := range decls {
-		identityCount += len(decls[i].Identity)
+		if reachable[i] {
+			identityCount += len(decls[i].Identity)
+		}
 		if decls[i].ValueConstraint != nil {
 			constraintCount++
 		}
@@ -59,17 +68,17 @@ func elementReadStorageCounts(decls []elementDecl) (identityCount, constraintCou
 	return identityCount, constraintCount
 }
 
-func (t *elementReadTable) addDeclaration(index int, decl elementDecl) {
+func (t *elementReadTable) addDeclaration(index int, decl elementDecl, identities []IdentityConstraintID) {
 	t.names[index] = decl.Name
 	meta := elementReadMeta{
 		typ:           decl.Type,
 		block:         decl.Block,
 		identityStart: len(t.identities),
-		identityCount: len(decl.Identity),
+		identityCount: len(identities),
 		constraint:    -1,
 		flags:         elementFlags(decl),
 	}
-	t.identities = append(t.identities, decl.Identity...)
+	t.identities = append(t.identities, identities...)
 	meta.constraint = t.addValueConstraint(decl)
 	t.meta[index] = meta
 }

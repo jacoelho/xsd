@@ -298,25 +298,19 @@ particles (`complexTypeReachableModels`), so a model no complex type reaches is
 neither checked nor compiled and spends no automaton work or
 `MaxContentModelStates` budget. The compiled table (`compiledContent`) holds
 the reached models with their source IDs, and publication enters only the
-roots of complex types that are not detached. After compilation,
-`detachUnreachableComponents` walks from every global element declaration
-and global complex type through element types, complex-type content models
-and their element particles, each model once by ID; it alone marks the
-complex types it does not reach
-and the identity constraints no reached element owns `Detached`, and records
-which element declarations it reached. It charges no budget: it visits each
-element declaration, complex type, model and particle at most once, and
-compilation charged at least one step to create each, as the publication
-audit's uncharged re-derivation relies on. Element declarations and simple
-types it does not reach are kept. An instance names only global
-components (root, `xsi:type`, wildcard, substitution member), so an
-unreached component is never assessed. Publication keeps a detached type's ID
-and derivation record and a detached constraint's ID for keyref `refer` and
+roots of complex types that are not detached. Instance reachability decides
+what is detached: an instance names only global components (root, `xsi:type`,
+wildcard, substitution member), so a complex type or identity constraint no
+walk from them reaches is never assessed. `detachUnreachableComponents` owns
+that decision and charges no budget, because it reads only models
+`complexTypeReachableModels` already charged; element declarations and simple
+types it does not reach are kept. Publication keeps a detached type's ID and
+derivation record and a detached constraint's ID for keyref `refer` and
 diagnostics, but no content model, attribute uses or evaluation program, and
-`validateReachableHolders` rejects a detached global type, an unreached
-element owning an identity constraint, a reached element with a detached
-type, and a published content model naming an unreached element. Unique Particle Attribution, restriction and automaton construction
-still cover unreached components, so reachability changes no verdict.
+`validateReachableHolders` and `validatePublishedIdentityConstraints` reject
+a published holder that names a detached or unreached component. Unique
+Particle Attribution, restriction and automaton construction still cover
+unreached components, so reachability changes no verdict.
 Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
 count analysis
 (`countRange`) represents a term that matches nothing, so such a member adds
@@ -1401,10 +1395,11 @@ graph preserves these ownership rules:
   declaration names), and the definitions nested in it keep their own
   mapping: its inline type definition, as for a prohibited attribute
   ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
-  and its identity constraints (§3.11.2). No instance element reaches those
-  definitions, the declarations nested in them, or the children of a
-  zero-count compositor, so instance reachability detaches the complex types
-  and identity constraints among them and keeps the element declarations and
+  and its identity constraints (§3.11.2). Instance reachability detaches the
+  complex types and identity constraints among those definitions, the
+  declarations nested in them and the children of a zero-count compositor,
+  unless a live type also reaches them, as it does a declaration in a named
+  group that a live type references; it keeps the element declarations and
   simple types (see `internal/schema`). Treating the whole subtree as absent was rejected:
   §3.11.2 maps every identity constraint regardless of its parent.
 - Marking detachment lexically, on the definitions nested under a zero-count

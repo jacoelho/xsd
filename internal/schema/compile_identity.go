@@ -114,13 +114,14 @@ func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*
 	return ids, nil
 }
 
-func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode, ids []IdentityConstraintID) error {
+func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode, ids []IdentityConstraintID, declarer ElementID) error {
 	for i, node := range nodes {
 		id := ids[i]
 		ic, err := c.compileIdentityConstraint(ctx, node, c.rt.identityName(id))
 		if err != nil {
 			return err
 		}
+		ic.Declarer = declarer
 		c.completeIdentity(id, ic)
 	}
 	return nil
