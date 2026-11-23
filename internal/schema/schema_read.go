@@ -26,11 +26,11 @@ func (rt *Schema) IdentityDispatch() IdentityDispatchRead {
 
 // publishedComplexType returns the read of a complex type validation can
 // reach; it reports false for an invalid ID and for a detached type.
-func (rt *Schema) publishedComplexType(id ComplexTypeID) (complexTypeRead, bool) {
+func (rt *Schema) publishedComplexType(id ComplexTypeID) (*complexTypeRead, bool) {
 	if !validComplexTypeID(id, len(rt.program.ComplexTypes)) {
-		return complexTypeRead{}, false
+		return nil, false
 	}
-	read := rt.program.ComplexTypes[id]
+	read := &rt.program.ComplexTypes[id]
 	return read, read.flags&complexTypeReadDetached == 0
 }
 
