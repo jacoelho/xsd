@@ -1337,6 +1337,17 @@ graph preserves these ownership rules:
   its identity rules, still needed the clone of the base root and
   `chargedParticles`, and raised compile B/op 3.5% on the reachable
   benchmarks.
+- Holding particle lists and continuation sets in an opaque generic list type
+  in its own package, readable only through an iterator that charges one step
+  per element or through a named uncharged escape, was rejected. A prototype
+  kept compile time and B/op within noise and every corpus verdict,
+  diagnostic and step count identical, for 102 net production lines. But 33
+  functions still needed the escape because a callee charges what they read,
+  so the guard's allowlist moved to the escape instead of going away. An
+  uncharged loop added inside one of those functions still passed every test.
+  The functions that iterate through the charge did so only because charges
+  were moved out of three callees, which a new caller of those callees would
+  silently skip.
 - Skipping all validation below a zero-count compositor was rejected because
   the mapping removes only that compositor's component (see
   `compileDeferredModelChildren`): each child particle keeps its own mapping,
