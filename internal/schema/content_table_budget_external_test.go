@@ -33,29 +33,18 @@ func TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry(t *testing.T) {
 			wantDifference: 10 + 2,
 		},
 		{
-			// Both sequences hold twenty rows and one run of nineteen edges.
-			// The optional run names e0 to e8 twice, around the required x,
-			// so its shared index holds ten names, the wildcard count, and for
-			// each repeated name its position count and two positions.
 			name:           "optional sequence repeating its names against required",
 			larger:         `<xs:sequence>` + elements(9, ` minOccurs="0"`) + `<xs:element name="x"/>` + elements(9, ` minOccurs="0"`) + `</xs:sequence>`,
 			base:           `<xs:sequence>` + elements(9, "") + `<xs:element name="x"/>` + elements(9, "") + `</xs:sequence>`,
 			wantDifference: 10 + 1 + 9*3,
 		},
 		{
-			// Every element of a repeated choice of eight elements has the
-			// same follow set, so its automaton has two rows, the start and
-			// the state after any element, each taking all eight edges and
-			// indexed. The unrepeated choice has nine rows and eight edge
-			// references, all on its indexed start row.
 			name:           "repeated against single choice",
 			larger:         `<xs:choice maxOccurs="unbounded">` + elements(8, "") + `</xs:choice>`,
 			base:           `<xs:choice>` + elements(8, "") + `</xs:choice>`,
 			wantDifference: (2 + 16 + 16) - (9 + 8 + 8),
 		},
 		{
-			// An all group of eight elements holds eight terms and indexes
-			// them; the sequence holds nine rows and eight edge references.
 			name:           "all group against sequence",
 			larger:         `<xs:all>` + elements(8, "") + `</xs:all>`,
 			base:           `<xs:sequence>` + elements(8, "") + `</xs:sequence>`,

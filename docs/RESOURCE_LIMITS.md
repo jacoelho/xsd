@@ -80,11 +80,12 @@ keeps no table for: a row, an edge, an `xs:all` term and an entry of a name
 index. The rows of a sequence compiled directly to a table are windows of one
 run of edges, and its rows that take at least eight edges share one name
 index of the run, so a sequence of optional elements holds one edge and about
-one index entry per element, not one per element and row. When the run's
-names are distinct, share one namespace and span at most twice as many name
-IDs as there are names, the index is a dense array of run positions with one
-entry per slot and two metadata entries. Other rows own their
-edges and name indexes. An index is built before compilation knows that it
+one index entry per element, not one per element and row. When the run has
+no wildcards and its names are distinct, share one namespace and span at most
+twice as many name IDs as there are names, the index is a dense array of run
+positions with one entry per slot and two metadata entries. A run row whose
+window holds a name twice has no index and dispatches by linear scan. Rows
+outside a run own their edges and name indexes. An index is built before compilation knows that it
 can be installed, so an index that is not installed is transient and never
 charged. A compiled model's own record costs two steps, because publication
 holds a second copy. On 64-bit platforms a row is 80 bytes, an edge and an
