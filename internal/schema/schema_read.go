@@ -15,7 +15,7 @@ func (rt *Schema) ElementIdentityConstraints(id ElementID) (IdentityConstraintID
 // identity constraint, so validation has a constraint to evaluate. A schema
 // whose only constraints are detached has none.
 func (rt *Schema) HasIdentityConstraints() bool {
-	return rt.program.IdentityDispatch.hasPrograms()
+	return len(rt.program.Elements.identities) != 0
 }
 
 // IdentityDispatch returns the immutable selector and field dispatch index
