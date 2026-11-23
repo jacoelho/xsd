@@ -204,11 +204,8 @@ func uniqueNames(names map[QName]uint32) func(QName, uint32) bool {
 	}
 }
 
-// runNames records where the names of an edge run occur.
 type runNames struct {
-	// last maps each name to its last run position.
 	last map[QName]uint32
-	// counts maps each name to the number of run positions it occurs at.
 	counts map[QName]uint32
 	// nextRepeat[p] is the nearest position after p of a name that also
 	// occurs at or after p, or math.MaxUint32.
