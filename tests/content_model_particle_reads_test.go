@@ -222,9 +222,11 @@ type resultSlot struct {
 // particleListFlow follows a content model's particle list from the
 // Particles field, to a fixpoint, into every holder: a parameter it is passed
 // to as an argument of a static call within the package, including the
-// receiver of a method expression and a variadic parameter it is spread into
-// with an ellipsis, and a variable, struct field or function result it is
-// assigned, stored in a composite literal, or returned as. A subslice of a
+// receiver of a method expression, a variadic parameter it is spread into
+// with an ellipsis, and the parameter that a result of a multi-value call
+// binds when that call is the only argument; and a variable, struct field or
+// function result it is assigned, stored in a composite literal, or returned
+// as. A subslice of a
 // holder holds the list too. The result of chargedParticles holds none: it is
 // the charged accessor. A call through an interface method or a function
 // value is not followed, so the caller reads the argument, and a function
@@ -329,6 +331,15 @@ func (f *particleListFlow) propagate(functions []packageFunction) {
 			ast.Inspect(fn.node, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.CallExpr:
+					if inner, ok := f.spreadResults(x); ok {
+						params := f.calleeParams(x)
+						for i, param := range params {
+							if param != nil && inner != nil && f.results[resultSlot{inner, i}] {
+								hold(param)
+							}
+						}
+						break
+					}
 					for i, param := range f.argParams(x) {
 						if param != nil && f.carriesList(x.Args[i]) {
 							hold(param)
@@ -519,11 +530,11 @@ func (f *particleListFlow) staticCallee(call *ast.CallExpr) (*types.Func, bool) 
 	return fn.Origin(), methodExpr
 }
 
-// argParams returns, for each argument of a call, the parameter of its static
-// callee it binds, or nil for an argument the flow does not follow: one of a
-// call staticCallee does not resolve, or one bound to a variadic parameter
-// without an ellipsis.
-func (f *particleListFlow) argParams(call *ast.CallExpr) []*types.Var {
+// calleeParams returns the parameters of a call's static callee in argument
+// order, including the receiver of a method expression, and nil for a call
+// staticCallee does not resolve. A variadic parameter is included only when
+// the call spreads it with an ellipsis.
+func (f *particleListFlow) calleeParams(call *ast.CallExpr) []*types.Var {
 	fn, methodExpr := f.staticCallee(call)
 	if fn == nil {
 		return nil
@@ -539,13 +550,58 @@ func (f *particleListFlow) argParams(call *ast.CallExpr) []*types.Var {
 		}
 		params = append(params, sig.Params().At(i))
 	}
+	return params
+}
+
+// spreadResults reports whether call's one argument is a call with several
+// results, each bound to a parameter in turn, and returns that inner call's
+// static callee, or nil when staticCallee does not resolve it.
+func (f *particleListFlow) spreadResults(call *ast.CallExpr) (*types.Func, bool) {
+	if len(call.Args) != 1 {
+		return nil, false
+	}
+	inner, ok := ast.Unparen(call.Args[0]).(*ast.CallExpr)
+	if !ok {
+		return nil, false
+	}
+	tuple, ok := f.info.Types[inner].Type.(*types.Tuple)
+	if !ok || tuple.Len() < 2 {
+		return nil, false
+	}
+	fn, _ := f.staticCallee(inner)
+	return fn, true
+}
+
+// argParams returns, for each argument of a call, the parameter of its static
+// callee it binds, or nil for an argument the flow does not follow: one of a
+// call staticCallee does not resolve, or one bound to a variadic parameter
+// without an ellipsis. A call whose one argument spreads several results
+// binds no single parameter; spreadResults covers it.
+func (f *particleListFlow) argParams(call *ast.CallExpr) []*types.Var {
+	if _, ok := f.spreadResults(call); ok {
+		return make([]*types.Var, len(call.Args))
+	}
 	bound := make([]*types.Var, len(call.Args))
-	copy(bound, params)
+	copy(bound, f.calleeParams(call))
 	return bound
 }
 
-// passedOn reports whether expr is an argument that argParams follows.
+// passedOn reports whether expr is an argument that the flow follows: one
+// argParams binds, or a call spreading several results of which every one
+// that holds a list binds a parameter.
 func (f *particleListFlow) passedOn(call *ast.CallExpr, expr ast.Expr) bool {
+	if inner, ok := f.spreadResults(call); ok {
+		if inner == nil || call.Args[0] != expr {
+			return false
+		}
+		params := f.calleeParams(call)
+		for i := range inner.Signature().Results().Len() {
+			if f.results[resultSlot{inner, i}] && (i >= len(params) || params[i] == nil) {
+				return false
+			}
+		}
+		return true
+	}
 	params := f.argParams(call)
 	for i, arg := range call.Args {
 		if arg == expr {

@@ -300,7 +300,7 @@ var particleListReadersOnlyRejecting = map[string]string{
 // It also requires every function of particleListReaders, except those in
 // particleListReadersOnlyRejecting, to execute more often with the added
 // components of some family at the large size, so each allowed reader runs
-// under a measured budget.
+// under a measured budget; that check runs only when every family is measured.
 //
 // The test catches only uncharged work that grows faster than the charged
 // steps of the component that does it: a loop over a list whose particles are
@@ -320,8 +320,9 @@ func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 	functions := newSchemaFunctionLines(t)
 	var mu sync.Mutex
 	exercised := map[string]bool{}
+	measured := 0
 	t.Cleanup(func() {
-		if t.Failed() {
+		if t.Failed() || measured != len(contentModelWorkFamilies) {
 			return
 		}
 		for _, name := range slices.Sorted(maps.Keys(particleListReaders)) {
@@ -344,6 +345,7 @@ func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 			t.Parallel()
 			added := measureFamily(t, driver, filepath.Join(dir, strings.ReplaceAll(family.name, " ", "-")), family)
 			mu.Lock()
+			measured++
 			defer mu.Unlock()
 			for _, block := range added {
 				exercised[functions.at(block)] = true
