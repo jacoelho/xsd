@@ -21,8 +21,12 @@ type componentReach struct {
 // identityConstraintSpec.Detached and schemaBuild.ReachableElements. An
 // unreachable element declaration keeps its ID but owns no identity
 // constraint, so a constraint is detached exactly when no reachable element
-// declaration owns it. It charges one dependency step per declaration and
-// type visited and per model and particle read.
+// declaration owns it.
+//
+// The walk charges no budget, like the publication audit's re-derivation: it
+// visits each element declaration, complex type, model and particle at most
+// once, and compilation charged at least one step to create each, so its work
+// is bounded by steps already spent.
 func (c *compiler) detachUnreachableComponents() error {
 	r := componentReach{
 		elements:     make([]bool, len(c.rt.Elements)),
@@ -74,9 +78,6 @@ func (c *compiler) reachElement(r *componentReach, id ElementID) error {
 		return nil
 	}
 	r.elements[id] = true
-	if err := c.dependencyWork.spend(1); err != nil {
-		return err
-	}
 	if typ, ok := c.rt.Elements[id].Type.Complex(); ok {
 		return c.reachComplexType(r, typ)
 	}
@@ -91,9 +92,6 @@ func (c *compiler) reachComplexType(r *componentReach, id ComplexTypeID) error {
 		return nil
 	}
 	r.complexTypes[id] = true
-	if err := c.dependencyWork.spend(1); err != nil {
-		return err
-	}
 	return r.reachModel(c.rt.ComplexTypes[id].Content)
 }
 
@@ -109,7 +107,7 @@ func (r *componentReach) reachModel(id contentModelID) error {
 }
 
 func (c *compiler) reachParticleElements(r *componentReach, id contentModelID) error {
-	particles, err := chargedParticles(c.dependencyWork.spend, c.rt.Models[id])
+	particles, err := chargedParticles(uncharged, c.rt.Models[id])
 	if err != nil {
 		return err
 	}
@@ -131,7 +129,8 @@ func (c *compiler) reachParticleElements(r *componentReach, id contentModelID) e
 }
 
 // validateReachableHolders checks that what validation can read names no
-// detached or unreachable component: no global type is detached, a reachable
+// detached or unreachable component: no global type is detached, an
+// unreachable element declaration owns no identity constraint, a reachable
 // element declaration's type is not detached, and every element a published
 // content model's table names is reachable. The tables of entered models
 // were charged edge by edge when they were projected, and this reads each
@@ -146,6 +145,9 @@ func validateReachableHolders(build *schemaBuild, entered []int) error {
 		}
 	}
 	for i, decl := range build.Elements {
+		if !build.ReachableElements[i] && len(decl.Identity) != 0 {
+			return xsderrors.InternalInvariant("unreachable element declaration owns an identity constraint")
+		}
 		typ, ok := decl.Type.Complex()
 		if ok && build.ReachableElements[i] && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
 			return xsderrors.InternalInvariant("reachable element declaration has a detached complex type")
@@ -187,3 +189,5 @@ func validateReachableHolders(build *schemaBuild, entered []int) error {
 func unreachableContentElementError() error {
 	return xsderrors.InternalInvariant("published content model names an unreachable element declaration")
 }
+
+func uncharged(int) error { return nil }

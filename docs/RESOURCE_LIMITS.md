@@ -29,7 +29,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaSources` | `1024` | Max explicit source descriptors, and, separately, max distinct schema documents loaded (explicit and resolver-loaded together). An unavailable include/import target loads nothing and is not counted; the document that exceeds the count is opened and closed without being read. |
 | `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read from schema sources. Each document is charged when first loaded; an opener source reached again is reopened and charged again; a file source is read once; an in-memory source is compared by digest without charge. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
-| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, each row, edge, `xs:all` term and name-index entry of a compiled content-model table, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step; a compiled content model's record costs two. The walk that detaches the components no instance element reaches costs one step for each element declaration and complex type it reaches and for each content model and particle it reads. The compiled tables are bounded per step below. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. An extension whose effective content is not empty (Structures §3.4.2) compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types that each add one element exceeds that limit instead, as do 2,000 that each add an empty `xs:choice`. An extension whose effective content is empty, such as one with no model group or an empty `xs:sequence` and not effectively mixed, reuses its base's content model, and 2,000 of them compile at the defaults. |
+| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, each row, edge, `xs:all` term and name-index entry of a compiled content-model table, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step; a compiled content model's record costs two. The walk that detaches the components no instance element reaches costs nothing: it visits each element declaration, complex type, content model and particle at most once, and compilation already charged a step to create each. The compiled tables are bounded per step below. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. An extension whose effective content is not empty (Structures §3.4.2) compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types that each add one element exceeds that limit instead, as do 2,000 that each add an empty `xs:choice`. An extension whose effective content is empty, such as one with no model group or an empty `xs:sequence` and not effectively mixed, reuses its base's content model, and 2,000 of them compile at the defaults. |
 | `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. Every anonymous type definition is at least one node occurrence, so this limit also bounds the number of anonymous types. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. An anonymous type interns no name and is not counted. `0` means no explicit limit. |
@@ -122,7 +122,7 @@ lower the figure. A schema whose content models all share one group of 16,000
 required wildcards, each of its own namespace, compiles at the defaults with
 29 complex types and retains about 44 MiB, about 46 bytes per step; 30 types
 exceed the limit. 800 complex types that each hold a sequence of 40 optional
-elements need about 233,000 steps and retain about 2.9 MiB, and the 93
+elements need about 167,000 steps and retain about 2.9 MiB, and the 93
 document schemas of UBL 2.4 compiled together need about 54,000. A choice of
 120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
 with both step limits raised, retains about 60 MiB at its least limit of about
@@ -196,13 +196,14 @@ elements with defaults and 200-byte names, about 255 MB together, compile at
 the defaults and retain about 444 MiB. Compiling them reaches about 1.5 GB of
 live heap, so the compilation peak, not the retained schema, is the larger
 memory term. An element with `minOccurs` and `maxOccurs` 0 is no declaration
-(Structures §3.3.2) and retains nothing. Its inline complex type, its
-identity constraints, the declarations nested inside them and the children
-of a zero-count compositor are detached when no instance element reaches
-them. A detached complex type keeps its ID and derivation record but no
+(Structures §3.3.2) and retains nothing. The complex types and identity
+constraints that no instance element reaches are detached: those of such an
+element, those nested inside its type, and those under a zero-count
+compositor. A detached complex type keeps its ID and derivation record but no
 content model or attribute uses, and a detached identity constraint keeps its
-name but no evaluation program or dispatch branch. Unreached element
-declarations and anonymous simple types retain as they would elsewhere.
+name but no evaluation program or dispatch branch. Element declarations and
+simple types no instance element reaches are kept and retain as they would
+elsewhere.
 
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand

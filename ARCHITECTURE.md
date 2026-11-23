@@ -301,17 +301,21 @@ the reached models with their source IDs, and publication enters only the
 roots of complex types that are not detached. After compilation,
 `detachUnreachableComponents` walks from every global element declaration
 and global complex type through element types, complex-type content models
-and their element particles, each model once by ID, charging
-`MaxSchemaDependencySteps`; it alone marks the complex types it does not reach
+and their element particles, each model once by ID; it alone marks the
+complex types it does not reach
 and the identity constraints no reached element owns `Detached`, and records
-which element declarations it reached. An instance names only global
+which element declarations it reached. It charges no budget: it visits each
+element declaration, complex type, model and particle at most once, and
+compilation charged at least one step to create each, as the publication
+audit's uncharged re-derivation relies on. Element declarations and simple
+types it does not reach are kept. An instance names only global
 components (root, `xsi:type`, wildcard, substitution member), so an
 unreached component is never assessed. Publication keeps a detached type's ID
 and derivation record and a detached constraint's ID for keyref `refer` and
 diagnostics, but no content model, attribute uses or evaluation program, and
-`validateReachableHolders` rejects a detached global type, a reached element
-with a detached type, and a published content model naming an unreached
-element. Unique Particle Attribution, restriction and automaton construction
+`validateReachableHolders` rejects a detached global type, an unreached
+element owning an identity constraint, a reached element with a detached
+type, and a published content model naming an unreached element. Unique Particle Attribution, restriction and automaton construction
 still cover unreached components, so reachability changes no verdict.
 Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
 count analysis
@@ -1399,8 +1403,9 @@ graph preserves these ownership rules:
   ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
   and its identity constraints (§3.11.2). No instance element reaches those
   definitions, the declarations nested in them, or the children of a
-  zero-count compositor, so instance reachability detaches them (see
-  `internal/schema`). Treating the whole subtree as absent was rejected:
+  zero-count compositor, so instance reachability detaches the complex types
+  and identity constraints among them and keeps the element declarations and
+  simple types (see `internal/schema`). Treating the whole subtree as absent was rejected:
   §3.11.2 maps every identity constraint regardless of its parent.
 - Marking detachment lexically, on the definitions nested under a zero-count
   element or compositor, was rejected: a local element declaration is
