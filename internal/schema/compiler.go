@@ -167,10 +167,17 @@ type compilerCycleState struct {
 	compilingModel   map[schemaNodeKey]bool
 }
 
+// modelDefiners holds, for each model, the complex type whose definition
+// created it, or noComplexType for a model a named group, a zero-count
+// particle or a builtin created. definingType is that type for the
+// definition being compiled; completeComplexDefinition and compileGroupModel
+// set it for their extent.
 type compilerModelState struct {
 	modelDone             map[schemaNodeKey]compiledModelGroup
 	modelSources          []*schemaNode
+	modelDefiners         []ComplexTypeID
 	deferredModelChildren []schemaComponent
+	definingType          ComplexTypeID
 }
 
 type compiler struct {
@@ -276,6 +283,7 @@ func newCompiler(limits Limits) (*compiler, error) {
 		dependencyWork:           newWorkBudget(dependencyWorkBudget, math.MaxInt),
 		patterns:                 newSchemaPatterns(limits),
 	}
+	c.definingType = noComplexType
 	c.rt.typeWork = &c.dependencyWork
 	// The builtin components are a fixed set, not admitted from the caller's
 	// sources, so seeding them spends no MaxSchemaDependencySteps work and a

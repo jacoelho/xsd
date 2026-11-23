@@ -46,15 +46,21 @@ func TestQuoteList(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		values []string
+		more   bool
 		want   string
 	}{
-		{"empty", nil, `[]`},
-		{"escaped", []string{"", "a\"b"}, `["", "a\"b"]`},
-		{"at the bound", nine[:8], `["a", "b", "c", "d", "e", "f", "g", "h"]`},
-		{"over the bound", nine, `["a", "b", "c", "d", "e", "f", "g", "h", ...]`},
+		{"empty", nil, false, `[]`},
+		{"escaped", []string{"", "a\"b"}, false, `["", "a\"b"]`},
+		{"at the bound", nine[:8], false, `["a", "b", "c", "d", "e", "f", "g", "h"]`},
+		{"over the bound", nine, false, `["a", "b", "c", "d", "e", "f", "g", "h", ...]`},
+		{"more values not passed", nine[:2], true, `["a", "b", ...]`},
 	} {
-		if got := diagnostictext.QuoteList(test.values); got != test.want {
-			t.Errorf("%s: QuoteList() = %s, want %s", test.name, got, test.want)
+		got := diagnostictext.QuoteList(test.values)
+		if test.more {
+			got = diagnostictext.QuoteTruncatedList(test.values)
+		}
+		if got != test.want {
+			t.Errorf("%s: list = %s, want %s", test.name, got, test.want)
 		}
 	}
 }

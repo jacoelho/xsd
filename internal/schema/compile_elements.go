@@ -42,7 +42,11 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		}
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		if _, err := c.reserveAnonymousComplexType(ctx, complexType, complexTypeLabel{kind: complexTypeLabelAbsentElement}); err != nil {
+		name, err := localElementName(ctx, n)
+		if err != nil {
+			return err
+		}
+		if _, err := c.reserveAnonymousComplexType(ctx, complexType, absentElementComplexTypeLabel(name)); err != nil {
 			return err
 		}
 	}
@@ -113,21 +117,11 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 		return 0, err
 	}
 	defer scope.leave(&err)
-	name := schemaElementName(n)
-	ns := ""
-	form, hasForm := schemaElementForm(n)
-	qualified, err := parseElementFormAttr(formAttr{
-		Value:            form,
-		HasValue:         hasForm,
-		DefaultQualified: ctx.doc.defaults.ElementQualified,
-	})
+	name, err := localElementName(ctx, n)
 	if err != nil {
-		return 0, withSchemaCompileLocation(n, admittedValueInvariant(err))
+		return 0, err
 	}
-	if qualified {
-		ns = ctx.effectiveTargetNS
-	}
-	q, err := c.rt.internQName(ns, name)
+	q, err := c.rt.internQName(name.Namespace, name.Local)
 	if err != nil {
 		return 0, err
 	}
@@ -143,6 +137,25 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 	c.completeElement(id, decl)
 	c.addPendingElementConstraint(id, n, pending)
 	return id, nil
+}
+
+// localElementName returns the expanded name of the local element
+// declaration n, qualified as its form says.
+func localElementName(ctx *schemaSetDocument, n *schemaNode) (ExpandedName, error) {
+	form, hasForm := schemaElementForm(n)
+	qualified, err := parseElementFormAttr(formAttr{
+		Value:            form,
+		HasValue:         hasForm,
+		DefaultQualified: ctx.doc.defaults.ElementQualified,
+	})
+	if err != nil {
+		return ExpandedName{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
+	}
+	name := ExpandedName{Local: schemaElementName(n)}
+	if qualified {
+		name.Namespace = ctx.effectiveTargetNS
+	}
+	return name, nil
 }
 
 // pendingElementConstraint is an unvalidated element value constraint that
@@ -224,7 +237,7 @@ func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode,
 		return SimpleRef(id), err
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		id, err := c.reserveAnonymousComplexType(ctx, complexType, complexTypeLabel{name: q, kind: complexTypeLabelElement})
+		id, err := c.reserveAnonymousComplexType(ctx, complexType, elementComplexTypeLabel(q))
 		return ComplexRef(id), err
 	}
 	return ComplexRef(c.rt.AnyType), nil

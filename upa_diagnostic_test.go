@@ -58,7 +58,7 @@ func TestUPADiagnosticNamesTheComplexTypeAndBothParticles(t *testing.T) {
 		{
 			name:   "anonymous type of a zero-count element",
 			schema: `<xs:complexType name="T"><xs:sequence><xs:element name="gone" minOccurs="0" maxOccurs="0"><xs:complexType><xs:choice><xs:element name="a"/><xs:element name="a"/></xs:choice></xs:complexType></xs:element></xs:sequence></xs:complexType>`,
-			want:   `UPA violation in local complex type of a zero-count element: element "{urn:t}a" and element "{urn:t}a" overlap`,
+			want:   `UPA violation in local complex type of zero-count element "{urn:t}gone": element "{urn:t}a" and element "{urn:t}a" overlap`,
 		},
 		{
 			name:   "group referenced by a type",
@@ -73,22 +73,22 @@ func TestUPADiagnosticNamesTheComplexTypeAndBothParticles(t *testing.T) {
 		{
 			name:   "wildcard and element",
 			schema: `<xs:element name="root"><xs:complexType><xs:sequence><xs:any namespace="##targetNamespace" minOccurs="0"/><xs:element name="a"/></xs:sequence></xs:complexType></xs:element>`,
-			want:   `UPA violation in local complex type of element "{urn:t}root": element "{urn:t}a" and wildcard ##targetNamespace (target namespace "urn:t") overlap`,
+			want:   `UPA violation in local complex type of element "{urn:t}root": element "{urn:t}a" and wildcard for an element in namespace ["urn:t"] overlap`,
 		},
 		{
 			name:   "wildcard and wildcard",
 			schema: `<xs:complexType name="T"><xs:choice><xs:any namespace="##other"/><xs:any namespace="urn:u ##local urn:a"/></xs:choice></xs:complexType>`,
-			want:   `UPA violation in complex type "{urn:t}T": wildcard ##other (target namespace "urn:t") and wildcard ["", "urn:a", "urn:u"] overlap`,
+			want:   `UPA violation in complex type "{urn:t}T": wildcard for an element in a non-empty namespace other than "urn:t" and wildcard for an element in namespace ["", "urn:a", "urn:u"] overlap on namespace "urn:a"`,
 		},
 		{
 			name:   "wildcard and wildcard found by the automaton",
 			schema: `<xs:complexType name="T"><xs:sequence maxOccurs="unbounded"><xs:any namespace="##other"/><xs:any namespace="##any" minOccurs="0"/></xs:sequence></xs:complexType>`,
-			want:   `UPA violation in complex type "{urn:t}T": wildcard ##any and wildcard ##other (target namespace "urn:t") overlap`,
+			want:   `UPA violation in complex type "{urn:t}T": wildcard for an element in a non-empty namespace other than "urn:t" and wildcard for any element overlap`,
 		},
 		{
 			name:   "wildcard and wildcard found in the compiled rows",
 			schema: `<xs:complexType name="T"><xs:sequence><xs:sequence><xs:element name="y"/><xs:any namespace="##other" minOccurs="0"/></xs:sequence><xs:any namespace="##other"/></xs:sequence></xs:complexType>`,
-			want:   `UPA violation in complex type "{urn:t}T": wildcard ##other (target namespace "urn:t") and wildcard ##other (target namespace "urn:t") overlap`,
+			want:   `UPA violation in complex type "{urn:t}T": wildcard for an element in a non-empty namespace other than "urn:t" and wildcard for an element in a non-empty namespace other than "urn:t" overlap`,
 		},
 		{
 			name:   "element found by the automaton",
@@ -103,7 +103,7 @@ func TestUPADiagnosticNamesTheComplexTypeAndBothParticles(t *testing.T) {
 		{
 			name:   "substitution group head and wildcard accepting the head",
 			schema: `<xs:element name="head"/><xs:element name="member" substitutionGroup="t:head"/><xs:complexType name="T"><xs:choice><xs:any namespace="##targetNamespace"/><xs:element ref="t:head"/></xs:choice></xs:complexType>`,
-			want:   `UPA violation in complex type "{urn:t}T": element "{urn:t}head" and wildcard ##targetNamespace (target namespace "urn:t") overlap`,
+			want:   `UPA violation in complex type "{urn:t}T": element "{urn:t}head" and wildcard for an element in namespace ["urn:t"] overlap`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -116,6 +116,41 @@ func TestUPADiagnosticNamesTheComplexTypeAndBothParticles(t *testing.T) {
 	}
 }
 
+func TestUPADiagnosticNamesTheTypeWhoseDefinitionHoldsTheViolation(t *testing.T) {
+	t.Parallel()
+
+	const base = `<xs:complexType name="B"><xs:choice><xs:element name="a"/><xs:sequence><xs:element name="a"/></xs:sequence></xs:choice></xs:complexType>`
+	const emptyExtension = `<xs:complexType name="A"><xs:complexContent><xs:extension base="t:B"/></xs:complexContent></xs:complexType>`
+	const want = `UPA violation in complex type "{urn:t}B": element "{urn:t}a" and element "{urn:t}a" overlap`
+	for _, test := range []struct {
+		name   string
+		schema string
+	}{
+		{name: "empty extension declared after its base", schema: base + emptyExtension},
+		{name: "empty extension declared before its base", schema: emptyExtension + base},
+		{name: "anonymous type referencing the base first", schema: `<xs:complexType name="C"><xs:sequence><xs:element name="e"><xs:complexType><xs:complexContent><xs:extension base="t:B"/></xs:complexContent></xs:complexType></xs:element></xs:sequence></xs:complexType>` + base},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := compileUPAMessage(t, xsd.Bytes("schema.xsd", []byte(upaSchema(test.schema)))); got != want {
+				t.Fatalf("message = %s\nwant      %s", got, want)
+			}
+		})
+	}
+}
+
+func TestUPADiagnosticNamesTheNamespaceTwoTruncatedWildcardListsShare(t *testing.T) {
+	t.Parallel()
+
+	shared := "urn:a urn:b urn:c urn:d urn:e urn:f urn:g urn:h"
+	schema := upaSchema(`<xs:complexType name="T"><xs:choice><xs:any namespace="` + shared + ` urn:x"/><xs:any namespace="` + shared + ` urn:z urn:x"/></xs:choice></xs:complexType>`)
+	const lists = `wildcard for an element in namespace ["urn:a", "urn:b", "urn:c", "urn:d", "urn:e", "urn:f", "urn:g", "urn:h", ...]`
+	const want = `UPA violation in complex type "{urn:t}T": ` + lists + ` and ` + lists + ` overlap on namespace "urn:a"`
+	if got := compileUPAMessage(t, xsd.Bytes("schema.xsd", []byte(schema))); got != want {
+		t.Fatalf("message = %s\nwant      %s", got, want)
+	}
+}
+
 func TestUPADiagnosticNamesAMemberOnlyWhenTheParticlesShareNoDeclarationName(t *testing.T) {
 	t.Parallel()
 
@@ -124,7 +159,7 @@ func TestUPADiagnosticNamesAMemberOnlyWhenTheParticlesShareNoDeclarationName(t *
 		`<xs:element name="head"/>` +
 		`<xs:complexType name="T"><xs:choice><xs:element ref="head"/><xs:any namespace="##other"/></xs:choice></xs:complexType>` +
 		`</xs:schema>`
-	const want = `UPA violation in complex type "T": element "head" and wildcard ##other (no target namespace) overlap on substitution group member "{urn:t}bbb"`
+	const want = `UPA violation in complex type "T": element "head" and wildcard for an element in a non-empty namespace other than "" overlap on substitution group member "{urn:t}bbb"`
 	for _, order := range [][]xsd.SchemaSource{
 		{xsd.Bytes("root.xsd", []byte(root)), xsd.Bytes("members.xsd", []byte(members))},
 		{xsd.Bytes("members.xsd", []byte(members)), xsd.Bytes("root.xsd", []byte(root))},
@@ -138,7 +173,7 @@ func TestUPADiagnosticNamesAMemberOnlyWhenTheParticlesShareNoDeclarationName(t *
 func TestUPADiagnosticListsTheParticlesInOneOrderWhateverTheDeclarationOrder(t *testing.T) {
 	t.Parallel()
 
-	const want = `UPA violation in complex type "{urn:t}T": element "{urn:t}a" and wildcard ##any overlap`
+	const want = `UPA violation in complex type "{urn:t}T": element "{urn:t}a" and wildcard for any element overlap`
 	for _, choice := range []string{
 		`<xs:element name="a"/><xs:any/>`,
 		`<xs:any/><xs:element name="a"/>`,

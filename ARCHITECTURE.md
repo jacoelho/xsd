@@ -1432,9 +1432,11 @@ graph preserves these ownership rules:
   diagnostics between two location rules. The violation is located at the
   innermost compositor or component scope, and its one message
   (`upaViolationMessage`) names the complex type and both competing particles
-  instead. The type named is the one `complexTypeReachableModels` first
-  reaches the model from, and an anonymous type is named by the element
-  declaration holding it (`complexTypeLabel`).
+  instead. The type named is the one whose definition created the model
+  (`modelDefiners`), so the message and the location name the same
+  definition; a model a named group created names the type
+  `complexTypeReachableModels` first reaches it from. An anonymous type is
+  named by the element declaration holding it (`complexTypeLabel`).
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
   skipping the compilation of a reached nested model was rejected because its

@@ -47,21 +47,30 @@ func QuoteParts(parts ...string) string {
 	return Quote(prefix)
 }
 
-// QuoteList quotes the first MaxAlternatives values as a bracketed,
-// comma-separated list and marks omitted values with a trailing "...".
+// QuoteList quotes at most MaxAlternatives values as a bracketed,
+// comma-separated list; a trailing "..." marks the values past the bound.
 func QuoteList(values []string) string {
-	list := []byte{'['}
-	for i, value := range values {
+	list := appendQuotedItems([]byte{'['}, values)
+	if len(values) > MaxAlternatives {
+		list = append(list, ", ..."...)
+	}
+	return string(append(list, ']'))
+}
+
+// QuoteTruncatedList is QuoteList for values the caller already cut from a
+// longer list: the trailing "..." is always present.
+func QuoteTruncatedList(values []string) string {
+	return string(append(appendQuotedItems([]byte{'['}, values), ", ...]"...))
+}
+
+func appendQuotedItems(list []byte, values []string) []byte {
+	for i, value := range values[:min(len(values), MaxAlternatives)] {
 		if i > 0 {
 			list = append(list, ", "...)
 		}
-		if i == MaxAlternatives {
-			list = append(list, "..."...)
-			break
-		}
 		list = append(list, Quote(value)...)
 	}
-	return string(append(list, ']'))
+	return list
 }
 
 // AppendEscaped appends text escaped as Quote escapes it, without the

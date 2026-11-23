@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -81,31 +82,57 @@ func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schema
 	return id, nil
 }
 
+// defineModelsFor makes id the type models created from here on belong to
+// and returns the function restoring the previous one.
+func (c *compiler) defineModelsFor(id ComplexTypeID) func() {
+	previous := c.definingType
+	c.definingType = id
+	return func() { c.definingType = previous }
+}
+
 type complexTypeLabelKind uint8
 
 const (
-	complexTypeLabelNamed complexTypeLabelKind = iota
+	complexTypeLabelNamed complexTypeLabelKind = iota + 1
 	complexTypeLabelElement
 	complexTypeLabelAbsentElement
 )
 
 // complexTypeLabel names a complex type in a diagnostic: a named type by its
 // name, an anonymous type by the element declaration holding it. The
-// anonymous type of a zero-count element particle has no declaration, and
-// name is unused.
+// anonymous type of a zero-count element particle has no declaration and is
+// named by the element's expanded name, which is never interned. The zero
+// value is no label.
 type complexTypeLabel struct {
-	name QName
-	kind complexTypeLabelKind
+	element ExpandedName
+	name    QName
+	kind    complexTypeLabelKind
+}
+
+func namedComplexTypeLabel(name QName) complexTypeLabel {
+	return complexTypeLabel{name: name, kind: complexTypeLabelNamed}
+}
+
+func elementComplexTypeLabel(element QName) complexTypeLabel {
+	return complexTypeLabel{name: element, kind: complexTypeLabelElement}
+}
+
+func absentElementComplexTypeLabel(element ExpandedName) complexTypeLabel {
+	return complexTypeLabel{element: element, kind: complexTypeLabelAbsentElement}
+}
+
+func (l complexTypeLabel) valid() bool {
+	return l.kind != 0
 }
 
 func (l complexTypeLabel) label(names *nameTable) string {
 	switch l.kind {
+	case complexTypeLabelNamed:
+		return "complex type " + names.Format(l.name)
 	case complexTypeLabelElement:
 		return "local complex type of element " + names.Format(l.name)
 	case complexTypeLabelAbsentElement:
-		return "local complex type of a zero-count element"
-	case complexTypeLabelNamed:
-		return "complex type " + names.Format(l.name)
+		return "local complex type of zero-count element " + diagnostictext.ExpandedName(l.element.Namespace, l.element.Local)
 	default:
 		return "complex type"
 	}
@@ -115,7 +142,7 @@ func (l complexTypeLabel) label(names *nameTable) string {
 func (c *compiler) complexTypeLabel(id ComplexTypeID) complexTypeLabel {
 	typ := c.rt.ComplexTypes[id]
 	if typ.Scope == declarationScopeGlobal {
-		return complexTypeLabel{name: typ.Name, kind: complexTypeLabelNamed}
+		return namedComplexTypeLabel(typ.Name)
 	}
 	return c.complexDefinitions[id].label
 }
@@ -155,6 +182,7 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 		return err
 	}
 	defer scope.leave(&err)
+	defer c.defineModelsFor(id)()
 	c.complexDefinitions[id].state = complexTypeCompleting
 	ct, err := c.compileComplexType(definition.source.ctx, n, c.rt.ComplexTypes[id].Name)
 	if err != nil {

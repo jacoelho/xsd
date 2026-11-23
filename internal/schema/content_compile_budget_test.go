@@ -27,7 +27,7 @@ func TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms(t *testing.T) 
 				retained := newWorkBudget(dependencyWorkBudget, limit)
 				analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 				cc := newContentModelCompiler(rt.build(), 32, &work, &retained, analysis)
-				_, err := cc.compileRootContentModel(0, complexTypeLabel{})
+				_, err := cc.compileRootContentModel(0)
 				if err == nil {
 					return true
 				}

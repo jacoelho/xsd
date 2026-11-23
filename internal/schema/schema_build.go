@@ -383,6 +383,7 @@ func (c *compiler) appendModel(model contentModelNode, source *schemaNode) (cont
 	model.Particles = slices.Clip(model.Particles)
 	c.rt.Models = append(c.rt.Models, model)
 	c.modelSources = append(c.modelSources, source)
+	c.modelDefiners = append(c.modelDefiners, c.definingType)
 	return id, nil
 }
 

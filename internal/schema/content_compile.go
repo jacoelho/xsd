@@ -86,7 +86,8 @@ type cachedID struct {
 // one run of edges, so each of its edges counts once. A model's rows and edges
 // are its published ones, so the charge also bounds the tables publication
 // keeps. typeLabel names the complex type a Unique Particle Attribution
-// violation in the model being compiled or checked is reported against.
+// violation is reported against; forType sets it on a copy made for one
+// model.
 type contentModelCompiler struct {
 	rt                    *schemaBuild
 	work                  *workBudget
@@ -131,10 +132,8 @@ type dfaAccept struct {
 
 // compileRootContentModel lowers the source graph of one model in the table,
 // constructs its finite automaton and determinizes it, charging every
-// traversal, configuration and transition to the compiler's budget. A Unique
-// Particle Attribution violation names typ.
-func (c *contentModelCompiler) compileRootContentModel(id contentModelID, typ complexTypeLabel) (compiledModel, error) {
-	c.typeLabel = typ
+// traversal, configuration and transition to the compiler's budget.
+func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compiledModel, error) {
 	if err := c.work.spend(1); err != nil {
 		return compiledModel{}, err
 	}
@@ -171,8 +170,16 @@ func newContentModelUPACheck(
 
 // checkModel checks the model id, naming typ in a violation.
 func (u *contentModelUPACheck) checkModel(id contentModelID, typ complexTypeLabel) error {
-	u.compiler.typeLabel = typ
-	return u.compiler.checkContentModelUPA(id, u.seen, uint64(id)+1)
+	compiler := u.compiler.forType(typ)
+	return compiler.checkContentModelUPA(id, u.seen, uint64(id)+1)
+}
+
+// forType returns a copy of c that names typ in a Unique Particle Attribution
+// violation.
+func (c *contentModelCompiler) forType(typ complexTypeLabel) contentModelCompiler {
+	typed := *c
+	typed.typeLabel = typ
+	return typed
 }
 
 func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []uint64, tag uint64) error {
@@ -1255,10 +1262,10 @@ func (c *contentModelCompiler) particlesOverlap(a, b contentParticle) (particleO
 	return c.analysis.Overlap(a, b)
 }
 
-// upaError is the one Unique Particle Attribution diagnostic: every check
-// that finds two competing particles reports them through it.
+// upaError reports the two competing particles every check finds through
+// upaViolation.
 func (c *contentModelCompiler) upaError(overlap particleOverlap) error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, upaViolationMessage(c.rt, c.typeLabel, c.analysis.declaredNameOverlap(overlap)))
+	return upaViolation(c.rt, c.typeLabel, c.analysis.declaredNameOverlap(overlap))
 }
 
 func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {

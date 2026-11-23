@@ -40,7 +40,7 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 	cc := newContentModelCompiler(rt.build(), 32, &work, testDependencyWork(), analysis)
-	model, err := cc.compileRootContentModel(0, complexTypeLabel{})
+	model, err := cc.compileRootContentModel(0)
 	if err != nil {
 		t.Fatalf("compileRootContentModel() error = %v", err)
 	}
@@ -76,7 +76,7 @@ func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 			cc := newContentModelCompiler(rt.build(), 32, &work, testDependencyWork(), analysis)
-			model, err := cc.compileRootContentModel(id, complexTypeLabel{})
+			model, err := cc.compileRootContentModel(id)
 			if err != nil {
 				t.Fatalf("compileRootContentModel(%d) error = %v", id, err)
 			}
@@ -134,7 +134,7 @@ func TestCompileContentModelExecutesReducedLaxAnyContentWithoutDFA(t *testing.T)
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 			cc := newContentModelCompiler(rt.build(), 32, &work, testDependencyWork(), analysis)
-			model, err := cc.compileRootContentModel(0, complexTypeLabel{})
+			model, err := cc.compileRootContentModel(0)
 			if err != nil {
 				t.Fatalf("compileRootContentModel() error = %v", err)
 			}
@@ -175,7 +175,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	}
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	err = newContentModelUPACheck(rt.build(), 1, &work, testDependencyWork(), analysis).checkModel(0, complexTypeLabel{})
+	err = newContentModelUPACheck(rt.build(), 1, &work, testDependencyWork(), analysis).checkModel(0, namedComplexTypeLabel(name))
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 

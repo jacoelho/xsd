@@ -178,6 +178,7 @@ func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 // compileGroupModel compiles modelNode, the model group of a named group, as
 // the term that every reference to the group names.
 func (c *compiler) compileGroupModel(ctx *schemaSetDocument, modelNode *schemaNode) (contentModelID, error) {
+	defer c.defineModelsFor(noComplexType)()
 	id, _, err := c.compileCompositor(ctx, modelNode, modelTerm)
 	return id, err
 }
@@ -387,7 +388,8 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIn
 		return compiledModelRead{}, err
 	}
 	defer scope.leave(&err)
-	compiled, err := cc.compileRootContentModel(id, c.complexTypeLabel(reached.complexType))
+	typed := cc.forType(c.contentModelLabel(reached))
+	compiled, err := typed.compileRootContentModel(id)
 	if err != nil {
 		return compiledModelRead{}, err
 	}
@@ -428,9 +430,10 @@ type reachedModel struct {
 // model holding them. It visits the complex types' roots in complex-type order and then nested
 // models breadth first, so a limit failure names the first model in that
 // order; only the builtin anyType model's charge has no source and is located
-// set-wide. A model is reported against the complex type of the walk step
-// that first reaches it: the type itself for its root, else the type the
-// model whose particle first reaches it is reported against.
+// set-wide. Each reached model records the complex type of the walk step that
+// first reaches it: the type itself for its root, else the type recorded for
+// the model whose particle first reaches it. contentModelLabel reads it only
+// for a model a named group created.
 func (c *compiler) complexTypeReachableModels() ([]reachedModel, error) {
 	walk := modelReach{
 		reached:      make([]bool, len(c.rt.Models)),
@@ -516,7 +519,18 @@ func (c *compiler) checkModelUPA(upa *contentModelUPACheck, reached reachedModel
 		return err
 	}
 	defer scope.leave(&err)
-	return upa.checkModel(reached.id, c.complexTypeLabel(reached.complexType))
+	return upa.checkModel(reached.id, c.contentModelLabel(reached))
+}
+
+// contentModelLabel names the complex type a violation in the reached model is
+// reported against: the type whose definition created the model, so the
+// message and the location name the same definition, or, for a model a named
+// group created, the type the reachability walk first reaches it from.
+func (c *compiler) contentModelLabel(reached reachedModel) complexTypeLabel {
+	if definer := c.modelDefiners[reached.id]; definer != noComplexType {
+		return c.complexTypeLabel(definer)
+	}
+	return c.complexTypeLabel(reached.complexType)
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
