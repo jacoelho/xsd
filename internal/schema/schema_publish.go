@@ -11,8 +11,9 @@ import (
 // validation program, and seals the result. The caller must provide exclusive
 // access to build for the duration of the call. A rejected build is left
 // unchanged. On success, build is cleared and the returned schema owns all
-// validation-facing storage. The schema copies the compiled content tables
-// and the substitution table over published element IDs but shares their name
+// validation-facing storage. The schema takes the compiled content tables
+// that need no renumbering without copying them, and copies the others and
+// the substitution table over published element IDs while sharing their name
 // indexes with build; other previously retained aliases may be mutated
 // without affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
@@ -64,6 +65,8 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program")
 	}
 	program.Value = valueProgram
+	// Dense conversion rewrites rows that build still shares, so it follows
+	// the last step that can reject the build.
 	dense := defaultDenseIndexBudget()
 	addDenseDFAIndexes(program.CompiledModels, &dense)
 	return program, nil
@@ -125,11 +128,11 @@ type publishedElementReads struct {
 }
 
 func newPublishedElementReads(build *schemaBuild, entered []int) (publishedElementReads, error) {
-	if err := validateReachableHolders(build); err != nil {
-		return publishedElementReads{}, err
-	}
 	elements, err := newPublishedElements(build)
 	if err != nil {
+		return publishedElementReads{}, err
+	}
+	if err = validateReachableHolders(build); err != nil {
 		return publishedElementReads{}, err
 	}
 	models, err := publishedContentModels(build, entered, elements)

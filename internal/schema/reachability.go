@@ -172,14 +172,20 @@ func newPublishedElements(build *schemaBuild) (publishedElements, error) {
 	return publishedElements{ids: ids, count: count}, nil
 }
 
-// id returns the published ID of the declaration build names, and false when
-// build names no declaration or an unreached one.
-func (p publishedElements) id(build ElementID) (ElementID, bool) {
-	if !validElementID(build, len(p.ids)) {
+// id returns the published ID of the declaration buildID names, and false
+// when buildID names no declaration or an unreached one.
+func (p publishedElements) id(buildID ElementID) (ElementID, bool) {
+	if !validElementID(buildID, len(p.ids)) {
 		return NoElement, false
 	}
-	id := p.ids[build]
+	id := p.ids[buildID]
 	return id, validElementID(id, p.count)
+}
+
+// keeps reports whether the declaration buildID names is published under
+// buildID itself, as every declaration below the first unreached one is.
+func (p publishedElements) keeps(buildID ElementID) bool {
+	return validElementID(buildID, len(p.ids)) && p.ids[buildID] == buildID
 }
 
 // publishedElementMaps returns the global element map and the substitution
@@ -234,15 +240,21 @@ func validateReachableElementType(build *schemaBuild, id ElementID) error {
 	return nil
 }
 
-// publishedModel returns a copy of one entered table whose element particles
-// name published IDs, rejecting a particle that names an invalid or unreached
-// declaration. run is the edge run every row's edges are a window of, or nil
-// when each row holds its own edges. The copy shares no particle storage with
-// model, so reading model leaves it unchanged however its rows share edges, and
-// a run is copied once, keeping each row's window of it. The tables of entered
-// models were charged edge by edge when they were projected, and the copy
-// reads each edge, row and xs:all term once, so it charges nothing.
+// publishedModel returns one entered table over published IDs, rejecting a
+// particle that names an invalid or unreached declaration. run is the edge
+// run every row's edges are a window of, or nil when each row holds its own
+// edges. A table that names only declarations the numbering keeps is already
+// over published IDs and is returned as it is, sharing its storage with the
+// build. Any other table is copied: the copy shares no particle storage with
+// model, so reading model leaves it unchanged however its rows share edges,
+// and a run is copied once, keeping each row's window of it. No published
+// table mixes build and published IDs. The tables of entered models were
+// charged edge by edge when they were projected, and this reads each edge,
+// row and xs:all term at most twice, so it charges nothing.
 func (p publishedElements) publishedModel(build *schemaBuild, model compiledModelRead, run []compiledModelEdgeRead) (compiledModelRead, error) {
+	if p.keepsModel(&model, run) {
+		return model, nil
+	}
 	size := len(run)
 	if run == nil {
 		size = rowEdgeCount(model.Rows)
@@ -261,6 +273,59 @@ func (p publishedElements) publishedModel(build *schemaBuild, model compiledMode
 		}
 	}
 	return model, nil
+}
+
+// keepsModel reports whether every row of a run model holds a window of run
+// and every element particle of model names a declaration the numbering
+// keeps.
+func (p publishedElements) keepsModel(model *compiledModelRead, run []compiledModelEdgeRead) bool {
+	if !p.keepsEdges(run) {
+		return false
+	}
+	for i := range model.Rows {
+		row := &model.Rows[i]
+		if !p.keepsRowEdges(row.Edges, run) || row.Counted && !p.keepsParticle(row.CountParticle) {
+			return false
+		}
+	}
+	for _, term := range model.All {
+		if !p.keepsParticle(term.Particle) {
+			return false
+		}
+	}
+	return true
+}
+
+// keepsRowEdges reports whether a row of a run model is a window of run, or
+// whether every particle of another row's edges names a kept declaration.
+func (p publishedElements) keepsRowEdges(row, run []compiledModelEdgeRead) bool {
+	if run != nil {
+		return isRunWindow(row, run)
+	}
+	return p.keepsEdges(row)
+}
+
+func (p publishedElements) keepsEdges(edges []compiledModelEdgeRead) bool {
+	for _, edge := range edges {
+		if !p.keepsParticle(edge.Particle) {
+			return false
+		}
+	}
+	return true
+}
+
+func (p publishedElements) keepsParticle(particle compiledParticleRead) bool {
+	return particle.Kind != particleElement || p.keeps(particle.Element)
+}
+
+// isRunWindow reports whether row is empty or a window of run located by its
+// first edge's target.
+func isRunWindow(row, run []compiledModelEdgeRead) bool {
+	if len(row) == 0 {
+		return true
+	}
+	start := uint64(row[0].To) - 1
+	return row[0].To != 0 && start+uint64(len(row)) <= uint64(len(run)) && &row[0] == &run[start]
 }
 
 // publishedRows returns a copy of rows whose edges are taken from edges, the
@@ -316,10 +381,10 @@ func (p publishedElements) publishedRowEdges(build *schemaBuild, row, edges, run
 		return nil, edges, nil
 	}
 	if run != nil {
-		start := uint64(row[0].To) - 1
-		if row[0].To == 0 || start+uint64(len(row)) > uint64(len(run)) || &row[0] != &run[start] {
+		if !isRunWindow(row, run) {
 			return nil, nil, xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
 		}
+		start := uint64(row[0].To) - 1
 		end := start + uint64(len(row))
 		return edges[start:end:end], edges, nil
 	}

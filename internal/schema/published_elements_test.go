@@ -114,6 +114,14 @@ func TestPublishedElementIDsNameTheDeclarationsTheBuildNamed(t *testing.T) {
 	if !slices.Equal(gotContent, wantContent) {
 		t.Errorf("published content particles name %v, want %v", gotContent, wantContent)
 	}
+	if len(schema.program.GlobalElements) != len(wantGlobals) {
+		t.Errorf("published %d global elements, want %d", len(schema.program.GlobalElements), len(wantGlobals))
+	}
+	for q, want := range wantGlobals {
+		if _, ok := schema.program.GlobalElements[q]; !ok {
+			t.Errorf("published global elements lack %v", want)
+		}
+	}
 	for q, id := range schema.program.GlobalElements {
 		if got := publishedName(id); got != wantGlobals[q] {
 			t.Errorf("published global %v names %v", wantGlobals[q], got)
@@ -129,21 +137,79 @@ func TestPublishedElementIDsNameTheDeclarationsTheBuildNamed(t *testing.T) {
 	}
 }
 
+// wideChoice gives the schema a row of more edges than dense conversion
+// needs, so publication writes dense indexes into the rows it shares.
+const wideChoice = `<xs:element name="wide"><xs:complexType><xs:choice>
+      <xs:element name="w01"/><xs:element name="w02"/><xs:element name="w03"/><xs:element name="w04"/><xs:element name="w05"/>
+      <xs:element name="w06"/><xs:element name="w07"/><xs:element name="w08"/><xs:element name="w09"/><xs:element name="w10"/>
+      <xs:element name="w11"/><xs:element name="w12"/><xs:element name="w13"/><xs:element name="w14"/><xs:element name="w15"/>
+      <xs:element name="w16"/><xs:element name="w17"/><xs:element name="w18"/><xs:element name="w19"/><xs:element name="w20"/>
+    </xs:choice></xs:complexType></xs:element>`
+
 func TestPublicationRejectedWhenSealingValuesLeavesBuildUnchanged(t *testing.T) {
 	t.Parallel()
 
-	schema := fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals)
-	build, want := compiledTestBuild(t, schema), compiledTestBuild(t, schema)
-	for _, b := range []*schemaBuild{build, want} {
-		if _, err := b.valueBuilder.Reserve(); err != nil {
-			t.Fatal(err)
-		}
+	for name, schema := range map[string]string{
+		"every declaration reached": fmt.Sprintf(publishedElementsSchema, "", wideChoice),
+		"unreached declarations":    fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals+wideChoice),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			build, want := compiledTestBuild(t, schema), compiledTestBuild(t, schema)
+			for _, b := range []*schemaBuild{build, want} {
+				if _, err := b.valueBuilder.Reserve(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := publishSchema(build, unlimitedContentModelWork); err == nil || !strings.Contains(err.Error(), "value program metadata is invalid") {
+				t.Fatalf("publishSchema() error = %v, want an incomplete value program rejected when sealed", err)
+			}
+			if !reflect.DeepEqual(build.CompiledContent, want.CompiledContent) || !reflect.DeepEqual(build.Substitutions, want.Substitutions) {
+				t.Fatal("rejected publishSchema() changed the build's content tables or substitution table")
+			}
+		})
 	}
-	if _, err := publishSchema(build, unlimitedContentModelWork); err == nil || !strings.Contains(err.Error(), "value program metadata is invalid") {
-		t.Fatalf("publishSchema() error = %v, want an incomplete value program rejected when sealed", err)
-	}
-	if !reflect.DeepEqual(build.CompiledContent, want.CompiledContent) || !reflect.DeepEqual(build.Substitutions, want.Substitutions) {
-		t.Fatal("rejected publishSchema() changed the build's content tables or substitution table")
+}
+
+func TestPublicationCopiesOnlyTablesNamingRenumberedDeclarations(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name   string
+		schema string
+		shared bool
+	}{
+		{name: "every declaration reached", schema: fmt.Sprintf(publishedElementsSchema, "", ""), shared: true},
+		{name: "every global renumbered", schema: fmt.Sprintf(publishedElementsSchema, unreachedGroup, "")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			build := compiledTestBuild(t, test.schema)
+			var buildRows []*compiledModelRowRead
+			for _, root := range enteredContentForTest(t, build).Models {
+				if rows := build.CompiledContent.Models[root].Rows; len(rows) != 0 {
+					buildRows = append(buildRows, &rows[0])
+				}
+			}
+			schema, err := publishSchema(build, unlimitedContentModelWork)
+			if err != nil {
+				t.Fatalf("publishSchema() error = %v", err)
+			}
+			var published []*compiledModelRowRead
+			for i := range schema.program.CompiledModels {
+				if rows := schema.program.CompiledModels[i].Rows; len(rows) != 0 {
+					published = append(published, &rows[0])
+				}
+			}
+			if len(published) != len(buildRows) || len(published) == 0 {
+				t.Fatalf("published %d tables with rows, want %d and at least one", len(published), len(buildRows))
+			}
+			for i := range published {
+				if shared := published[i] == buildRows[i]; shared != test.shared {
+					t.Errorf("published table %d shares the build's rows = %v, want %v", i, shared, test.shared)
+				}
+			}
+		})
 	}
 }
 
@@ -238,6 +304,10 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 		corrupt func(*testing.T, *schemaBuild)
 		message string
 	}{
+		{name: "reachability shorter than the declarations", message: "element reachability does not cover the element declarations", corrupt: func(t *testing.T, build *schemaBuild) {
+			t.Helper()
+			build.ReachableElements = build.ReachableElements[:len(build.ReachableElements)-1]
+		}},
 		{name: "global element unreached", message: "global element declaration has no published ID", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			build.ReachableElements[build.GlobalElements[mustBuildQName(t, build, "other")]] = false

@@ -41,9 +41,9 @@ func testIndexedModels(rt *schemaBuild, models ...compiledModel) []compiledModel
 	return reads
 }
 
-// testPublishedReads returns every model of a compiled table as publication
-// holds it when each element declaration keeps its ID, without the dense
-// indexes publication adds.
+// testPublishedReads returns every model of a compiled table in published
+// form, sharing its tables as publication does when every element
+// declaration keeps its ID, without the dense indexes publication adds.
 func testPublishedReads(models ...compiledModelRead) []compiledModelRead {
 	return slices.Clone(models)
 }
