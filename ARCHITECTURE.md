@@ -197,9 +197,9 @@ schema owns facet admission, final constraints and schema-use policy.
 `MaxSchemaDependencySteps` bounds loading, planning and resolution;
 `MaxContentModelAnalysisSteps` bounds the content-model work `workBudgetKind`
 lists, and through that work the heap that automaton
-construction uses (derived row-edge bound and measured heap in
-[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md); derivation in the Go doc of
-`deterministicRow`). That bound is per content model. `MaxSchemaDependencySteps`
+construction uses (derived bounds for row edges, state keys and counter
+vectors, and measured heap, in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md);
+derivations in the Go docs of `deterministicRow` and `dfaCounterVectors`). That bound is per content model. `MaxSchemaDependencySteps`
 bounds the compiled tables retained across models (per-step bound in
 [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): `contentModelCompiler` charges
 each model record, row, edge and `xs:all` term before allocating it, and
@@ -208,7 +208,8 @@ rows are windows of one edge run (`compiledModel.Run`) and share one index of
 the run (`publishedDFARun`), so its tables grow linearly with its particles.
 `compileContentModels` keeps only the published form (`compiledModelRead`) of
 each complex type's root model, indexed in the model's scope, and the kind of
-every other reached model; publication takes those tables without copying
+every other reached model, whose rows are still charged because its Unique
+Particle Attribution check reads them; publication takes those tables without copying
 them; `sealSchemaProgram` adds dense indexes, which rewrite rows the build
 shares, only after the last step that can reject the build. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
@@ -271,7 +272,11 @@ content model. `validateEmptyContentRestriction` owns Derivation Valid
 projection owns language-preserving reduction without copying: direct
 compilation walks the execution particles (`executionParticles`), which splice
 every 1..1 child group of the same compositor in place, charging one step per
-particle visited and stopping when compilation stops, and `executionModel`
+particle visited and stopping when compilation stops; `compileDirectModel`
+walks them once to decide that direct compilation applies and to hold its rows
+to `MaxContentModelStates`, and builds the table in a second walk under a
+budget of exactly the steps the first spent, so no row is built or charged for
+a model automaton construction compiles; `executionModel`
 lifts a model whose walk yields one particle, as `executionParticle` reduces
 it, and otherwise hands the declared model to automaton construction, which
 walks nested groups as declared; `executionParticle` reduces singleton
@@ -1064,7 +1069,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
 | `internal/schema/wildcard_work_external_test.go` with `internal/schema/wildcard_test.go` | The external test compiles interleaved namespace lists of 511 to 1,024 namespaces and requires at least 256 more steps of the owning budget when the lists are compared than when they are held apart, for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction. `TestWildcardSetOperationsChargeEveryNamespaceVisited` requires each set operation to charge at least its visit count on lists of unequal length: overlap and intersection the shorter in-range run, subset the subset list, union both lists, intersection with `##other` the finite list, equality the list. Neither covers a consumer that passes a budget that does not charge, attribute-wildcard union through compilation, or sequence wildcard equivalence |
-| `TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry` in `internal/schema/content_table_budget_external_test.go`, `TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms` in `internal/schema/content_compile_budget_test.go` and `TestRunIndexedRowsDispatchAsLinearScan` in `internal/schema/content_run_index_test.go` | A compiled model needs exactly two steps for its record plus one per row, edge and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, with and without repeated names, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edges, `xs:all` terms and name-index entries of the two tables, so a direct sequence's index grows with its names, not its rows. Every row that shares a run index dispatches every input as a linear scan of its edges does. It does not cover a direct compilation that automaton construction replaces |
+| `TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry` in `internal/schema/content_table_budget_external_test.go`, `TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms` in `internal/schema/content_compile_budget_test.go` and `TestRunIndexedRowsDispatchAsLinearScan` in `internal/schema/content_run_index_test.go` | A compiled model needs exactly two steps for its record plus one per row, edge and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, with and without repeated names, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edges, `xs:all` terms and name-index entries of the two tables, so a direct sequence's index grows with its names, not its rows. Every row that shares a run index dispatches every input as a linear scan of its edges does. `TestCompileRootContentModelChargesOnlyAutomatonTablesWhenDirectCompilationDoesNotApply` requires a sequence or choice holding a group that direct compilation cannot splice to need exactly the records of its automaton table, and `TestCompileDirectModelChargesOnlyItsWalkForAModelItDeclines` requires direct compilation to decline it within the steps of its walk and no `MaxSchemaDependencySteps` |
 | `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the functions it lists, each with the owner that charges the particles it reads. A new function that reads a particle list fails it, whether it selects the field or uses a parameter the list reaches through static in-package calls, and so does a listed function that no longer exists or reads no particle list. It does not catch an uncharged loop added inside a listed function, a list passed through interface method dispatch, a function value, a variadic parameter or an ellipsis, a reader nested inside a package-level initializer, a list stored or returned and read by another function, or a list derived from the particles |
 | `tests/content_model_compile_work_test.go` with `tests/internal/compilework` | Pins the fix that keeps the mapping search of `findMappedGroupParticle`, when a sequence restricts an all group, to the unmapped base particles it charges: the statements of `internal/schema` per charged step of an added restriction may grow by at most 1.4 when the group grows from 128 to 2048 particles. It does not see a skip in a for-clause condition or post statement, inside a library or builtin call, or in another package, and measures only compilations that succeed |
 | `tests/attribute_use_audit_work_test.go` with `tests/internal/compilework` | Pins the publication audit of a derived attribute-use set to index lookups: the statements of `internal/schema` per charged step of an added extension, or of an added restriction redeclaring every base attribute, may grow by at most 1.4 when the base grows from 128 to 2048 attributes. It has the measurement limits of the row above |
@@ -1298,6 +1303,11 @@ graph preserves these ownership rules:
   rejected because it moves existing schemas toward or past
   `MaxContentModelAnalysisSteps`; a separate memory option was rejected because
   the analysis budget expresses the bound once each step admits bounded state.
+  Building direct rows while deciding whether direct compilation applies was
+  rejected: a sequence or choice that holds a group it cannot splice was
+  charged `MaxSchemaDependencySteps` for rows it discarded, and spent work is
+  never refunded. Collecting the walk's particles for the build was rejected
+  as the flat list above; the build repeats the walk instead.
   Charging `len(Particles)` at `addModel` was rejected because the main path
   installs particles through `completeModel`, and shared variants would be
   charged for copies that do not happen. Cloning content models on read was

@@ -83,11 +83,14 @@ type cachedID struct {
 // a compiled table to retained before allocating it: two units per compiled
 // model, whose record the compiled table and the published table both hold,
 // and one per row, edge and xs:all term. The rows of a direct sequence share
-// one run of edges, so each of its edges counts once. A model's rows and edges
-// are its published ones, so the charge also bounds the tables publication
-// keeps. typeLabel names the complex type a Unique Particle Attribution
-// violation is reported against; forType sets it on a copy made for one
-// model.
+// one run of edges, so each of its edges counts once. A root model's rows and
+// edges are its published ones, so the charge also bounds the tables
+// publication keeps. A nested model that compileContentModels compiles on its
+// own keeps no table but is charged for its rows and edges all the same: its
+// Unique Particle Attribution check and determinization read them while it
+// compiles, so this over-count is intended. typeLabel names the complex type a
+// Unique Particle Attribution violation is reported against; forType sets it
+// on a copy made for one model.
 type contentModelCompiler struct {
 	rt                    *schemaBuild
 	work                  *workBudget
@@ -842,39 +845,97 @@ func (c *contentModelCompiler) executionSingleton(p contentParticle) (contentPar
 	return child, true, nil
 }
 
+// compileDirectModel compiles a 1..1 sequence or choice whose execution
+// particles are all elements and wildcards to a table without automaton
+// construction. It walks the particles to decide that before it builds or
+// charges a row, so a model that automaton construction compiles instead
+// keeps no direct rows and spends no MaxSchemaDependencySteps on them. The
+// build walks the particles again under a budget of exactly the steps the
+// first walk spent, which the second walk, the same traversal, cannot exceed.
 func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compiledModel, bool, error) {
-	if !model.Occurs.IsExactlyOne() {
+	if !model.Occurs.IsExactlyOne() || (model.Kind != modelSequence && model.Kind != modelChoice) {
 		return compiledModel{}, false, nil
 	}
-	switch model.Kind {
-	case modelSequence:
-		return c.compileDirectSequenceModel(model)
-	case modelChoice:
-		return c.compileDirectChoiceModel(model)
-	case modelEmpty, modelAll:
-		return compiledModel{}, false, nil
-	default:
-	}
-	return compiledModel{}, false, nil
-}
-
-func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode) (compiledModel, bool, error) {
-	if err := c.retained.spend(1); err != nil {
+	before := c.work.remaining
+	supported, err := c.directModelSupported(model)
+	if err != nil || !supported {
 		return compiledModel{}, false, err
 	}
-	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, spans: []directSequenceSpan{{}}}
-	supported := true
-	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
-		var err error
-		supported, err = compilation.addParticle(particle)
-		return supported, err
+	walk := *c
+	walkBudget := newWorkBudget(contentModelWorkBudget, before-c.work.remaining)
+	walk.work = &walkBudget
+	var compiled compiledModel
+	if model.Kind == modelSequence {
+		compiled, err = c.compileDirectSequenceModel(model, &walk)
+	} else {
+		compiled, err = c.compileDirectChoiceModel(model, &walk)
+	}
+	return compiled, err == nil, err
+}
+
+// directParticles passes each execution particle of model, as
+// executionParticle reduces it, to add.
+func (c *contentModelCompiler) directParticles(model contentModelNode, add func(contentParticle) error) error {
+	return c.executionParticles(model, func(particle contentParticle) (bool, error) {
+		particle, err := c.executionParticle(particle)
+		if err != nil {
+			return false, err
+		}
+		return true, add(particle)
 	})
-	if err != nil || !supported {
-		return compiledModel{}, supported, err
+}
+
+// directModelSupported reports whether every execution particle of model is an
+// element or wildcard. It rejects a model whose direct table would exceed
+// MaxContentModelStates at the particle that would add the excess row.
+func (c *contentModelCompiler) directModelSupported(model contentModelNode) (bool, error) {
+	admission := directModelAdmission{compiler: c, rows: 1, supported: true}
+	err := c.executionParticles(model, admission.admit)
+	return admission.supported, err
+}
+
+// directModelAdmission counts the rows a direct table would hold while
+// directModelSupported walks a model.
+type directModelAdmission struct {
+	compiler  *contentModelCompiler
+	rows      int
+	supported bool
+}
+
+func (a *directModelAdmission) admit(particle contentParticle) (bool, error) {
+	c := a.compiler
+	if err := c.work.spend(1); err != nil {
+		return false, err
+	}
+	particle, err := c.executionParticle(particle)
+	if err != nil {
+		return false, err
+	}
+	if particle.Kind != particleElement && particle.Kind != particleWildcard {
+		a.supported = false
+		return false, nil
+	}
+	if particle.Occurs.IsAbsent() {
+		return true, nil
+	}
+	if a.rows >= c.maxContentModelStates {
+		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+	}
+	a.rows++
+	return true, nil
+}
+
+func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode, walk *contentModelCompiler) (compiledModel, error) {
+	if err := c.retained.spend(1); err != nil {
+		return compiledModel{}, err
+	}
+	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, spans: []directSequenceSpan{{}}}
+	if err := walk.directParticles(model, compilation.addParticle); err != nil {
+		return compiledModel{}, err
 	}
 	rows := compilation.table()
 	if err := c.checkCompiledRowsUPA(rows); err != nil {
-		return compiledModel{}, false, err
+		return compiledModel{}, err
 	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
@@ -882,7 +943,7 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 		Run:   slices.Clip(compilation.edges),
 		Start: 0,
 		Empty: rows[0].Accept,
-	}, true, nil
+	}, nil
 }
 
 // directSequenceCompilation compiles a sequence of element and wildcard
@@ -904,27 +965,15 @@ type directSequenceSpan struct {
 	start, end int
 }
 
-func (b *directSequenceCompilation) addParticle(particle contentParticle) (bool, error) {
-	if err := b.compiler.work.spend(1); err != nil {
-		return false, err
-	}
-	var err error
-	particle, err = b.compiler.executionParticle(particle)
-	if err != nil {
-		return false, err
-	}
-
-	if particle.Kind != particleElement && particle.Kind != particleWildcard {
-		return false, nil
-	}
+func (b *directSequenceCompilation) addParticle(particle contentParticle) error {
 	if particle.Occurs.IsAbsent() {
-		return true, nil
+		return nil
 	}
 	row := compiledModelRow{}
 	if !particle.Occurs.IsExactlyOne() {
 		row = compiledParticleRow(singleParticle(particle), particle.Occurs, compiledRowReject)
 	}
-	return true, b.addEdge(particle, row)
+	return b.addEdge(particle, row)
 }
 
 func (b *directSequenceCompilation) addEdge(particle contentParticle, row compiledModelRow) error {
@@ -980,29 +1029,23 @@ func (b *directSequenceCompilation) table() []compiledModelRow {
 	return b.rows
 }
 
-func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode) (compiledModel, bool, error) {
+func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode, walk *contentModelCompiler) (compiledModel, error) {
 	if err := c.retained.spend(1); err != nil {
-		return compiledModel{}, false, err
+		return compiledModel{}, err
 	}
 	compilation := directChoiceCompilation{compiler: c, rows: []compiledModelRow{{}}}
-	supported := true
-	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
-		var err error
-		supported, err = compilation.addParticle(particle)
-		return supported, err
-	})
-	if err != nil || !supported {
-		return compiledModel{}, supported, err
+	if err := walk.directParticles(model, compilation.addParticle); err != nil {
+		return compiledModel{}, err
 	}
 	if err := c.checkCompiledRowsUPA(compilation.rows); err != nil {
-		return compiledModel{}, false, err
+		return compiledModel{}, err
 	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
 		Rows:  compilation.rows,
 		Start: 0,
 		Empty: compilation.rows[0].Accept,
-	}, true, nil
+	}, nil
 }
 
 type directChoiceCompilation struct {
@@ -1010,32 +1053,20 @@ type directChoiceCompilation struct {
 	rows     []compiledModelRow
 }
 
-func (b *directChoiceCompilation) addParticle(particle contentParticle) (bool, error) {
-	if err := b.compiler.work.spend(1); err != nil {
-		return false, err
-	}
-	var err error
-	particle, err = b.compiler.executionParticle(particle)
-	if err != nil {
-		return false, err
-	}
-
-	if particle.Kind != particleElement && particle.Kind != particleWildcard {
-		return false, nil
-	}
+func (b *directChoiceCompilation) addParticle(particle contentParticle) error {
 	if particle.Occurs.IsAbsent() {
 		b.rows[0].Accept = true
-		return true, nil
+		return nil
 	}
 	if particle.Occurs.Min == 0 {
 		b.rows[0].Accept = true
 	}
 	to, err := checkedSchemaUint32(len(b.rows), "content model DFA state limit exceeded")
 	if err != nil {
-		return false, err
+		return err
 	}
 	edge := compiledModelEdge{Particle: singleParticle(particle), To: to}
-	return true, b.appendParticleRow(particle, edge)
+	return b.appendParticleRow(particle, edge)
 }
 
 func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, edge compiledModelEdge) error {
@@ -1063,10 +1094,9 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 	return nil
 }
 
+// appendCompiledModelRow appends a row of a direct table, whose row count
+// directModelSupported has held to MaxContentModelStates.
 func (c *contentModelCompiler) appendCompiledModelRow(rows []compiledModelRow, row compiledModelRow) ([]compiledModelRow, error) {
-	if len(rows) >= c.maxContentModelStates {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
-	}
 	if err := c.retained.spend(1); err != nil {
 		return nil, err
 	}
