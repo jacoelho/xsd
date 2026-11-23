@@ -101,19 +101,19 @@ func upaOverlapSuffix(rt *schemaBuild, overlap particleOverlap) string {
 	return ""
 }
 
-// upaOverlapsOnMember reports whether the common name is not the declaration
-// name of an element particle in the pair, so it came from a substitution
-// group.
+// upaOverlapsOnMember reports whether the common name is the declaration name
+// of neither particle, so the message does not already show it: it came from
+// a substitution group.
 func upaOverlapsOnMember(rt *schemaBuild, overlap particleOverlap) bool {
 	for _, particle := range [2]contentParticle{overlap.left, overlap.right} {
 		if particle.Kind != particleElement {
 			continue
 		}
-		if name, _ := rt.ElementName(particle.Element); name != overlap.name {
-			return true
+		if name, _ := rt.ElementName(particle.Element); name == overlap.name {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func upaWildcardOverlapSuffix(names *nameTable, a, b wildcardRuntime) string {

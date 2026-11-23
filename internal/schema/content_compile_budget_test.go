@@ -71,7 +71,7 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 			upa := newContentModelUPACheck(rt.build(), 4, &work, testDependencyWork(), analysis)
 			var err error
 			for id := range contentModelID(4) {
-				if err = upa.checkModel(id, complexTypeLabel{}); err != nil {
+				if err = upa.checkModel(id, namedComplexTypeLabel(QName{})); err != nil {
 					break
 				}
 			}
@@ -93,7 +93,7 @@ func checkUPAWithin(t *testing.T, models map[contentModelID]contentModelNode, ro
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
 	upa := newContentModelUPACheck(rt.build(), len(models), &work, testDependencyWork(), analysis)
 	for _, id := range roots {
-		if err := upa.checkModel(id, complexTypeLabel{}); err != nil {
+		if err := upa.checkModel(id, namedComplexTypeLabel(QName{})); err != nil {
 			return work.limit - work.remaining, err
 		}
 	}

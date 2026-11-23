@@ -388,7 +388,7 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIn
 		return compiledModelRead{}, err
 	}
 	defer scope.leave(&err)
-	typed := cc.forType(c.contentModelLabel(reached))
+	typed := cc.forType(c.complexTypeLabel(reached.complexType))
 	compiled, err := typed.compileRootContentModel(id)
 	if err != nil {
 		return compiledModelRead{}, err
@@ -430,14 +430,16 @@ type reachedModel struct {
 // model holding them. It visits the complex types' roots in complex-type order and then nested
 // models breadth first, so a limit failure names the first model in that
 // order; only the builtin anyType model's charge has no source and is located
-// set-wide. Each reached model records the complex type of the walk step that
-// first reaches it: the type itself for its root, else the type recorded for
-// the model whose particle first reaches it. contentModelLabel reads it only
-// for a model a named group created.
+// set-wide. Each reached model records the complex type a violation in it is
+// reported against: the type whose definition created it (modelDefiners), so
+// the message and the location name the same definition; a model a named
+// group created takes the type recorded for the model whose particle first
+// reaches it, and a root no definition created takes its own type.
 func (c *compiler) complexTypeReachableModels() ([]reachedModel, error) {
 	walk := modelReach{
 		reached:      make([]bool, len(c.rt.Models)),
 		complexTypes: make([]ComplexTypeID, len(c.rt.Models)),
+		definers:     c.modelDefiners,
 		queue:        make([]contentModelID, 0, len(c.rt.ComplexTypes)),
 	}
 	for i := range c.rt.ComplexTypes {
@@ -471,10 +473,12 @@ func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err
 
 // modelReach is a breadth-first walk over the content models. queue holds
 // each reached model once, in visit order, and complexTypes the complex type
-// each reached model is reported against.
+// each reached model is reported against. definers is the compiler's
+// modelDefiners, read only.
 type modelReach struct {
 	reached      []bool
 	complexTypes []ComplexTypeID
+	definers     []ComplexTypeID
 	queue        []contentModelID
 }
 
@@ -489,13 +493,18 @@ func (r *modelReach) ids() []reachedModel {
 	return ids
 }
 
-func (r *modelReach) reach(id contentModelID, complexType ComplexTypeID) error {
+// reach records id, reported against its definer or, for a model no type
+// definition created, against reachedFrom.
+func (r *modelReach) reach(id contentModelID, reachedFrom ComplexTypeID) error {
 	if !validContentModelID(id, len(r.reached)) {
 		return xsderrors.InternalInvariant("content model reachability references missing content model")
 	}
 	if !r.reached[id] {
 		r.reached[id] = true
-		r.complexTypes[id] = complexType
+		r.complexTypes[id] = reachedFrom
+		if definer := r.definers[id]; definer != noComplexType {
+			r.complexTypes[id] = definer
+		}
 		r.queue = append(r.queue, id)
 	}
 	return nil
@@ -519,18 +528,7 @@ func (c *compiler) checkModelUPA(upa *contentModelUPACheck, reached reachedModel
 		return err
 	}
 	defer scope.leave(&err)
-	return upa.checkModel(reached.id, c.contentModelLabel(reached))
-}
-
-// contentModelLabel names the complex type a violation in the reached model is
-// reported against: the type whose definition created the model, so the
-// message and the location name the same definition, or, for a model a named
-// group created, the type the reachability walk first reaches it from.
-func (c *compiler) contentModelLabel(reached reachedModel) complexTypeLabel {
-	if definer := c.modelDefiners[reached.id]; definer != noComplexType {
-		return c.complexTypeLabel(definer)
-	}
-	return c.complexTypeLabel(reached.complexType)
+	return upa.checkModel(reached.id, c.complexTypeLabel(reached.complexType))
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {

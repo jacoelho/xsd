@@ -98,7 +98,7 @@ func TestUPADiagnosticNamesTheComplexTypeAndBothParticles(t *testing.T) {
 		{
 			name:   "substitution group head and member",
 			schema: `<xs:element name="head"/><xs:element name="member" substitutionGroup="t:head"/><xs:complexType name="T"><xs:choice><xs:element ref="t:head"/><xs:element ref="t:member"/></xs:choice></xs:complexType>`,
-			want:   `UPA violation in complex type "{urn:t}T": element "{urn:t}head" and element "{urn:t}member" overlap on substitution group member "{urn:t}member"`,
+			want:   `UPA violation in complex type "{urn:t}T": element "{urn:t}head" and element "{urn:t}member" overlap`,
 		},
 		{
 			name:   "substitution group head and wildcard accepting the head",
@@ -121,6 +121,10 @@ func TestUPADiagnosticNamesTheTypeWhoseDefinitionHoldsTheViolation(t *testing.T)
 
 	const base = `<xs:complexType name="B"><xs:choice><xs:element name="a"/><xs:sequence><xs:element name="a"/></xs:sequence></xs:choice></xs:complexType>`
 	const emptyExtension = `<xs:complexType name="A"><xs:complexContent><xs:extension base="t:B"/></xs:complexContent></xs:complexType>`
+	const group = `<xs:group name="G"><xs:choice><xs:element name="a"/><xs:sequence><xs:element name="a"/></xs:sequence></xs:choice></xs:group>`
+	const groupBase = `<xs:complexType name="B"><xs:sequence><xs:group ref="t:G"/></xs:sequence></xs:complexType>`
+	const chainedGroup = `<xs:group name="G2"><xs:choice><xs:element name="a"/><xs:sequence><xs:element name="a"/></xs:sequence></xs:choice></xs:group>`
+	const chainBase = `<xs:complexType name="B"><xs:sequence><xs:element name="x"/><xs:group ref="t:G1"/></xs:sequence></xs:complexType>`
 	const want = `UPA violation in complex type "{urn:t}B": element "{urn:t}a" and element "{urn:t}a" overlap`
 	for _, test := range []struct {
 		name   string
@@ -128,6 +132,9 @@ func TestUPADiagnosticNamesTheTypeWhoseDefinitionHoldsTheViolation(t *testing.T)
 	}{
 		{name: "empty extension declared after its base", schema: base + emptyExtension},
 		{name: "empty extension declared before its base", schema: emptyExtension + base},
+		{name: "group under an empty extension declared after its base", schema: groupBase + emptyExtension + group},
+		{name: "group under an empty extension declared before its base", schema: emptyExtension + group + groupBase},
+		{name: "nested group chain under an empty extension", schema: emptyExtension + `<xs:group name="G1"><xs:sequence><xs:group ref="t:G2"/></xs:sequence></xs:group>` + chainBase + chainedGroup},
 		{name: "anonymous type referencing the base first", schema: `<xs:complexType name="C"><xs:sequence><xs:element name="e"><xs:complexType><xs:complexContent><xs:extension base="t:B"/></xs:complexContent></xs:complexType></xs:element></xs:sequence></xs:complexType>` + base},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -208,7 +208,7 @@ func TestCheckContentModelsUPARejectsCorruptRuntimeSplitInputs(t *testing.T) {
 			rt := compiledModelFixture{models: tt.models}
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			err := newContentModelUPACheck(rt.build(), tt.visited, &work, testDependencyWork(), analysis).checkModel(0, complexTypeLabel{})
+			err := newContentModelUPACheck(rt.build(), tt.visited, &work, testDependencyWork(), analysis).checkModel(0, namedComplexTypeLabel(QName{}))
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
