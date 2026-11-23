@@ -5,6 +5,8 @@ import (
 	"errors"
 	"math"
 	"slices"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // substitutionCycleError reports a cyclic substitution group rooted at Element.
@@ -34,8 +36,10 @@ var (
 	errSubstitutionMemberTypeExcludedDerivation = errors.New("substitution member type uses excluded derivation")
 )
 
-// substitutionTable is the immutable substitution-group projection shared by
-// compilation and published validation. Its slices are intentionally private.
+// substitutionTable is the substitution-group projection. Compilation reads
+// it over build element IDs, and publication projects it over published
+// element IDs (published); it is not changed otherwise. Its slices are
+// intentionally private.
 // Each head's span of entries is in name-ID order for lookup; byName holds the
 // same span's entry positions in expanded-name order (namespace URI, then
 // local name), the order of every check that stops at its first failure and of
@@ -194,6 +198,44 @@ func rankSubstitutionMembers(entries []substitutionEntry, compareNames func(a, b
 		rank[entry.member] = uint32(i)
 	}
 	return ranked, rank
+}
+
+// published returns the table over published element IDs, with its own
+// spans but sharing entries and byName with t. Every head and member is a
+// global declaration, which is reached, so each has a published ID unless the
+// build is corrupt. The entries keep naming build IDs until rewriteMembers,
+// which publication runs once nothing can reject the build. The numbering is
+// monotone, so each span keeps its order.
+func (t substitutionTable) published(elements publishedElements) (substitutionTable, error) {
+	if len(t.spans) == 0 {
+		return t, nil
+	}
+	if len(t.spans) != len(elements.ids) {
+		return substitutionTable{}, xsderrors.InternalInvariant("substitution table does not cover the element declarations")
+	}
+	spans := make([]substitutionSpan, elements.count)
+	for head, span := range t.spans {
+		id, ok := elements.id(ElementID(head)) // #nosec G115 -- spans is an element-declaration table.
+		if ok {
+			spans[id] = span
+		} else if span.count != 0 {
+			return substitutionTable{}, xsderrors.InternalInvariant("substitution head has no published ID")
+		}
+	}
+	for _, entry := range t.entries {
+		if _, ok := elements.id(entry.member); !ok {
+			return substitutionTable{}, xsderrors.InternalInvariant("substitution member has no published ID")
+		}
+	}
+	return substitutionTable{spans: spans, entries: t.entries, byName: t.byName}, nil
+}
+
+// rewriteMembers rewrites the members of the entries of a table published
+// returned from build to published IDs, in place.
+func (t substitutionTable) rewriteMembers(elements publishedElements) {
+	for i := range t.entries {
+		t.entries[i].member = elements.ids[t.entries[i].member]
+	}
 }
 
 // forEachEntryByName iterates head's raw transitive entries in expanded-name

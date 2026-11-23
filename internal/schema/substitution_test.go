@@ -336,12 +336,14 @@ func TestNewSchemaRuntimeSharesImmutableSubstitutionTable(t *testing.T) {
 		compareQName,
 	)
 	build := schemaBuild{
-		Substitutions:    table,
-		ComplexTypes:     []complexTypeMetadata{{Derivation: derivationKindNone}},
-		AttributeUseSets: []attributeUseSet{{}},
-		CompiledContent:  compiledContent{Sources: []contentModelID{0}, Models: []compiledModelRead{{}}, Runs: [][]compiledModelEdgeRead{nil}},
+		Substitutions:     table,
+		Elements:          make([]elementDecl, 2),
+		ReachableElements: []bool{true, true},
+		ComplexTypes:      []complexTypeMetadata{{Derivation: derivationKindNone}},
+		AttributeUseSets:  []attributeUseSet{{}},
+		CompiledContent:   compiledContent{Sources: []contentModelID{0}, Models: []compiledModelRead{{}}, Runs: [][]compiledModelEdgeRead{nil}},
 	}
-	reads, err := newSchemaProgram(&build, unlimitedContentModelWork)
+	reads, _, err := newSchemaProgram(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaProgram() error = %v", err)
 	}

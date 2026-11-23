@@ -303,12 +303,20 @@ what is detached: an instance names only global components (root, `xsi:type`,
 wildcard, substitution member), so a complex type or identity constraint no
 walk from them reaches is never assessed. `detachUnreachableComponents` owns
 that decision and charges no budget, because it reads only models
-`complexTypeReachableModels` already charged; element declarations and simple
-types it does not reach are kept. Publication keeps a detached type's ID and
-derivation record and a detached constraint's ID for keyref `refer` and
-diagnostics, but no content model, attribute uses or evaluation program, and
-`validateReachableHolders` and `validatePublishedIdentityConstraints` reject
-a published holder that names a detached or unreached component. Unique
+`complexTypeReachableModels` already charged; simple types it does not reach
+are kept. Publication keeps a detached type's ID and derivation record and a
+detached constraint's ID for keyref `refer` and diagnostics, but no content
+model, attribute uses or evaluation program. It publishes only reached
+element declarations, numbered densely in declaration order
+(`publishedElements`), and every published holder of an element ID (the
+global element map, the substitution table and the compiled content tables)
+names that numbering, the only element ID space validation sees. The
+numbering is monotone, so the substitution table's member order survives it.
+The content tables and substitution entries are shared with the build, so
+their IDs are rewritten in place after the last step that can reject it.
+`validateReachableHolders`, `validatePublishedIdentityConstraints` and the
+substitution and global-map projections reject a published holder that names
+a detached or unreached component, which leaves that rewrite no failure. Unique
 Particle Attribution, restriction and automaton construction still cover
 unreached components, so reachability changes no verdict.
 Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
@@ -1399,9 +1407,15 @@ graph preserves these ownership rules:
   complex types and identity constraints among those definitions, the
   declarations nested in them and the children of a zero-count compositor,
   unless a live type also reaches them, as it does a declaration in a named
-  group that a live type references; it keeps the element declarations and
-  simple types (see `internal/schema`). Treating the whole subtree as absent was rejected:
+  group that a live type references; it keeps the simple types and does not
+  publish the element declarations (see `internal/schema`). Treating the whole subtree as absent was rejected:
   §3.11.2 maps every identity constraint regardless of its parent.
+- Writing published element IDs while the compiled content tables are
+  projected, before publication, was rejected: the name indexes built with
+  them read build IDs against the declarations and the substitution table,
+  the root tables of detached types name declarations that have no published
+  ID, and publication's restriction checks read the substitution table in
+  build IDs, so the build would hold two element ID spaces.
 - Marking detachment lexically, on the definitions nested under a zero-count
   element or compositor, was rejected: a local element declaration is
   compiled once per source node, so a named group referenced by both a
