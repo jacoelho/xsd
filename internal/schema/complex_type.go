@@ -116,13 +116,12 @@ func (ct complexTypeMetadata) SimpleContent() bool {
 // validateComplexTypeRuntime validates complex-type metadata that can be
 // expressed in runtime vocabulary.
 func validateComplexTypeRuntime(
-	names *nameTable,
 	id ComplexTypeID,
 	ct complexTypeMetadata,
 	models []contentModelNode,
 	limits complexTypeRefLimits,
 ) error {
-	if err := validateComplexTypeShape(names, ct); err != nil {
+	if err := validateComplexTypeShape(ct); err != nil {
 		return err
 	}
 	if err := validateComplexTypeReferences(id, ct, models, limits); err != nil {
@@ -131,10 +130,7 @@ func validateComplexTypeRuntime(
 	return validateComplexTypeContent(ct, models, limits.SimpleTypeCount)
 }
 
-func validateComplexTypeShape(names *nameTable, ct complexTypeMetadata) error {
-	if names == nil || !names.ValidQName(ct.Name) {
-		return errors.New("complex type references invalid name")
-	}
+func validateComplexTypeShape(ct complexTypeMetadata) error {
 	if !validContentKind(ct.ContentKind) {
 		return errors.New("complex type has invalid content kind")
 	}

@@ -90,19 +90,12 @@ func validateElementBuildOwnership(build *schemaBuild) error {
 
 func validateSimpleTypeBuildOwnership(build *schemaBuild) error {
 	for i, typ := range build.SimpleTypes {
-		id, bound := build.GlobalTypes[typ.Name]
-		exact := bound && id == SimpleRef(SimpleTypeID(i))
-		switch typ.Scope { //nolint:exhaustive // default rejects invalid and future scope values.
-		case declarationScopeGlobal:
-			if !exact {
-				return xsderrors.InternalInvariant("global simple type is missing its exact name binding")
-			}
-		case declarationScopeNonGlobal:
-			if exact {
-				return xsderrors.InternalInvariant("non-global simple type has a global name binding")
-			}
-		default:
-			return xsderrors.InternalInvariant("simple type declaration scope is invalid")
+		id := SimpleTypeID(i)
+		bound, ok := build.GlobalTypes[typ.Name]
+		unnamed := typ.Name == noQName() || intrinsicNamedSimpleType(id, typ)
+		ownership := typeOwnership{kind: "simple type", scope: typ.Scope, exact: ok && bound == SimpleRef(id), unnamed: unnamed}
+		if err := ownership.validate(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -110,22 +103,53 @@ func validateSimpleTypeBuildOwnership(build *schemaBuild) error {
 
 func validateComplexTypeBuildOwnership(build *schemaBuild) error {
 	for i, typ := range build.ComplexTypes {
-		id, bound := build.GlobalTypes[typ.Name]
-		exact := bound && id == ComplexRef(ComplexTypeID(i))
-		switch typ.Scope { //nolint:exhaustive // default rejects invalid and future scope values.
-		case declarationScopeGlobal:
-			if !exact {
-				return xsderrors.InternalInvariant("global complex type is missing its exact name binding")
-			}
-		case declarationScopeNonGlobal:
-			if exact {
-				return xsderrors.InternalInvariant("non-global complex type has a global name binding")
-			}
-		default:
-			return xsderrors.InternalInvariant("complex type declaration scope is invalid")
+		bound, ok := build.GlobalTypes[typ.Name]
+		ownership := typeOwnership{kind: "complex type", scope: typ.Scope, exact: ok && bound == ComplexRef(ComplexTypeID(i)), unnamed: typ.Name == noQName()}
+		if err := ownership.validate(); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// typeOwnership is what publication knows of one type declaration of kind:
+// its scope, whether the global types bind its name to it exactly, and
+// whether it is unnamed or an admitted named intrinsic.
+type typeOwnership struct {
+	kind    string
+	scope   declarationScope
+	exact   bool
+	unnamed bool
+}
+
+// validate checks that a global type has its exact name binding and that a
+// non-global type has neither a binding nor a name.
+func (o typeOwnership) validate() error {
+	kind := o.kind
+	switch o.scope { //nolint:exhaustive // default rejects invalid and future scope values.
+	case declarationScopeGlobal:
+		if !o.exact {
+			return xsderrors.InternalInvariant("global " + kind + " is missing its exact name binding")
+		}
+	case declarationScopeNonGlobal:
+		if o.exact {
+			return xsderrors.InternalInvariant("non-global " + kind + " has a global name binding")
+		}
+		if !o.unnamed {
+			return xsderrors.InternalInvariant("non-global " + kind + " has a name")
+		}
+	default:
+		return xsderrors.InternalInvariant(kind + " declaration scope is invalid")
+	}
+	return nil
+}
+
+// intrinsicNamedSimpleType reports whether the non-global simple type id is
+// one of the two intrinsics that keep a name: the xsi:schemaLocation list
+// type and the unavailable-type sentinel. validateBuiltinSchemaLocationType
+// and missingSimpleTypeID pin their names.
+func intrinsicNamedSimpleType(id SimpleTypeID, typ simpleType) bool {
+	return id == builtinSchemaLocationTypeID || typ.Missing
 }
 
 // validateDetachedComplexTypesUnused checks that validation cannot reach a
@@ -641,9 +665,6 @@ func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
 }
 
 func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st simpleType) error {
-	if !rt.build.Names.ValidQName(st.Name) {
-		return xsderrors.InternalInvariant("simple type references invalid name")
-	}
 	if !validSimpleFinalMask(st.Final) {
 		return xsderrors.InternalInvariant("simple type final mask contains invalid derivation")
 	}
@@ -661,7 +682,7 @@ func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st simpleType) er
 }
 
 func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct complexTypeMetadata) error {
-	if err := validateComplexTypeRuntime(&build.Names, id, ct, build.Models, complexTypeRefLimits{
+	if err := validateComplexTypeRuntime(id, ct, build.Models, complexTypeRefLimits{
 		SimpleTypeCount:      len(build.SimpleTypes),
 		ComplexTypeCount:     len(build.ComplexTypes),
 		AttributeUseSetCount: len(build.AttributeUseSets),

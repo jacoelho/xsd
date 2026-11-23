@@ -31,8 +31,8 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
 | `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, each row, edge, `xs:all` term and name-index entry of a compiled content-model table, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step; a compiled content model's record costs two. The compiled tables are bounded per step below. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. An extension whose effective content is not empty (Structures §3.4.2) compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types that each add one element exceeds that limit instead, as do 2,000 that each add an empty `xs:choice`. An extension whose effective content is empty, such as one with no model group or an empty `xs:sequence` and not effectively mixed, reuses its base's content model, and 2,000 of them compile at the defaults. |
 | `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
-| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
-| `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
+| `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. Every anonymous type definition is at least one node occurrence, so this limit also bounds the number of anonymous types. |
+| `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. An anonymous type interns no name and is not counted. `0` means no explicit limit. |
 | `MaxFiniteOccurs` | `0` | Max accepted finite `maxOccurs`. `0` uses the runtime `uint32` cap. |
 | `MaxContentModelStates` | `16_384` | Max DFA states per compiled content model. The content model of each complex type is compiled with its nested groups; a named model group that no complex type's content model reaches is not compiled and is not subject to this limit. |
 | `MaxContentModelAnalysisSteps` | `16_777_216` | Max content-model traversal, determinization, and ambiguity-analysis work. Comparing two wildcard namespace lists, for ambiguity or for a wildcard restriction, costs one step per namespace looked up. |
@@ -172,7 +172,7 @@ value constraint and a distinct name therefore retains at most about
 node each at the default node limit, with names of up to seven bytes, are
 bounded at about 250 MiB and measured at about 246 MiB. Text is retained
 about once, at about 1.02 bytes per name or value byte, and a name that many
-components use is interned once. The figures below and in the next paragraph
+components use is interned once; an anonymous type has no name. The figures below and in the next paragraph
 are measured approximations, taken with Go 1.27.3 on darwin/arm64 under the
 default options; no test pins them:
 
@@ -182,12 +182,12 @@ default options; no test pins them:
 | Global element declaration with a default | 1 | about 259 bytes |
 | Global attribute declaration | 1 | about 187 bytes |
 | Named simple type restricting `xs:string` | 2 | about 366 bytes |
-| Local element with an anonymous complex type holding one element | 4 | about 695 bytes |
+| Local element with an anonymous complex type holding one element | 4 | about 631 bytes |
 | Key with its selector and field | 3 | about 470 bytes |
 | Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
-| The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 371 bytes |
-| The same element with an anonymous complex type holding one element | 4 | about 167 bytes |
-| The same element with an anonymous complex type and a key | 7 | about 249 bytes |
+| The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 299 bytes |
+| The same element with an anonymous complex type holding one element | 4 | about 94 bytes |
+| The same element with an anonymous complex type and a key | 7 | about 176 bytes |
 
 In these shapes a node retains at most about 260 bytes plus its text, so
 the records stay under about 250 MiB at the default node limit and the text
@@ -198,8 +198,8 @@ live heap, so the compilation peak, not the retained schema, is the larger
 memory term. An element with `minOccurs` and `maxOccurs` 0 is no declaration
 (Structures §3.3.2) and retains nothing. Its inline complex type and its
 identity constraints are detached: no instance element reaches them. A
-detached complex type keeps its ID, synthetic name and derivation record but
-no content model or attribute uses, and a detached identity constraint keeps
+detached complex type keeps its ID and derivation record but no content model
+or attribute uses, and a detached identity constraint keeps
 its name but no evaluation program or dispatch branch. An anonymous simple
 type under such an element, the declarations nested inside a detached complex
 type, and the children of a zero-count compositor retain as they would

@@ -184,9 +184,9 @@ func (c *compiler) substitutionTableError(err error, elements []elementDecl) err
 		head := elements[membership.Head]
 		diagnostic := substitutionMembershipDiagnostic(membership.Cause, substitutionMembershipLabels{
 			MemberName: c.rt.formatName(member.Name),
-			MemberType: c.rt.TypeLabel(member.Type),
+			MemberType: c.rt.elementTypeLabel(member.Type),
 			HeadName:   c.rt.formatName(head.Name),
-			HeadType:   c.rt.TypeLabel(head.Type),
+			HeadType:   c.rt.elementTypeLabel(head.Type),
 		})
 		return c.atGlobalElement(member.Name, diagnostic)
 	}

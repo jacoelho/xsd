@@ -162,15 +162,6 @@ type Schema struct {
 	program schemaProgram
 }
 
-// TypeName returns a compiler-owned type name.
-func (rt *schemaBuild) TypeName(t TypeID) QName {
-	name, ok := typeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
-	if !ok {
-		panic("invalid runtime type ID")
-	}
-	return name
-}
-
 func (rt *schemaBuild) spendTypeDerivationWork(steps int) error {
 	if rt.typeWork == nil {
 		return nil
@@ -230,7 +221,19 @@ func (rt *schemaBuild) ElementRestriction(id ElementID) (particleRestrictionElem
 	}, true
 }
 
-// TypeLabel formats a compiler-owned type name for diagnostics.
-func (rt *schemaBuild) TypeLabel(t TypeID) string {
-	return rt.Names.Format(rt.TypeName(t))
+// elementTypeLabel names the type t of an element declaration in a
+// diagnostic: a named type by its name, an anonymous type, which has no name,
+// by its variety.
+func (rt *schemaBuild) elementTypeLabel(t TypeID) string {
+	name, ok := typeNameByID(rt.SimpleTypes, rt.ComplexTypes, t)
+	if !ok {
+		panic("invalid runtime type ID")
+	}
+	if name != noQName() {
+		return "type " + rt.Names.Format(name)
+	}
+	if _, simple := t.Simple(); simple {
+		return "local simple type"
+	}
+	return "local complex type"
 }

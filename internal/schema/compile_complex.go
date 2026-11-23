@@ -2,7 +2,6 @@ package schema
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
@@ -69,11 +68,7 @@ func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schema
 	if err := c.spendComponentDependency(n); err != nil {
 		return noComplexType, err
 	}
-	q, err := c.rt.internQName("", fmt.Sprintf("$complex%d", len(c.rt.ComplexTypes)))
-	if err != nil {
-		return noComplexType, err
-	}
-	id, err := c.addComplexType(c.complexTypePlaceholder(q))
+	id, err := c.addComplexType(c.complexTypePlaceholder(noQName()))
 	if err != nil {
 		return noComplexType, err
 	}
@@ -151,7 +146,7 @@ func (c *compiler) complexTypePlaceholder(q QName) complexTypeMetadata {
 }
 
 func (c *compiler) complexTypeCycleError(id ComplexTypeID, use *schemaNode) error {
-	err := schemaComponentCycleError(schemaComponentComplexType, c.rt.formatName(c.rt.ComplexTypes[id].Name))
+	err := xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+c.complexTypeLabel(id).label(&c.rt.Names))
 	if use == nil {
 		use = c.complexDefinitions[id].source.sourceNode()
 	}
@@ -737,12 +732,8 @@ func (c *compiler) compileSimpleContentFacetRestriction(parent *schemaNode, base
 	if err := checkSimpleTypeFinalAllows(c.rt.simpleTypeFinalMask(baseID), DerivationRestriction, simpleTypeFinalBaseRestriction); err != nil {
 		return NoSimpleType, withSchemaCompileLocation(first, err)
 	}
-	q, err := c.rt.internQName("", fmt.Sprintf("$simple%d", len(c.rt.SimpleTypes)))
-	if err != nil {
-		return NoSimpleType, err
-	}
-	st := c.rt.derivedSimpleType(baseID, q)
-	if err = c.compileFacetChildren(parent, &st, baseID); err != nil {
+	st := c.rt.derivedSimpleType(baseID, noQName())
+	if err := c.compileFacetChildren(parent, &st, baseID); err != nil {
 		return NoSimpleType, withSchemaCompileLocation(first, err)
 	}
 	if st.ValueSpec.Variety == valuepkg.Union {

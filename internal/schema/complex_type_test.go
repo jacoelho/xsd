@@ -161,16 +161,6 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 			}(),
 		},
 		{
-			name: "invalid name",
-			id:   1,
-			ct: func() complexTypeMetadata {
-				ct := valid
-				ct.Name = QName{Namespace: 99, Local: 99}
-				return ct
-			}(),
-			wantErr: "complex type references invalid name",
-		},
-		{
 			name: "invalid content kind",
 			id:   1,
 			ct: func() complexTypeMetadata {
@@ -353,7 +343,7 @@ func TestValidateComplexTypeRuntime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateComplexTypeRuntime(&names, tt.id, tt.ct, models, limits)
+			err := validateComplexTypeRuntime(tt.id, tt.ct, models, limits)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("ValidateComplexTypeRuntime() error = %v", err)
