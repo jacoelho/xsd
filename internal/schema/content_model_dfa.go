@@ -29,6 +29,15 @@ const dfaConfigKeyBytes = 8
 
 // dfaCounterVectors interns the counter vectors of one determinization. A
 // vector is stored once however many configurations hold it.
+//
+// A vector of width w is new only when an action changed it, so before intern
+// stores it, collectConfig has charged a step for its source edge and
+// collectEdge w + 1 and at least one per action: at least w + 3 steps. A new
+// vector holds its values, a copy of them as its ids key and an ids entry.
+// With Go 1.27.3 on darwin/arm64 these held at most 67 live bytes, spare
+// slice and map capacity included, at width 1 over 1,024 to 1,048,576 vectors,
+// and fewer per step at widths up to 64, so vectors take at most about 17
+// live bytes per step; fewer than 1,024 vectors held under 600 KiB in all.
 type dfaCounterVectors struct {
 	ids    map[string]dfaCounterVectorID
 	values []uint32
@@ -282,6 +291,17 @@ func (c *deterministicModelCompilation) table() []compiledModelRow {
 // 32,800 bytes, which exceeds the largest size class and rounds up to whole
 // 8 KiB pages. Smaller rows round up by less. Allocated row edges therefore
 // take at most about 13.3 bytes per step.
+//
+// The key of each state this row discovers stays within the same figure. A
+// key is 8 bytes per configuration, at most 10 allocated, and before
+// stateIDNormalized allocates it, each of its configurations has cost a step
+// in collectConfig, one in collectEdge and one in appendTransition's
+// spendDFAConfigs, and its group one more each in deterministicRow and
+// spendDFAConfigs. A group of k configurations therefore holds at most
+// 40 + 10k bytes of edge and key for at least 3k + 2 steps, at most 10 bytes
+// per step, so a finished row stays under the 13.3 of a row in progress. The
+// states map entry and the keys slot of each state are fixed per state, so
+// MaxContentModelStates bounds them.
 func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, stateID func([]dfaConfig) (uint32, error)) (compiledModelRow, error) {
 	var row compiledModelRow
 	c.groups = c.groups[:0]

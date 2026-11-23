@@ -43,6 +43,112 @@ func TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms(t *testing.T) 
 	}
 }
 
+func TestCompileRootContentModelChargesOnlyAutomatonTablesWhenDirectCompilationDoesNotApply(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	for _, test := range []struct {
+		name         string
+		root, nested modelKind
+	}{
+		{name: "sequence of six elements and a choice of two", root: modelSequence, nested: modelChoice},
+		{name: "choice of six elements and a sequence of two", root: modelChoice, nested: modelSequence},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			rt := compiledModelRuntimeFixture(t, test.root)
+			elements := rt.models[0].Particles
+			rt.models[0] = contentModelNode{Kind: test.root, Occurs: one, Particles: append(elements[:6:6], modelParticle(1, one))}
+			rt.models[1] = contentModelNode{Kind: test.nested, Occurs: one, Particles: elements[6:]}
+			compile := func(limit int) (compiledModel, error) {
+				work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+				retained := newWorkBudget(dependencyWorkBudget, limit)
+				analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+				cc := newContentModelCompiler(rt.build(), 32, &work, &retained, analysis)
+				return cc.compileRootContentModel(0)
+			}
+			compiled, err := compile(1_000_000)
+			if err != nil {
+				t.Fatalf("compileRootContentModel() error = %v", err)
+			}
+			want := 2 + len(compiled.Rows)
+			for _, row := range compiled.Rows {
+				want += len(row.Edges)
+			}
+			if _, err = compile(want); err != nil {
+				t.Fatalf("compileRootContentModel() at its table's %d records error = %v", want, err)
+			}
+			_, err = compile(want - 1)
+			expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+		})
+	}
+}
+
+func TestCompileDirectModelDeclinesWithinThreeStepsPerParticleAndNoRetainedSteps(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	optional := occurrence{Min: 0, Max: 1}
+	rt := compiledModelRuntimeFixture(t, modelSequence)
+	elements := rt.models[0].Particles
+	particles := make([]contentParticle, 0, 7)
+	for _, element := range elements[:6] {
+		particles = append(particles, elementParticle(element.Element, optional))
+	}
+	particles = append(particles, modelParticle(1, one))
+	rt.models[0] = contentModelNode{Kind: modelSequence, Occurs: one, Particles: particles}
+	rt.models[1] = contentModelNode{Kind: modelChoice, Occurs: one, Particles: elements[6:]}
+	build := rt.build()
+	work := newWorkBudget(contentModelWorkBudget, 3*len(particles))
+	retained := newWorkBudget(dependencyWorkBudget, 0)
+	analysisWork := newWorkBudget(contentModelWorkBudget, 1_000_000)
+	analysis := mustContentModelAnalysis(t, build, analysisWork.spend)
+	cc := newContentModelCompiler(build, 32, &work, &retained, analysis)
+	_, ok, err := cc.compileDirectModel(build.Models[0])
+	if err != nil || ok {
+		t.Fatalf("compileDirectModel() = (ok %v, error %v), want a decline within %d steps", ok, err, 3*len(particles))
+	}
+}
+
+func TestDirectBuildRejectsWhatItsAdmissionDidNotCount(t *testing.T) {
+	t.Parallel()
+
+	rt := compiledModelRuntimeFixture(t, modelSequence)
+	model := rt.build().Models[0]
+	for _, test := range []struct {
+		name         string
+		walkSteps    int
+		admittedRows int
+	}{
+		{name: "walk longer than admission", walkSteps: 0, admittedRows: 9},
+		{name: "more rows than admission", walkSteps: 1_000_000, admittedRows: 8},
+	} {
+		for _, kind := range []struct {
+			name string
+			kind modelKind
+		}{{"sequence", modelSequence}, {"choice", modelChoice}} {
+			build := rt.build()
+			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+			retained := newWorkBudget(dependencyWorkBudget, 1_000_000)
+			analysis := mustContentModelAnalysis(t, build, work.spend)
+			cc := newContentModelCompiler(build, 32, &work, &retained, analysis)
+			walk := cc
+			walkBudget := newWorkBudget(contentModelWorkBudget, test.walkSteps)
+			walk.work = &walkBudget
+			var err error
+			if kind.kind == modelSequence {
+				_, err = cc.compileDirectSequenceModel(model, &walk, test.admittedRows)
+			} else {
+				_, err = cc.compileDirectChoiceModel(model, &walk, test.admittedRows)
+			}
+			t.Run(test.name+" in a "+kind.name, func(t *testing.T) {
+				t.Parallel()
+				expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			})
+		}
+	}
+}
+
 func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 	t.Parallel()
 

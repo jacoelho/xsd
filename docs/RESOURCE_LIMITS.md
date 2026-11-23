@@ -64,21 +64,42 @@ rounds up by at most about 1.249 (1025 edges: 32,800 bytes rounded to 40,960),
 so the edges take at most about 13.3 allocated bytes per step: under 214 MiB
 when one content model exhausts the default budget of 16,777,216 steps. This
 figure is derived, not measured; the derivation is in the Go doc of `deterministicRow`
-in `internal/schema/content_model_dfa.go`. It covers row edges only. A new
-automaton state also keeps its key, 8 bytes per configuration, and a new
-counter value its interned vector; both grow with the steps too and are
-outside the figure. A model's rows, and the edges of a table compiled
-directly, which holds at most one edge per state, grow with its states, which
-`MaxContentModelStates` caps.
+in `internal/schema/content_model_dfa.go`. It also covers the key of each
+new automaton state, 8 bytes per configuration, because determinization
+charges at least three steps per configuration before allocating it. A new
+counter vector of width w costs at least w + 3 steps before it is interned and
+holds its values, a copy of them as a map key and a map entry, at most about
+17 bytes per step, as the Go doc of `dfaCounterVectors` derives. Each state
+also holds a map entry and a slot of the state list, and a model's rows, and
+the edges of a table compiled directly, which holds at most one edge per
+state, grow with its states, which `MaxContentModelStates` caps.
+
+All of these figures count live heap: the allocator's rounded size of every
+object construction still references, including the spare capacity of its
+slices and maps. Row edges and keys are allocated at their final size, so for
+them live and allocated bytes are the same. Garbage that slice and map growth
+leaves for the collector is not counted, so between collections the process
+heap can exceed the figures. Counter vectors and row edges with keys take at
+most about 31 live bytes per step, under 500 MiB at the default budget. The
+counter-vector and per-state terms are not derived: they are one-off
+measurements with Go 1.27.3 on darwin/arm64, made by a probe outside the
+repository that interned vectors and filled a state index and read
+`runtime.MemStats.HeapAlloc` after two collections. A new vector held at most
+67 bytes at width 1 over 1,024 to 1,048,576 vectors and fewer bytes per step
+at widths up to 64, and fewer than 1,024 vectors held under 600 KiB in all.
+A state's map entry and list slot held at most about 100 bytes, about 1.6 MiB
+at the default 16,384 states. Another toolchain's map and allocator can change
+them.
 
 The figure bounds one content model. `MaxSchemaDependencySteps` bounds the
 compiled tables summed over the content models, which a compiled schema keeps
 for validation. Compilation keeps only the published form of each complex
 type's root model, and charges each record of every model it compiles one step
 before allocating it, including the nested models it compiles on their own and
-keeps no table for: a row, an edge, an `xs:all` term and an entry of a name
-index. The rows of a sequence compiled directly to a table are windows of one
-run of edges, and its rows that take at least eight edges share one name
+keeps no table for, whose rows their Unique Particle Attribution check
+reads: a row, an edge, an `xs:all` term and an entry of a name index. The
+rows of a sequence compiled directly to a table are windows of one run of
+edges, and its rows that take at least eight edges share one name
 index of the run, so a sequence of optional elements holds one edge and about
 one index entry per element, not one per element and row. When the run has
 no wildcards and its names are distinct, share one namespace and span at most
@@ -105,11 +126,11 @@ elements need about 167,000 steps and retain about 2.9 MiB, and the 93
 document schemas of UBL 2.4 compiled together need about 54,000. A choice of
 120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
 with both step limits raised, retains about 60 MiB at its least limit of about
-7.7 million steps, about 8 bytes per step. A sequence or choice that automaton
-construction compiles after direct compilation gives up is charged for the
-rows direct compilation built. While a model compiles, the heap also holds
-that model's construction state, which `MaxContentModelAnalysisSteps` bounds
-as above, and its transient name indexes, so the peak is the retained tables
+7.7 million steps, about 8 bytes per step. Direct compilation decides that it
+applies before it builds a row, so a sequence or choice that automaton
+construction compiles is charged for the automaton's table alone. While a
+model compiles, the heap also holds that model's construction state, which
+`MaxContentModelAnalysisSteps` bounds as above, and its transient name indexes, so the peak is the retained tables
 plus one model's construction. Name indexing also keeps, for the whole
 compilation, the member names of each substitution head an indexed edge
 names, at most the entries `MaxSubstitutionClosureEntries` caps. The dense
