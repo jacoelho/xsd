@@ -25,6 +25,8 @@ func TestParseAndEscape(t *testing.T) {
 		{name: "numeric IPv6 port", raw: "http://[::1]:80/", escaped: "http://[::1]:80/", valid: true, length: 16},
 		{name: "nondigit IPv6 port", raw: "http://[::1]:x/"},
 		{name: "valid IPv6", raw: "http://[::1]/", escaped: "http://[::1]/", valid: true, length: 13},
+		{name: "valid IPv6 eight explicit groups", raw: "http://[1:2:3:4:5:6:7:8]/", escaped: "http://[1:2:3:4:5:6:7:8]/", valid: true, length: 25},
+		{name: "leading compressed IPv6 cannot omit zero groups", raw: "http://[::1:2:3:4:5:6:7:8]/"},
 		{name: "compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4:5:6:7:8::]/"},
 		{name: "empty authority with path", raw: "///", escaped: "///", valid: true, length: 3},
 		{name: "empty authority with query", raw: "//?q", escaped: "//?q", valid: true, length: 4},
@@ -124,6 +126,22 @@ func TestReferenceFragments(t *testing.T) {
 	if ref.HasFragment() || ref.WithoutFragment() != ref {
 		t.Fatal("encoded hash was treated as a fragment")
 	}
+}
+
+func FuzzReferencePartsRoundTrip(f *testing.F) {
+	for _, raw := range []string{"", "http://a", "//?q", "a?", "a#", "a/\u2603", "urn:opaque?query#fragment", "http://[::1]:80/"} {
+		f.Add(raw)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		ref, err := Parse(raw)
+		if err != nil {
+			return
+		}
+		roundTrip, err := compose(ref.Parts())
+		if err != nil || roundTrip.Raw() != raw {
+			t.Fatalf("compose(Parse(%q).Parts()) = %q, %v; want %q", raw, roundTrip.Raw(), err, raw)
+		}
+	})
 }
 
 func TestResolveRFC2396AppendixC(t *testing.T) {
