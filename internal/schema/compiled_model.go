@@ -262,6 +262,11 @@ func (a *dfaRowIndexAnalysis) indexRun(rows []compiledModelRowRead, run []compil
 			size += 1 + int(count)
 		}
 	}
+	if wildcards == 0 && size == 1 {
+		if installed, err := a.indexDenseRun(rows, last, indexable); installed || err != nil {
+			return err
+		}
+	}
 	if err := a.retained.spend(len(counts) + size); err != nil {
 		return err
 	}
@@ -307,6 +312,45 @@ func (a *dfaRowIndexAnalysis) indexRun(rows []compiledModelRowRead, run []compil
 		}
 	}
 	return nil
+}
+
+// indexDenseRun installs a dense index of a run without wildcards whose
+// names, each at its one position, share one namespace and span at most twice
+// as many local name IDs as there are names. Each slot holds a run position
+// plus one, so the index grows with the run's names, as the map would.
+func (a *dfaRowIndexAnalysis) indexDenseRun(rows []compiledModelRowRead, positions map[QName]uint32, indexable func(*compiledModelRowRead) bool) (bool, error) {
+	if len(positions) < 2 {
+		return false, nil
+	}
+	var bounds denseNameBounds
+	first := true
+	for name := range positions {
+		if first {
+			bounds = newDenseNameBounds(name)
+			first = false
+		}
+		bounds.include(name)
+	}
+	span := uint64(bounds.maxLocal) - uint64(bounds.minLocal) + 1
+	if bounds.mixed || span > 2*uint64(len(positions)) {
+		return false, nil
+	}
+	if err := a.retained.spend(int(span) + denseEdgeSlotsOffset); err != nil {
+		return false, err
+	}
+	data := make([]uint32, span+denseEdgeSlotsOffset)
+	data[denseNamespaceOffset] = uint32(bounds.namespace)
+	data[denseMinLocalOffset] = uint32(bounds.minLocal)
+	for name, pos := range positions {
+		data[uint64(name.Local)-uint64(bounds.minLocal)+denseEdgeSlotsOffset] = pos + 1
+	}
+	for i := range rows {
+		if indexable(&rows[i]) {
+			rows[i].index = publishedDFAIndex{data: data}
+			rows[i].indexKind = publishedDFARunDense
+		}
+	}
+	return true, nil
 }
 
 // indexAllTerms installs the name index of a large xs:all model. The index

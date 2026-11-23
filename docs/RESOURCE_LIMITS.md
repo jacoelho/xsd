@@ -80,7 +80,10 @@ keeps no table for: a row, an edge, an `xs:all` term and an entry of a name
 index. The rows of a sequence compiled directly to a table are windows of one
 run of edges, and its rows that take at least eight edges share one name
 index of the run, so a sequence of optional elements holds one edge and about
-one index entry per element, not one per element and row. Other rows own their
+one index entry per element, not one per element and row. When the run's
+names are distinct, share one namespace and span at most twice as many name
+IDs as there are names, the index is a dense array of run positions with one
+entry per slot and two metadata entries. Other rows own their
 edges and name indexes. An index is built before compilation knows that it
 can be installed, so an index that is not installed is transient and never
 charged. A compiled model's own record costs two steps, because publication
@@ -97,7 +100,7 @@ lower the figure. A schema whose content models all share one group of 16,000
 required wildcards, each of its own namespace, compiles at the defaults with
 29 complex types and retains about 44 MiB, about 46 bytes per step; 30 types
 exceed the limit. 800 complex types that each hold a sequence of 40 optional
-elements need about 166,000 steps and retain about 3.5 MiB, and the 93
+elements need about 167,000 steps and retain about 2.9 MiB, and the 93
 document schemas of UBL 2.4 compiled together need about 54,000. A choice of
 120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
 with both step limits raised, retains about 60 MiB at its least limit of about

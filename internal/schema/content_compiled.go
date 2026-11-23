@@ -211,11 +211,14 @@ const (
 	// run and whose index is the run's, shared by the run's other indexed
 	// rows (dfaRowIndexAnalysis.indexRun).
 	publishedDFARun
+	// publishedDFARunDense is publishedDFARun with a dense run index.
+	publishedDFARunDense
 )
 
 // Map data is ordered wildcard positions; dense data is metadata and slots;
 // run data is the wildcard count, the ordered wildcard positions and the
-// positions of repeated names. The row kind owns interpretation, so metadata
+// positions of repeated names; dense run data is dense metadata and slots of
+// run positions. The row kind owns interpretation, so metadata
 // never enters wildcard iteration.
 type publishedDFAIndex struct {
 	nameToEdge map[QName]uint32
@@ -660,8 +663,11 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
-	if row.indexKind == publishedDFAMap || row.indexKind == publishedDFARun {
-		return rt.nextPublishedIndexedDFAContent(st, model, row, in)
+	if row.indexKind == publishedDFAMap {
+		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
+	}
+	if row.indexKind == publishedDFARun || row.indexKind == publishedDFARunDense {
+		return rt.nextPublishedRunDFAContent(st, model, row, in)
 	}
 	if row.indexKind == publishedDFADense {
 		return rt.nextPublishedDenseDFAContent(st, model, row, in)
@@ -717,8 +723,8 @@ func completePublishedDFAContent(st ContentState, model *compiledModelRead) Cont
 	return contentCompletionIncomplete
 }
 
-func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	candidates := newPublishedDFACandidates(row, in)
+func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, idx publishedDFAIndex, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	candidates := newPublishedDFACandidates(idx, in)
 	for {
 		pos, ok := candidates.next()
 		if !ok {
@@ -740,37 +746,38 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 	}
 }
 
-// publishedDFACandidates yields, in edge order, the edges of an indexed row
-// that may match one input: its wildcard edges and the element edge the
-// input's name selects. Wildcard positions are offset by the row's first
-// position in its model's edge run, which is zero for a row that owns its
-// edges.
 type publishedDFACandidates struct {
 	wildcards []uint32
-	offset    uint32
 	element   int
 	nextWild  int
 }
 
-func newPublishedDFACandidates(row *compiledModelRowRead, in ContentInput) publishedDFACandidates {
-	if row.indexKind == publishedDFARun {
-		return newPublishedRunCandidates(row, in)
-	}
+func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishedDFACandidates {
 	element := -1
 	if in.Name.Known {
-		if pos, ok := row.index.nameToEdge[in.Name.Name]; ok {
+		if pos, ok := idx.nameToEdge[in.Name.Name]; ok {
 			element = int(pos)
 		}
 	}
-	return publishedDFACandidates{wildcards: row.index.data, element: element}
+	return &publishedDFACandidates{wildcards: idx.data, element: element}
 }
 
-// newPublishedRunCandidates selects the candidates of a row whose edges are
-// the run positions from start, the position its first edge's target
-// follows, to end.
-func newPublishedRunCandidates(row *compiledModelRowRead, in ContentInput) publishedDFACandidates {
+// nextPublishedRunDFAContent dispatches a row whose edges are the run
+// positions from start, which its first edge's target follows, to end, through
+// its model's run index. Candidates are run positions.
+func (rt *Schema) nextPublishedRunDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
 	start := row.Edges[0].To - 1
 	end := start + uint32(len(row.Edges))
+	if row.indexKind == publishedDFARunDense {
+		if !in.Name.Known {
+			return ContentTransition{}, ContentTransitionNoMatch
+		}
+		pos := row.index.denseEdge(in.Name.Name)
+		if pos < 0 || uint32(pos) < start || uint32(pos) >= end {
+			return ContentTransition{}, ContentTransitionNoMatch
+		}
+		return rt.takePublishedDFAEdge(st, model, row.Edges[uint32(pos)-start], in)
+	}
 	data := row.index.data
 	wildcards := data[1 : 1+data[0]]
 	low, _ := slices.BinarySearch(wildcards, start)
@@ -779,11 +786,38 @@ func newPublishedRunCandidates(row *compiledModelRowRead, in ContentInput) publi
 	if in.Name.Known {
 		if value, ok := row.index.nameToEdge[in.Name.Name]; ok {
 			if pos, ok := publishedRunPosition(data, value, start); ok && pos < end {
-				element = int(pos - start)
+				element = int(pos)
 			}
 		}
 	}
-	return publishedDFACandidates{wildcards: wildcards[low:high], offset: start, element: element}
+	candidates := publishedDFACandidates{wildcards: wildcards[low:high], element: element}
+	for {
+		pos, ok := candidates.next()
+		if !ok {
+			return ContentTransition{}, ContentTransitionNoMatch
+		}
+		transition, status := rt.takePublishedDFAEdge(st, model, row.Edges[pos-int(start)], in)
+		if status != ContentTransitionNoMatch {
+			return transition, status
+		}
+	}
+}
+
+// takePublishedDFAEdge reports the transition of edge for in, or no match when
+// edge does not take in.
+func (rt *Schema) takePublishedDFAEdge(st ContentState, model *compiledModelRead, edge compiledModelEdgeRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
+	if !valid {
+		return ContentTransition{}, ContentTransitionInvalid
+	}
+	if match.kind == ContentMatchInvalid {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	next, ok := nextPublishedDFAState(st, model, edge)
+	if !ok {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	return newContentTransition(st, next, match), contentTransitionMatched
 }
 
 // publishedRunPosition returns the first run position at or after start of
@@ -803,8 +837,8 @@ func publishedRunPosition(data []uint32, value, start uint32) (uint32, bool) {
 
 func (c *publishedDFACandidates) next() (int, bool) {
 	switch {
-	case c.nextWild < len(c.wildcards) && (c.element < 0 || int(c.wildcards[c.nextWild]-c.offset) < c.element):
-		position := int(c.wildcards[c.nextWild] - c.offset)
+	case c.nextWild < len(c.wildcards) && (c.element < 0 || int(c.wildcards[c.nextWild]) < c.element):
+		position := int(c.wildcards[c.nextWild])
 		c.nextWild++
 		return position, true
 	case c.element >= 0:

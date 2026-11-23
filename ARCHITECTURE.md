@@ -1323,8 +1323,9 @@ graph preserves these ownership rules:
   the retained bytes would stay quadratic and unbounded. The run index resolves
   a name the run repeats by binary search over its positions, and a row whose
   window holds a name twice keeps linear dispatch, as a row with its own index
-  does. Dense indexes are not built for run rows, which would need a dense
-  table per row again.
+  does. Publication's per-row dense conversion skips run rows, which would
+  need a dense table per row again; a run whose names allow it gets one dense
+  table of run positions instead (`publishedDFARunDense`).
 - Giving each {content type} particle its own root record was rejected. It
   would stop copying a group's record when a type's whole content is a
   repeated reference to that group. A full implementation kept verdicts,

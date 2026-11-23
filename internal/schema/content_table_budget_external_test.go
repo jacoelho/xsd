@@ -28,12 +28,12 @@ func TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry(t *testing.T) {
 	}{
 		{
 			// Both sequences hold eleven rows and one run of ten edges. The
-			// optional elements' rows of 10, 9 and 8 edges share one index of
-			// the run: ten names and the wildcard count.
+			// optional elements' rows of 10, 9 and 8 edges share one dense
+			// index of the run: ten slots and two metadata cells.
 			name:           "optional against required sequence",
 			larger:         `<xs:sequence>` + elements(10, ` minOccurs="0"`) + `</xs:sequence>`,
 			base:           `<xs:sequence>` + elements(10, "") + `</xs:sequence>`,
-			wantDifference: 10 + 1,
+			wantDifference: 10 + 2,
 		},
 		{
 			// Both sequences hold twenty rows and one run of nineteen edges.
