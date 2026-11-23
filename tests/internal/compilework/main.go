@@ -1,7 +1,8 @@
 // Command compilework compiles one schema document and reports the analysis
 // and dependency steps the compilation charges. It is built with coverage
-// counters by TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps,
-// which reads the statements one default-options compilation executes.
+// counters by TestContentModelCompileWorkGrowsWithChargedSteps and
+// TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps, which read
+// the statements one default-options compilation executes.
 //
 // Usage:
 //
