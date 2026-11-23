@@ -872,7 +872,7 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 	return compiledModel{
 		Kind:  compiledModelDFA,
 		Rows:  rows,
-		Run:   compilation.edges[:len(compilation.edges):len(compilation.edges)],
+		Run:   slices.Clip(compilation.edges),
 		Start: 0,
 		Empty: rows[0].Accept,
 	}, true, nil

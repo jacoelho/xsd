@@ -663,14 +663,16 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
-	if row.indexKind == publishedDFAMap {
+	switch row.indexKind {
+	case publishedDFAMap:
 		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
-	}
-	if row.indexKind == publishedDFARun || row.indexKind == publishedDFARunDense {
+	case publishedDFARun:
 		return rt.nextPublishedRunDFAContent(st, model, row, in)
-	}
-	if row.indexKind == publishedDFADense {
+	case publishedDFARunDense:
+		return rt.nextPublishedRunDenseDFAContent(st, model, row, in)
+	case publishedDFADense:
 		return rt.nextPublishedDenseDFAContent(st, model, row, in)
+	case publishedDFALinear:
 	}
 	for _, edge := range row.Edges {
 		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
@@ -762,35 +764,31 @@ func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishe
 	return &publishedDFACandidates{wildcards: idx.data, element: element}
 }
 
+// nextPublishedRunDenseDFAContent dispatches a row whose edges are a window of
+// its model's run through the run's dense index.
+func (rt *Schema) nextPublishedRunDenseDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	if !in.Name.Known {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	edge := row.index.denseEdge(in.Name.Name) - int(row.Edges[0].To-1)
+	if edge < 0 || edge >= len(row.Edges) {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	return rt.takePublishedDFAEdge(st, model, row.Edges[edge], in)
+}
+
 // nextPublishedRunDFAContent dispatches a row whose edges are the run
-// positions from start, which its first edge's target follows, to end, through
-// its model's run index. Candidates are run positions.
+// positions from start, which its first edge's target follows, to end, which
+// is its last edge's target, through its model's run index. Candidates are
+// run positions.
 func (rt *Schema) nextPublishedRunDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
 	start := row.Edges[0].To - 1
-	end := start + uint32(len(row.Edges))
-	if row.indexKind == publishedDFARunDense {
-		if !in.Name.Known {
-			return ContentTransition{}, ContentTransitionNoMatch
-		}
-		pos := row.index.denseEdge(in.Name.Name)
-		if pos < 0 || uint32(pos) < start || uint32(pos) >= end {
-			return ContentTransition{}, ContentTransitionNoMatch
-		}
-		return rt.takePublishedDFAEdge(st, model, row.Edges[uint32(pos)-start], in)
-	}
+	end := row.Edges[len(row.Edges)-1].To
 	data := row.index.data
 	wildcards := data[1 : 1+data[0]]
 	low, _ := slices.BinarySearch(wildcards, start)
 	high, _ := slices.BinarySearch(wildcards, end)
-	element := -1
-	if in.Name.Known {
-		if value, ok := row.index.nameToEdge[in.Name.Name]; ok {
-			if pos, ok := publishedRunPosition(data, value, start); ok && pos < end {
-				element = int(pos)
-			}
-		}
-	}
-	candidates := publishedDFACandidates{wildcards: wildcards[low:high], element: element}
+	candidates := publishedDFACandidates{wildcards: wildcards[low:high], element: row.index.runElement(in, start, end)}
 	for {
 		pos, ok := candidates.next()
 		if !ok {
@@ -820,19 +818,30 @@ func (rt *Schema) takePublishedDFAEdge(st ContentState, model *compiledModelRead
 	return newContentTransition(st, next, match), contentTransitionMatched
 }
 
-// publishedRunPosition returns the first run position at or after start of
-// the name a run index maps to value.
-func publishedRunPosition(data []uint32, value, start uint32) (uint32, bool) {
-	if value&publishedRunRepeated == 0 {
-		return value, value >= start
+// runElement returns the run position from start to end of the element edge
+// that in's name selects through a run index, or -1.
+func (idx publishedDFAIndex) runElement(in ContentInput, start, end uint32) int {
+	if !in.Name.Known {
+		return -1
 	}
-	group := data[value&^publishedRunRepeated:]
-	positions := group[1 : 1+group[0]]
-	i, _ := slices.BinarySearch(positions, start)
-	if i == len(positions) {
-		return 0, false
+	value, ok := idx.nameToEdge[in.Name.Name]
+	if !ok {
+		return -1
 	}
-	return positions[i], true
+	pos := value
+	if value&publishedRunRepeated != 0 {
+		group := idx.data[value&^publishedRunRepeated:]
+		positions := group[1 : 1+group[0]]
+		i, _ := slices.BinarySearch(positions, start)
+		if i == len(positions) {
+			return -1
+		}
+		pos = positions[i]
+	}
+	if pos < start || pos >= end {
+		return -1
+	}
+	return int(pos)
 }
 
 func (c *publishedDFACandidates) next() (int, bool) {

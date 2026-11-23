@@ -126,17 +126,22 @@ func (a *dfaRowIndexAnalysis) indexModel(model *compiledModelRead, run []compile
 		if run != nil {
 			return a.indexRun(model.Rows, run)
 		}
-		for i := range model.Rows {
-			if err := spendContentModelWork(a.work); err != nil {
-				return err
-			}
-			if err := a.indexRow(&model.Rows[i]); err != nil {
-				return err
-			}
-		}
+		return a.indexRows(model.Rows)
 	case compiledModelAll:
 		return a.indexAllTerms(model)
 	case compiledModelEmpty, compiledModelAny:
+	}
+	return nil
+}
+
+func (a *dfaRowIndexAnalysis) indexRows(rows []compiledModelRowRead) error {
+	for i := range rows {
+		if err := spendContentModelWork(a.work); err != nil {
+			return err
+		}
+		if err := a.indexRow(&rows[i]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -145,39 +150,45 @@ func (a *dfaRowIndexAnalysis) indexRow(row *compiledModelRowRead) error {
 	if len(row.Edges) < compiledDFARowIndexMinEdges {
 		return nil
 	}
+	wildcards, ok, err := indexableEdges(row.Edges)
+	if !ok || err != nil {
+		return err
+	}
 	names := make(map[QName]uint32, len(row.Edges))
-	wildcards := 0
 	for pos, edge := range row.Edges {
-		switch edge.Particle.Kind {
-		case particleWildcard:
-			wildcards++
+		if edge.Particle.Kind != particleElement {
 			continue
-		case particleElement:
-		case particleModel:
-			return nil
-		default:
-			return xsderrors.InternalInvariant("compiled content model index has invalid edge particle")
 		}
 		unique, err := a.collectElementNames(edge.Particle.Element, uint32(pos), uniqueNames(names))
 		if err != nil || !unique {
 			return err
 		}
 	}
-	if err := a.retained.spend(len(names) + wildcards); err != nil {
+	if err := a.retained.spend(len(names) + len(wildcards)); err != nil {
 		return err
 	}
-	var positions []uint32
-	if wildcards > 0 {
-		positions = make([]uint32, 0, wildcards)
-		for pos, edge := range row.Edges {
-			if edge.Particle.Kind == particleWildcard {
-				positions = append(positions, uint32(pos))
-			}
-		}
-	}
-	row.index = publishedDFAIndex{nameToEdge: names, data: positions}
+	row.index = publishedDFAIndex{nameToEdge: names, data: wildcards}
 	row.indexKind = publishedDFAMap
 	return nil
+}
+
+// indexableEdges returns the ascending positions of the wildcard edges, or
+// false when an edge's particle is a nested model, which no name index
+// covers.
+func indexableEdges(edges []compiledModelEdgeRead) ([]uint32, bool, error) {
+	var wildcards []uint32
+	for pos, edge := range edges {
+		switch edge.Particle.Kind {
+		case particleWildcard:
+			wildcards = append(wildcards, uint32(pos))
+		case particleElement:
+		case particleModel:
+			return nil, false, nil
+		default:
+			return nil, false, xsderrors.InternalInvariant("compiled content model index has invalid edge particle")
+		}
+	}
+	return wildcards, true, nil
 }
 
 // uniqueNames returns an add function for collectElementNames that records
@@ -193,6 +204,86 @@ func uniqueNames(names map[QName]uint32) func(QName, uint32) bool {
 	}
 }
 
+// runNames records where the names of an edge run occur.
+type runNames struct {
+	// last maps each name to its last run position.
+	last map[QName]uint32
+	// counts maps each name to the number of run positions it occurs at.
+	counts map[QName]uint32
+	// nextRepeat[p] is the nearest position after p of a name that also
+	// occurs at or after p, or math.MaxUint32.
+	nextRepeat []uint32
+	// wildcards holds the ascending run positions of wildcard edges.
+	wildcards []uint32
+}
+
+func (n *runNames) add(name QName, pos uint32) bool {
+	prev, seen := n.last[name]
+	switch {
+	case !seen:
+		n.counts[name] = 1
+	case prev != pos:
+		n.nextRepeat[prev] = min(n.nextRepeat[prev], pos)
+		n.counts[name]++
+	}
+	n.last[name] = pos
+	return true
+}
+
+// holdsNoRepeat reports whether a row's window holds no name twice. A row's
+// window starts at the run position its first edge's target follows.
+func (n *runNames) holdsNoRepeat(row *compiledModelRowRead) bool {
+	start := row.Edges[0].To - 1
+	return uint64(n.nextRepeat[start]) >= uint64(start)+uint64(len(row.Edges))
+}
+
+// indexDataSize returns the length of a run index's data: the wildcard count
+// and positions, then each repeated name's position count and positions.
+func (n *runNames) indexDataSize() int {
+	size := 1 + len(n.wildcards)
+	for _, count := range n.counts {
+		if count > 1 {
+			size += 1 + int(count)
+		}
+	}
+	return size
+}
+
+func (a *dfaRowIndexAnalysis) scanRunNames(run []compiledModelEdgeRead) (*runNames, error) {
+	wildcards, ok, err := indexableEdges(run)
+	if !ok || err != nil {
+		return nil, err
+	}
+	names := &runNames{
+		last:       make(map[QName]uint32, len(run)),
+		counts:     make(map[QName]uint32, len(run)),
+		nextRepeat: make([]uint32, len(run)),
+		wildcards:  wildcards,
+	}
+	for p := range names.nextRepeat {
+		names.nextRepeat[p] = math.MaxUint32
+	}
+	if err := a.collectRunNames(run, names.add); err != nil {
+		return nil, err
+	}
+	for p := len(run) - 2; p >= 0; p-- {
+		names.nextRepeat[p] = min(names.nextRepeat[p], names.nextRepeat[p+1])
+	}
+	return names, nil
+}
+
+func (a *dfaRowIndexAnalysis) collectRunNames(run []compiledModelEdgeRead, add func(QName, uint32) bool) error {
+	for p, edge := range run {
+		if edge.Particle.Kind != particleElement {
+			continue
+		}
+		if _, err := a.collectElementNames(edge.Particle.Element, uint32(p), add); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // indexRun installs one index of run on each row that takes at least
 // compiledDFARowIndexMinEdges of its edges and holds no name twice. Run
 // positions of a window are consecutive, so a row's index lookups translate
@@ -201,158 +292,141 @@ func uniqueNames(names map[QName]uint32) func(QName, uint32) bool {
 // of its position count followed by its ascending positions. data starts with
 // the wildcard count and the ascending wildcard positions.
 func (a *dfaRowIndexAnalysis) indexRun(rows []compiledModelRowRead, run []compiledModelEdgeRead) error {
-	wide := false
-	for i := range rows {
-		if err := spendContentModelWork(a.work); err != nil {
-			return err
-		}
-		wide = wide || len(rows[i].Edges) >= compiledDFARowIndexMinEdges
+	wide, err := a.hasWideRow(rows)
+	if !wide || err != nil || uint64(len(run)) >= uint64(publishedRunRepeated) {
+		return err
 	}
-	if !wide || uint64(len(run)) >= uint64(publishedRunRepeated) {
-		return nil
-	}
-	last := make(map[QName]uint32, len(run))
-	counts := make(map[QName]uint32, len(run))
-	// nextRepeat[p] is the nearest later position of a name at p.
-	nextRepeat := make([]uint32, len(run))
-	wildcards := 0
-	for p, edge := range run {
-		nextRepeat[p] = math.MaxUint32
-		switch edge.Particle.Kind {
-		case particleWildcard:
-			wildcards++
-			continue
-		case particleElement:
-		case particleModel:
-			return nil
-		default:
-			return xsderrors.InternalInvariant("compiled content model index has invalid edge particle")
-		}
-		if _, err := a.collectElementNames(edge.Particle.Element, uint32(p), func(name QName, pos uint32) bool {
-			prev, seen := last[name]
-			switch {
-			case !seen:
-				counts[name] = 1
-			case prev != pos:
-				nextRepeat[prev] = min(nextRepeat[prev], pos)
-				counts[name]++
-			}
-			last[name] = pos
-			return true
-		}); err != nil {
-			return err
-		}
-	}
-	for p := len(run) - 2; p >= 0; p-- {
-		nextRepeat[p] = min(nextRepeat[p], nextRepeat[p+1])
+	names, err := a.scanRunNames(run)
+	if names == nil || err != nil {
+		return err
 	}
 	indexable := func(row *compiledModelRowRead) bool {
-		if len(row.Edges) < compiledDFARowIndexMinEdges {
-			return false
-		}
-		start := row.Edges[0].To - 1
-		return uint64(nextRepeat[start]) >= uint64(start)+uint64(len(row.Edges))
+		return len(row.Edges) >= compiledDFARowIndexMinEdges && names.holdsNoRepeat(row)
 	}
 	if !slices.ContainsFunc(rows, func(row compiledModelRowRead) bool { return indexable(&row) }) {
 		return nil
 	}
-	size := 1 + wildcards
-	for _, count := range counts {
-		if count > 1 {
-			size += 1 + int(count)
-		}
-	}
-	if uint64(size) >= uint64(publishedRunRepeated) {
+	return a.indexRunWindows(rows, run, names, indexable)
+}
+
+// indexRunWindows installs the dense index of run when it qualifies, and its
+// map index otherwise, on the indexable rows.
+func (a *dfaRowIndexAnalysis) indexRunWindows(rows []compiledModelRowRead, run []compiledModelEdgeRead, names *runNames, indexable func(*compiledModelRowRead) bool) error {
+	size := names.indexDataSize()
+	if size > int(publishedRunRepeated-1) {
 		return nil
 	}
-	if wildcards == 0 && size == 1 {
-		if installed, err := a.indexDenseRun(rows, last, indexable); installed || err != nil {
+	if size == 1 {
+		if installed, err := a.indexDenseRun(rows, len(run), names.last, indexable); installed || err != nil {
 			return err
 		}
 	}
-	if err := a.retained.spend(len(counts) + size); err != nil {
+	return a.indexRunMap(rows, run, names, size, indexable)
+}
+
+func (a *dfaRowIndexAnalysis) indexRunMap(rows []compiledModelRowRead, run []compiledModelEdgeRead, names *runNames, size int, indexable func(*compiledModelRowRead) bool) error {
+	if err := a.retained.spend(len(names.counts) + size); err != nil {
 		return err
 	}
-	index := make(map[QName]uint32, len(counts))
-	data := make([]uint32, 1, size)
-	data[0] = uint32(wildcards)
-	for p, edge := range run {
-		if edge.Particle.Kind == particleWildcard {
-			data = append(data, uint32(p))
-		}
+	index := runIndex{counts: names.counts, nameToEdge: make(map[QName]uint32, len(names.counts)), data: make([]uint32, size)}
+	if err := index.addWildcards(names.wildcards); err != nil {
+		return err
 	}
-	groups := len(data)
-	data = data[:size]
-	for p, edge := range run {
-		if edge.Particle.Kind != particleElement {
-			continue
-		}
-		if _, err := a.collectElementNames(edge.Particle.Element, uint32(p), func(name QName, pos uint32) bool {
-			if counts[name] == 1 {
-				index[name] = pos
-				return true
-			}
-			value, ok := index[name]
-			if !ok {
-				value = publishedRunRepeated | uint32(groups)
-				groups += 1 + int(counts[name])
-				index[name] = value
-			}
-			group := data[value&^publishedRunRepeated:]
-			if group[0] == 0 || group[group[0]] != pos {
-				group[0]++
-				group[group[0]] = pos
-			}
-			return true
-		}); err != nil {
-			return err
-		}
+	if err := a.collectRunNames(run, index.add); err != nil {
+		return err
 	}
+	installRunIndex(rows, indexable, publishedDFAIndex{nameToEdge: index.nameToEdge, data: index.data}, publishedDFARun)
+	return nil
+}
+
+func (a *dfaRowIndexAnalysis) hasWideRow(rows []compiledModelRowRead) (bool, error) {
+	wide := false
+	for i := range rows {
+		if err := spendContentModelWork(a.work); err != nil {
+			return false, err
+		}
+		wide = wide || len(rows[i].Edges) >= compiledDFARowIndexMinEdges
+	}
+	return wide, nil
+}
+
+func installRunIndex(rows []compiledModelRowRead, indexable func(*compiledModelRowRead) bool, index publishedDFAIndex, kind publishedDFAIndexKind) {
 	for i := range rows {
 		if indexable(&rows[i]) {
-			rows[i].index = publishedDFAIndex{nameToEdge: index, data: data}
-			rows[i].indexKind = publishedDFARun
+			rows[i].index = index
+			rows[i].indexKind = kind
 		}
 	}
+}
+
+// runIndex builds the name index and data that indexRun describes. data is
+// sized by runNames.indexDataSize, so every group offset stays below
+// publishedRunRepeated.
+type runIndex struct {
+	counts     map[QName]uint32
+	nameToEdge map[QName]uint32
+	data       []uint32
+	// groups is the data offset of the next repeated name's group.
+	groups uint32
+}
+
+func (b *runIndex) addWildcards(positions []uint32) error {
+	count, ok := newUint32Index(len(positions))
+	if !ok {
+		return xsderrors.InternalInvariant("run index wildcard count exceeds its data")
+	}
+	b.data[0] = count
+	copy(b.data[1:], positions)
+	b.groups = count + 1
 	return nil
+}
+
+func (b *runIndex) add(name QName, pos uint32) bool {
+	count := b.counts[name]
+	if count == 1 {
+		b.nameToEdge[name] = pos
+		return true
+	}
+	value, ok := b.nameToEdge[name]
+	if !ok {
+		value = publishedRunRepeated | b.groups
+		b.groups += 1 + count
+		b.nameToEdge[name] = value
+	}
+	group := b.data[value&^publishedRunRepeated:]
+	if group[0] == 0 || group[group[0]] != pos {
+		group[0]++
+		group[group[0]] = pos
+	}
+	return true
 }
 
 // indexDenseRun installs a dense index of a run without wildcards whose
 // names, each at its one position, share one namespace and span at most twice
 // as many local name IDs as there are names. Each slot holds a run position
 // plus one, so the index grows with the run's names, as the map would.
-func (a *dfaRowIndexAnalysis) indexDenseRun(rows []compiledModelRowRead, positions map[QName]uint32, indexable func(*compiledModelRowRead) bool) (bool, error) {
+func (a *dfaRowIndexAnalysis) indexDenseRun(rows []compiledModelRowRead, runLen int, positions map[QName]uint32, indexable func(*compiledModelRowRead) bool) (bool, error) {
 	if len(positions) < 2 {
 		return false, nil
 	}
-	var bounds denseNameBounds
-	first := true
-	for name := range positions {
-		if first {
-			bounds = newDenseNameBounds(name)
-			first = false
-		}
-		bounds.include(name)
+	bounds, valid := scanDenseIndexBounds(positions, runLen)
+	if !valid {
+		return false, xsderrors.InternalInvariant("run index name position is outside its run")
 	}
 	span := uint64(bounds.maxLocal) - uint64(bounds.minLocal) + 1
 	if bounds.mixed || span > 2*uint64(len(positions)) {
 		return false, nil
 	}
-	if err := a.retained.spend(int(span) + denseEdgeSlotsOffset); err != nil {
+	data := make([]uint32, span+denseEdgeSlotsOffset)
+	if err := a.retained.spend(len(data)); err != nil {
 		return false, err
 	}
-	data := make([]uint32, span+denseEdgeSlotsOffset)
 	data[denseNamespaceOffset] = uint32(bounds.namespace)
 	data[denseMinLocalOffset] = uint32(bounds.minLocal)
 	for name, pos := range positions {
 		data[uint64(name.Local)-uint64(bounds.minLocal)+denseEdgeSlotsOffset] = pos + 1
 	}
-	for i := range rows {
-		if indexable(&rows[i]) {
-			rows[i].index = publishedDFAIndex{data: data}
-			rows[i].indexKind = publishedDFARunDense
-		}
-	}
+	installRunIndex(rows, indexable, publishedDFAIndex{data: data}, publishedDFARunDense)
 	return true, nil
 }
 
