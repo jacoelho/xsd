@@ -2,6 +2,7 @@ package uriref
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +26,11 @@ func TestParseAndEscape(t *testing.T) {
 		{name: "numeric IPv6 port", raw: "http://[::1]:80/", escaped: "http://[::1]:80/", valid: true, length: 16},
 		{name: "nondigit IPv6 port", raw: "http://[::1]:x/"},
 		{name: "valid IPv6", raw: "http://[::1]/", escaped: "http://[::1]/", valid: true, length: 13},
+		{name: "valid IPv6 eight explicit groups", raw: "http://[1:2:3:4:5:6:7:8]/", escaped: "http://[1:2:3:4:5:6:7:8]/", valid: true, length: 25},
+		{name: "leading compressed IPv6 cannot omit zero groups", raw: "http://[::1:2:3:4:5:6:7:8]/"},
+		{name: "inner compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4::5:6:7:8]/"},
+		{name: "valid IPv6 with embedded IPv4", raw: "http://[1:2:3:4:5:6:1.2.3.4]/", escaped: "http://[1:2:3:4:5:6:1.2.3.4]/", valid: true, length: 29},
+		{name: "IPv6 with embedded IPv4 cannot exceed eight groups", raw: "http://[1:2:3:4:5:6:7:1.2.3.4]/"},
 		{name: "compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4:5:6:7:8::]/"},
 		{name: "empty authority with path", raw: "///", escaped: "///", valid: true, length: 3},
 		{name: "empty authority with query", raw: "//?q", escaped: "//?q", valid: true, length: 4},
@@ -124,6 +130,91 @@ func TestReferenceFragments(t *testing.T) {
 	if ref.HasFragment() || ref.WithoutFragment() != ref {
 		t.Fatal("encoded hash was treated as a fragment")
 	}
+}
+
+func TestResolveKeepsEmptyLeadingSegmentsOutOfTheAuthority(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ base, ref, want string }{
+		{base: ".///", ref: "0", want: ".///0"},
+		{base: "./a:/", ref: "0", want: "./a:/0"},
+		{base: "x/../a:/", ref: "0", want: "./a:/0"},
+		{base: ".//x", ref: "y", want: ".//y"},
+		{base: "/.//x", ref: "y", want: "/.//y"},
+		{base: "file:/.//x", ref: "y", want: "file:/.//y"},
+		{base: "http://a/.//x", ref: "y", want: "http://a//y"},
+	} {
+		got, err := Resolve(mustParse(t, tc.base), mustParse(t, tc.ref))
+		if err != nil || got.Raw() != tc.want {
+			t.Errorf("Resolve(%q, %q) = %q, %v; want %q", tc.base, tc.ref, got.Raw(), err, tc.want)
+		}
+	}
+}
+
+func FuzzReferencePartsRoundTrip(f *testing.F) {
+	for _, raw := range []string{"", "http://a", "//?q", "a?", "a#", "a/\u2603", "urn:opaque?query#fragment", "http://[::1]:80/"} {
+		f.Add(raw)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		ref, err := Parse(raw)
+		if err != nil {
+			return
+		}
+		roundTrip, err := compose(ref.Parts())
+		if err != nil || roundTrip.Raw() != raw || roundTrip.Parts() != ref.Parts() {
+			t.Fatalf("compose(Parse(%q).Parts()) = %q, %v; want %q", raw, roundTrip.Raw(), err, raw)
+		}
+	})
+}
+
+func FuzzCheckAgreesWithParse(f *testing.F) {
+	for _, raw := range []string{"", "http://a", "a b", "http://[::1]/", "http://[bad]/", "%zz", "a#b#c"} {
+		f.Add(raw)
+	}
+	f.Fuzz(func(t *testing.T, raw string) {
+		_, checkErr := Check(raw)
+		_, parseErr := Parse(raw)
+		if (checkErr == nil) != (parseErr == nil) {
+			t.Fatalf("Check(%q) error = %v, Parse error = %v", raw, checkErr, parseErr)
+		}
+	})
+}
+
+func FuzzResolveKeepsInheritedComponents(f *testing.F) {
+	f.Add("http://a/b/c/d;p?q", "../g#s")
+	f.Add("http://a", "g")
+	f.Add("urn:root?old", "?new")
+	f.Add("http://a/b", "//c/d")
+	f.Fuzz(func(t *testing.T, rawBase, rawRef string) {
+		base, err := Parse(rawBase)
+		if err != nil {
+			return
+		}
+		ref, err := Parse(rawRef)
+		if err != nil {
+			return
+		}
+		got, err := Resolve(base, ref)
+		if err != nil {
+			return
+		}
+		b, r, g := base.Parts(), ref.Parts(), got.Parts()
+		if g.HasAuthority && g.Path != "" && g.Path[0] != '/' {
+			t.Fatalf("Resolve(%q, %q) = %q: authority followed by a relative path", rawBase, rawRef, got.Raw())
+		}
+		if g.HasFragment != r.HasFragment || g.Fragment != r.Fragment {
+			t.Fatalf("Resolve(%q, %q) = %q: fragment differs from the reference's", rawBase, rawRef, got.Raw())
+		}
+		if !r.HasScheme && (g.HasScheme != b.HasScheme || g.Scheme != b.Scheme) {
+			t.Fatalf("Resolve(%q, %q) = %q: scheme differs from the base's", rawBase, rawRef, got.Raw())
+		}
+		if !r.HasScheme && !r.HasAuthority && (g.HasAuthority != b.HasAuthority || g.Authority != b.Authority) {
+			t.Fatalf("Resolve(%q, %q) = %q: authority differs from the base's", rawBase, rawRef, got.Raw())
+		}
+		relative := func(p Parts) bool { return !p.HasScheme && !p.HasAuthority && !strings.HasPrefix(p.Path, "/") }
+		if relative(b) && relative(r) && strings.HasPrefix(g.Path, "/") {
+			t.Fatalf("Resolve(%q, %q) = %q: relative base and reference resolve to an absolute path", rawBase, rawRef, got.Raw())
+		}
+	})
 }
 
 func TestResolveRFC2396AppendixC(t *testing.T) {

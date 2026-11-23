@@ -35,6 +35,8 @@ fuzz-smoke:
 	go test -run '^$$' -fuzz='^FuzzReader$$' -fuzztime=10s ./internal/xmlstream
 	go test -run '^$$' -fuzz='^FuzzSchemaParserLimits$$' -fuzztime=10s ./internal/schema
 	go test -run '^$$' -fuzz='^FuzzValidateNeverPanics$$' -fuzztime=10s ./internal/validate
+	go test -run '^$$' -fuzz='^FuzzReferencePartsRoundTrip$$' -fuzztime=10s ./internal/uriref
+	go test -run '^$$' -fuzz='^FuzzResolveKeepsInheritedComponents$$' -fuzztime=10s ./internal/uriref
 	go test -run '^$$' -fuzz='^FuzzXSDRegexSyntax$$' -fuzztime=10s ./internal/xsdregex
 
 .PHONY: bench
