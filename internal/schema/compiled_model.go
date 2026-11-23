@@ -205,7 +205,7 @@ func uniqueNames(names map[QName]uint32) func(QName, uint32) bool {
 }
 
 type runNames struct {
-	last map[QName]uint32
+	last   map[QName]uint32
 	counts map[QName]uint32
 	// nextRepeat[p] is the nearest position after p of a name that also
 	// occurs at or after p, or math.MaxUint32.
