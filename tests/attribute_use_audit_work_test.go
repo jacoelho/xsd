@@ -11,6 +11,10 @@ import (
 	"testing"
 )
 
+// attributeAuditGrowthLimit lies above the measured growths of 0.96 for
+// extension and 1.02 for restriction.
+const attributeAuditGrowthLimit = 1.4
+
 // attributeDerivationSchema returns a base type declaring the given number of
 // attributes and the given number of derived types, each extending it with
 // nothing or restricting it by redeclaring every attribute.
@@ -36,11 +40,11 @@ func attributeDerivationSchema(method string, derivations, attributes int) strin
 // TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps pins the
 // publication audit of a derived attribute-use set to lookups through the
 // set's index: the statements of internal/schema per charged step that each
-// added derived type costs may grow by at most compileWorkGrowthLimit when the
-// base grows from 128 to 2048 attributes. A lookup that scans the other set's
-// uses executes a statement per use scanned, so its work per step grows with
-// the attribute count. The measurement limits of
-// TestSequenceRestrictionOfAnAllGroupDoesWorkInProportionToChargedSteps apply.
+// added derived type costs may grow by at most attributeAuditGrowthLimit when
+// the base grows from 128 to 2048 attributes. A lookup that scans the other
+// set's uses executes a statement per use scanned, so its work per step grows
+// with the attribute count. The measurement limits of
+// TestContentModelCompileWorkGrowsWithChargedSteps apply.
 func TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps(t *testing.T) {
 	t.Parallel()
 
@@ -73,9 +77,9 @@ func TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps(t *testing.T
 				}
 			}
 			growth := addedLarge.perStep() / addedSmall.perStep()
-			if !(growth <= compileWorkGrowthLimit) {
+			if !(growth <= attributeAuditGrowthLimit) {
 				t.Errorf("two added derivations: %d attributes: work %d / steps %d = %.2f; %d attributes: work %d / steps %d = %.2f; growth %.3f, want at most %.2f",
-					small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth, compileWorkGrowthLimit)
+					small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth, attributeAuditGrowthLimit)
 			}
 		})
 	}
