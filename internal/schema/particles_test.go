@@ -238,30 +238,37 @@ func TestParticlesOverlap(t *testing.T) {
 		name     string
 		a        contentParticle
 		b        contentParticle
-		wantName QName
-		want     bool
+		want     particleOverlap
+		overlaps bool
 		wantErr  bool
 	}{
 		{
 			name:     "same element",
 			a:        elementParticle(0, one),
 			b:        elementParticle(0, one),
-			wantName: nameA,
-			want:     true,
+			want:     particleOverlap{left: elementParticle(0, one), right: elementParticle(0, one), name: nameA},
+			overlaps: true,
 		},
 		{
 			name:     "substitution member",
 			a:        elementParticle(0, one),
 			b:        elementParticle(2, one),
-			wantName: nameC,
-			want:     true,
+			want:     particleOverlap{left: elementParticle(0, one), right: elementParticle(2, one), name: nameC},
+			overlaps: true,
 		},
 		{
 			name:     "element wildcard",
 			a:        elementParticle(0, one),
 			b:        wildcardParticle(0, one),
-			wantName: nameA,
-			want:     true,
+			want:     particleOverlap{left: elementParticle(0, one), right: wildcardParticle(0, one), name: nameA},
+			overlaps: true,
+		},
+		{
+			name:     "wildcard element",
+			a:        wildcardParticle(0, one),
+			b:        elementParticle(0, one),
+			want:     particleOverlap{left: wildcardParticle(0, one), right: elementParticle(0, one), name: nameA},
+			overlaps: true,
 		},
 		{
 			name: "disjoint wildcards",
@@ -269,17 +276,25 @@ func TestParticlesOverlap(t *testing.T) {
 			b:    wildcardParticle(1, one),
 		},
 		{
-			name: "overlapping wildcards",
-			a:    wildcardParticle(1, one),
-			b:    wildcardParticle(2, one),
-			want: true,
+			name:     "overlapping wildcards",
+			a:        wildcardParticle(1, one),
+			b:        wildcardParticle(2, one),
+			want:     particleOverlap{left: wildcardParticle(1, one), right: wildcardParticle(2, one)},
+			overlaps: true,
 		},
 		{
 			name:     "sequence start skips optional",
 			a:        modelParticle(0, one),
 			b:        elementParticle(2, one),
-			wantName: nameC,
-			want:     true,
+			want:     particleOverlap{left: elementParticle(2, one), right: elementParticle(2, one), name: nameC},
+			overlaps: true,
+		},
+		{
+			name:     "model on the right keeps the compared order",
+			a:        elementParticle(0, one),
+			b:        modelParticle(0, one),
+			want:     particleOverlap{left: elementParticle(0, one), right: elementParticle(2, one), name: nameC},
+			overlaps: true,
 		},
 		{
 			name: "sequence start stops at required",
@@ -297,7 +312,7 @@ func TestParticlesOverlap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotName, got, err := unlimitedContentModelAnalysis(rt.build()).Overlap(tt.a, tt.b)
+			got, overlaps, err := unlimitedContentModelAnalysis(rt.build()).Overlap(tt.a, tt.b)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("Overlap() succeeded, want error")
@@ -307,8 +322,8 @@ func TestParticlesOverlap(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Overlap() error = %v", err)
 			}
-			if got != tt.want || gotName != tt.wantName {
-				t.Fatalf("Overlap() = (%+v, %v), want (%+v, %v)", gotName, got, tt.wantName, tt.want)
+			if overlaps != tt.overlaps || (overlaps && got != tt.want) {
+				t.Fatalf("Overlap() = (%+v, %v), want (%+v, %v)", got, overlaps, tt.want, tt.overlaps)
 			}
 		})
 	}

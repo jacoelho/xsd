@@ -21,13 +21,13 @@ func TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms(t *testing.T) 
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			names, rt := compiledModelRuntimeFixture(t, test.kind)
+			rt := compiledModelRuntimeFixture(t, test.kind)
 			compiles := func(limit int) bool {
 				work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 				retained := newWorkBudget(dependencyWorkBudget, limit)
 				analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-				cc := newContentModelCompiler(&names, rt.build(), 32, &work, &retained, analysis)
-				_, err := cc.compileRootContentModel(0)
+				cc := newContentModelCompiler(rt.build(), 32, &work, &retained, analysis)
+				_, err := cc.compileRootContentModel(0, complexTypeLabel{})
 				if err == nil {
 					return true
 				}
@@ -68,10 +68,10 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 			t.Parallel()
 			work := newWorkBudget(contentModelWorkBudget, tt.limit)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			upa := newContentModelUPACheck(nil, rt.build(), 4, &work, testDependencyWork(), analysis)
+			upa := newContentModelUPACheck(rt.build(), 4, &work, testDependencyWork(), analysis)
 			var err error
 			for id := range contentModelID(4) {
-				if err = upa.checkModel(id); err != nil {
+				if err = upa.checkModel(id, complexTypeLabel{}); err != nil {
 					break
 				}
 			}
@@ -91,9 +91,9 @@ func checkUPAWithin(t *testing.T, models map[contentModelID]contentModelNode, ro
 	rt := compiledModelFixture{models: models}
 	work := newWorkBudget(contentModelWorkBudget, limit)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	upa := newContentModelUPACheck(nil, rt.build(), len(models), &work, testDependencyWork(), analysis)
+	upa := newContentModelUPACheck(rt.build(), len(models), &work, testDependencyWork(), analysis)
 	for _, id := range roots {
-		if err := upa.checkModel(id); err != nil {
+		if err := upa.checkModel(id, complexTypeLabel{}); err != nil {
 			return work.limit - work.remaining, err
 		}
 	}
@@ -181,7 +181,7 @@ func TestWildcardOverlapPassChargesNothingForElementCandidates(t *testing.T) {
 		rt := compiledModelFixture{models: map[contentModelID]contentModelNode{0: {Kind: modelSequence, Occurs: one, Particles: particles}}}
 		work := newWorkBudget(contentModelWorkBudget, limit)
 		analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-		c := newContentModelCompiler(nil, rt.build(), 0, &work, testDependencyWork(), analysis)
+		c := newContentModelCompiler(rt.build(), 0, &work, testDependencyWork(), analysis)
 		overlap, err := c.sequenceHasWildcardEquivalentOverlap(contentModelNode{Kind: modelSequence, Occurs: one, Particles: particles})
 		if overlap {
 			t.Fatal("sequenceHasWildcardEquivalentOverlap() = true for a sequence without wildcards")

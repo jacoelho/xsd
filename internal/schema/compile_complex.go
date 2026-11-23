@@ -24,8 +24,10 @@ const (
 
 // Definitions are indexed by complexTypeID, independently of QName registration.
 // Element declarations need only an identity; derivation requires a complete base.
+// label names an anonymous type in diagnostics.
 type complexTypeDefinition struct {
 	source schemaComponent
+	label  complexTypeLabel
 	state  complexTypeCompletion
 }
 
@@ -62,7 +64,7 @@ func (c *compiler) reserveNamedComplexType(q QName) (ComplexTypeID, error) {
 	return id, nil
 }
 
-func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schemaNode) (ComplexTypeID, error) {
+func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schemaNode, label complexTypeLabel) (ComplexTypeID, error) {
 	if err := c.spendComponentDependency(n); err != nil {
 		return noComplexType, err
 	}
@@ -75,7 +77,47 @@ func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schema
 		return noComplexType, err
 	}
 	c.complexDefinitions[id].source = schemaComponent{ctx: ctx, id: n.id}
+	c.complexDefinitions[id].label = label
 	return id, nil
+}
+
+type complexTypeLabelKind uint8
+
+const (
+	complexTypeLabelNamed complexTypeLabelKind = iota
+	complexTypeLabelElement
+	complexTypeLabelAbsentElement
+)
+
+// complexTypeLabel names a complex type in a diagnostic: a named type by its
+// name, an anonymous type by the element declaration holding it. The
+// anonymous type of a zero-count element particle has no declaration, and
+// name is unused.
+type complexTypeLabel struct {
+	name QName
+	kind complexTypeLabelKind
+}
+
+func (l complexTypeLabel) label(names *nameTable) string {
+	switch l.kind {
+	case complexTypeLabelElement:
+		return "local complex type of element " + names.Format(l.name)
+	case complexTypeLabelAbsentElement:
+		return "local complex type of a zero-count element"
+	case complexTypeLabelNamed:
+		return "complex type " + names.Format(l.name)
+	default:
+		return "complex type"
+	}
+}
+
+// complexTypeLabel returns the diagnostic label of the complex type id.
+func (c *compiler) complexTypeLabel(id ComplexTypeID) complexTypeLabel {
+	typ := c.rt.ComplexTypes[id]
+	if typ.Scope == declarationScopeGlobal {
+		return complexTypeLabel{name: typ.Name, kind: complexTypeLabelNamed}
+	}
+	return c.complexDefinitions[id].label
 }
 
 func (c *compiler) complexTypePlaceholder(q QName) complexTypeMetadata {

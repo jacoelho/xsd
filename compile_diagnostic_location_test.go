@@ -154,8 +154,8 @@ func TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := xsd.Compile(test.sources...)
-			if !strings.Contains(err.Error(), "UPA violation: overlapping particles \"a\"") {
-				t.Fatalf("error = %v, want the automaton's UPA violation on a", err)
+			if !strings.Contains(err.Error(), `UPA violation in complex type "T": element "a" and element "a" overlap`) {
+				t.Fatalf("error = %v, want the automaton's UPA violation on a in T", err)
 			}
 			if got := compileDiagnosticLocation(t, err, xsderrors.CodeSchemaContentModel); got != test.want {
 				t.Fatalf("location = %+v, want %+v: %v", got, test.want, err)

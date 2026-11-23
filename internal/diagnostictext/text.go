@@ -47,6 +47,23 @@ func QuoteParts(parts ...string) string {
 	return Quote(prefix)
 }
 
+// QuoteList quotes the first MaxAlternatives values as a bracketed,
+// comma-separated list and marks omitted values with a trailing "...".
+func QuoteList(values []string) string {
+	list := []byte{'['}
+	for i, value := range values {
+		if i > 0 {
+			list = append(list, ", "...)
+		}
+		if i == MaxAlternatives {
+			list = append(list, "..."...)
+			break
+		}
+		list = append(list, Quote(value)...)
+	}
+	return string(append(list, ']'))
+}
+
 // AppendEscaped appends text escaped as Quote escapes it, without the
 // surrounding quotes and without escaping '"'. It reads at most MaxValueBytes
 // of text, keeps complete UTF-8 characters at the cut, and appends "..." when

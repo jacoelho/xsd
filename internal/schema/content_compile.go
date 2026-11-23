@@ -85,18 +85,18 @@ type cachedID struct {
 // and one per row, edge and xs:all term. The rows of a direct sequence share
 // one run of edges, so each of its edges counts once. A model's rows and edges
 // are its published ones, so the charge also bounds the tables publication
-// keeps.
+// keeps. typeLabel names the complex type a Unique Particle Attribution
+// violation in the model being compiled or checked is reported against.
 type contentModelCompiler struct {
-	names                 *nameTable
 	rt                    *schemaBuild
 	work                  *workBudget
 	retained              *workBudget
 	analysis              *contentModelAnalysis
+	typeLabel             complexTypeLabel
 	maxContentModelStates int
 }
 
 func newContentModelCompiler(
-	names *nameTable,
 	rt *schemaBuild,
 	maxContentModelStates int,
 	work *workBudget,
@@ -104,7 +104,6 @@ func newContentModelCompiler(
 	analysis *contentModelAnalysis,
 ) contentModelCompiler {
 	return contentModelCompiler{
-		names:                 names,
 		rt:                    rt,
 		work:                  work,
 		retained:              retained,
@@ -132,8 +131,10 @@ type dfaAccept struct {
 
 // compileRootContentModel lowers the source graph of one model in the table,
 // constructs its finite automaton and determinizes it, charging every
-// traversal, configuration and transition to the compiler's budget.
-func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compiledModel, error) {
+// traversal, configuration and transition to the compiler's budget. A Unique
+// Particle Attribution violation names typ.
+func (c *contentModelCompiler) compileRootContentModel(id contentModelID, typ complexTypeLabel) (compiledModel, error) {
+	c.typeLabel = typ
 	if err := c.work.spend(1); err != nil {
 		return compiledModel{}, err
 	}
@@ -151,12 +152,11 @@ func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compi
 // sets, are computed once per model and charged to the root that first reads
 // them.
 type contentModelUPACheck struct {
-	compiler contentModelCompiler
 	seen     []uint64
+	compiler contentModelCompiler
 }
 
 func newContentModelUPACheck(
-	names *nameTable,
 	rt *schemaBuild,
 	count int,
 	work *workBudget,
@@ -164,12 +164,14 @@ func newContentModelUPACheck(
 	analysis *contentModelAnalysis,
 ) *contentModelUPACheck {
 	return &contentModelUPACheck{
-		compiler: newContentModelCompiler(names, rt, 0, work, retained, analysis),
+		compiler: newContentModelCompiler(rt, 0, work, retained, analysis),
 		seen:     make([]uint64, count),
 	}
 }
 
-func (u *contentModelUPACheck) checkModel(id contentModelID) error {
+// checkModel checks the model id, naming typ in a violation.
+func (u *contentModelUPACheck) checkModel(id contentModelID, typ complexTypeLabel) error {
+	u.compiler.typeLabel = typ
 	return u.compiler.checkContentModelUPA(id, u.seen, uint64(id)+1)
 }
 
@@ -525,10 +527,8 @@ func choiceNeedsRuntimeSplit(model contentModelNode, occurs occurrence) bool {
 
 func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 	switch model.Kind {
-	case modelChoice:
-		return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in choice")
-	case modelAll:
-		return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in all")
+	case modelChoice, modelAll:
+		return c.checkPairwiseUPA(model.Particles)
 	case modelSequence:
 		return c.checkSequenceUPA(model)
 	case modelEmpty:
@@ -586,7 +586,7 @@ func (c *contentModelCompiler) checkSequenceContinuationUPA(model contentModelNo
 }
 
 func (c *contentModelCompiler) checkSequenceContinuation(candidate, next contentParticle, modelOccurs occurrence) (bool, error) {
-	name, overlap, err := c.particlesOverlap(candidate, next)
+	particles, overlap, err := c.particlesOverlap(candidate, next)
 	if err != nil {
 		return false, err
 	}
@@ -600,7 +600,7 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 			return false, err
 		}
 	}
-	return false, c.upaError("UPA violation: duplicate element in sequence", name)
+	return false, c.upaError(particles)
 }
 
 // sequenceHasWildcardEquivalentOverlap reports whether a wildcard that can
@@ -1116,14 +1116,14 @@ func (c *contentModelCompiler) checkCompiledEdgePairUPA(state uint32, row compil
 	if err := c.work.spend(1); err != nil {
 		return err
 	}
-	name, overlap, err := c.particlesOverlap(a.Particle, b.Particle)
+	particles, overlap, err := c.particlesOverlap(a.Particle, b.Particle)
 	if err != nil || !overlap {
 		return err
 	}
 	if compiledCountingException(state, row, a, b) {
 		return nil
 	}
-	return c.upaError("UPA violation: overlapping particles", name)
+	return c.upaError(particles)
 }
 
 func (c *contentModelCompiler) compiledRowNeedsUPACheck(row compiledModelRow) (bool, error) {
@@ -1213,10 +1213,10 @@ func (c *contentModelCompiler) compileAllModel(model contentModelNode) (compiled
 }
 
 func (c *contentModelCompiler) checkAllUPA(model contentModelNode) error {
-	return c.checkPairwiseUPA(model.Particles, "UPA violation: overlapping particles in all")
+	return c.checkPairwiseUPA(model.Particles)
 }
 
-func (c *contentModelCompiler) checkPairwiseUPA(particles []contentParticle, msg string) error {
+func (c *contentModelCompiler) checkPairwiseUPA(particles []contentParticle) error {
 	needsCheck, err := c.particlesNeedUPACheck(particles)
 	if err != nil {
 		return err
@@ -1225,41 +1225,40 @@ func (c *contentModelCompiler) checkPairwiseUPA(particles []contentParticle, msg
 		return nil
 	}
 	for i, p := range particles {
-		if err := c.checkParticleAgainstFollowingUPA(p, particles[i+1:], msg); err != nil {
+		if err := c.checkParticleAgainstFollowingUPA(p, particles[i+1:]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *contentModelCompiler) checkParticleAgainstFollowingUPA(particle contentParticle, following []contentParticle, msg string) error {
+func (c *contentModelCompiler) checkParticleAgainstFollowingUPA(particle contentParticle, following []contentParticle) error {
 	for _, next := range following {
 		if err := c.work.spend(1); err != nil {
 			return err
 		}
-		name, overlap, err := c.particlesOverlap(particle, next)
+		particles, overlap, err := c.particlesOverlap(particle, next)
 		if err != nil {
 			return err
 		}
 		if overlap {
-			return c.upaError(msg, name)
+			return c.upaError(particles)
 		}
 	}
 	return nil
 }
 
-func (c *contentModelCompiler) particlesOverlap(a, b contentParticle) (QName, bool, error) {
+func (c *contentModelCompiler) particlesOverlap(a, b contentParticle) (particleOverlap, bool, error) {
 	if c.analysis == nil {
-		return QName{}, false, xsderrors.InternalInvariant("content model analysis is nil")
+		return particleOverlap{}, false, xsderrors.InternalInvariant("content model analysis is nil")
 	}
 	return c.analysis.Overlap(a, b)
 }
 
-func (c *contentModelCompiler) upaError(msg string, name QName) error {
-	if c.names != nil && (name.Local != 0 || name.Namespace != 0) {
-		msg += " " + c.names.Format(name)
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, msg)
+// upaError is the one Unique Particle Attribution diagnostic: every check
+// that finds two competing particles reports them through it.
+func (c *contentModelCompiler) upaError(overlap particleOverlap) error {
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, upaViolationMessage(c.rt, c.typeLabel, c.analysis.declaredNameOverlap(overlap)))
 }
 
 func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {
@@ -1844,7 +1843,7 @@ func (b *dfaBuilder) checkSourceEdgePairUPA(a, next dfaSourceEdge) error {
 	if a.Pos == next.Pos {
 		return nil
 	}
-	name, overlap, err := b.c.particlesOverlap(a.Particle, next.Particle)
+	particles, overlap, err := b.c.particlesOverlap(a.Particle, next.Particle)
 	if err != nil || !overlap {
 		return err
 	}
@@ -1857,7 +1856,7 @@ func (b *dfaBuilder) checkSourceEdgePairUPA(a, next dfaSourceEdge) error {
 	if countingException(a, next) {
 		return nil
 	}
-	return b.c.upaError("UPA violation: overlapping particles", name)
+	return b.c.upaError(particles)
 }
 
 func (c *contentModelCompiler) sourceRowNeedsUPACheck(row dfaSourceRow) (bool, error) {

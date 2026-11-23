@@ -42,7 +42,7 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		}
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		if _, err := c.reserveAnonymousComplexType(ctx, complexType); err != nil {
+		if _, err := c.reserveAnonymousComplexType(ctx, complexType, complexTypeLabel{kind: complexTypeLabelAbsentElement}); err != nil {
 			return err
 		}
 	}
@@ -159,7 +159,7 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q Q
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
-	properties, err := c.compileElementProperties(ctx, n)
+	properties, err := c.compileElementProperties(ctx, n, q)
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
@@ -190,7 +190,7 @@ type compiledElementProperties struct {
 	abstract bool
 }
 
-func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode) (compiledElementProperties, error) {
+func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode, q QName) (compiledElementProperties, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
@@ -203,7 +203,7 @@ func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNod
 	if err != nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
-	typ, err := c.compileElementDeclType(ctx, n)
+	typ, err := c.compileElementDeclType(ctx, n, q)
 	if err != nil {
 		return compiledElementProperties{}, err
 	}
@@ -215,7 +215,7 @@ func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNod
 	return compiledElementProperties{typ: typ, nillable: nillable, abstract: abstract}, nil
 }
 
-func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode) (TypeID, error) {
+func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode, q QName) (TypeID, error) {
 	if source := semanticSource[*schemaElementSource](&n.semantic); source != nil && source.Type.Lexical.Present {
 		return c.compileElementTypeAttribute(ctx, n, source.Type.Name)
 	}
@@ -224,7 +224,7 @@ func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode)
 		return SimpleRef(id), err
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		id, err := c.reserveAnonymousComplexType(ctx, complexType)
+		id, err := c.reserveAnonymousComplexType(ctx, complexType, complexTypeLabel{name: q, kind: complexTypeLabelElement})
 		return ComplexRef(id), err
 	}
 	return ComplexRef(c.rt.AnyType), nil

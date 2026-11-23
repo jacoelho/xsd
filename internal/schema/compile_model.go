@@ -358,8 +358,8 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 // group stops compilation at the first model, in source order, holding it.
 // Only a complex type's root model can be published, so only a root keeps its
 // published form; any other model keeps its kind alone.
-func (c *compiler) compileContentModels(reached []contentModelID) error {
-	cc := newContentModelCompiler(&c.rt.Names, &c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
+func (c *compiler) compileContentModels(reached []reachedModel) error {
+	cc := newContentModelCompiler(&c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
 	index := newDFARowIndexAnalysis(&c.rt, c.contentWork.spend, &c.dependencyWork)
 	roots := make([]contentModelID, len(c.rt.ComplexTypes))
 	for i := range c.rt.ComplexTypes {
@@ -368,25 +368,26 @@ func (c *compiler) compileContentModels(reached []contentModelID) error {
 	slices.Sort(roots)
 	sources := make([]contentModelID, 0, len(reached))
 	models := make([]compiledModelRead, 0, len(reached))
-	for _, id := range reached {
-		model, err := c.compileContentModel(&cc, index, roots, id)
+	for _, r := range reached {
+		model, err := c.compileContentModel(&cc, index, roots, r)
 		if err != nil {
 			return err
 		}
-		sources = append(sources, id)
+		sources = append(sources, r.id)
 		models = append(models, model)
 	}
 	c.rt.CompiledContent = compiledContent{Sources: sources, Models: models}
 	return nil
 }
 
-func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, id contentModelID) (_ compiledModelRead, err error) {
+func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, reached reachedModel) (_ compiledModelRead, err error) {
+	id := reached.id
 	scope, err := c.enterContentModel(id)
 	if err != nil {
 		return compiledModelRead{}, err
 	}
 	defer scope.leave(&err)
-	compiled, err := cc.compileRootContentModel(id)
+	compiled, err := cc.compileRootContentModel(id, c.complexTypeLabel(reached.complexType))
 	if err != nil {
 		return compiledModelRead{}, err
 	}
@@ -403,14 +404,21 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIn
 	return model, nil
 }
 
-func (c *compiler) checkCompiledModelsUPA(reached []contentModelID) error {
-	upa := newContentModelUPACheck(&c.rt.Names, &c.rt, len(c.rt.Models), &c.contentWork, &c.dependencyWork, c.contentAnalysis)
-	for _, id := range reached {
-		if err := c.checkModelUPA(upa, id); err != nil {
+func (c *compiler) checkCompiledModelsUPA(reached []reachedModel) error {
+	upa := newContentModelUPACheck(&c.rt, len(c.rt.Models), &c.contentWork, &c.dependencyWork, c.contentAnalysis)
+	for _, r := range reached {
+		if err := c.checkModelUPA(upa, r); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// reachedModel is a content model a complex type reaches and the complex type
+// a Unique Particle Attribution violation in it is reported against.
+type reachedModel struct {
+	id          contentModelID
+	complexType ComplexTypeID
 }
 
 // complexTypeReachableModels returns the content models that Unique Particle
@@ -420,14 +428,17 @@ func (c *compiler) checkCompiledModelsUPA(reached []contentModelID) error {
 // model holding them. It visits the complex types' roots in complex-type order and then nested
 // models breadth first, so a limit failure names the first model in that
 // order; only the builtin anyType model's charge has no source and is located
-// set-wide.
-func (c *compiler) complexTypeReachableModels() ([]contentModelID, error) {
+// set-wide. A model is reported against the complex type of the walk step
+// that first reaches it: the type itself for its root, else the type the
+// model whose particle first reaches it is reported against.
+func (c *compiler) complexTypeReachableModels() ([]reachedModel, error) {
 	walk := modelReach{
-		reached: make([]bool, len(c.rt.Models)),
-		queue:   make([]contentModelID, 0, len(c.rt.ComplexTypes)),
+		reached:      make([]bool, len(c.rt.Models)),
+		complexTypes: make([]ComplexTypeID, len(c.rt.Models)),
+		queue:        make([]contentModelID, 0, len(c.rt.ComplexTypes)),
 	}
 	for i := range c.rt.ComplexTypes {
-		if err := walk.reach(c.rt.ComplexTypes[i].Content); err != nil {
+		if err := walk.reach(c.rt.ComplexTypes[i].Content, ComplexTypeID(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -452,57 +463,60 @@ func (c *compiler) reachModelParticles(walk *modelReach, id contentModelID) (err
 	if err != nil {
 		return err
 	}
-	return walk.reachParticles(particles)
+	return walk.reachParticles(particles, walk.complexTypes[id])
 }
 
 // modelReach is a breadth-first walk over the content models. queue holds
-// each reached model once, in visit order.
+// each reached model once, in visit order, and complexTypes the complex type
+// each reached model is reported against.
 type modelReach struct {
-	reached []bool
-	queue   []contentModelID
+	reached      []bool
+	complexTypes []ComplexTypeID
+	queue        []contentModelID
 }
 
 // ids returns the reached models in ascending ID order.
-func (r *modelReach) ids() []contentModelID {
-	ids := make([]contentModelID, 0, len(r.queue))
+func (r *modelReach) ids() []reachedModel {
+	ids := make([]reachedModel, 0, len(r.queue))
 	for id, ok := range r.reached {
 		if ok {
-			ids = append(ids, contentModelID(id))
+			ids = append(ids, reachedModel{id: contentModelID(id), complexType: r.complexTypes[id]})
 		}
 	}
 	return ids
 }
 
-func (r *modelReach) reach(id contentModelID) error {
+func (r *modelReach) reach(id contentModelID, complexType ComplexTypeID) error {
 	if !validContentModelID(id, len(r.reached)) {
 		return xsderrors.InternalInvariant("content model reachability references missing content model")
 	}
 	if !r.reached[id] {
 		r.reached[id] = true
+		r.complexTypes[id] = complexType
 		r.queue = append(r.queue, id)
 	}
 	return nil
 }
 
-func (r *modelReach) reachParticles(particles []contentParticle) error {
+func (r *modelReach) reachParticles(particles []contentParticle, complexType ComplexTypeID) error {
 	for _, particle := range particles {
 		if particle.Kind != particleModel {
 			continue
 		}
-		if err := r.reach(particle.Model); err != nil {
+		if err := r.reach(particle.Model, complexType); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *compiler) checkModelUPA(upa *contentModelUPACheck, id contentModelID) (err error) {
-	scope, err := c.enterContentModel(id)
+func (c *compiler) checkModelUPA(upa *contentModelUPACheck, reached reachedModel) (err error) {
+	scope, err := c.enterContentModel(reached.id)
 	if err != nil {
 		return err
 	}
 	defer scope.leave(&err)
-	return upa.checkModel(id)
+	return upa.checkModel(reached.id, c.complexTypeLabel(reached.complexType))
 }
 
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
