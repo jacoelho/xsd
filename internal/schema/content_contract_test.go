@@ -58,15 +58,14 @@ func TestNextContentExhaustedNamedCandidateContinuesToWildcard(t *testing.T) {
 	for _, named := range []int{2, 7} {
 		t.Run(map[int]string{2: "three edges", 7: "eight edges"}[named], func(t *testing.T) {
 			t.Parallel()
-			build := contentContractBuild(t, contentContractNames(named))
-			row := &build.CompiledContent.Models[0].Rows[0]
+			names := contentContractNames(named)
+			model := contentContractModel(names)
+			row := &model.Rows[0]
 			row.Counted, row.Min, row.Max = true, 1, 1
 			row.CountParticle = row.Edges[0].Particle
 			row.Edges[0].To = 0
 			row.Edges = append(row.Edges, compiledModelEdge{Particle: wildcardParticle(0, occurrence{Min: 1, Max: 1}), To: 1})
-			if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
-				t.Fatal(err)
-			}
+			build := contentContractBuildFor(names, model)
 			rt := contentContractSchema(build, testCompiledModelReads(build.CompiledContent.Models))
 			rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 			st := ContentState{model: 0, count: 1, present: true}
@@ -84,17 +83,15 @@ func TestNextContentDuplicateNameKeepsCountedLoopAndExit(t *testing.T) {
 	for _, width := range []int{3, 8, 17} {
 		t.Run(map[int]string{3: "narrow", 8: "wide", 17: "seventeen edges"}[width], func(t *testing.T) {
 			t.Parallel()
-			build := contentContractBuild(t, contentContractNames(width-1))
-			row := &build.CompiledContent.Models[0].Rows[0]
+			names := contentContractNames(width - 1)
+			model := contentContractModel(names)
+			row := &model.Rows[0]
 			row.Counted, row.Min, row.Max = true, 2, 2
 			row.CountParticle = row.Edges[0].Particle
 			loop := row.Edges[0]
 			loop.To = 0
 			row.Edges = append([]compiledModelEdge{loop}, row.Edges...)
-			row.index = dfaRowIndex{}
-			if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
-				t.Fatal(err)
-			}
+			build := contentContractBuildFor(names, model)
 			reads := testCompiledModelReads(build.CompiledContent.Models)
 			rt := contentContractSchema(build, reads)
 			st := ContentState{model: 0, present: true}
@@ -120,20 +117,31 @@ func contentContractNames(count int) []QName {
 	return names
 }
 
+// contentContractModel is a two-row DFA whose start row takes element i,
+// named names[i], to the accepting row.
+func contentContractModel(names []QName) compiledModel {
+	edges := make([]compiledModelEdge, len(names))
+	for i := range names {
+		edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i), occurrence{Min: 1, Max: 1}), To: 1}
+	}
+	return compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}
+}
+
 func contentContractBuild(t *testing.T, names []QName) *schemaBuild {
 	t.Helper()
+	return contentContractBuildFor(names, contentContractModel(names))
+}
+
+// contentContractBuildFor declares element i as names[i] and compiles model
+// as the only content model.
+func contentContractBuildFor(names []QName, model compiledModel) *schemaBuild {
 	build := &schemaBuild{Elements: make([]elementDecl, len(names))}
-	edges := make([]compiledModelEdge, len(names))
 	for i, name := range names {
 		build.Elements[i] = elementDecl{Name: name}
-		edges[i] = compiledModelEdge{Particle: elementParticle(ElementID(i), occurrence{Min: 1, Max: 1}), To: 1}
 	}
 	build.CompiledContent = compiledContent{
 		Sources: []contentModelID{0},
-		Models:  []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}},
-	}
-	if err := indexCompiledModelsRows(build, build.CompiledContent.Models, unlimitedContentModelWork); err != nil {
-		t.Fatal(err)
+		Models:  testIndexedModels(build, model),
 	}
 	return build
 }
@@ -152,12 +160,8 @@ func TestNextContentWarmNamedDispatchAllocatesNothing(t *testing.T) {
 				names[id] = QName{Local: localNameID(i + 1)}
 				edges[i] = compiledModelEdge{Particle: elementParticle(id, occurrence{Min: 1, Max: 1}), To: 1}
 			}
-			build := (dfaRowIndexFixture{elementNames: names}).build()
-			models := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}}
-			if err := indexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
-				t.Fatal(err)
-			}
-			rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: models[0]}, elementNames: names})
+			model := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}
+			rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: model}, elementNames: names})
 			initial := ContentState{model: 0, present: true}
 			input := ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: localNameID(width)}}}
 			var scratch ContentScratch

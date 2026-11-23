@@ -105,7 +105,7 @@ func TestEnterContentModelsMapsEveryTypeToItsPublishedModel(t *testing.T) {
 	t.Parallel()
 
 	kinds := func(kinds ...compiledModelKind) *compiledContent {
-		content := &compiledContent{Sources: make([]contentModelID, len(kinds)), Models: make([]compiledModel, len(kinds))}
+		content := &compiledContent{Sources: make([]contentModelID, len(kinds)), Models: make([]compiledModelRead, len(kinds))}
 		for i, kind := range kinds {
 			content.Sources[i] = contentModelID(i)
 			content.Models[i].Kind = kind

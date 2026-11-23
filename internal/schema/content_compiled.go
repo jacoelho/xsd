@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-	"maps"
 	"math"
 	"slices"
 
@@ -190,7 +188,7 @@ type compiledModelRead struct {
 // compiledModelRowRead has a per-architecture storage ceiling
 // (TestCompiledModelRowReadStorageCeiling); optional dispatch metadata must not
 // enlarge it. Each published row owns exactly one index variant, named by
-// indexKind; mutable construction indexes never reach it.
+// indexKind.
 type compiledModelRowRead struct {
 	Edges         []compiledModelEdgeRead
 	index         publishedDFAIndex
@@ -209,23 +207,22 @@ const (
 	publishedDFALinear publishedDFAIndexKind = iota
 	publishedDFAMap
 	publishedDFADense
+	// publishedDFARun marks a row whose edges are a window of its model's edge
+	// run and whose index is the run's, shared by the run's other indexed
+	// rows (dfaRowIndexAnalysis.indexRun).
+	publishedDFARun
+	// publishedDFARunDense is publishedDFARun with a dense run index.
+	publishedDFARunDense
 )
 
-// Map data is ordered wildcard positions; dense data is metadata and slots.
-// The row kind owns interpretation, so metadata never enters wildcard iteration.
+// Map data is ordered wildcard positions; dense data is metadata and slots;
+// run data is the wildcard count, the ordered wildcard positions and the
+// positions of repeated names; dense run data is dense metadata and slots of
+// run positions. The row kind owns interpretation, so metadata
+// never enters wildcard iteration.
 type publishedDFAIndex struct {
 	nameToEdge map[QName]uint32
 	data       []uint32
-}
-
-func newPublishedDFAMapIndex(source dfaRowIndex) (publishedDFAIndex, publishedDFAIndexKind) {
-	if !source.enabled() {
-		return publishedDFAIndex{}, publishedDFALinear
-	}
-	return publishedDFAIndex{
-		nameToEdge: maps.Clone(source.nameToEdge),
-		data:       slices.Clone(source.wildcardEdges),
-	}, publishedDFAMap
 }
 
 type compiledModelEdgeRead struct {
@@ -263,10 +260,9 @@ type enteredContent struct {
 // Complex-type roots are the only entry points: nested groups are compiled into
 // their ancestors' rows, so no published particle references another model.
 // Every empty-kind model compiles to the same read, so empty roots share the
-// lowest such position and publication keeps one row for them; projection
-// work is still charged per compiled model. A compiled all model that no
-// complex type enters is an internal invariant violation, because
-// indexAllContentModels indexes only entered models.
+// lowest such position and publication keeps one row for them. A compiled
+// all model that no complex type enters violates All Group Limited and is an
+// internal invariant violation.
 func enterContentModels(types []complexTypeMetadata, content *compiledContent) (enteredContent, error) {
 	roots, err := contentRoots(types, content)
 	if err != nil {
@@ -306,7 +302,7 @@ func contentRoots(types []complexTypeMetadata, content *compiledContent) ([]int,
 	return roots, nil
 }
 
-func foldEmptyRoots(roots []int, models []compiledModel) {
+func foldEmptyRoots(roots []int, models []compiledModelRead) {
 	empty := -1
 	for _, root := range roots {
 		if models[root].Kind == compiledModelEmpty && (empty < 0 || root < empty) {
@@ -320,136 +316,98 @@ func foldEmptyRoots(roots []int, models []compiledModel) {
 	}
 }
 
-// newCompiledModelReads publishes the entered models in entered order.
-// Projection work is still charged for every compiled model, so admission does
-// not depend on which models validation can enter.
-func newCompiledModelReads(models []compiledModel, entered []int, work contentModelWork) ([]compiledModelRead, bool, error) {
-	if err := requireContentModelWork(work); err != nil {
-		return nil, false, err
-	}
-	if err := chargeCompiledModelProjectionWork(models, work); err != nil {
-		return nil, false, err
-	}
-	builder := newCompiledModelReadBuilder(models, entered)
+// publishedContentModels returns the entered models in entered order. They
+// share their tables with models.
+func publishedContentModels(models []compiledModelRead, entered []int) []compiledModelRead {
 	reads := make([]compiledModelRead, len(entered))
-	var mayHaveDenseRows bool
 	for i, id := range entered {
-		read, mayHaveDense := builder.readModel(models[id])
-		reads[i] = read
-		mayHaveDenseRows = mayHaveDenseRows || mayHaveDense
+		reads[i] = models[id]
 	}
-	return reads, mayHaveDenseRows, nil
+	return reads
 }
 
-// Large all-groups dispatch by expanded name. The index uses the same
-// substitution expansion as DFA rows; occurrence bits remain document-owned.
-// All Group Limited admits an all group only as the whole content of a complex
-// type, so every compiled all model is an entered root, as enterContentModels
-// asserts, and indexing the entered models charges the same work whichever
-// other models are entered.
-func indexAllContentModels(models []compiledModel, entered []int, reads []compiledModelRead, rt *schemaBuild, work contentModelWork) error {
-	if err := requireContentModelWork(work); err != nil {
-		return err
+// newCompiledModelRead projects one compiled model to its published form,
+// charging one unit of work per model, row, edge and xs:all term. Each table
+// is allocated at its exact length, and each row's Edges has no spare
+// capacity, so appending to it never writes into another row's edges. When
+// the model's rows are windows of one run of edges, the published rows are
+// windows of its projected run, which newCompiledModelRead also returns.
+func newCompiledModelRead(model compiledModel, work contentModelWork) (compiledModelRead, []compiledModelEdgeRead, error) {
+	if err := chargeCompiledModelProjectionWork(model, work); err != nil {
+		return compiledModelRead{}, nil, err
 	}
-	analysis := newDFARowIndexAnalysis(rt, work)
-	for slot, id := range entered {
-		if err := indexAllContentModel(&reads[slot], &models[id], analysis); err != nil {
-			return err
+	run := readEdges(model.Run)
+	var rows []compiledModelRowRead
+	if model.Run == nil {
+		rows = readRows(model.Rows)
+	} else {
+		var err error
+		if rows, err = readRunRows(model.Rows, run); err != nil {
+			return compiledModelRead{}, nil, err
 		}
 	}
-	return nil
-}
-
-// indexAllContentModel installs the name index of model in read when model is
-// a large all model whose terms can be indexed.
-func indexAllContentModel(read *compiledModelRead, model *compiledModel, analysis *dfaRowIndexAnalysis) error {
-	if model.Kind != compiledModelAll || len(model.All) < compiledDFARowIndexMinEdges {
-		return nil
-	}
-	if err := spendContentModelWorkN(analysis.work, len(model.All)); err != nil {
-		return err
-	}
-	index := make(map[QName]uint32, len(model.All))
-	indexed, err := indexAllContentTerms(index, model.All, analysis)
-	if err != nil {
-		return err
-	}
-	if indexed {
-		read.allNames = index
-	}
-	return nil
-}
-
-// indexAllContentTerms fills the empty map index with terms' names after the
-// caller has charged one unit per term. It reports false when a term cannot be
-// indexed, leaving index partly filled.
-func indexAllContentTerms(index map[QName]uint32, terms []compiledAllTerm, analysis *dfaRowIndexAnalysis) (bool, error) {
-	for i, term := range terms {
-		if term.Particle.Kind != particleElement {
-			return false, errors.New("all-group index requires element particles")
-		}
-		indexed, err := analysis.indexElementEdge(index, uint32(i), term.Particle.Element)
-		if err != nil {
-			return false, err
-		}
-		if !indexed {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-type compiledModelReadBuilder struct {
-	rows       []compiledModelRowRead
-	edges      []compiledModelEdgeRead
-	all        []compiledAllTermRead
-	rowOffset  int
-	edgeOffset int
-	allOffset  int
-}
-
-func newCompiledModelReadBuilder(models []compiledModel, entered []int) compiledModelReadBuilder {
-	rowCount, edgeCount, allCount := compiledModelReadCounts(models, entered)
-	return compiledModelReadBuilder{
-		rows:  make([]compiledModelRowRead, rowCount),
-		edges: make([]compiledModelEdgeRead, edgeCount),
-		all:   make([]compiledAllTermRead, allCount),
-	}
-}
-
-func (b *compiledModelReadBuilder) readModel(model compiledModel) (compiledModelRead, bool) {
-	rows, mayHaveDenseRows := b.readRows(model.Rows)
 	return compiledModelRead{
 		Rows:      rows,
-		All:       b.readAll(model.All),
+		All:       readAll(model.All),
 		Start:     model.Start,
 		AllBitLen: model.AllBitLen,
 		Kind:      model.Kind,
 		Empty:     model.Empty,
-	}, model.Kind == compiledModelDFA && mayHaveDenseRows
+	}, run, nil
 }
 
-func (b *compiledModelReadBuilder) readRows(source []compiledModelRow) ([]compiledModelRowRead, bool) {
+func readRows(source []compiledModelRow) []compiledModelRowRead {
 	if len(source) == 0 {
-		return nil, false
+		return nil
 	}
-	end := b.rowOffset + len(source)
-	rows := b.rows[b.rowOffset:end:end]
-	b.rowOffset = end
-	var mayHaveDenseRows bool
+	edgeCount := 0
+	for i := range source {
+		edgeCount += len(source[i].Edges)
+	}
+	rows := make([]compiledModelRowRead, len(source))
+	edges := make([]compiledModelEdgeRead, edgeCount)
 	for i, row := range source {
-		rows[i] = b.readRow(row)
-		mayHaveDenseRows = mayHaveDenseRows || mayUseDenseDFA(&rows[i])
+		end := len(row.Edges)
+		rowEdges := edges[:end:end]
+		edges = edges[end:]
+		for j, edge := range row.Edges {
+			rowEdges[j] = newCompiledModelEdgeRead(edge)
+		}
+		if end == 0 {
+			rowEdges = nil
+		}
+		rows[i] = newCompiledModelRowRead(row, rowEdges)
 	}
-	return rows, mayHaveDenseRows
+	return rows
 }
 
-func (b *compiledModelReadBuilder) readRow(row compiledModelRow) compiledModelRowRead {
-	index, kind := newPublishedDFAMapIndex(row.index)
+// readRunRows projects rows whose edges are windows of run. Edge k of run
+// targets row k+1, so a window's first target locates it in run.
+func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead) ([]compiledModelRowRead, error) {
+	for k, edge := range run {
+		if uint64(edge.To) != uint64(k)+1 {
+			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows")
+		}
+	}
+	rows := make([]compiledModelRowRead, len(source))
+	for i, row := range source {
+		var window []compiledModelEdgeRead
+		if len(row.Edges) > 0 {
+			start := uint64(row.Edges[0].To) - 1
+			end := start + uint64(len(row.Edges))
+			if row.Edges[0].To == 0 || end > uint64(len(run)) || uint64(row.Edges[len(row.Edges)-1].To) != end {
+				return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run")
+			}
+			window = run[start:end:end]
+		}
+		rows[i] = newCompiledModelRowRead(row, window)
+	}
+	return rows, nil
+}
+
+func newCompiledModelRowRead(row compiledModelRow, edges []compiledModelEdgeRead) compiledModelRowRead {
 	return compiledModelRowRead{
-		Edges:         b.readEdges(row.Edges),
-		index:         index,
-		indexKind:     kind,
+		Edges:         edges,
 		CountParticle: newCompiledParticleRead(row.CountParticle),
 		Min:           row.Min,
 		Max:           row.Max,
@@ -459,57 +417,46 @@ func (b *compiledModelReadBuilder) readRow(row compiledModelRow) compiledModelRo
 	}
 }
 
-func (b *compiledModelReadBuilder) readEdges(source []compiledModelEdge) []compiledModelEdgeRead {
+func readEdges(source []compiledModelEdge) []compiledModelEdgeRead {
 	if len(source) == 0 {
 		return nil
 	}
-	end := b.edgeOffset + len(source)
-	edges := b.edges[b.edgeOffset:end:end]
-	b.edgeOffset = end
+	edges := make([]compiledModelEdgeRead, len(source))
 	for i, edge := range source {
-		edges[i] = compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
+		edges[i] = newCompiledModelEdgeRead(edge)
 	}
 	return edges
 }
 
-func (b *compiledModelReadBuilder) readAll(source []compiledAllTerm) []compiledAllTermRead {
+func newCompiledModelEdgeRead(edge compiledModelEdge) compiledModelEdgeRead {
+	return compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
+}
+
+func readAll(source []compiledAllTerm) []compiledAllTermRead {
 	if len(source) == 0 {
 		return nil
 	}
-	end := b.allOffset + len(source)
-	all := b.all[b.allOffset:end:end]
-	b.allOffset = end
+	all := make([]compiledAllTermRead, len(source))
 	for i, term := range source {
 		all[i] = compiledAllTermRead{Particle: newCompiledParticleRead(term.Particle), Required: term.Required}
 	}
 	return all
 }
 
-func chargeCompiledModelProjectionWork(models []compiledModel, work contentModelWork) error {
-	for _, model := range models {
-		if err := spendContentModelWork(work); err != nil {
-			return err
-		}
-		if err := spendContentModelWorkN(work, len(model.All)); err != nil {
-			return err
-		}
-		if err := chargeCompiledModelRows(model.Rows, work); err != nil {
-			return err
-		}
+// chargeCompiledModelProjectionWork charges one unit per model, row, xs:all
+// term and published edge: each edge of a run once, and otherwise each edge of
+// each row.
+func chargeCompiledModelProjectionWork(model compiledModel, work contentModelWork) error {
+	if err := spendContentModelWorkN(work, 1+len(model.All)+len(model.Run)); err != nil {
+		return err
 	}
-	return nil
-}
-
-func chargeCompiledModelRows(rows []compiledModelRow, work contentModelWork) error {
-	for _, row := range rows {
-		if err := spendContentModelWork(work); err != nil {
-			return err
+	for _, row := range model.Rows {
+		edges := len(row.Edges)
+		if model.Run != nil {
+			edges = 0
 		}
-		counts := [...]int{len(row.Edges), len(row.index.nameToEdge), len(row.index.wildcardEdges)}
-		for _, count := range counts {
-			if err := spendContentModelWorkN(work, count); err != nil {
-				return err
-			}
+		if err := spendContentModelWorkN(work, 1+edges); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -522,25 +469,6 @@ func spendContentModelWorkN(work contentModelWork, count int) error {
 		}
 	}
 	return nil
-}
-
-func compiledModelReadCounts(models []compiledModel, entered []int) (rows, edges, all int) {
-	for _, id := range entered {
-		model := &models[id]
-		rows = addCompiledModelReadCount(rows, len(model.Rows))
-		all = addCompiledModelReadCount(all, len(model.All))
-		for j := range model.Rows {
-			edges = addCompiledModelReadCount(edges, len(model.Rows[j].Edges))
-		}
-	}
-	return rows, edges, all
-}
-
-func addCompiledModelReadCount(total, count int) int {
-	if count > math.MaxInt-total {
-		panic("compiled model read projection size exceeds int capacity")
-	}
-	return total + count
 }
 
 func sameCompiledParticleRead(a, b compiledParticleRead) bool {
@@ -735,11 +663,16 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
-	if row.indexKind == publishedDFAMap {
+	switch row.indexKind {
+	case publishedDFAMap:
 		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
-	}
-	if row.indexKind == publishedDFADense {
+	case publishedDFARun:
+		return rt.nextPublishedRunDFAContent(st, model, row, in)
+	case publishedDFARunDense:
+		return rt.nextPublishedRunDenseDFAContent(st, model, row, in)
+	case publishedDFADense:
 		return rt.nextPublishedDenseDFAContent(st, model, row, in)
+	case publishedDFALinear:
 	}
 	for _, edge := range row.Edges {
 		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
@@ -829,6 +762,86 @@ func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishe
 		}
 	}
 	return &publishedDFACandidates{wildcards: idx.data, element: element}
+}
+
+// nextPublishedRunDenseDFAContent dispatches a row whose edges are a window of
+// its model's run through the run's dense index.
+func (rt *Schema) nextPublishedRunDenseDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	if !in.Name.Known {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	edge := row.index.denseEdge(in.Name.Name) - int(row.Edges[0].To-1)
+	if edge < 0 || edge >= len(row.Edges) {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	return rt.takePublishedDFAEdge(st, model, row.Edges[edge], in)
+}
+
+// nextPublishedRunDFAContent dispatches a row whose edges are the run
+// positions from start, which its first edge's target follows, to end, which
+// is its last edge's target, through its model's run index. Candidates are
+// run positions.
+func (rt *Schema) nextPublishedRunDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	start := row.Edges[0].To - 1
+	end := row.Edges[len(row.Edges)-1].To
+	data := row.index.data
+	wildcards := data[1 : 1+data[0]]
+	low, _ := slices.BinarySearch(wildcards, start)
+	high, _ := slices.BinarySearch(wildcards, end)
+	candidates := publishedDFACandidates{wildcards: wildcards[low:high], element: row.index.runElement(in, start, end)}
+	for {
+		pos, ok := candidates.next()
+		if !ok {
+			return ContentTransition{}, ContentTransitionNoMatch
+		}
+		transition, status := rt.takePublishedDFAEdge(st, model, row.Edges[pos-int(start)], in)
+		if status != ContentTransitionNoMatch {
+			return transition, status
+		}
+	}
+}
+
+// takePublishedDFAEdge reports the transition of edge for in, or no match when
+// edge does not take in.
+func (rt *Schema) takePublishedDFAEdge(st ContentState, model *compiledModelRead, edge compiledModelEdgeRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
+	match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
+	if !valid {
+		return ContentTransition{}, ContentTransitionInvalid
+	}
+	if match.kind == ContentMatchInvalid {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	next, ok := nextPublishedDFAState(st, model, edge)
+	if !ok {
+		return ContentTransition{}, ContentTransitionNoMatch
+	}
+	return newContentTransition(st, next, match), contentTransitionMatched
+}
+
+// runElement returns the run position from start to end of the element edge
+// that in's name selects through a run index, or -1.
+func (idx publishedDFAIndex) runElement(in ContentInput, start, end uint32) int {
+	if !in.Name.Known {
+		return -1
+	}
+	value, ok := idx.nameToEdge[in.Name.Name]
+	if !ok {
+		return -1
+	}
+	pos := value
+	if value&publishedRunRepeated != 0 {
+		group := idx.data[value&^publishedRunRepeated:]
+		positions := group[1 : 1+group[0]]
+		i, _ := slices.BinarySearch(positions, start)
+		if i == len(positions) {
+			return -1
+		}
+		pos = positions[i]
+	}
+	if pos < start || pos >= end {
+		return -1
+	}
+	return int(pos)
 }
 
 func (c *publishedDFACandidates) next() (int, bool) {

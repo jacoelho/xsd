@@ -79,10 +79,18 @@ type cachedID struct {
 	known bool
 }
 
+// contentModelCompiler charges compilation work to work and each record of
+// a compiled table to retained before allocating it: two units per compiled
+// model, whose record the compiled table and the published table both hold,
+// and one per row, edge and xs:all term. The rows of a direct sequence share
+// one run of edges, so each of its edges counts once. A model's rows and edges
+// are its published ones, so the charge also bounds the tables publication
+// keeps.
 type contentModelCompiler struct {
 	names                 *nameTable
 	rt                    *schemaBuild
 	work                  *workBudget
+	retained              *workBudget
 	analysis              *contentModelAnalysis
 	maxContentModelStates int
 }
@@ -92,12 +100,14 @@ func newContentModelCompiler(
 	rt *schemaBuild,
 	maxContentModelStates int,
 	work *workBudget,
+	retained *workBudget,
 	analysis *contentModelAnalysis,
 ) contentModelCompiler {
 	return contentModelCompiler{
 		names:                 names,
 		rt:                    rt,
 		work:                  work,
+		retained:              retained,
 		analysis:              analysis,
 		maxContentModelStates: maxContentModelStates,
 	}
@@ -123,9 +133,11 @@ type dfaAccept struct {
 // compileRootContentModel lowers the source graph of one model in the table,
 // constructs its finite automaton and determinizes it, charging every
 // traversal, configuration and transition to the compiler's budget.
-// indexCompiledModelsRows indexes the table once every model is compiled.
 func (c *contentModelCompiler) compileRootContentModel(id contentModelID) (compiledModel, error) {
 	if err := c.work.spend(1); err != nil {
+		return compiledModel{}, err
+	}
+	if err := c.retained.spend(2); err != nil {
 		return compiledModel{}, err
 	}
 	return c.compileContentModel(id)
@@ -148,10 +160,11 @@ func newContentModelUPACheck(
 	rt *schemaBuild,
 	count int,
 	work *workBudget,
+	retained *workBudget,
 	analysis *contentModelAnalysis,
 ) *contentModelUPACheck {
 	return &contentModelUPACheck{
-		compiler: newContentModelCompiler(names, rt, 0, work, analysis),
+		compiler: newContentModelCompiler(names, rt, 0, work, retained, analysis),
 		seen:     make([]uint64, count),
 	}
 }
@@ -839,6 +852,9 @@ func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compi
 }
 
 func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode) (compiledModel, bool, error) {
+	if err := c.retained.spend(1); err != nil {
+		return compiledModel{}, false, err
+	}
 	compilation := directSequenceCompilation{compiler: c, rows: []compiledModelRow{{}}, spans: []directSequenceSpan{{}}}
 	supported := true
 	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
@@ -856,15 +872,17 @@ func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode
 	return compiledModel{
 		Kind:  compiledModelDFA,
 		Rows:  rows,
+		Run:   slices.Clip(compilation.edges),
 		Start: 0,
 		Empty: rows[0].Accept,
 	}, true, nil
 }
 
 // directSequenceCompilation compiles a sequence of element and wildcard
-// particles. The rows that take a particle's edge are always a contiguous
-// run ending at the last row, so each row's edges are one run of a shared
-// edge array.
+// particles. Each particle appends one row and one edge to that row, so edge k
+// targets row k+1, and the rows that take an edge are always a contiguous run
+// ending at the last row, so each row's edges are a window of the shared edge
+// array.
 type directSequenceCompilation struct {
 	compiler *contentModelCompiler
 	rows     []compiledModelRow
@@ -910,10 +928,14 @@ func (b *directSequenceCompilation) addEdge(particle contentParticle, row compil
 	if err := b.compiler.work.spend(int(to - b.active)); err != nil {
 		return err
 	}
+	if err := b.compiler.retained.spend(1); err != nil {
+		return err
+	}
+	repeats := particle.Occurs.Unbounded || particle.Occurs.Max > 1
 	edge := len(b.edges)
 	b.edges = append(b.edges, compiledModelEdge{Particle: singleParticle(particle), To: to})
 	start := edge + 1
-	if particle.Occurs.Unbounded || particle.Occurs.Max > 1 {
+	if repeats {
 		start = edge
 	}
 	b.spans = append(b.spans, directSequenceSpan{start: start})
@@ -952,6 +974,9 @@ func (b *directSequenceCompilation) table() []compiledModelRow {
 }
 
 func (c *contentModelCompiler) compileDirectChoiceModel(model contentModelNode) (compiledModel, bool, error) {
+	if err := c.retained.spend(1); err != nil {
+		return compiledModel{}, false, err
+	}
 	compilation := directChoiceCompilation{compiler: c, rows: []compiledModelRow{{}}}
 	supported := true
 	err := c.executionParticles(model, func(particle contentParticle) (bool, error) {
@@ -1016,8 +1041,16 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 	if err != nil {
 		return err
 	}
+	loops := !particle.Occurs.IsExactlyOne() && (particle.Occurs.Unbounded || particle.Occurs.Max > 1)
+	references := 1
+	if loops {
+		references++
+	}
+	if err := b.compiler.retained.spend(references); err != nil {
+		return err
+	}
 	b.rows[0].Edges = append(b.rows[0].Edges, edge)
-	if !particle.Occurs.IsExactlyOne() && (particle.Occurs.Unbounded || particle.Occurs.Max > 1) {
+	if loops {
 		b.rows[edge.To].Edges = append(b.rows[edge.To].Edges, edge)
 	}
 	return nil
@@ -1026,6 +1059,9 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 func (c *contentModelCompiler) appendCompiledModelRow(rows []compiledModelRow, row compiledModelRow) ([]compiledModelRow, error) {
 	if len(rows) >= c.maxContentModelStates {
 		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+	}
+	if err := c.retained.spend(1); err != nil {
+		return nil, err
 	}
 	return append(rows, row), nil
 }
@@ -1145,6 +1181,9 @@ func singleParticle(p contentParticle) contentParticle {
 
 func (c *contentModelCompiler) compileAllModel(model contentModelNode) (compiledModel, error) {
 	if err := c.checkAllUPA(model); err != nil {
+		return compiledModel{}, err
+	}
+	if err := c.retained.spend(len(model.Particles)); err != nil {
 		return compiledModel{}, err
 	}
 	terms := make([]compiledAllTerm, 0, len(model.Particles))

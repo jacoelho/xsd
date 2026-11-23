@@ -1,10 +1,47 @@
 package schema
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacoelho/xsd/xsderrors"
 )
+
+func TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		kind modelKind
+		want int
+	}{
+		{name: "sequence of eight elements", kind: modelSequence, want: 2 + 9 + 8},
+		{name: "choice of eight elements", kind: modelChoice, want: 2 + 9 + 8},
+		{name: "all group of eight elements", kind: modelAll, want: 2 + 8},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			names, rt := compiledModelRuntimeFixture(t, test.kind)
+			compiles := func(limit int) bool {
+				work := newWorkBudget(contentModelWorkBudget, 1_000_000)
+				retained := newWorkBudget(dependencyWorkBudget, limit)
+				analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+				cc := newContentModelCompiler(&names, rt.build(), 32, &work, &retained, analysis)
+				_, err := cc.compileRootContentModel(0)
+				if err == nil {
+					return true
+				}
+				if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic.Code() != xsderrors.CodeSchemaLimit {
+					t.Fatalf("compileRootContentModel() error = %v, want schema.limit", err)
+				}
+				return false
+			}
+			if !compiles(test.want) || compiles(test.want-1) {
+				t.Fatalf("least MaxSchemaDependencySteps that compiles the model is not %d", test.want)
+			}
+		})
+	}
+}
 
 func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 	t.Parallel()
@@ -31,7 +68,7 @@ func TestCheckContentModelsUPAChargesSharedModelForEachRoot(t *testing.T) {
 			t.Parallel()
 			work := newWorkBudget(contentModelWorkBudget, tt.limit)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			upa := newContentModelUPACheck(nil, rt.build(), 4, &work, analysis)
+			upa := newContentModelUPACheck(nil, rt.build(), 4, &work, testDependencyWork(), analysis)
 			var err error
 			for id := range contentModelID(4) {
 				if err = upa.checkModel(id); err != nil {
@@ -54,7 +91,7 @@ func checkUPAWithin(t *testing.T, models map[contentModelID]contentModelNode, ro
 	rt := compiledModelFixture{models: models}
 	work := newWorkBudget(contentModelWorkBudget, limit)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	upa := newContentModelUPACheck(nil, rt.build(), len(models), &work, analysis)
+	upa := newContentModelUPACheck(nil, rt.build(), len(models), &work, testDependencyWork(), analysis)
 	for _, id := range roots {
 		if err := upa.checkModel(id); err != nil {
 			return work.limit - work.remaining, err
@@ -144,7 +181,7 @@ func TestWildcardOverlapPassChargesNothingForElementCandidates(t *testing.T) {
 		rt := compiledModelFixture{models: map[contentModelID]contentModelNode{0: {Kind: modelSequence, Occurs: one, Particles: particles}}}
 		work := newWorkBudget(contentModelWorkBudget, limit)
 		analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-		c := newContentModelCompiler(nil, rt.build(), 0, &work, analysis)
+		c := newContentModelCompiler(nil, rt.build(), 0, &work, testDependencyWork(), analysis)
 		overlap, err := c.sequenceHasWildcardEquivalentOverlap(contentModelNode{Kind: modelSequence, Occurs: one, Particles: particles})
 		if overlap {
 			t.Fatal("sequenceHasWildcardEquivalentOverlap() = true for a sequence without wildcards")
@@ -166,7 +203,7 @@ func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {
 	newBuilder := func(limit int) *dfaBuilder {
 		work := newWorkBudget(contentModelWorkBudget, limit)
 		b := &dfaBuilder{
-			c:         &contentModelCompiler{work: &work},
+			c:         &contentModelCompiler{work: &work, retained: testDependencyWork()},
 			follow:    followTableOf(map[int][]int{0: {0}}),
 			states:    make(map[string]uint32),
 			positions: []contentParticle{elementParticle(1, occurrence{Min: 1, Max: 1})},

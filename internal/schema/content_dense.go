@@ -42,7 +42,8 @@ func mayUseDenseDFA(row *compiledModelRowRead) bool {
 }
 
 // Conversion follows mandatory publication and visits models/rows in source
-// order. Exhaustion stops the phase; all remaining cloned map reads are complete.
+// order. Exhaustion stops the phase; the remaining rows keep their complete
+// map indexes.
 func addDenseDFAIndexes(models []compiledModelRead, budget *denseIndexBudget) {
 	for i := range models {
 		if !budget.spend(1) {

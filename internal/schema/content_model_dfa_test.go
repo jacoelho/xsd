@@ -39,7 +39,7 @@ func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	names, rt := compiledModelRuntimeFixture(t, modelChoice)
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+	cc := newContentModelCompiler(&names, rt.build(), 32, &work, testDependencyWork(), analysis)
 	model, err := cc.compileRootContentModel(0)
 	if err != nil {
 		t.Fatalf("compileRootContentModel() error = %v", err)
@@ -75,7 +75,7 @@ func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
 		compile := func(id contentModelID) compiledModel {
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+			cc := newContentModelCompiler(&names, rt.build(), 32, &work, testDependencyWork(), analysis)
 			model, err := cc.compileRootContentModel(id)
 			if err != nil {
 				t.Fatalf("compileRootContentModel(%d) error = %v", id, err)
@@ -137,7 +137,7 @@ func TestCompileContentModelExecutesReducedLaxAnyContentWithoutDFA(t *testing.T)
 			}
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			cc := newContentModelCompiler(&names, rt.build(), 32, &work, analysis)
+			cc := newContentModelCompiler(&names, rt.build(), 32, &work, testDependencyWork(), analysis)
 			model, err := cc.compileRootContentModel(0)
 			if err != nil {
 				t.Fatalf("compileRootContentModel() error = %v", err)
@@ -179,7 +179,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	}
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	err = newContentModelUPACheck(&names, rt.build(), 1, &work, analysis).checkModel(0)
+	err = newContentModelUPACheck(&names, rt.build(), 1, &work, testDependencyWork(), analysis).checkModel(0)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -212,7 +212,7 @@ func TestCheckContentModelsUPARejectsCorruptRuntimeSplitInputs(t *testing.T) {
 			rt := compiledModelFixture{models: tt.models}
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, analysis).checkModel(0)
+			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, testDependencyWork(), analysis).checkModel(0)
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
@@ -473,7 +473,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 func TestDeterministicRowCapsTransitionGroupBeforeStateLookup(t *testing.T) {
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	b := &dfaBuilder{
-		c:     &contentModelCompiler{work: &work},
+		c:     &contentModelCompiler{work: &work, retained: testDependencyWork()},
 		limit: 1,
 		rows: []dfaSourceRow{{
 			Edges: []dfaSourceEdge{
@@ -496,7 +496,7 @@ func TestDeterministicRowCapsTransitionGroupBeforeStateLookup(t *testing.T) {
 func TestDeterministicRowDeduplicatesTransitionGroupBeforeLimit(t *testing.T) {
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	b := &dfaBuilder{
-		c:     &contentModelCompiler{work: &work},
+		c:     &contentModelCompiler{work: &work, retained: testDependencyWork()},
 		limit: 1,
 		rows: []dfaSourceRow{{
 			Edges: []dfaSourceEdge{
@@ -523,7 +523,7 @@ func TestDeterministicRowChargesRejectedGuards(t *testing.T) {
 
 	work := newWorkBudget(contentModelWorkBudget, 2)
 	b := &dfaBuilder{
-		c: &contentModelCompiler{work: &work},
+		c: &contentModelCompiler{work: &work, retained: testDependencyWork()},
 		rows: []dfaSourceRow{{
 			Edges: []dfaSourceEdge{{
 				Particle: elementParticle(1, occurrence{Min: 1, Max: 1}),
@@ -565,7 +565,7 @@ func TestNormalizeFollowsChargesFollowEntryGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	work := newWorkBudget(contentModelWorkBudget, 3)
-	b := &dfaBuilder{c: &contentModelCompiler{work: &work}, follow: follow}
+	b := &dfaBuilder{c: &contentModelCompiler{work: &work, retained: testDependencyWork()}, follow: follow}
 	err = b.normalizeFollows()
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }

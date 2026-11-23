@@ -201,10 +201,10 @@ func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 		expectAllocUnder(t, alloc, 128)
 	})
 	t.Run("fan-out charges each reference once", func(t *testing.T) {
-		// One reference to g12 (4,096 elements) compiles in about 100,000
-		// steps, two need about 133,000, and charging the expansion of one
-		// reference twice needs about 137,000.
-		opts := xsd.CompileOptions{MaxContentModelAnalysisSteps: 115_000}
+		// One reference to g12 (4,096 elements) compiles in about 75,000
+		// steps, two need about 107,500, and charging the expansion of one
+		// reference twice needs about 111,500.
+		opts := xsd.CompileOptions{MaxContentModelAnalysisSteps: 90_000}
 		if _, err := xsd.CompileWithOptions(opts, xsd.Bytes("f.xsd", []byte(fanOutSchema(12, 1)))); err != nil {
 			t.Fatalf("one reference: %v", err)
 		}

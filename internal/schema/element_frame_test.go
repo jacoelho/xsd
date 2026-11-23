@@ -30,7 +30,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 				contentKind:  contentSimple,
 			},
 		},
-		CompiledModels: testCompiledModelReads([]compiledModel{
+		CompiledModels: testCompiledModelReads([]compiledModelRead{
 			{},
 			{Start: 7, AllBitLen: 2},
 		}),

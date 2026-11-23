@@ -29,7 +29,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaSources` | `1024` | Max explicit source descriptors, and, separately, max distinct schema documents loaded (explicit and resolver-loaded together). An unavailable include/import target loads nothing and is not counted; the document that exceeds the count is opened and closed without being read. |
 | `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read from schema sources. Each document is charged when first loaded; an opener source reached again is reopened and charged again; a file source is read once; an in-memory source is compared by digest without charge. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
-| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. Each derived type still compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types exceeds that limit instead. |
+| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, each row, edge, `xs:all` term and name-index entry of a compiled content-model table, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step; a compiled content model's record costs two. The compiled tables are bounded per step below. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. Each derived type still compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types exceeds that limit instead. |
 | `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. `0` means no explicit limit. |
@@ -71,8 +71,50 @@ outside the figure. A model's rows, and the edges of a table compiled
 directly, which holds at most one edge per state, grow with its states, which
 `MaxContentModelStates` caps.
 
-The figure bounds one content model. The compiled tables a schema keeps until
-publication, summed over its content models, are not bounded by it.
+The figure bounds one content model. `MaxSchemaDependencySteps` bounds the
+compiled tables summed over the content models, which a compiled schema keeps
+for validation. Compilation keeps only the published form of each complex
+type's root model, and charges each record of every model it compiles one step
+before allocating it, including the nested models it compiles on their own and
+keeps no table for: a row, an edge, an `xs:all` term and an entry of a name
+index. The rows of a sequence compiled directly to a table are windows of one
+run of edges, and its rows that take at least eight edges share one name
+index of the run, so a sequence of optional elements holds one edge and about
+one index entry per element, not one per element and row. When the run has
+no wildcards and its names are distinct, share one namespace and span at most
+twice as many name IDs as there are names, the index is a dense array of run
+positions with one entry per slot and two metadata entries. A run row whose
+window holds a name twice has no index and dispatches by linear scan. Rows
+outside a run own their edges and name indexes. An index is built before compilation knows that it
+can be installed, so an index that is not installed is transient and never
+charged. A compiled model's own record costs two steps, because publication
+holds a second copy. On 64-bit platforms a row is 80 bytes, an edge and an
+`xs:all` term 16 bytes, and a model record 72 bytes, held twice for its two
+steps. A name-index entry is a map entry of at most 34.3 bytes, measured over
+indexes of 8 to 20,000 entries with the map's growth and overhead, or a 4-byte
+position in a slice. A model's rows are one allocation, its edges another and
+its terms a third, and the Go allocator rounds each up by at most about 1.25
+(32,848 bytes round to 40,960), so the row bounds every unit: the tables take
+at most 80 × 1.25 = 100 bytes per step, under 96 MiB when they exhaust the
+default budget of 1,000,000 steps. Steps the schema spends on other records
+lower the figure. A schema whose content models all share one group of 16,000
+required wildcards, each of its own namespace, compiles at the defaults with
+29 complex types and retains about 44 MiB, about 46 bytes per step; 30 types
+exceed the limit. 800 complex types that each hold a sequence of 40 optional
+elements need about 167,000 steps and retain about 2.9 MiB, and the 93
+document schemas of UBL 2.4 compiled together need about 54,000. A choice of
+120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
+with both step limits raised, retains about 60 MiB at its least limit of about
+7.7 million steps, about 8 bytes per step. A sequence or choice that automaton
+construction compiles after direct compilation gives up is charged for the
+rows direct compilation built. While a model compiles, the heap also holds
+that model's construction state, which `MaxContentModelAnalysisSteps` bounds
+as above, and its transient name indexes, so the peak is the retained tables
+plus one model's construction. Name indexing also keeps, for the whole
+compilation, the member names of each substitution head an indexed edge
+names, at most the entries `MaxSubstitutionClosureEntries` caps. The dense
+dispatch indexes that publication adds to rows of at least 16 edges that own
+their index have their own fixed 4 MiB cap.
 
 The peak heap measured for whole content models, below, includes keys, counter
 vectors, follow sets and scratch, and reaches about 4 bytes per step at most. In the

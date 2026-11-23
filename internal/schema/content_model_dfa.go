@@ -215,6 +215,9 @@ func (c *deterministicModelCompilation) compileRows() error {
 		if err := c.builder.c.work.spend(len(configs) + 1); err != nil {
 			return err
 		}
+		if err := c.builder.c.retained.spend(1); err != nil {
+			return err
+		}
 		row, err := c.deterministicRow(configs, c.stateIDNormalized)
 		if err != nil {
 			return err
@@ -257,8 +260,6 @@ func appendDoubling[S ~[]E, E any](s S, e E) S {
 	return append(s, e)
 }
 
-// table returns the built rows at their exact length; compiled models live
-// until publication.
 func (c *deterministicModelCompilation) table() []compiledModelRow {
 	rows := make([]compiledModelRow, len(c.rows))
 	for i, row := range c.rows {
@@ -291,6 +292,9 @@ func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, st
 		}
 	}
 	if err := c.builder.c.work.spend(len(c.groups)); err != nil {
+		return compiledModelRow{}, err
+	}
+	if err := c.builder.c.retained.spend(len(c.groups)); err != nil {
 		return compiledModelRow{}, err
 	}
 	slices.SortFunc(c.groups, func(a, b dfaTransitionSet) int {

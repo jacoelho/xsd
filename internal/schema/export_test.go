@@ -150,7 +150,7 @@ const (
 
 type (
 	AttributeUseSet   = attributeUseSet
-	CompiledModel     = compiledModel
+	CompiledModel     = compiledModelRead
 	ComplexType       = complexTypeMetadata
 	ContentKind       = complexContentVariety
 	ContentModel      = contentModelNode

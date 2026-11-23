@@ -10,24 +10,50 @@ func unlimitedContentModelAnalysis(rt *schemaBuild) *contentModelAnalysis {
 	return analysis
 }
 
-// allCompiledModels enters every model of an n-model compiled table, so the
-// published table keeps compiled-table positions.
-func allCompiledModels(n int) []int {
-	positions := make([]int, n)
-	for i := range positions {
-		positions[i] = i
-	}
-	return positions
+// testProjectedModel projects model to its published form without indexing
+// it.
+func testProjectedModel(model compiledModel) compiledModelRead {
+	read, _ := testProjectedModelRun(model)
+	return read
 }
 
-func testCompiledModelReads(models []compiledModel) []compiledModelRead {
-	reads, mayHaveDenseRows, err := newCompiledModelReads(models, allCompiledModels(len(models)), unlimitedContentModelWork)
+func testProjectedModelRun(model compiledModel) (compiledModelRead, []compiledModelEdgeRead) {
+	read, run, err := newCompiledModelRead(model, unlimitedContentModelWork)
 	if err != nil {
 		panic(err)
 	}
-	if mayHaveDenseRows {
-		budget := defaultDenseIndexBudget()
-		addDenseDFAIndexes(reads, &budget)
+	return read, run
+}
+
+// testIndexedModels projects and indexes models as compilation does.
+func testIndexedModels(rt *schemaBuild, models ...compiledModel) []compiledModelRead {
+	analysis := newDFARowIndexAnalysis(rt, unlimitedContentModelWork, testDependencyWork())
+	reads := make([]compiledModelRead, len(models))
+	for i, model := range models {
+		read, run := testProjectedModelRun(model)
+		reads[i] = read
+		if err := analysis.indexModel(&reads[i], run); err != nil {
+			panic(err)
+		}
 	}
+	return reads
+}
+
+// testPublishedReads publishes every model of a compiled table without the
+// dense indexes publication adds.
+func testPublishedReads(models ...compiledModelRead) []compiledModelRead {
+	positions := make([]int, len(models))
+	for i := range positions {
+		positions[i] = i
+	}
+	return publishedContentModels(models, positions)
+}
+
+// testCompiledModelReads publishes every model of a compiled table, with the
+// dense indexes publication adds.
+func testCompiledModelReads(models []compiledModelRead) []compiledModelRead {
+	reads := testPublishedReads(models...)
+	budget := defaultDenseIndexBudget()
+	addDenseDFAIndexes(reads, &budget)
 	return reads
 }

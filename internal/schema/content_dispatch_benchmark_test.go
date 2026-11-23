@@ -152,12 +152,8 @@ func contentDispatchBenchmarkFixture(b *testing.B, test contentDispatchBenchmark
 		initial.count = 1
 		inputName, want, wantKind = names[1], NoElement, ContentMatchSkip
 	}
-	build := (dfaRowIndexFixture{elementNames: names, substitutionByName: substitutions}).build()
-	models := []compiledModel{{Kind: compiledModelDFA, Rows: []compiledModelRow{row, {Accept: true}}}}
-	if err := indexCompiledModelsRows(build, models, unlimitedContentModelWork); err != nil {
-		b.Fatal(err)
-	}
-	rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: models[0]}, elementNames: names, substitutionLookup: substitutions, wildcards: wildcards})
+	model := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{row, {Accept: true}}}
+	rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: model}, elementNames: names, substitutionLookup: substitutions, wildcards: wildcards})
 	input := ContentInput{Name: RuntimeName{Known: true, Name: inputName, Local: fmt.Sprintf("fixture-%d", inputName.Local)}}
 	if test.shape == "wildcard-name" {
 		input.Name.NS = "urn:fixture"

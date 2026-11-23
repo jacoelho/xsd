@@ -2,123 +2,99 @@ package schema
 
 import (
 	"errors"
-	"slices"
 	"testing"
 )
 
-func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
-	t.Parallel()
-	const head = ElementID(1)
-	allTerms := func(first ElementID) []compiledAllTerm {
-		terms := make([]compiledAllTerm, compiledDFARowIndexMinEdges)
-		for i := range terms {
-			terms[i].Particle = contentParticle{Kind: particleElement, Element: first + ElementID(i)}
-		}
-		return terms
+func largeAllModel(first ElementID) compiledModel {
+	terms := make([]compiledAllTerm, compiledDFARowIndexMinEdges)
+	for i := range terms {
+		terms[i].Particle = contentParticle{Kind: particleElement, Element: first + ElementID(i)}
 	}
-	// substituted's head expands to extra names; plain has none.
-	substituted := compiledModel{Kind: compiledModelAll, All: allTerms(1)}
-	plain := compiledModel{Kind: compiledModelAll, All: allTerms(31)}
+	return compiledModel{Kind: compiledModelAll, All: terms}
+}
+
+func allTermNames(models ...compiledModel) map[ElementID]QName {
 	names := make(map[ElementID]QName)
-	for _, model := range []compiledModel{substituted, plain} {
+	for _, model := range models {
 		for _, term := range model.All {
 			names[term.Particle.Element] = QName{Local: localNameID(term.Particle.Element)}
 		}
 	}
+	return names
+}
+
+func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
+	t.Parallel()
+	const head = ElementID(1)
+	// substituted's head expands to extra names; plain has none.
+	substituted := largeAllModel(1)
+	plain := largeAllModel(31)
 	source := dfaRowIndexFixture{
-		elementNames: names,
+		elementNames: allTermNames(substituted, plain),
 		substitutionByName: map[ElementID]map[QName]ElementID{
 			head: {{Local: 20}: 2, {Local: 21}: 3},
 		},
 	}
 	exhausted := errors.New("content work exhausted")
-	index := func(models []compiledModel, entered []int) ([]compiledModelRead, error) {
-		reads := make([]compiledModelRead, len(entered))
-		remaining := compiledDFARowIndexMinEdges
-		err := indexAllContentModels(models, entered, reads, source.build(), func(steps int) error {
+	index := func(model compiledModel) (compiledModelRead, error) {
+		read := testProjectedModel(model)
+		remaining := 1 + compiledDFARowIndexMinEdges
+		err := newDFARowIndexAnalysis(source.build(), func(steps int) error {
 			remaining -= steps
 			if remaining < 0 {
 				return exhausted
 			}
 			return nil
-		})
-		return reads, err
+		}, testDependencyWork()).indexModel(&read, nil)
+		return read, err
 	}
-	if reads, err := index([]compiledModel{plain}, []int{0}); err != nil || reads[0].allNames == nil {
-		t.Fatalf("plain index = %v, installed %v; want it to fit the budget", err, reads[0].allNames != nil)
+	if read, err := index(plain); err != nil || read.allNames == nil {
+		t.Fatalf("plain index = %v, installed %v; want it to fit the budget", err, read.allNames != nil)
 	}
-	reads, err := index([]compiledModel{substituted}, []int{0})
+	read, err := index(substituted)
 	if !errors.Is(err, exhausted) {
-		t.Fatalf("indexAllContentModels() = %v, want work exhaustion", err)
+		t.Fatalf("indexModel() = %v, want work exhaustion", err)
 	}
-	if reads[0].allNames != nil {
+	if read.allNames != nil {
 		t.Fatal("failed index construction installed lookup data on the published model")
 	}
 }
 
-func TestAllContentIndexStaysWithItsPublishedModel(t *testing.T) {
+func TestAllContentIndexMapsEachTermOfAnIndexableModel(t *testing.T) {
 	t.Parallel()
-	large := func(first ElementID) compiledModel {
-		terms := make([]compiledAllTerm, compiledDFARowIndexMinEdges)
-		for i := range terms {
-			terms[i].Particle = contentParticle{Kind: particleElement, Element: first + ElementID(i)}
-		}
-		return compiledModel{Kind: compiledModelAll, All: terms}
-	}
 	// unindexable repeats one element at two positions, so its names cannot
 	// be indexed although it is large enough.
-	unindexable := large(41)
+	unindexable := largeAllModel(41)
 	unindexable.All[1].Particle.Element = unindexable.All[0].Particle.Element
-	small := compiledModel{Kind: compiledModelAll, All: large(61).All[:compiledDFARowIndexMinEdges-1]}
-	dfa := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Accept: true}}}
+	small := compiledModel{Kind: compiledModelAll, All: largeAllModel(61).All[:compiledDFARowIndexMinEdges-1]}
 	for _, tt := range []struct {
 		name    string
-		models  []compiledModel
-		entered []int
-		// indexed lists the entered models whose slots carry their own index.
-		indexed []int
+		model   compiledModel
+		indexed bool
 	}{
-		{
-			name:    "entered models that carry no index between indexed ones",
-			models:  []compiledModel{large(1), small, unindexable, large(21)},
-			entered: []int{0, 1, 2, 3},
-			indexed: []int{0, 3},
-		},
-		{
-			name:    "unentered nested models between entered ones",
-			models:  []compiledModel{dfa, large(1), dfa, large(11), dfa},
-			entered: []int{1, 3},
-			indexed: []int{1, 3},
-		},
+		{name: "large", model: largeAllModel(1), indexed: true},
+		{name: "below the index threshold", model: small},
+		{name: "repeated element", model: unindexable},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			names := make(map[ElementID]QName)
-			for _, model := range tt.models {
-				for _, term := range model.All {
-					names[term.Particle.Element] = QName{Local: localNameID(term.Particle.Element)}
-				}
+			names := allTermNames(tt.model)
+			read := testProjectedModel(tt.model)
+			if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: names}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&read, nil); err != nil {
+				t.Fatalf("indexModel() error = %v", err)
 			}
-			reads := make([]compiledModelRead, len(tt.entered))
-			if err := indexAllContentModels(tt.models, tt.entered, reads, (dfaRowIndexFixture{elementNames: names}).build(), unlimitedContentModelWork); err != nil {
-				t.Fatalf("indexAllContentModels() error = %v", err)
+			if !tt.indexed {
+				if read.allNames != nil {
+					t.Fatal("model carries an all-group index it cannot own")
+				}
+				return
 			}
-			for slot, id := range tt.entered {
-				model := tt.models[id]
-				got := reads[slot].allNames
-				if !slices.Contains(tt.indexed, id) {
-					if got != nil {
-						t.Fatalf("published slot %d (model %d) carries an all-group index it does not own", slot, id)
-					}
-					continue
-				}
-				if len(got) != len(model.All) {
-					t.Fatalf("published slot %d (model %d) index has %d names, want its own %d", slot, id, len(got), len(model.All))
-				}
-				for pos, term := range model.All {
-					if got[names[term.Particle.Element]] != uint32(pos) {
-						t.Fatalf("published slot %d (model %d) does not map its term %d to its own position", slot, id, pos)
-					}
+			if len(read.allNames) != len(tt.model.All) {
+				t.Fatalf("index has %d names, want %d", len(read.allNames), len(tt.model.All))
+			}
+			for pos, term := range tt.model.All {
+				if read.allNames[names[term.Particle.Element]] != uint32(pos) {
+					t.Fatalf("index does not map term %d to its position", pos)
 				}
 			}
 		})
