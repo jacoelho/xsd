@@ -62,7 +62,7 @@ func Resolve(base, ref Reference) (Reference, error) {
 	case r.Path == "":
 		r.Path = b.Path
 	default:
-		r.Path = removeRelativeDotSegments(mergePath(b, r.Path))
+		r.Path = resolvePath(b, r.Path)
 	}
 	r.Scheme, r.HasScheme = b.Scheme, b.HasScheme
 	r.Authority, r.HasAuthority = b.Authority, b.HasAuthority
@@ -171,6 +171,16 @@ func opaque(c Parts) bool {
 	return c.HasScheme && !c.HasAuthority && (c.Path == "" || c.Path[0] != '/')
 }
 
+func resolvePath(base Parts, ref string) string {
+	path := removeRelativeDotSegments(mergePath(base, ref))
+	// RFC 3986 section 3.3: a path cannot begin with "//" when there is no
+	// authority.
+	if !base.HasAuthority && strings.HasPrefix(path, "//") {
+		return "/." + path
+	}
+	return path
+}
+
 func mergePath(base Parts, ref string) string {
 	if i := strings.LastIndexByte(base.Path, '/'); i >= 0 {
 		return base.Path[:i+1] + ref
@@ -196,6 +206,10 @@ func removeRelativeDotSegments(path string) string {
 	result := strings.Join(stack, "/")
 	if absolute {
 		result = "/" + result
+	} else if first, _, _ := strings.Cut(result, "/"); strings.HasPrefix(result, "/") || strings.ContainsRune(first, ':') {
+		// RFC 3986 section 4.2: without the dot segment the path would read
+		// as an authority or a scheme.
+		result = "./" + result
 	}
 	if trailing && result != "" && !strings.HasSuffix(result, "/") {
 		result += "/"
