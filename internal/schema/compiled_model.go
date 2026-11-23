@@ -83,7 +83,7 @@ const compiledDFARowIndexMinEdges = 8
 
 // publishedRunRepeated marks a run index value that locates the positions of
 // a name the run holds more than once.
-const publishedRunRepeated = 1 << 31
+const publishedRunRepeated uint32 = 1 << 31
 
 // dfaRowIndexAnalysis builds the name indexes of published models: the edge
 // index of each DFA row with at least compiledDFARowIndexMinEdges edges and
@@ -208,7 +208,7 @@ func (a *dfaRowIndexAnalysis) indexRun(rows []compiledModelRowRead, run []compil
 		}
 		wide = wide || len(rows[i].Edges) >= compiledDFARowIndexMinEdges
 	}
-	if !wide || len(run) >= publishedRunRepeated {
+	if !wide || uint64(len(run)) >= uint64(publishedRunRepeated) {
 		return nil
 	}
 	last := make(map[QName]uint32, len(run))
@@ -261,6 +261,9 @@ func (a *dfaRowIndexAnalysis) indexRun(rows []compiledModelRowRead, run []compil
 		if count > 1 {
 			size += 1 + int(count)
 		}
+	}
+	if uint64(size) >= uint64(publishedRunRepeated) {
+		return nil
 	}
 	if wildcards == 0 && size == 1 {
 		if installed, err := a.indexDenseRun(rows, last, indexable); installed || err != nil {
