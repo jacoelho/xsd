@@ -15,36 +15,38 @@ func validateIdentityConstraints(names *nameTable, identities []identityConstrai
 	return nil
 }
 
-// validateIdentityConstraintOwnership checks that each identity constraint is
-// attached to exactly one element declaration, except a detached one, which
-// is attached to none (identityConstraintSpec.Detached).
+// validateIdentityConstraintOwnership checks the element declarations'
+// identity lists against each constraint's declarer: a constraint is attached
+// only to its declarer, at most once, and a constraint with a declarer is
+// attached to it.
 func validateIdentityConstraintOwnership(elements []elementDecl, identities []identityConstraintSpec) error {
-	owned := make([]bool, len(identities))
-	for _, element := range elements {
-		if err := markOwnedIdentityConstraints(owned, element.Identity); err != nil {
+	attached := make([]bool, len(identities))
+	for i := range elements {
+		if err := markDeclaredIdentityConstraints(attached, identities, elements[i].Identity, ElementID(i)); err != nil {
 			return err
 		}
 	}
-	for id, attached := range owned {
-		switch detached := identities[id].Detached; {
-		case detached && attached:
-			return errors.New("detached identity constraint is attached to an element declaration")
-		case !detached && !attached:
-			return errors.New("identity constraint is not attached to an element declaration")
+	for id := range identities {
+		declarer := identities[id].Declarer
+		if declarer != NoElement && (!validElementID(declarer, len(elements)) || !attached[id]) {
+			return errors.New("identity constraint is not attached to its declaring element declaration")
 		}
 	}
 	return nil
 }
 
-func markOwnedIdentityConstraints(owned []bool, identities []IdentityConstraintID) error {
-	for _, id := range identities {
-		if !validIdentityConstraintID(id, len(owned)) {
+func markDeclaredIdentityConstraints(attached []bool, identities []identityConstraintSpec, ids []IdentityConstraintID, element ElementID) error {
+	for _, id := range ids {
+		if !validIdentityConstraintID(id, len(attached)) {
 			return errors.New("element declaration references invalid identity constraint")
 		}
-		if owned[id] {
+		if attached[id] {
 			return errors.New("identity constraint is attached more than once")
 		}
-		owned[id] = true
+		if identities[id].Declarer != element {
+			return errors.New("identity constraint is attached to an element declaration other than its declarer")
+		}
+		attached[id] = true
 	}
 	return nil
 }

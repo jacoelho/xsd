@@ -4,6 +4,14 @@ import (
 	"testing"
 )
 
+func allReachable(n int) []bool {
+	reachable := make([]bool, n)
+	for i := range reachable {
+		reachable[i] = true
+	}
+	return reachable
+}
+
 func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
 	fixed := &valueConstraint{Lexical: "01", Canonical: "1", Value: builtinValueForTest(t, "integer", "01"), Fixed: true}
 	def := &valueConstraint{Lexical: "default", Canonical: "default", Value: builtinValueForTest(t, "string", "default")}
@@ -23,7 +31,7 @@ func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
 			ValueConstraint: def,
 		},
 	}
-	table := newElementReadTable(decls)
+	table := newElementReadTable(decls, allReachable(len(decls)))
 	if name, ok := table.name(0); !ok || name != decls[0].Name {
 		t.Fatalf("name(0) = %v, %v", name, ok)
 	}

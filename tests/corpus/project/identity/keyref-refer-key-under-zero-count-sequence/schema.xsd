@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:sequence minOccurs="0" maxOccurs="0">
+          <xs:element name="inner">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="k" type="xs:string" maxOccurs="unbounded"/>
+              </xs:sequence>
+            </xs:complexType>
+            <xs:key name="hidden">
+              <xs:selector xpath="k"/>
+              <xs:field xpath="."/>
+            </xs:key>
+          </xs:element>
+        </xs:sequence>
+        <xs:element name="r" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+    <xs:keyref name="ref" refer="hidden">
+      <xs:selector xpath="r"/>
+      <xs:field xpath="."/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>

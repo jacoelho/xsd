@@ -75,8 +75,10 @@ type contentModelNode struct {
 // model's occurrence, a root or the unit-occurrence term of a repeated base
 // root, shares that model's particles at one dependency step, so the particles
 // across the table are not bounded by the dependency steps that admitted them.
-// The reachability walk (complexTypeReachableModels) and the publication table
-// audit (validateContentModelTable) read particles only through it; Element
+// The walk to the models complex types reach (complexTypeReachableModels), the
+// walk to the components instances reach (detachUnreachableComponents) and the
+// publication table audit (validateContentModelTable) read particles only
+// through it; Element
 // Declarations Consistent and the per-root analyses charge each particle as
 // they visit it.
 func chargedParticles(work contentModelWork, model contentModelNode) ([]contentParticle, error) {

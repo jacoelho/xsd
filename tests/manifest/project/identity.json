@@ -28581,6 +28581,214 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/identity/key-in-group-shared-by-zero-count-and-live-type",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-particle"
+        ],
+        "conditions": [
+          "The named group G declares the local element list with the key unique-k; the zero-count element gone and the live element live both reference G.",
+          "Structures §3.3.2: gone, with minOccurs and maxOccurs 0, corresponds to no particle, but live is an element declaration whose content holds list, so list and its key are assessed through live.",
+          "Identity-constraint Satisfied clause 4.2: a key rejects two members of its qualified node set with equal key-sequences."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-particle",
+          "clause": "Particle Schema Component §3.3.2: minOccurs and maxOccurs 0 correspond to no particle"
+        }
+      },
+      "instances": [
+        {
+          "testName": "distinct-keys",
+          "file": "corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type/distinct-keys.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "Identity-constraint Satisfied clause 4.2: the key-sequences a and b are distinct"
+          }
+        },
+        {
+          "testName": "duplicate-keys",
+          "file": "corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type/duplicate-keys.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "Identity-constraint Satisfied clause 4.2: two k members of the key's qualified node set have the equal key-sequence a"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type/distinct-keys.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/key-in-group-shared-by-zero-count-and-live-type/duplicate-keys.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/keyref-refer-key-under-zero-count-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/identity/keyref-refer-key-under-zero-count-element",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-particle"
+        ],
+        "conditions": [
+          "The keyref ref on root refers to the key hidden, declared on the local element inner inside the type of the zero-count element gone.",
+          "Structures §3.3.2: no element declaration in root's content model corresponds to inner, so no inner element is assessed and the node table of hidden is never populated.",
+          "Identity-constraint Satisfied clause 4.3: every member of a keyref's qualified node set must equal a key-sequence in the referenced key's node table."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/keyref-refer-key-under-zero-count-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-particle",
+          "clause": "Particle Schema Component §3.3.2: minOccurs and maxOccurs 0 correspond to no particle"
+        }
+      },
+      "instances": [
+        {
+          "testName": "no-reference",
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-element/no-reference.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "Identity-constraint Satisfied clause 4.3: the keyref's qualified node set is empty"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-031"
+            }
+          }
+        },
+        {
+          "testName": "reference",
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-element/reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "Identity-constraint Satisfied clause 4.3: the key-sequence a of r matches nothing in the node table of hidden, which no assessed element populates"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-element/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-element/no-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-element/reference.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/keyref-refer-key-under-zero-count-sequence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/identity/keyref-refer-key-under-zero-count-sequence",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-particle"
+        ],
+        "conditions": [
+          "The keyref ref on root refers to the key hidden, declared on the local element inner under a sequence with minOccurs and maxOccurs 0.",
+          "Structures §3.3.2: no element declaration in root's content model corresponds to inner, so no inner element is assessed and the node table of hidden is never populated.",
+          "Identity-constraint Satisfied clause 4.3: every member of a keyref's qualified node set must equal a key-sequence in the referenced key's node table."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/keyref-refer-key-under-zero-count-sequence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-particle",
+          "clause": "Particle Schema Component §3.3.2: minOccurs and maxOccurs 0 correspond to no particle"
+        }
+      },
+      "instances": [
+        {
+          "testName": "no-reference",
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-sequence/no-reference.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "Identity-constraint Satisfied clause 4.3: the keyref's qualified node set is empty"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-031"
+            }
+          }
+        },
+        {
+          "testName": "reference",
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-sequence/reference.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "Identity-constraint Satisfied clause 4.3: the key-sequence a of r matches nothing in the node table of hidden, which no assessed element populates"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-sequence/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-sequence/no-reference.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/keyref-refer-key-under-zero-count-sequence/reference.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }

@@ -33,8 +33,8 @@ func (c *compiler) compileElementParticle(ctx *schemaSetDocument, n *schemaNode)
 // xs:element n: its inline type definition, which maps on its own as for a
 // prohibited attribute (I-008), and its identity constraints, which map to
 // identity-constraint definitions whatever their parent maps to (Structures
-// §3.11.2). No element declaration owns those constraints, so no instance
-// element evaluates them.
+// §3.11.2). No element declaration has that type or owns those constraints,
+// so detachUnreachableComponents detaches them.
 func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) error {
 	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
 		if _, err := c.compileAnonymousSimple(ctx, simple); err != nil {
@@ -46,18 +46,16 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		if err != nil {
 			return err
 		}
-		id, err := c.reserveAnonymousComplexType(ctx, complexType, absentElementComplexTypeLabel(name))
-		if err != nil {
+		if _, err := c.reserveAnonymousComplexType(ctx, complexType, absentElementComplexTypeLabel(name)); err != nil {
 			return err
 		}
-		c.rt.ComplexTypes[id].Detached = true
 	}
 	identityNodes := identityConstraintNodes(n)
 	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)
 	if err != nil {
 		return err
 	}
-	return c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, identityDetached)
+	return c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, NoElement)
 }
 
 func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *schemaNode) (ElementID, error) {
@@ -98,7 +96,7 @@ func (c *compiler) compileElementByQName(q QName) (result ElementID, err error) 
 	if err != nil {
 		return 0, err
 	}
-	decl, pending, err := c.compileElementDecl(raw.ctx, raw.sourceNode(), q)
+	decl, pending, err := c.compileElementDecl(raw.ctx, raw.sourceNode(), id, q)
 	if err != nil {
 		return 0, err
 	}
@@ -132,7 +130,7 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 		return 0, err
 	}
 	c.localDone[nodeKey(ctx, n)] = id
-	decl, pending, err := c.compileElementDecl(ctx, n, q)
+	decl, pending, err := c.compileElementDecl(ctx, n, id, q)
 	if err != nil {
 		return 0, err
 	}
@@ -168,7 +166,7 @@ type pendingElementConstraint struct {
 	element    ElementID
 }
 
-func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q QName) (elementDecl, *valueConstraint, error) {
+func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, id ElementID, q QName) (elementDecl, *valueConstraint, error) {
 	identityNodes := identityConstraintNodes(n)
 	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)
 	if err != nil {
@@ -192,7 +190,7 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q Q
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
-	if err := c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, identityOwned); err != nil {
+	if err := c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, id); err != nil {
 		return elementDecl{}, nil, err
 	}
 	decl.Identity = identityIDs

@@ -47,6 +47,10 @@ type compiledContent struct {
 	Sources []contentModelID
 	// Models is parallel to Sources.
 	Models []compiledModelRead
+	// Runs is parallel to Models: the edge run that every row of a root's
+	// published table is a window of, or nil when each row holds its own
+	// edges. It lets publication read each published edge once.
+	Runs [][]compiledModelEdgeRead
 }
 
 // compiledModelRow stores a compiled DFA state.

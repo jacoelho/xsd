@@ -396,7 +396,10 @@ func (c *compiler) finalizeCompiledGlobals() error {
 	if err := c.checkCompiledModelsUPA(reached); err != nil {
 		return err
 	}
-	return c.compileContentModels(reached)
+	if err := c.compileContentModels(reached); err != nil {
+		return err
+	}
+	return c.detachUnreachableComponents()
 }
 
 func (c *compiler) compileModelGroupByQName(q QName) error {
