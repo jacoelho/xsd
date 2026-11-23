@@ -213,6 +213,29 @@ func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 	})
 }
 
+func TestOnlyExtensionsThatAddParticlesChargeTheirOwnContentModel(t *testing.T) {
+	t.Parallel()
+	const extensions = 50
+	base := `<xs:schema ` + xsNS + `><xs:complexType name="base"><xs:sequence>`
+	for i := range 30 {
+		base += fmt.Sprintf(`<xs:element name="e%d" minOccurs="0"/>`, i)
+	}
+	base += `</xs:sequence></xs:complexType>`
+	schema := func(extension string) string {
+		s := base
+		for i := range extensions {
+			s += fmt.Sprintf(`<xs:complexType name="d%d"><xs:complexContent>%s</xs:complexContent></xs:complexType>`, i, extension)
+		}
+		return s + `</xs:schema>`
+	}
+	opts := xsd.CompileOptions{MaxContentModelAnalysisSteps: 50_000}
+	if _, err := xsd.CompileWithOptions(opts, xsd.Bytes("ext.xsd", []byte(schema(`<xs:extension base="base"/>`)))); err != nil {
+		t.Fatalf("%d empty extensions: %v", extensions, err)
+	}
+	_, err := xsd.CompileWithOptions(opts, xsd.Bytes("ext.xsd", []byte(schema(`<xs:extension base="base"><xs:sequence><xs:element name="x"/></xs:sequence></xs:extension>`))))
+	expectNamedLimit(t, err, "MaxContentModelAnalysisSteps")
+}
+
 func attributeList(prefix string, n int) string {
 	var b strings.Builder
 	for i := range n {
