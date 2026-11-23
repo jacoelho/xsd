@@ -65,8 +65,8 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 	if !ok {
 		return TypeInfo{}, false
 	}
-	read, ok := rt.publishedComplexType(complexID)
-	if !ok {
+	read := rt.publishedComplexType(complexID)
+	if read == nil {
 		return TypeInfo{}, false
 	}
 	info := read.typeInfo()
