@@ -1372,10 +1372,13 @@ graph preserves these ownership rules:
   declaration names), and the definitions nested in it keep their own
   mapping: its inline type definition, as for a prohibited attribute
   ([I-008](docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed)),
-  and its identity constraints (§3.11.2), which the build marks
-  `Detached`: no element declaration owns them, publication rejects any other
-  unowned constraint, and no instance element evaluates them, so publication
-  gives them no evaluation program. Treating the whole subtree as absent was
+  and its identity constraints (§3.11.2). The build marks its inline complex
+  type and its identity constraints `Detached`: no element declaration has
+  that type or owns those constraints, publication rejects an element
+  declaration with a detached type and any other unowned constraint, and no
+  instance element reaches them, so publication keeps their IDs for
+  compile-time diagnostics and keyref `refer` but gives the type no content
+  model or attribute uses and the constraints no evaluation program. Treating the whole subtree as absent was
   rejected: §3.11.2 maps every identity constraint regardless of its parent.
 - Declaring identity constraints as the components holding them compile,
   with a later pass for the rest, was rejected: types and named groups

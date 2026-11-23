@@ -46,9 +46,11 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		if err != nil {
 			return err
 		}
-		if _, err := c.reserveAnonymousComplexType(ctx, complexType, absentElementComplexTypeLabel(name)); err != nil {
+		id, err := c.reserveAnonymousComplexType(ctx, complexType, absentElementComplexTypeLabel(name))
+		if err != nil {
 			return err
 		}
+		c.rt.ComplexTypes[id].Detached = true
 	}
 	identityNodes := identityConstraintNodes(n)
 	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)

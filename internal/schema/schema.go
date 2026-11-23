@@ -70,16 +70,54 @@ type complexTypeReadFlags uint8
 
 const (
 	complexTypeReadAbstract complexTypeReadFlags = 1 << iota
+	// complexTypeReadDetached marks a type validation never reaches
+	// (complexTypeMetadata.Detached). It has no content model or attribute
+	// uses, and publishedComplexType rejects it.
+	complexTypeReadDetached
 )
 
-// newComplexTypeReads points each type at published[i], its model's index in
-// the published content-model table.
-func newComplexTypeReads(types []complexTypeMetadata, published []contentModelID) []complexTypeRead {
+// newComplexTypeReads points each type at publishedModels[i], its model's
+// index in the published content-model table, and returns the attribute-use
+// sets to publish: only those a type that is not detached uses, each once,
+// with every read pointing at its set's index among them. Attribute group
+// sets and the sets only detached types use are not published.
+func newComplexTypeReads(types []complexTypeMetadata, publishedModels []contentModelID, sets []attributeUseSet) ([]complexTypeRead, []attributeUseSet) {
 	reads := make([]complexTypeRead, len(types))
-	for i := range types {
-		reads[i] = newComplexTypeRead(types[i], published[i])
+	position := make([]attributeUseSetID, len(sets))
+	for set := range position {
+		position[set] = noAttributeUseSet
 	}
-	return reads
+	kept := 0
+	for i := range types {
+		if types[i].Detached {
+			reads[i] = complexTypeRead{attributeUseSet: noAttributeUseSet, contentModel: noContentModel, textType: NoSimpleType, flags: complexTypeReadDetached}
+			continue
+		}
+		reads[i] = newComplexTypeRead(types[i], publishedModels[i])
+		set := types[i].Attrs
+		if !validAttributeUseSetID(set, len(sets)) {
+			reads[i].attributeUseSet = noAttributeUseSet
+			continue
+		}
+		if position[set] == noAttributeUseSet {
+			position[set] = attributeUseSetID(kept) // #nosec G115 -- at most one set per complex type, and complex-type IDs are uint32.
+			kept++
+		}
+		reads[i].attributeUseSet = position[set]
+	}
+	return reads, publishedAttributeUseSets(sets, position, kept)
+}
+
+// publishedAttributeUseSets places each set at its published position, or
+// omits it when its position is noAttributeUseSet.
+func publishedAttributeUseSets(sets []attributeUseSet, position []attributeUseSetID, kept int) []attributeUseSet {
+	published := make([]attributeUseSet, kept)
+	for set, at := range position {
+		if at != noAttributeUseSet {
+			published[at] = sets[set]
+		}
+	}
+	return published
 }
 
 func newComplexTypeRead(ct complexTypeMetadata, contentModel contentModelID) complexTypeRead {
