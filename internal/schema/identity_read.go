@@ -376,7 +376,9 @@ type identityFieldDispatchIndex struct {
 // derived while publishing a schema. Validation sessions retain only their
 // active scope membership and scratch slices.
 type IdentityDispatchRead struct {
-	programs            []IdentityConstraintProgramRead
+	// programs holds, per constraint ID, the program of an owned constraint
+	// or nil for a detached one.
+	programs            []*IdentityConstraintProgramRead
 	selectors           identitySelectorDispatchIndex
 	elements            identityFieldDispatchIndex
 	elementSelf         []IdentityFieldDispatchRead
@@ -441,15 +443,18 @@ func (d IdentityDispatchRead) AttributeFieldBaseDepths(currentDepth int) (from, 
 	return from, currentDepth - s.fewest + 1
 }
 
-// ConstraintCount returns the number of published identity constraints.
+// ConstraintCount returns the number of published identity constraints,
+// detached ones included.
 func (d IdentityDispatchRead) ConstraintCount() int { return len(d.programs) }
 
 // Program returns the immutable dispatch program for an identity constraint.
+// It reports false for an invalid ID and for a detached constraint, which no
+// scope evaluates and so has no program.
 func (d IdentityDispatchRead) Program(id IdentityConstraintID) (IdentityConstraintProgramRead, bool) {
-	if !validIdentityConstraintID(id, len(d.programs)) {
+	if !validIdentityConstraintID(id, len(d.programs)) || d.programs[id] == nil {
 		return IdentityConstraintProgramRead{}, false
 	}
-	return d.programs[id], true
+	return *d.programs[id], true
 }
 
 // SelectorExact returns selector candidates keyed by an interned name.
@@ -487,13 +492,29 @@ func (d IdentityDispatchRead) ElementSelf() IdentityFieldDispatchReads {
 	return IdentityFieldDispatchReads{values: d.elementSelf}
 }
 
+// newIdentityDispatchRead publishes a program and dispatch branches for each
+// owned constraint. A detached constraint keeps its ID, which a keyref refer
+// and diagnostics name, but no scope ever opens it, so a program or branch
+// for it would be retained and scanned without being evaluated.
 func newIdentityDispatchRead(identities []identityConstraintSpec, names nameReadView) IdentityDispatchRead {
-	dispatch := IdentityDispatchRead{programs: make([]IdentityConstraintProgramRead, len(identities))}
-	constraint := IdentityConstraintID(0)
+	dispatch := IdentityDispatchRead{programs: make([]*IdentityConstraintProgramRead, len(identities))}
+	owned := 0
 	for _, identity := range identities {
-		program := newIdentityConstraintProgramRead(identity)
-		dispatch.programs[constraint] = program
-		addIdentityConstraintDispatch(&dispatch, constraint, program, names)
+		if !identity.Detached {
+			owned++
+		}
+	}
+	// Sized for every owned program, so appending never moves one that
+	// dispatch.programs already points to.
+	programs := make([]IdentityConstraintProgramRead, 0, owned)
+	constraint := IdentityConstraintID(0)
+	for i, identity := range identities {
+		if !identity.Detached {
+			programs = append(programs, newIdentityConstraintProgramRead(identity))
+			program := &programs[len(programs)-1]
+			dispatch.programs[i] = program
+			addIdentityConstraintDispatch(&dispatch, constraint, *program, names)
+		}
 		constraint++
 	}
 	return dispatch
