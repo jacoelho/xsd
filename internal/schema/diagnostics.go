@@ -9,15 +9,21 @@ import (
 
 // diagnosticNames retains names needed only when assessment fails. These
 // columns do not enlarge the component reads copied by successful validation.
+// wildcards holds each wildcard's expectation, built by the
+// wildcardExpectation that schema diagnostics use too.
 type diagnosticNames struct {
 	locals       []string
 	identities   []QName
 	simpleTypes  []QName
 	complexTypes []QName
+	wildcards    []ContentExpectation
 }
 
 func newDiagnosticNames(build *schemaBuild) diagnosticNames {
-	names := diagnosticNames{locals: slices.Clone(build.Names.locals), identities: make([]QName, len(build.Identities)), simpleTypes: make([]QName, len(build.SimpleTypes)), complexTypes: make([]QName, len(build.ComplexTypes))}
+	names := diagnosticNames{locals: slices.Clone(build.Names.locals), identities: make([]QName, len(build.Identities)), simpleTypes: make([]QName, len(build.SimpleTypes)), complexTypes: make([]QName, len(build.ComplexTypes)), wildcards: make([]ContentExpectation, len(build.Wildcards))}
+	for i, wildcard := range build.Wildcards {
+		names.wildcards[i] = wildcardExpectation(&build.Names, wildcard)
+	}
 	for i, identity := range build.Identities {
 		names.identities[i] = identity.Name
 	}
@@ -335,14 +341,13 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 	case particleElement:
 		return p.element(particle.Element)
 	case particleWildcard:
-		if !validWildcardID(particle.Wildcard, len(p.schema.program.Wildcards)) {
+		if !validWildcardID(particle.Wildcard, len(p.schema.program.Wildcards)) || !validWildcardID(particle.Wildcard, len(p.schema.program.DiagnosticNames.wildcards)) {
 			return false
 		}
-		wildcard := p.schema.program.Wildcards[particle.Wildcard]
-		if !wildcard.valid {
+		if !p.schema.program.Wildcards[particle.Wildcard].valid {
 			return false
 		}
-		p.add(wildcard.expectation)
+		p.add(p.schema.program.DiagnosticNames.wildcards[particle.Wildcard])
 		return true
 	case particleModel:
 		return false

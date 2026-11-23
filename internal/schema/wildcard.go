@@ -51,28 +51,18 @@ func wildcardByID(wildcards []wildcardRuntime, id WildcardID) (wildcardRuntime, 
 }
 
 // WildcardView is a read-only validation view over a frozen wildcard. Its
-// namespaces are in text order, the order AllowsURI binary-searches, and
-// expectation is the wildcard's diagnostic alternative, built by the
-// wildcardExpectation that schema diagnostics use too.
+// namespaces are in text order, the order diagnostics list them in and
+// AllowsURI binary-searches.
 type WildcardView struct {
-	otherThan   string
-	namespaces  []string
-	expectation ContentExpectation
-	mode        wildcardMode
-	process     ProcessContents
-	valid       bool
+	otherThan  string
+	namespaces []string
+	mode       wildcardMode
+	process    ProcessContents
+	valid      bool
 }
 
 // newWildcardView returns a read-only validation view over wildcard.
 func newWildcardView(names *nameTable, wildcard *wildcardRuntime) WildcardView {
-	view := admittedWildcardView(names, wildcard)
-	if view.valid {
-		view.expectation = wildcardExpectation(names, *wildcard)
-	}
-	return view
-}
-
-func admittedWildcardView(names *nameTable, wildcard *wildcardRuntime) WildcardView {
 	if wildcard == nil {
 		return WildcardView{}
 	}
