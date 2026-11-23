@@ -42,7 +42,11 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		}
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		if _, err := c.reserveAnonymousComplexType(ctx, complexType); err != nil {
+		name, err := localElementName(ctx, n)
+		if err != nil {
+			return err
+		}
+		if _, err := c.reserveAnonymousComplexType(ctx, complexType, absentElementComplexTypeLabel(name)); err != nil {
 			return err
 		}
 	}
@@ -113,21 +117,11 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 		return 0, err
 	}
 	defer scope.leave(&err)
-	name := schemaElementName(n)
-	ns := ""
-	form, hasForm := schemaElementForm(n)
-	qualified, err := parseElementFormAttr(formAttr{
-		Value:            form,
-		HasValue:         hasForm,
-		DefaultQualified: ctx.doc.defaults.ElementQualified,
-	})
+	name, err := localElementName(ctx, n)
 	if err != nil {
-		return 0, withSchemaCompileLocation(n, admittedValueInvariant(err))
+		return 0, err
 	}
-	if qualified {
-		ns = ctx.effectiveTargetNS
-	}
-	q, err := c.rt.internQName(ns, name)
+	q, err := c.rt.internQName(name.Namespace, name.Local)
 	if err != nil {
 		return 0, err
 	}
@@ -145,6 +139,25 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 	return id, nil
 }
 
+// localElementName returns the expanded name of the local element
+// declaration n, qualified as its form says.
+func localElementName(ctx *schemaSetDocument, n *schemaNode) (ExpandedName, error) {
+	form, hasForm := schemaElementForm(n)
+	qualified, err := parseElementFormAttr(formAttr{
+		Value:            form,
+		HasValue:         hasForm,
+		DefaultQualified: ctx.doc.defaults.ElementQualified,
+	})
+	if err != nil {
+		return ExpandedName{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
+	}
+	name := ExpandedName{Local: schemaElementName(n)}
+	if qualified {
+		name.Namespace = ctx.effectiveTargetNS
+	}
+	return name, nil
+}
+
 // pendingElementConstraint is an unvalidated element value constraint that
 // waits for the declaration's type to finalize.
 type pendingElementConstraint struct {
@@ -159,7 +172,7 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, q Q
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
-	properties, err := c.compileElementProperties(ctx, n)
+	properties, err := c.compileElementProperties(ctx, n, q)
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
@@ -190,7 +203,7 @@ type compiledElementProperties struct {
 	abstract bool
 }
 
-func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode) (compiledElementProperties, error) {
+func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode, q QName) (compiledElementProperties, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
@@ -203,7 +216,7 @@ func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNod
 	if err != nil {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
-	typ, err := c.compileElementDeclType(ctx, n)
+	typ, err := c.compileElementDeclType(ctx, n, q)
 	if err != nil {
 		return compiledElementProperties{}, err
 	}
@@ -215,7 +228,7 @@ func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNod
 	return compiledElementProperties{typ: typ, nillable: nillable, abstract: abstract}, nil
 }
 
-func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode) (TypeID, error) {
+func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode, q QName) (TypeID, error) {
 	if source := semanticSource[*schemaElementSource](&n.semantic); source != nil && source.Type.Lexical.Present {
 		return c.compileElementTypeAttribute(ctx, n, source.Type.Name)
 	}
@@ -224,7 +237,7 @@ func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode)
 		return SimpleRef(id), err
 	}
 	if complexType := n.firstXS(vocab.XSDElemComplexType); complexType != nil {
-		id, err := c.reserveAnonymousComplexType(ctx, complexType)
+		id, err := c.reserveAnonymousComplexType(ctx, complexType, elementComplexTypeLabel(q))
 		return ComplexRef(id), err
 	}
 	return ComplexRef(c.rt.AnyType), nil

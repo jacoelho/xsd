@@ -47,6 +47,32 @@ func QuoteParts(parts ...string) string {
 	return Quote(prefix)
 }
 
+// QuoteList quotes at most MaxAlternatives values as a bracketed,
+// comma-separated list; a trailing "..." marks the values past the bound.
+func QuoteList(values []string) string {
+	list := appendQuotedItems([]byte{'['}, values)
+	if len(values) > MaxAlternatives {
+		list = append(list, ", ..."...)
+	}
+	return string(append(list, ']'))
+}
+
+// QuoteTruncatedList is QuoteList for values the caller already cut from a
+// longer list: the trailing "..." is always present.
+func QuoteTruncatedList(values []string) string {
+	return string(append(appendQuotedItems([]byte{'['}, values), ", ...]"...))
+}
+
+func appendQuotedItems(list []byte, values []string) []byte {
+	for i, value := range values[:min(len(values), MaxAlternatives)] {
+		if i > 0 {
+			list = append(list, ", "...)
+		}
+		list = append(list, Quote(value)...)
+	}
+	return list
+}
+
 // AppendEscaped appends text escaped as Quote escapes it, without the
 // surrounding quotes and without escaping '"'. It reads at most MaxValueBytes
 // of text, keeps complete UTF-8 characters at the cut, and appends "..." when

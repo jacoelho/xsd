@@ -135,7 +135,7 @@ func TestExpectedChildDiagnosticListsWildcardNamespacesInTextOrder(t *testing.T)
 	}
 }
 
-func TestUniqueParticleAttributionDiagnosticNamesTheFirstOverlappingExpandedName(t *testing.T) {
+func TestUniqueParticleAttributionDiagnosticIsTheSameWhateverTheNameOrder(t *testing.T) {
 	t.Parallel()
 
 	declarations := []string{
@@ -145,7 +145,7 @@ func TestUniqueParticleAttributionDiagnosticNamesTheFirstOverlappingExpandedName
 		`<xs:element name="bbb" substitutionGroup="head"/>`,
 	}
 	earlier := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:complexType name="head"/><xs:complexType name="ccc"/></xs:schema>`
-	const want = `UPA violation: overlapping particles in choice "bbb"`
+	const want = `UPA violation in local complex type of element "root": element "head" and wildcard for any element overlap`
 
 	var first string
 	for _, variant := range nameOrderVariants(declarations, earlier) {

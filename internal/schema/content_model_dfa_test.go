@@ -36,10 +36,10 @@ func checkElementDeclarationsConsistent(rt *schemaBuild, model contentModelNode)
 func TestCompileContentModelsBuildsWideDFA(t *testing.T) {
 	t.Parallel()
 
-	names, rt := compiledModelRuntimeFixture(t, modelChoice)
+	rt := compiledModelRuntimeFixture(t, modelChoice)
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	cc := newContentModelCompiler(&names, rt.build(), 32, &work, testDependencyWork(), analysis)
+	cc := newContentModelCompiler(rt.build(), 32, &work, testDependencyWork(), analysis)
 	model, err := cc.compileRootContentModel(0)
 	if err != nil {
 		t.Fatalf("compileRootContentModel() error = %v", err)
@@ -56,7 +56,7 @@ func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
 	t.Parallel()
 
 	for _, kind := range []modelKind{modelSequence, modelChoice} {
-		names, rt := compiledModelRuntimeFixture(t, kind)
+		rt := compiledModelRuntimeFixture(t, kind)
 		one := occurrence{Min: 1, Max: 1}
 		flat := rt.models[0].Particles
 		const (
@@ -75,7 +75,7 @@ func TestCompileContentModelExecutesNestedGroupsAsTheirFlatForm(t *testing.T) {
 		compile := func(id contentModelID) compiledModel {
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			cc := newContentModelCompiler(&names, rt.build(), 32, &work, testDependencyWork(), analysis)
+			cc := newContentModelCompiler(rt.build(), 32, &work, testDependencyWork(), analysis)
 			model, err := cc.compileRootContentModel(id)
 			if err != nil {
 				t.Fatalf("compileRootContentModel(%d) error = %v", id, err)
@@ -131,13 +131,9 @@ func TestCompileContentModelExecutesReducedLaxAnyContentWithoutDFA(t *testing.T)
 					strict: {Mode: WildcardAny, Process: ProcessStrict},
 				},
 			}
-			names, err := newNameTable(8, []string{vocab.EmptyNamespaceURI}, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			cc := newContentModelCompiler(&names, rt.build(), 32, &work, testDependencyWork(), analysis)
+			cc := newContentModelCompiler(rt.build(), 32, &work, testDependencyWork(), analysis)
 			model, err := cc.compileRootContentModel(0)
 			if err != nil {
 				t.Fatalf("compileRootContentModel() error = %v", err)
@@ -179,7 +175,7 @@ func TestCheckContentModelsUPARejectsChoiceOverlap(t *testing.T) {
 	}
 	work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-	err = newContentModelUPACheck(&names, rt.build(), 1, &work, testDependencyWork(), analysis).checkModel(0)
+	err = newContentModelUPACheck(rt.build(), 1, &work, testDependencyWork(), analysis).checkModel(0, namedComplexTypeLabel(name))
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
 }
 
@@ -212,7 +208,7 @@ func TestCheckContentModelsUPARejectsCorruptRuntimeSplitInputs(t *testing.T) {
 			rt := compiledModelFixture{models: tt.models}
 			work := newWorkBudget(contentModelWorkBudget, 1_000_000)
 			analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-			err := newContentModelUPACheck(nil, rt.build(), tt.visited, &work, testDependencyWork(), analysis).checkModel(0)
+			err := newContentModelUPACheck(rt.build(), tt.visited, &work, testDependencyWork(), analysis).checkModel(0, namedComplexTypeLabel(QName{}))
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
@@ -676,7 +672,7 @@ func restrictionModels(base, derived contentParticle) map[contentModelID]content
 	}
 }
 
-func compiledModelRuntimeFixture(t *testing.T, kind modelKind) (nameTable, compiledModelFixture) {
+func compiledModelRuntimeFixture(t *testing.T, kind modelKind) compiledModelFixture {
 	t.Helper()
 
 	var required []ExpandedName
@@ -711,7 +707,7 @@ func compiledModelRuntimeFixture(t *testing.T, kind modelKind) (nameTable, compi
 	for id := range elementNames {
 		rt.elementTypes[id] = SimpleRef(SimpleTypeID(id))
 	}
-	return names, rt
+	return rt
 }
 
 func (f compiledModelFixture) build() *schemaBuild {

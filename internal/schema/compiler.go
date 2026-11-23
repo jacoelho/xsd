@@ -167,9 +167,13 @@ type compilerCycleState struct {
 	compilingModel   map[schemaNodeKey]bool
 }
 
+// modelDefiners holds, for each model, the complex type whose definition
+// created it, or noComplexType for a model a named group, a zero-count
+// particle or a builtin created.
 type compilerModelState struct {
 	modelDone             map[schemaNodeKey]compiledModelGroup
 	modelSources          []*schemaNode
+	modelDefiners         []ComplexTypeID
 	deferredModelChildren []schemaComponent
 }
 

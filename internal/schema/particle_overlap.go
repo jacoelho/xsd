@@ -221,74 +221,124 @@ func (a *contentModelAnalysis) choiceCountRange(particles []contentParticle) (co
 	return result, nil
 }
 
-// Overlap reports one element name accepted by both particles.
-func (a *contentModelAnalysis) Overlap(left, right contentParticle) (QName, bool, error) {
+// particleOverlap is a pair of element or wildcard particles that accept a
+// common element name: left and right are the terms the compared particles
+// start with, in the order they were compared, and name is the first common
+// name in expanded-name order, the zero QName when both are wildcards.
+type particleOverlap struct {
+	left  contentParticle
+	right contentParticle
+	name  QName
+}
+
+func (o particleOverlap) swapped() particleOverlap {
+	return particleOverlap{left: o.right, right: o.left, name: o.name}
+}
+
+// Overlap reports the element or wildcard terms that left and right start
+// with and that accept a common element name.
+func (a *contentModelAnalysis) Overlap(left, right contentParticle) (particleOverlap, bool, error) {
 	if err := spendContentModelWork(a.work); err != nil {
-		return QName{}, false, err
+		return particleOverlap{}, false, err
 	}
 	switch {
 	case left.Kind == particleModel:
 		return a.modelStartOverlap(left.Model, right)
 	case right.Kind == particleModel:
-		return a.modelStartOverlap(right.Model, left)
+		overlap, ok, err := a.modelStartOverlap(right.Model, left)
+		return overlap.swapped(), ok, err
 	case left.Kind == particleWildcard && right.Kind == particleWildcard:
-		return a.wildcardOverlap(left.Wildcard, right.Wildcard)
+		return a.wildcardOverlap(left, right)
 	default:
 		return a.elementParticleOverlap(left, right)
 	}
 }
 
-func (a *contentModelAnalysis) wildcardOverlap(left, right WildcardID) (QName, bool, error) {
-	leftWildcard, leftOK := wildcardByID(a.rt.Wildcards, left)
-	rightWildcard, rightOK := wildcardByID(a.rt.Wildcards, right)
-	if !leftOK || !rightOK {
-		return QName{}, false, nil
+// declaredNameOverlap returns overlap reported by the declaration name of one
+// of its element particles when the other particle accepts that name, so a
+// diagnostic names a substitution-group member only when the two particles
+// share no declaration name. It reads only the accepted names Overlap cached
+// for the pair and spends no work, so reporting a violation cannot turn it
+// into a limit failure.
+func (a *contentModelAnalysis) declaredNameOverlap(overlap particleOverlap) particleOverlap {
+	for _, pair := range [2][2]contentParticle{{overlap.left, overlap.right}, {overlap.right, overlap.left}} {
+		if pair[0].Kind != particleElement {
+			continue
+		}
+		name, ok := a.rt.ElementName(pair[0].Element)
+		if ok && a.cachedParticleAccepts(pair[1], name) {
+			overlap.name = name
+			return overlap
+		}
 	}
-	overlap, err := wildcardsOverlap(leftWildcard, rightWildcard, a.work)
-	return QName{}, overlap, err
+	return overlap
 }
 
-func (a *contentModelAnalysis) elementParticleOverlap(left, right contentParticle) (QName, bool, error) {
+func (a *contentModelAnalysis) cachedParticleAccepts(particle contentParticle, name QName) bool {
+	switch particle.Kind {
+	case particleElement:
+		_, ok := a.names[particle.Element].byName[name]
+		return ok
+	case particleWildcard:
+		wildcard, ok := wildcardByID(a.rt.Wildcards, particle.Wildcard)
+		return ok && wildcardAllowsNamespace(wildcard, name.Namespace)
+	case particleModel:
+	}
+	return false
+}
+
+func (a *contentModelAnalysis) wildcardOverlap(left, right contentParticle) (particleOverlap, bool, error) {
+	leftWildcard, leftOK := wildcardByID(a.rt.Wildcards, left.Wildcard)
+	rightWildcard, rightOK := wildcardByID(a.rt.Wildcards, right.Wildcard)
+	if !leftOK || !rightOK {
+		return particleOverlap{}, false, nil
+	}
+	overlap, err := wildcardsOverlap(leftWildcard, rightWildcard, a.work)
+	return particleOverlap{left: left, right: right}, overlap, err
+}
+
+func (a *contentModelAnalysis) elementParticleOverlap(left, right contentParticle) (particleOverlap, bool, error) {
 	if left.Kind == particleElement {
 		if name, ok, err := a.elementOverlap(left.Element, right); ok || err != nil {
-			return name, ok, err
+			return particleOverlap{left: left, right: right, name: name}, ok, err
 		}
 	}
 	if right.Kind == particleElement {
-		return a.elementOverlap(right.Element, left)
+		name, ok, err := a.elementOverlap(right.Element, left)
+		return particleOverlap{left: left, right: right, name: name}, ok, err
 	}
-	return QName{}, false, nil
+	return particleOverlap{}, false, nil
 }
 
-func (a *contentModelAnalysis) modelStartOverlap(id contentModelID, particle contentParticle) (QName, bool, error) {
+func (a *contentModelAnalysis) modelStartOverlap(id contentModelID, particle contentParticle) (particleOverlap, bool, error) {
 	model, ok := a.contentModel(id)
 	if !ok {
-		return QName{}, false, errors.New("content model overlap analysis references missing content model")
+		return particleOverlap{}, false, errors.New("content model overlap analysis references missing content model")
 	}
 	switch model.Kind {
 	case modelAll, modelChoice, modelSequence:
 	case modelEmpty:
-		return QName{}, false, nil
+		return particleOverlap{}, false, nil
 	default:
 		overlaps := false
-		return QName{}, overlaps, nil
+		return particleOverlap{}, overlaps, nil
 	}
 	for _, child := range model.Particles {
 		match, err := a.modelStartParticleOverlap(model.Kind, child, particle)
 		if match.overlap || err != nil {
-			return match.name, match.overlap, err
+			return match.particles, match.overlap, err
 		}
 		if match.stop {
 			break
 		}
 	}
-	return QName{}, false, nil
+	return particleOverlap{}, false, nil
 }
 
 type modelStartParticleMatch struct {
-	name    QName
-	overlap bool
-	stop    bool
+	particles particleOverlap
+	overlap   bool
+	stop      bool
 }
 
 func (a *contentModelAnalysis) modelStartParticleOverlap(
@@ -298,9 +348,9 @@ func (a *contentModelAnalysis) modelStartParticleOverlap(
 	if err := spendContentModelWork(a.work); err != nil {
 		return modelStartParticleMatch{}, err
 	}
-	name, overlap, err := a.Overlap(child, particle)
+	particles, overlap, err := a.Overlap(child, particle)
 	if overlap || err != nil || kind != modelSequence {
-		return modelStartParticleMatch{name: name, overlap: overlap}, err
+		return modelStartParticleMatch{particles: particles, overlap: overlap}, err
 	}
 	emptiable, err := a.cachedParticleEmptiable(child)
 	return modelStartParticleMatch{stop: !emptiable}, err

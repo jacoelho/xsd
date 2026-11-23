@@ -1427,6 +1427,11 @@ graph preserves these ownership rules:
   the group's own model was rejected: the group's model is then reached and
   compiled on its own as well, which raises analysis and dependency steps, and
   an all group cannot be a member of a model group such as that sequence.
+- Locating a Unique Particle Attribution violation at the complex type, as
+  Xerces-J and libxml2 do, was rejected: it would split content-model
+  diagnostics between two location rules. The violation is located at the
+  innermost compositor or component scope, and its message (`upaViolation`)
+  names the complex type and both competing particles instead.
 - Publishing unentered content models through a sparse table was rejected (a
   zero `CompiledModel` reads as Empty and a remap adds a lookup per read);
   skipping the compilation of a reached nested model was rejected because its

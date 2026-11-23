@@ -41,6 +41,30 @@ func TestExpandedName(t *testing.T) {
 	}
 }
 
+func TestQuoteList(t *testing.T) {
+	nine := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
+	for _, test := range []struct {
+		name   string
+		values []string
+		more   bool
+		want   string
+	}{
+		{"empty", nil, false, `[]`},
+		{"escaped", []string{"", "a\"b"}, false, `["", "a\"b"]`},
+		{"at the bound", nine[:8], false, `["a", "b", "c", "d", "e", "f", "g", "h"]`},
+		{"over the bound", nine, false, `["a", "b", "c", "d", "e", "f", "g", "h", ...]`},
+		{"more values not passed", nine[:2], true, `["a", "b", ...]`},
+	} {
+		got := diagnostictext.QuoteList(test.values)
+		if test.more {
+			got = diagnostictext.QuoteTruncatedList(test.values)
+		}
+		if got != test.want {
+			t.Errorf("%s: list = %s, want %s", test.name, got, test.want)
+		}
+	}
+}
+
 func TestAppendEscaped(t *testing.T) {
 	for _, test := range []struct{ name, input, want string }{
 		{"empty", "", ""},

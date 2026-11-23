@@ -149,7 +149,7 @@ func contentExpectationMessage(expected xsdSchema.ContentExpectations) string {
 		}
 		item, _ := expected.At(i)
 		if item.IsWildcard {
-			text.WriteString(wildcardExpectationMessage(item))
+			text.WriteString(item.WildcardDescription())
 		} else {
 			text.WriteString(diagnostictext.ExpandedName(item.Name.Namespace, item.Name.Local))
 		}
@@ -163,33 +163,6 @@ func contentExpectationMessage(expected xsdSchema.ContentExpectations) string {
 	text.WriteByte(']')
 	return text.String()
 }
-func wildcardExpectationMessage(item xsdSchema.ContentExpectation) string {
-	switch item.WildcardMode {
-	case xsdSchema.WildcardAny:
-		return "any element"
-	case xsdSchema.WildcardLocal:
-		return "an element with no namespace"
-	case xsdSchema.WildcardOther:
-		return "an element in a non-empty namespace other than " + diagnostictext.Quote(item.ExcludedNamespace)
-	case xsdSchema.WildcardTargetNamespace, xsdSchema.WildcardList:
-		var b strings.Builder
-		b.WriteString("an element in namespace [")
-		for i, namespace := range item.Namespaces {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(diagnostictext.Quote(namespace))
-		}
-		if item.MoreNamespaces {
-			b.WriteString(", ...")
-		}
-		b.WriteByte(']')
-		return b.String()
-	default:
-		return "an element matching the namespace wildcard"
-	}
-}
-
 func invalidXSITypeQNameMessage(lexical string) string {
 	return "xsi:type value " + diagnostictext.Quote(lexical) + " is not a valid QName or uses an undeclared namespace prefix"
 }
