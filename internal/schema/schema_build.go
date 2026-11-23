@@ -358,21 +358,23 @@ func (c *compiler) addAttributeUseSet(set attributeUseSet) (attributeUseSetID, e
 
 // addModel admits a content model compiled from source, the node whose
 // component owns it; the component scopes of the content model checks locate
-// their diagnostics at it.
-func (c *compiler) addModel(model contentModelNode, source *schemaNode) (contentModelID, error) {
+// their diagnostics at it. definer is the complex type whose definition
+// creates the model, or noComplexType for a model of a named group or of a
+// zero-count particle.
+func (c *compiler) addModel(model contentModelNode, source *schemaNode, definer ComplexTypeID) (contentModelID, error) {
 	if source == nil {
 		return noContentModel, xsderrors.InternalInvariant("content model has no source")
 	}
-	return c.appendModel(model, source)
+	return c.appendModel(model, source, definer)
 }
 
 // addBuiltinModel admits the content model of a builtin type. It has no
 // source, so its checks are set-wide.
 func (c *compiler) addBuiltinModel(model contentModelNode) (contentModelID, error) {
-	return c.appendModel(model, nil)
+	return c.appendModel(model, nil, noComplexType)
 }
 
-func (c *compiler) appendModel(model contentModelNode, source *schemaNode) (contentModelID, error) {
+func (c *compiler) appendModel(model contentModelNode, source *schemaNode, definer ComplexTypeID) (contentModelID, error) {
 	id, err := nextContentModelID(len(c.rt.Models))
 	if err != nil {
 		return noContentModel, err
@@ -383,7 +385,7 @@ func (c *compiler) appendModel(model contentModelNode, source *schemaNode) (cont
 	model.Particles = slices.Clip(model.Particles)
 	c.rt.Models = append(c.rt.Models, model)
 	c.modelSources = append(c.modelSources, source)
-	c.modelDefiners = append(c.modelDefiners, c.definingType)
+	c.modelDefiners = append(c.modelDefiners, definer)
 	return id, nil
 }
 

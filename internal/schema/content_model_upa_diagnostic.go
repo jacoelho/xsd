@@ -14,6 +14,8 @@ import (
 // type (see the rejected alternatives in ARCHITECTURE.md). Element particles
 // come before wildcards, elements in expanded-name order and wildcards in text
 // order, so the message does not depend on the order a check compared them in.
+// The renderers read the label, declarations and wildcards without checking
+// them: checkUPAViolation admits all three first.
 func upaViolation(rt *schemaBuild, typ complexTypeLabel, overlap particleOverlap) error {
 	if err := checkUPAViolation(rt, typ, overlap); err != nil {
 		return err

@@ -14,13 +14,13 @@ func TestCanonicalComplexContentModelReusesValidEmptyRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := &schemaNode{}
-	id, err := c.addModel(contentModelNode{Kind: modelEmpty}, source)
+	id, err := c.addModel(contentModelNode{Kind: modelEmpty}, source, noComplexType)
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
 
-	got, err := c.canonicalComplexContentModel(id, contentEmpty, &schemaNode{})
+	got, err := c.canonicalComplexContentModel(id, contentEmpty, complexTypeOwner{node: &schemaNode{}, id: noComplexType})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,12 +74,12 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNonCanonicalInput(t *te
 			}
 			baseSource := &schemaNode{}
 
-			id, err := c.addModel(tt.model, baseSource)
+			id, err := c.addModel(tt.model, baseSource, noComplexType)
 			if err != nil {
 				t.Fatal(err)
 			}
 			before := len(c.rt.Models)
-			got, err := c.canonicalComplexContentModel(id, contentEmpty, &schemaNode{})
+			got, err := c.canonicalComplexContentModel(id, contentEmpty, complexTypeOwner{node: &schemaNode{}, id: noComplexType})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -116,7 +116,7 @@ func TestCanonicalComplexContentModelAllocatesEmptyRowForNoModel(t *testing.T) {
 	}
 	before := len(c.rt.Models)
 	owner := &schemaNode{}
-	got, err := c.canonicalComplexContentModel(noContentModel, contentEmpty, owner)
+	got, err := c.canonicalComplexContentModel(noContentModel, contentEmpty, complexTypeOwner{node: owner, id: noComplexType})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAddModelRejectsModelWithoutSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := len(c.rt.Models)
-	if _, err := c.addModel(contentModelNode{Kind: modelEmpty}, nil); err == nil {
+	if _, err := c.addModel(contentModelNode{Kind: modelEmpty}, nil, noComplexType); err == nil {
 		t.Fatal("addModel admitted a model without a source")
 	}
 	if len(c.rt.Models) != before {
@@ -172,7 +172,7 @@ func TestCanonicalComplexContentModelRejectsInvalidModelID(t *testing.T) {
 	before := len(c.rt.Models)
 	invalid := noContentModel - 1
 
-	if _, err := c.canonicalComplexContentModel(invalid, contentEmpty, &schemaNode{}); err == nil {
+	if _, err := c.canonicalComplexContentModel(invalid, contentEmpty, complexTypeOwner{node: &schemaNode{}, id: noComplexType}); err == nil {
 		t.Fatal("canonical empty model accepted invalid model ID")
 	}
 	if len(c.rt.Models) != before {

@@ -38,16 +38,16 @@ type compiledModelGroup struct {
 
 // compileModel compiles n, the model group child of a complex type definition,
 // for use and returns its model and the occurrence of its particle.
-func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode, use modelUse) (contentModelID, occurrence, error) {
+func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode, use modelUse, owner ComplexTypeID) (contentModelID, occurrence, error) {
 	source := semanticSource[*schemaGroupSource](&n.semantic)
 	if source == nil || !source.Ref.Lexical.Present {
-		return c.compileCompositor(ctx, n, use)
+		return c.compileCompositor(ctx, n, use, owner)
 	}
 	id, occurs, err := c.compileModelGroupRef(ctx, n, source.Ref.Name, nil)
 	if err != nil || id == noContentModel || use == modelTerm || occurs.IsExactlyOne() {
 		return id, occurs, err
 	}
-	id, err = c.applyModelGroupOccurrence(n, id, occurs)
+	id, err = c.applyModelGroupOccurrence(n, id, occurs, owner)
 	return id, occurs, err
 }
 
@@ -57,7 +57,7 @@ func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode, use model
 // only, which existingModel enforces: a complex type's own model group child
 // as a root or a term of its extension sequence, and every other compositor as
 // a term.
-func (c *compiler) compileCompositor(ctx *schemaSetDocument, n *schemaNode, use modelUse) (contentModelID, occurrence, error) {
+func (c *compiler) compileCompositor(ctx *schemaSetDocument, n *schemaNode, use modelUse, owner ComplexTypeID) (contentModelID, occurrence, error) {
 	occurs, err := particleOccurrence(n)
 	if err != nil {
 		return noContentModel, occurrence{}, err
@@ -79,11 +79,11 @@ func (c *compiler) compileCompositor(ctx *schemaSetDocument, n *schemaNode, use 
 	if use == modelRoot {
 		record.Occurs = occurs
 	}
-	id, err := c.compileModelComponent(ctx, n, record, use)
+	id, err := c.compileModelComponent(ctx, n, record, use, owner)
 	return id, occurs, err
 }
 
-func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, record contentModelNode, use modelUse) (result contentModelID, err error) {
+func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, record contentModelNode, use modelUse, owner ComplexTypeID) (result contentModelID, err error) {
 	if dependencyErr := c.spendComponentDependency(n); dependencyErr != nil {
 		return noContentModel, dependencyErr
 	}
@@ -92,14 +92,14 @@ func (c *compiler) compileModelComponent(ctx *schemaSetDocument, n *schemaNode, 
 		return noContentModel, err
 	}
 	defer scope.leave(&err)
-	id, err := c.addModel(contentModelNode{}, n)
+	id, err := c.addModel(contentModelNode{}, n, owner)
 	if err != nil {
 		return noContentModel, err
 	}
 	c.modelDone[nodeKey(ctx, n)] = compiledModelGroup{id: id, use: use}
 	c.compilingModel[nodeKey(ctx, n)] = true
 	defer delete(c.compilingModel, nodeKey(ctx, n))
-	m, err := c.compileModelValue(ctx, n, record)
+	m, err := c.compileModelValue(ctx, n, record, owner)
 	if err != nil {
 		return noContentModel, err
 	}
@@ -122,13 +122,13 @@ func (c *compiler) existingModel(ctx *schemaSetDocument, n *schemaNode, use mode
 	return noContentModel, true, withSchemaCompileLocation(n, err)
 }
 
-func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, m contentModelNode) (contentModelNode, error) {
+func (c *compiler) compileModelValue(ctx *schemaSetDocument, n *schemaNode, m contentModelNode, owner ComplexTypeID) (contentModelNode, error) {
 	kind, err := modelKindForNode(n)
 	if err != nil {
 		return contentModelNode{}, err
 	}
 	m.Kind = kind
-	if err := c.compileModelChildren(ctx, n, &m); err != nil {
+	if err := c.compileModelChildren(ctx, n, &m, owner); err != nil {
 		return contentModelNode{}, err
 	}
 	return m, nil
@@ -176,10 +176,10 @@ func (c *compiler) compileModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 }
 
 // compileGroupModel compiles modelNode, the model group of a named group, as
-// the term that every reference to the group names.
+// the term that every reference to the group names. Its models belong to no
+// complex type.
 func (c *compiler) compileGroupModel(ctx *schemaSetDocument, modelNode *schemaNode) (contentModelID, error) {
-	defer c.defineModelsFor(noComplexType)()
-	id, _, err := c.compileCompositor(ctx, modelNode, modelTerm)
+	id, _, err := c.compileCompositor(ctx, modelNode, modelTerm, noComplexType)
 	return id, err
 }
 
@@ -227,14 +227,15 @@ func (c *compiler) resolveModelGroupRef(ctx *schemaSetDocument, n *schemaNode, r
 // its own, located at n. A violation is located at the first model, in
 // source-ID order, whose check reaches it, so a violation inside the group is
 // located at n only when no model with a lower ID, such as the group's own
-// model reached through a unit reference, reaches the group first.
-func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, occurs occurrence) (contentModelID, error) {
+// model reached through a unit reference, reaches the group first. The root
+// belongs to owner.
+func (c *compiler) applyModelGroupOccurrence(n *schemaNode, id contentModelID, occurs occurrence, owner ComplexTypeID) (contentModelID, error) {
 	model, err := c.contentModel(id, "model group reference resolved missing content model")
 	if err != nil {
 		return noContentModel, err
 	}
 	model.Occurs = occurs
-	return c.addModel(model, n)
+	return c.addModel(model, n, owner)
 }
 
 func modelKindForNode(n *schemaNode) (modelKind, error) {
@@ -244,19 +245,19 @@ func modelKindForNode(n *schemaNode) (modelKind, error) {
 	return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model node has no typed model kind"))
 }
 
-func (c *compiler) compileModelChildren(ctx *schemaSetDocument, n *schemaNode, m *contentModelNode) error {
+func (c *compiler) compileModelChildren(ctx *schemaSetDocument, n *schemaNode, m *contentModelNode, owner ComplexTypeID) error {
 	for child := range n.xsdChildren() {
 		if child.local == vocab.XSDElemAnnotation {
 			continue
 		}
-		if err := c.appendModelChild(ctx, m, child); err != nil {
+		if err := c.appendModelChild(ctx, m, child, owner); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode) error {
+func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode, owner ComplexTypeID) error {
 	switch child.local {
 	case vocab.XSDElemElement:
 		p, ok, err := c.compileElementParticle(ctx, child)
@@ -271,7 +272,7 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 		}
 		return withSchemaCompileLocation(child, appendParticle(&c.dependencyWork, c.rt.Models, m, p))
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
-		return c.appendNestedModelChild(ctx, m, child)
+		return c.appendNestedModelChild(ctx, m, child, owner)
 	}
 	return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model child has no supported typed schema kind"))
 }
@@ -280,8 +281,8 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 // inside a model group of kind parent, after admitting its kind there. It
 // returns the model the child's particle names, whose record has a unit
 // occurrence, and the particle's occurrence, so a group is one record however
-// its references repeat it.
-func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind) (contentModelID, occurrence, error) {
+// its references repeat it. A compositor child's models belong to owner.
+func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind, owner ComplexTypeID) (contentModelID, occurrence, error) {
 	if source := semanticSource[*schemaGroupSource](&child.semantic); source != nil && source.Ref.Lexical.Present {
 		return c.compileModelGroupRef(ctx, child, source.Ref.Name, &parent)
 	}
@@ -292,11 +293,11 @@ func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schema
 	if err = validateModelGroupChildAtNode(child, parent, modelChildAdmissionForModelKind(kind)); err != nil {
 		return noContentModel, occurrence{}, err
 	}
-	return c.compileCompositor(ctx, child, modelTerm)
+	return c.compileCompositor(ctx, child, modelTerm, owner)
 }
 
-func (c *compiler) appendNestedModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode) error {
-	id, occurs, err := c.compileNestedModelChild(ctx, child, m.Kind)
+func (c *compiler) appendNestedModelChild(ctx *schemaSetDocument, m *contentModelNode, child *schemaNode, owner ComplexTypeID) error {
+	id, occurs, err := c.compileNestedModelChild(ctx, child, m.Kind, owner)
 	if err != nil || id == noContentModel {
 		return err
 	}
@@ -306,7 +307,8 @@ func (c *compiler) appendNestedModelChild(ctx *schemaSetDocument, m *contentMode
 // compileDeferredModelChildren gives descendants of a zero-count sequence or
 // choice their ordinary component validation once named-group expansion has
 // unwound. It builds no parent model, so absent siblings share no EDC or UPA
-// constraint and no recursion edge is invented.
+// constraint and no recursion edge is invented, and the models it creates
+// belong to no complex type.
 func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 	n := source.sourceNode()
 	kind, err := modelKindForNode(n)
@@ -322,7 +324,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemAny:
 			_, err = c.compileWildcardParticle(source.ctx, child)
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
-			_, _, err = c.compileNestedModelChild(source.ctx, child, kind)
+			_, _, err = c.compileNestedModelChild(source.ctx, child, kind, noComplexType)
 		default:
 			return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model group child order admitted xs:"+diagnostictext.Quote(child.local)))
 		}

@@ -342,8 +342,7 @@ func (p *contentExpectationProjection) particle(particle compiledParticleRead) b
 		if !wildcard.valid {
 			return false
 		}
-		count := min(len(wildcard.namespaces), diagnostictext.MaxAlternatives)
-		p.add(ContentExpectation{IsWildcard: true, WildcardMode: wildcard.mode, ExcludedNamespace: wildcard.otherThan, Namespaces: wildcard.namespaces[:count], MoreNamespaces: count < len(wildcard.namespaces)})
+		p.add(wildcard.expectation)
 		return true
 	case particleModel:
 		return false

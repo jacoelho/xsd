@@ -23,10 +23,6 @@ func (e ContentExpectation) WildcardDescription() string {
 	}
 }
 
-// wildcardExpectation returns the expectation of an admitted wildcard, holding
-// at most diagnostictext.MaxAlternatives of its namespaces, the first in text
-// order. Admitted namespace lists are in ID order, so the shown namespaces are
-// selected without sorting or copying the whole list.
 func wildcardExpectation(names *nameTable, wildcard wildcardRuntime) ContentExpectation {
 	expectation := ContentExpectation{IsWildcard: true, WildcardMode: wildcard.Mode}
 	switch wildcard.Mode {

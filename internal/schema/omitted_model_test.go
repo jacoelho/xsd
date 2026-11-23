@@ -25,7 +25,7 @@ func TestOmittedCompositorAdmissionConsumesDependencyBudget(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			_, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot)
+			_, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot, noComplexType)
 			if exhausted {
 				expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 				var diagnostic *xsderrors.Error
@@ -51,11 +51,11 @@ func TestOmittedCompositorAdmissionReusesAbsentModel(t *testing.T) {
 	t.Parallel()
 
 	c, component := omittedCompositorCompiler(t, "")
-	if _, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot); err != nil {
+	if _, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot, noComplexType); err != nil {
 		t.Fatal(err)
 	}
 	c.dependencyWork = newWorkBudget(dependencyWorkBudget, 0)
-	id, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot)
+	id, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot, noComplexType)
 	if err != nil || id != noContentModel {
 		t.Fatalf("reusing admitted absence with exhausted budget = %v, %v", id, err)
 	}
@@ -67,7 +67,7 @@ func TestOmittedCompositorFailedAdmissionLeavesNoWork(t *testing.T) {
 	c, component := omittedCompositorCompiler(t, `<xs:element name="child"><xs:simpleType><xs:restriction base="xs:int"><xs:maxLength value="1"/></xs:restriction></xs:simpleType></xs:element>`)
 	available := c.dependencyWork
 	c.dependencyWork = newWorkBudget(dependencyWorkBudget, 0)
-	id, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot)
+	id, _, err := c.compileModel(component.ctx, component.sourceNode(), modelRoot, noComplexType)
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	if id != noContentModel {
 		t.Fatalf("failed admission returned model %d", id)
@@ -77,7 +77,7 @@ func TestOmittedCompositorFailedAdmissionLeavesNoWork(t *testing.T) {
 	if err = c.completeComponentDefinitions(); err != nil {
 		t.Fatalf("failed admission left descendant work: %v", err)
 	}
-	id, _, err = c.compileModel(component.ctx, component.sourceNode(), modelRoot)
+	id, _, err = c.compileModel(component.ctx, component.sourceNode(), modelRoot, noComplexType)
 	if err != nil || id != noContentModel {
 		t.Fatalf("retrying admission with available budget = %v, %v", id, err)
 	}
@@ -109,10 +109,10 @@ func TestCompositorCompiledForAnotherUseIsAnInvariantViolation(t *testing.T) {
 	t.Parallel()
 
 	c, component := omittedCompositorCompiler(t, "")
-	if _, _, err := c.compileCompositor(component.ctx, component.sourceNode(), modelRoot); err != nil {
+	if _, _, err := c.compileCompositor(component.ctx, component.sourceNode(), modelRoot, noComplexType); err != nil {
 		t.Fatal(err)
 	}
-	id, _, err := c.compileCompositor(component.ctx, component.sourceNode(), modelTerm)
+	id, _, err := c.compileCompositor(component.ctx, component.sourceNode(), modelTerm, noComplexType)
 	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if id != noContentModel {
 		t.Fatalf("use mismatch returned model %d", id)

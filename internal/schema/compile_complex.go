@@ -82,12 +82,12 @@ func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schema
 	return id, nil
 }
 
-// defineModelsFor makes id the type models created from here on belong to
-// and returns the function restoring the previous one.
-func (c *compiler) defineModelsFor(id ComplexTypeID) func() {
-	previous := c.definingType
-	c.definingType = id
-	return func() { c.definingType = previous }
+// complexTypeOwner is the complex type definition whose content is being
+// compiled: id, the type every model the content creates belongs to, and node,
+// its source.
+type complexTypeOwner struct {
+	node *schemaNode
+	id   ComplexTypeID
 }
 
 type complexTypeLabelKind uint8
@@ -125,17 +125,16 @@ func (l complexTypeLabel) valid() bool {
 	return l.kind != 0
 }
 
+// label renders a valid label.
 func (l complexTypeLabel) label(names *nameTable) string {
 	switch l.kind {
-	case complexTypeLabelNamed:
-		return "complex type " + names.Format(l.name)
 	case complexTypeLabelElement:
 		return "local complex type of element " + names.Format(l.name)
 	case complexTypeLabelAbsentElement:
 		return "local complex type of zero-count element " + diagnostictext.ExpandedName(l.element.Namespace, l.element.Local)
-	default:
-		return "complex type"
+	case complexTypeLabelNamed:
 	}
+	return "complex type " + names.Format(l.name)
 }
 
 // complexTypeLabel returns the diagnostic label of the complex type id.
@@ -182,9 +181,8 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 		return err
 	}
 	defer scope.leave(&err)
-	defer c.defineModelsFor(id)()
 	c.complexDefinitions[id].state = complexTypeCompleting
-	ct, err := c.compileComplexType(definition.source.ctx, n, c.rt.ComplexTypes[id].Name)
+	ct, err := c.compileComplexType(definition.source.ctx, complexTypeOwner{node: n, id: id})
 	if err != nil {
 		return err
 	}
@@ -265,12 +263,12 @@ func explicitContentEmpty(modelNode *schemaNode) (bool, error) {
 // (Structures §3.4.2 complex content clauses 1 and 2), its model compiled
 // for use. It also returns the occurrence of the model's particle, which a
 // term's record does not carry.
-func (c *compiler) compileExplicitContent(ctx *schemaSetDocument, modelNode *schemaNode, mixedKind complexContentVariety, use modelUse) (effectiveContent, occurrence, error) {
+func (c *compiler) compileExplicitContent(ctx *schemaSetDocument, owner ComplexTypeID, modelNode *schemaNode, mixedKind complexContentVariety, use modelUse) (effectiveContent, occurrence, error) {
 	content := effectiveContent{model: noContentModel, variety: contentElementOnly}
 	var occurs occurrence
 	if modelNode != nil {
 		var err error
-		if content.model, occurs, err = c.compileModel(ctx, modelNode, use); err != nil {
+		if content.model, occurs, err = c.compileModel(ctx, modelNode, use, owner); err != nil {
 			return effectiveContent{}, occurrence{}, err
 		}
 	}
@@ -290,11 +288,11 @@ func (c *compiler) compileExplicitContent(ctx *schemaSetDocument, modelNode *sch
 // canonicalComplexContentModel makes the runtime model agree with the
 // published content variety: empty content, and the synthetic empty sequence
 // of mixed empty content, have an empty model with no executable particles. A
-// new model keeps the source of the model it replaces; owner, the complex type
-// node, is the source of the model made for noContentModel.
-func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexContentVariety, owner *schemaNode) (contentModelID, error) {
+// new model belongs to owner and keeps the source of the model it replaces;
+// the owner's node is the source of the model made for noContentModel.
+func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexContentVariety, owner complexTypeOwner) (contentModelID, error) {
 	if id == noContentModel {
-		return c.addModel(contentModelNode{Kind: modelEmpty}, owner)
+		return c.addModel(contentModelNode{Kind: modelEmpty}, owner.node, owner.id)
 	}
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
@@ -306,23 +304,24 @@ func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexC
 			model.Occurs == (occurrence{}) {
 			return id, nil
 		}
-		return c.addModel(contentModelNode{Kind: modelEmpty}, c.modelSources[id])
+		return c.addModel(contentModelNode{Kind: modelEmpty}, c.modelSources[id], owner.id)
 	}
 	return id, nil
 }
 
-func (c *compiler) compileComplexType(ctx *schemaSetDocument, n *schemaNode, name QName) (complexTypeMetadata, error) {
-	ct, err := c.newComplexType(ctx, n, name)
+func (c *compiler) compileComplexType(ctx *schemaSetDocument, owner complexTypeOwner) (complexTypeMetadata, error) {
+	n := owner.node
+	ct, err := c.newComplexType(ctx, n, c.rt.ComplexTypes[owner.id].Name)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
 	if complexContent := n.firstXS(vocab.XSDElemComplexContent); complexContent != nil {
-		return c.compileComplexContent(ctx, n, complexContent, ct)
+		return c.compileComplexContent(ctx, owner, complexContent, ct)
 	}
 	if simpleContent := n.firstXS(vocab.XSDElemSimpleContent); simpleContent != nil {
-		return c.compileSimpleContent(ctx, n, simpleContent, ct)
+		return c.compileSimpleContent(ctx, owner, simpleContent, ct)
 	}
-	return c.compileDirectComplexType(ctx, n, ct)
+	return c.compileDirectComplexType(ctx, owner, ct)
 }
 
 func (c *compiler) newComplexType(ctx *schemaSetDocument, n *schemaNode, name QName) (complexTypeMetadata, error) {
@@ -356,12 +355,13 @@ func (c *compiler) newComplexType(ctx *schemaSetDocument, n *schemaNode, name QN
 	return ct, nil
 }
 
-func (c *compiler) compileDirectComplexType(ctx *schemaSetDocument, n *schemaNode, ct complexTypeMetadata) (complexTypeMetadata, error) {
-	content, _, err := c.compileExplicitContent(ctx, firstModelChild(n), ct.ContentKind, modelRoot)
+func (c *compiler) compileDirectComplexType(ctx *schemaSetDocument, owner complexTypeOwner, ct complexTypeMetadata) (complexTypeMetadata, error) {
+	n := owner.node
+	content, _, err := c.compileExplicitContent(ctx, owner.id, firstModelChild(n), ct.ContentKind, modelRoot)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
-	ct.Content, err = c.canonicalComplexContentModel(content.model, content.variety, n)
+	ct.Content, err = c.canonicalComplexContentModel(content.model, content.variety, owner)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
@@ -374,7 +374,7 @@ func (c *compiler) compileDirectComplexType(ctx *schemaSetDocument, n *schemaNod
 	return ct, nil
 }
 
-func (c *compiler) compileComplexContent(ctx *schemaSetDocument, owner, n *schemaNode, ct complexTypeMetadata) (complexTypeMetadata, error) {
+func (c *compiler) compileComplexContent(ctx *schemaSetDocument, owner complexTypeOwner, n *schemaNode, ct complexTypeMetadata) (complexTypeMetadata, error) {
 	source, err := contentDerivationOf(n, complexContent)
 	if err != nil {
 		return complexTypeMetadata{}, err
@@ -390,7 +390,7 @@ func (c *compiler) compileComplexContent(ctx *schemaSetDocument, owner, n *schem
 	return c.compileComplexContentDerivation(ctx, owner, source.node, source.kind, ct, mixedKind)
 }
 
-func (c *compiler) compileComplexContentDerivation(ctx *schemaSetDocument, owner, child *schemaNode, kind contentDerivationKind, ct complexTypeMetadata, mixedKind complexContentVariety) (complexTypeMetadata, error) {
+func (c *compiler) compileComplexContentDerivation(ctx *schemaSetDocument, owner complexTypeOwner, child *schemaNode, kind contentDerivationKind, ct complexTypeMetadata, mixedKind complexContentVariety) (complexTypeMetadata, error) {
 	baseID, base, err := c.complexContentBase(ctx, child)
 	if err != nil {
 		return complexTypeMetadata{}, err
@@ -426,7 +426,7 @@ func (c *compiler) contentDerivationBaseQName(ctx *schemaSetDocument, child *sch
 	return c.referenceQName(ctx, child, baseSource.Name)
 }
 
-func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner, child *schemaNode, ct complexTypeMetadata, baseID ComplexTypeID, mixedKind complexContentVariety) (complexTypeMetadata, error) {
+func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner complexTypeOwner, child *schemaNode, ct complexTypeMetadata, baseID ComplexTypeID, mixedKind complexContentVariety) (complexTypeMetadata, error) {
 	base := c.rt.complexType(baseID)
 	if err := checkComplexTypeFinalAllows(base.Final, DerivationExtension, complexTypeFinalBaseExtension); err != nil {
 		return complexTypeMetadata{}, withSchemaCompileLocation(child, err)
@@ -439,11 +439,11 @@ func (c *compiler) compileComplexContentExtension(ctx *schemaSetDocument, owner,
 		at = modelNode
 	}
 	use := extensionExplicitUse(base)
-	effective, occurs, err := c.compileExplicitContent(ctx, modelNode, mixedKind, use)
+	effective, occurs, err := c.compileExplicitContent(ctx, owner.id, modelNode, mixedKind, use)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
-	content, err := c.extensionContentType(base, effective, use, occurs, at)
+	content, err := c.extensionContentType(owner.id, base, effective, use, occurs, at)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
@@ -492,9 +492,9 @@ func extensionExplicitUse(base complexTypeMetadata) modelUse {
 // takes the effective content (3.2.2), and otherwise the content is a 1..1
 // sequence of the base particle followed by the effective content (3.2.3).
 // use is extensionExplicitUse(base), what effective's model was compiled as,
-// and occurs the occurrence of its particle. at locates the diagnostics of
-// clause 3.2.3.
-func (c *compiler) extensionContentType(base complexTypeMetadata, effective effectiveContent, use modelUse, occurs occurrence, at *schemaNode) (effectiveContent, error) {
+// and occurs the occurrence of its particle. The models it creates belong to
+// owner, and at locates the diagnostics of clause 3.2.3.
+func (c *compiler) extensionContentType(owner ComplexTypeID, base complexTypeMetadata, effective effectiveContent, use modelUse, occurs occurrence, at *schemaNode) (effectiveContent, error) {
 	switch {
 	case effective.variety == contentEmpty:
 		return effectiveContent{model: base.Content, variety: base.ContentKind}, nil
@@ -510,7 +510,7 @@ func (c *compiler) extensionContentType(base complexTypeMetadata, effective effe
 		return effectiveContent{}, withSchemaCompileLocation(at, err)
 	}
 	add := func(model contentModelNode) (contentModelID, error) {
-		return c.addModel(model, at)
+		return c.addModel(model, at, owner)
 	}
 	baseParticle, err := contentTypeParticle(&c.rt, add, base.Content)
 	if err != nil {
@@ -540,7 +540,7 @@ func validateMixedDerivationAt(child *schemaNode, base complexTypeMetadata, deri
 	return nil
 }
 
-func (c *compiler) compileComplexContentRestriction(ctx *schemaSetDocument, owner, child *schemaNode, ct, base complexTypeMetadata, mixedKind complexContentVariety) (complexTypeMetadata, error) {
+func (c *compiler) compileComplexContentRestriction(ctx *schemaSetDocument, owner complexTypeOwner, child *schemaNode, ct, base complexTypeMetadata, mixedKind complexContentVariety) (complexTypeMetadata, error) {
 	if err := checkComplexTypeFinalAllows(base.Final, DerivationRestriction, complexTypeFinalBaseRestriction); err != nil {
 		return complexTypeMetadata{}, withSchemaCompileLocation(child, err)
 	}
@@ -549,7 +549,7 @@ func (c *compiler) compileComplexContentRestriction(ctx *schemaSetDocument, owne
 	}
 	ct.Derivation = derivationKindRestriction
 	ct.ExplicitDerivation = true
-	content, _, err := c.compileExplicitContent(ctx, firstModelChild(child), mixedKind, modelRoot)
+	content, _, err := c.compileExplicitContent(ctx, owner.id, firstModelChild(child), mixedKind, modelRoot)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
@@ -570,7 +570,7 @@ func (c *compiler) compileComplexContentRestriction(ctx *schemaSetDocument, owne
 	return ct, nil
 }
 
-func (c *compiler) compileSimpleContent(ctx *schemaSetDocument, owner, n *schemaNode, ct complexTypeMetadata) (complexTypeMetadata, error) {
+func (c *compiler) compileSimpleContent(ctx *schemaSetDocument, owner complexTypeOwner, n *schemaNode, ct complexTypeMetadata) (complexTypeMetadata, error) {
 	source, err := c.resolveSimpleContentSource(ctx, n)
 	if err != nil {
 		return complexTypeMetadata{}, err
@@ -591,7 +591,7 @@ func (c *compiler) compileSimpleContent(ctx *schemaSetDocument, owner, n *schema
 	return c.finishSimpleContent(ctx, owner, source, ct, derivation)
 }
 
-func (c *compiler) finishSimpleContent(ctx *schemaSetDocument, owner *schemaNode, source simpleContentSource, ct complexTypeMetadata, derivation simpleContentDerivation) (complexTypeMetadata, error) {
+func (c *compiler) finishSimpleContent(ctx *schemaSetDocument, owner complexTypeOwner, source simpleContentSource, ct complexTypeMetadata, derivation simpleContentDerivation) (complexTypeMetadata, error) {
 	if err := c.admitNotationTypeUse(source.child, derivation.textType); err != nil {
 		return complexTypeMetadata{}, err
 	}
@@ -601,7 +601,7 @@ func (c *compiler) finishSimpleContent(ctx *schemaSetDocument, owner *schemaNode
 		return complexTypeMetadata{}, err
 	}
 	ct.Attrs = attrs
-	ct.Content, err = c.addModel(contentModelNode{Kind: modelEmpty}, owner)
+	ct.Content, err = c.addModel(contentModelNode{Kind: modelEmpty}, owner.node, owner.id)
 	if err != nil {
 		return complexTypeMetadata{}, err
 	}
