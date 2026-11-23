@@ -1921,7 +1921,8 @@ Cases: `project/identity/joins-key-tables`, `project/identity/joins-unique-table
 `project/chameleon-defaults-and-identity`, `project/structures-field-cardinality-keyref`,
 `project/structures-key-nillable-field-true`, `project/structures-recursive-key-tables-*`
 `project/identity/chameleon-xpath-name-tests`,
-`project/identity/keyref-refer-resolution/*` and, for xmlschema's checks of
+`project/identity/keyref-refer-resolution/*`,
+`project/identity/keyref-refer-key-under-zero-count-*` and, for xmlschema's checks of
 incomplete keyref rows, `project/identity/joins-keyref-three-fields`.
 
 ## I-032 — identity XPath node-sets

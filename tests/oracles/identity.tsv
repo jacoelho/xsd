@@ -914,6 +914,42 @@ project/identity/joins-unique-tables	unrelated-tuple-survives	dotnet	invalid	unr
 project/identity/joins-unique-tables	unrelated-tuple-survives	libxml2	valid	
 project/identity/joins-unique-tables	unrelated-tuple-survives	xerces	invalid	unrelated-tuple-survives.xml:1:91: cvc-identity-constraint.4.3: Key 'NodeRef' with value '2' not found for identity constraint of element 'node'.
 project/identity/joins-unique-tables	unrelated-tuple-survives	xmlschema	valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	distinct-keys	dotnet	valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	distinct-keys	libxml2	valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	distinct-keys	xerces	valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	distinct-keys	xmlschema	valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	duplicate-keys	dotnet	invalid	duplicate-keys.xml:1:28: There is a duplicate key sequence 'a' for the 'unique-k' key or unique identity constraint.
+project/identity/key-in-group-shared-by-zero-count-and-live-type	duplicate-keys	libxml2	invalid	duplicate-keys.xml:1: element k: Schemas validity error : Element 'k': Duplicate key-sequence ['a'] in key identity-constraint 'unique-k'.
+project/identity/key-in-group-shared-by-zero-count-and-live-type	duplicate-keys	xerces	invalid	duplicate-keys.xml:1:35: cvc-identity-constraint.4.2.2: Duplicate key value [a] found for identity constraint "unique-k" of element "list".
+project/identity/key-in-group-shared-by-zero-count-and-live-type	duplicate-keys	xmlschema	invalid	line None: duplicated value ('a',) for XsdKey(name='unique-k') (path /root/live/list/k[2])
+project/identity/key-in-group-shared-by-zero-count-and-live-type	schema	dotnet	schema-valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	schema	libxml2	schema-valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	schema	xerces	schema-valid	
+project/identity/key-in-group-shared-by-zero-count-and-live-type	schema	xmlschema	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-element	no-reference	dotnet	invalid	no-reference.xml:1:2: The Keyref 'root' cannot find the referred key or unique in scope.
+project/identity/keyref-refer-key-under-zero-count-element	no-reference	libxml2	valid	
+project/identity/keyref-refer-key-under-zero-count-element	no-reference	xerces	valid	
+project/identity/keyref-refer-key-under-zero-count-element	no-reference	xmlschema	error	KeyError after 0 validation error(s): XsdKey(name='hidden')
+project/identity/keyref-refer-key-under-zero-count-element	reference	dotnet	invalid	reference.xml:1:2: The Keyref 'root' cannot find the referred key or unique in scope.
+project/identity/keyref-refer-key-under-zero-count-element	reference	libxml2	invalid	reference.xml:1: Schemas validity error : Element 'r': No match found for key-sequence ['a'] of keyref 'ref'.
+project/identity/keyref-refer-key-under-zero-count-element	reference	xerces	invalid	reference.xml:1:22: Identity Constraint error: the keyref identity constraint "ref" refers to a key or unique that is out of scope.
+project/identity/keyref-refer-key-under-zero-count-element	reference	xmlschema	error	KeyError after 0 validation error(s): XsdKey(name='hidden')
+project/identity/keyref-refer-key-under-zero-count-element	schema	dotnet	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-element	schema	libxml2	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-element	schema	xerces	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-element	schema	xmlschema	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-sequence	no-reference	dotnet	invalid	no-reference.xml:1:2: The Keyref 'root' cannot find the referred key or unique in scope.
+project/identity/keyref-refer-key-under-zero-count-sequence	no-reference	libxml2	valid	
+project/identity/keyref-refer-key-under-zero-count-sequence	no-reference	xerces	valid	
+project/identity/keyref-refer-key-under-zero-count-sequence	no-reference	xmlschema	error	KeyError after 0 validation error(s): XsdKey(name='hidden')
+project/identity/keyref-refer-key-under-zero-count-sequence	reference	dotnet	invalid	reference.xml:1:2: The Keyref 'root' cannot find the referred key or unique in scope.
+project/identity/keyref-refer-key-under-zero-count-sequence	reference	libxml2	invalid	reference.xml:1: Schemas validity error : Element 'r': No match found for key-sequence ['a'] of keyref 'ref'.
+project/identity/keyref-refer-key-under-zero-count-sequence	reference	xerces	invalid	reference.xml:1:22: Identity Constraint error: the keyref identity constraint "ref" refers to a key or unique that is out of scope.
+project/identity/keyref-refer-key-under-zero-count-sequence	reference	xmlschema	error	KeyError after 0 validation error(s): XsdKey(name='hidden')
+project/identity/keyref-refer-key-under-zero-count-sequence	schema	dotnet	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-sequence	schema	libxml2	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-sequence	schema	xerces	schema-valid	
+project/identity/keyref-refer-key-under-zero-count-sequence	schema	xmlschema	schema-valid	
 project/identity/keyref-refer-resolution/chameleon-include/key-in-principal/keyref-anonymous-type-key-anonymous-type	keyref-no-value	dotnet	invalid	keyref-no-value.xml:1:25: The Keyref 'r_e' cannot find the referred key or unique in scope.
 project/identity/keyref-refer-resolution/chameleon-include/key-in-principal/keyref-anonymous-type-key-anonymous-type	keyref-no-value	libxml2	valid	
 project/identity/keyref-refer-resolution/chameleon-include/key-in-principal/keyref-anonymous-type-key-anonymous-type	keyref-no-value	xerces	valid	
