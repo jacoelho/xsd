@@ -267,6 +267,7 @@ func (c *compiler) addComplexType(typ complexTypeMetadata) (ComplexTypeID, error
 
 func (c *compiler) completeComplexType(id ComplexTypeID, typ complexTypeMetadata) {
 	typ.Scope = c.rt.ComplexTypes[id].Scope
+	typ.Detached = c.rt.ComplexTypes[id].Detached
 	c.rt.ComplexTypes[id] = typ
 }
 

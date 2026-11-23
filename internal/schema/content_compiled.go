@@ -252,39 +252,59 @@ type enteredContent struct {
 	// ascending and deduplicated; it is the published table's order.
 	Models []int
 	// Published is parallel to the complex types: the published index of the
-	// model each type enters.
+	// model each type enters, or noContentModel for a detached type.
 	Published []contentModelID
 }
 
 // enterContentModels derives the entered models from the complex types.
 // Complex-type roots are the only entry points: nested groups are compiled into
 // their ancestors' rows, so no published particle references another model.
-// Every empty-kind model compiles to the same read, so empty roots share the
-// lowest such position and publication keeps one row for them. A compiled
-// all model that no complex type enters violates All Group Limited and is an
-// internal invariant violation.
+// A detached type is never an element's type, so validation never enters its
+// root. Every empty-kind model compiles to the same read, so empty roots share
+// the lowest such position and publication keeps one row for them. A compiled
+// all model that is the content of no complex type violates All Group Limited
+// and is an internal invariant violation.
 func enterContentModels(types []complexTypeMetadata, content *compiledContent) (enteredContent, error) {
 	roots, err := contentRoots(types, content)
 	if err != nil {
 		return enteredContent{}, err
 	}
-	entered := slices.Clone(roots)
-	slices.Sort(entered)
-	entered = slices.Compact(entered)
-	for i := range content.Models {
-		if _, ok := slices.BinarySearch(entered, i); !ok && content.Models[i].Kind == compiledModelAll {
-			return enteredContent{}, xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type")
+	if err := requireRootedAllModels(roots, content.Models); err != nil {
+		return enteredContent{}, err
+	}
+	entered := make([]int, 0, len(roots))
+	for i, root := range roots {
+		if !types[i].Detached {
+			entered = append(entered, root)
 		}
 	}
+	slices.Sort(entered)
+	entered = slices.Compact(entered)
 	position := make([]contentModelID, len(content.Models))
 	for index, root := range entered {
 		position[root] = contentModelID(index) // #nosec G115 -- entered holds at most one position per complex type, and complex-type IDs are uint32.
 	}
 	published := make([]contentModelID, len(roots))
 	for i, root := range roots {
-		published[i] = position[root]
+		published[i] = noContentModel
+		if !types[i].Detached {
+			published[i] = position[root]
+		}
 	}
 	return enteredContent{Models: entered, Published: published}, nil
+}
+
+func requireRootedAllModels(roots []int, models []compiledModelRead) error {
+	rooted := make([]bool, len(models))
+	for _, root := range roots {
+		rooted[root] = true
+	}
+	for i := range models {
+		if models[i].Kind == compiledModelAll && !rooted[i] {
+			return xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type")
+		}
+	}
+	return nil
 }
 
 // contentRoots returns the compiled-table position of each complex type's root

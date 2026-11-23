@@ -146,13 +146,17 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 		Attributes:            newAttributeDeclReadsForDecls(build.Attributes),
 		TypeDerivations:       typeDerivations,
 		SimpleTypeUnavailable: append([]bool(nil), build.simpleTypeUnavailable...),
-		ComplexTypes:          newComplexTypeReads(build.ComplexTypes, content.Published),
 		Wildcards:             newWildcardViews(&build.Names, build.Wildcards),
 		CompiledModels:        publishedContentModels(build.CompiledContent.Models, content.Models),
 		Elements:              newElementReadTable(build.Elements),
 		IdentityDispatch:      newIdentityDispatchRead(build.Identities, names),
 	}
-	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, build.AttributeUseSets, build.valueBuilder)
+	var sets []attributeUseSet
+	reads.ComplexTypes, sets, err = newComplexTypeReads(build.ComplexTypes, content.Published, build.AttributeUseSets)
+	if err != nil {
+		return schemaProgram{}, err
+	}
+	reads.AttributeUseSets, err = newAttributeUseSetReads(&build.Names, sets, build.valueBuilder)
 	if err != nil {
 		return schemaProgram{}, err
 	}

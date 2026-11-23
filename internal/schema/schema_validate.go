@@ -49,6 +49,9 @@ func validateSchemaBuildOwnership(build *schemaBuild) error {
 	if err := validateIdentityBuildOwnership(build); err != nil {
 		return err
 	}
+	if err := validateDetachedComplexTypesUnused(build); err != nil {
+		return err
+	}
 	if err := validateIdentityConstraintOwnership(build.Elements, build.Identities); err != nil {
 		return xsderrors.InternalInvariant(err.Error())
 	}
@@ -120,6 +123,24 @@ func validateComplexTypeBuildOwnership(build *schemaBuild) error {
 			}
 		default:
 			return xsderrors.InternalInvariant("complex type declaration scope is invalid")
+		}
+	}
+	return nil
+}
+
+// validateDetachedComplexTypesUnused checks that validation cannot reach a
+// detached complex type: no global name binds it and no element declaration
+// has it as its type.
+func validateDetachedComplexTypesUnused(build *schemaBuild) error {
+	for _, typ := range build.ComplexTypes {
+		if typ.Detached && typ.Scope == declarationScopeGlobal {
+			return xsderrors.InternalInvariant("global complex type is detached")
+		}
+	}
+	for _, decl := range build.Elements {
+		typ, ok := decl.Type.Complex()
+		if ok && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
+			return xsderrors.InternalInvariant("element declaration has a detached complex type")
 		}
 	}
 	return nil

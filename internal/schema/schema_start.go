@@ -62,10 +62,13 @@ func (rt *Schema) TypeInfo(id TypeID) (TypeInfo, bool) {
 		return TypeInfo{Unavailable: availability == simpleTypeAvailabilityUnavailable}, true
 	}
 	complexID, ok := id.Complex()
-	if !ok || !validComplexTypeID(complexID, len(rt.program.ComplexTypes)) {
+	if !ok {
 		return TypeInfo{}, false
 	}
-	read := rt.program.ComplexTypes[complexID]
+	read, ok := rt.publishedComplexType(complexID)
+	if !ok {
+		return TypeInfo{}, false
+	}
 	info := read.typeInfo()
 	if textType, simple := read.simpleContent(); simple {
 		availability, present, ok := rt.simpleTypeAvailability(textType)

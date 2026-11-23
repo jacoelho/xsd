@@ -1,6 +1,9 @@
 package schema
 
-import "github.com/jacoelho/xsd/internal/value"
+import (
+	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/xsderrors"
+)
 
 // SchemaBuild is compiler-owned mutable schema state. PublishSchema is the
 // only supported transition to an immutable validation Schema.
@@ -70,25 +73,60 @@ type complexTypeReadFlags uint8
 
 const (
 	complexTypeReadAbstract complexTypeReadFlags = 1 << iota
+	// complexTypeReadDetached marks a type validation never reaches
+	// (complexTypeMetadata.Detached). It has no content model or attribute
+	// uses, and publishedComplexType rejects it.
+	complexTypeReadDetached
 )
 
-// newComplexTypeReads points each type at published[i], its model's index in
-// the published content-model table.
-func newComplexTypeReads(types []complexTypeMetadata, published []contentModelID) []complexTypeRead {
+// newComplexTypeReads points each type at publishedModels[i], its model's
+// index in the published content-model table, and returns the attribute-use
+// sets to publish: only those a type that is not detached uses, each once.
+// Attribute group sets and the sets only detached types use are not published.
+func newComplexTypeReads(types []complexTypeMetadata, publishedModels []contentModelID, sets []attributeUseSet) ([]complexTypeRead, []attributeUseSet, error) {
 	reads := make([]complexTypeRead, len(types))
-	for i := range types {
-		reads[i] = newComplexTypeRead(types[i], published[i])
+	position := make([]attributeUseSetID, len(sets))
+	for set := range position {
+		position[set] = noAttributeUseSet
 	}
-	return reads
+	kept := 0
+	for i := range types {
+		if types[i].Detached {
+			reads[i] = complexTypeRead{attributeUseSet: noAttributeUseSet, contentModel: noContentModel, textType: NoSimpleType, flags: complexTypeReadDetached}
+			continue
+		}
+		set := types[i].Attrs
+		if !validAttributeUseSetID(set, len(sets)) {
+			return nil, nil, xsderrors.InternalInvariant("complex type references invalid attribute use set")
+		}
+		if position[set] == noAttributeUseSet {
+			position[set] = attributeUseSetID(kept) // #nosec G115 -- at most one set per complex type, and complex-type IDs are uint32.
+			kept++
+		}
+		reads[i] = newComplexTypeRead(types[i], publishedModels[i], position[set])
+	}
+	return reads, publishedAttributeUseSets(sets, position, kept), nil
 }
 
-func newComplexTypeRead(ct complexTypeMetadata, contentModel contentModelID) complexTypeRead {
+// publishedAttributeUseSets returns kept sets; the kept positions are dense
+// from 0 to kept-1.
+func publishedAttributeUseSets(sets []attributeUseSet, position []attributeUseSetID, kept int) []attributeUseSet {
+	published := make([]attributeUseSet, kept)
+	for set, at := range position {
+		if at != noAttributeUseSet {
+			published[at] = sets[set]
+		}
+	}
+	return published
+}
+
+func newComplexTypeRead(ct complexTypeMetadata, contentModel contentModelID, attributeUseSet attributeUseSetID) complexTypeRead {
 	var flags complexTypeReadFlags
 	if ct.Abstract {
 		flags |= complexTypeReadAbstract
 	}
 	return complexTypeRead{
-		attributeUseSet: ct.Attrs,
+		attributeUseSet: attributeUseSet,
 		contentModel:    contentModel,
 		textType:        ct.TextType,
 		block:           ct.Block,
