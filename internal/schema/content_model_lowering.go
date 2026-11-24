@@ -100,7 +100,11 @@ func nonUnitParticle(p contentParticle) bool {
 // particles are omitted from the lowered model. The occurrence range of an
 // xs:all member was admitted at its start tag; see occurrenceAdmission.
 func appendParticle(work *workBudget, models []contentModelNode, model *contentModelNode, p contentParticle) error {
-	if err := validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: modelParticleChildKind(p)}); err != nil {
+	kind, err := modelParticleChildKind(p)
+	if err != nil {
+		return err
+	}
+	if err = validateModelGroupChildAdmission(model.Kind, modelChildAdmission{Kind: kind}); err != nil {
 		return err
 	}
 	if p.Occurs.IsAbsent() {
@@ -109,17 +113,17 @@ func appendParticle(work *workBudget, models []contentModelNode, model *contentM
 	return appendModelParticles(work, models, model, p)
 }
 
-func modelParticleChildKind(p contentParticle) modelChildKind {
+func modelParticleChildKind(p contentParticle) (modelChildKind, error) {
 	switch p.Kind {
 	case particleElement:
-		return modelChildElement
+		return modelChildElement, nil
 	case particleWildcard:
-		return modelChildWildcard
+		return modelChildWildcard, nil
 	case particleModel:
-		return modelChildModel
+		return modelChildModel, nil
 	default:
+		return 0, xsderrors.InternalInvariant("content model child particle has unknown kind", nil)
 	}
-	return modelChildModel
 }
 
 // contentTypeParticle returns the particle of the {content type} whose model

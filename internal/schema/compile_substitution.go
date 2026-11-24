@@ -64,9 +64,9 @@ func (s *substitutionCompilation) linkHeads() error {
 
 func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	raw := s.compiler.elementComponents[memberQName]
-	source := semanticSource[*schemaElementSource](&raw.sourceNode().semantic)
-	if source == nil {
-		return xsderrors.InternalInvariant("element substitution source is not typed", nil)
+	source, err := requiredSemanticSource[*schemaElementSource](raw.sourceNode())
+	if err != nil {
+		return err
 	}
 	if !source.SubstitutionGroup.Lexical.Present {
 		return nil
@@ -75,7 +75,7 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	if !ok || !validElementID(member, len(s.elements)) {
 		return xsderrors.InternalInvariant("substitution member was not compiled", nil)
 	}
-	s.inheritsType[member] = elementUsesSubstitutionType(raw.sourceNode())
+	s.inheritsType[member] = elementUsesSubstitutionType(raw.sourceNode(), source)
 	headQName, err := s.compiler.referenceQName(raw.ctx, raw.sourceNode(), source.SubstitutionGroup.Name)
 	if err != nil {
 		return err
@@ -222,11 +222,7 @@ func substitutionCycleElement(start ElementID, elements []elementDecl) (ElementI
 	return current, nil
 }
 
-func elementUsesSubstitutionType(n *schemaNode) bool {
-	source := semanticSource[*schemaElementSource](&n.semantic)
-	if source == nil {
-		return false
-	}
+func elementUsesSubstitutionType(n *schemaNode, source *schemaElementSource) bool {
 	if source.Type.Lexical.Present {
 		return false
 	}

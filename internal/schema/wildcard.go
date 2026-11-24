@@ -161,10 +161,10 @@ func wildcardViewByID(views []WildcardView, id WildcardID) (WildcardView, bool) 
 // validateWildcard validates frozen wildcard metadata.
 func validateWildcard(names *nameTable, w wildcardRuntime) error {
 	if names == nil {
-		return errors.New("wildcard requires name table")
+		return newBuildDefect("wildcard requires name table")
 	}
 	if !validProcessContents(w.Process) {
-		return errors.New("wildcard has invalid process contents")
+		return newBuildDefect("wildcard has invalid process contents")
 	}
 	return validateWildcardNamespaceShape(names, w)
 }
@@ -189,37 +189,37 @@ func validateWildcardNamespaceShape(names *nameTable, w wildcardRuntime) error {
 	case WildcardList:
 		return validateListWildcardNamespaces(names, w)
 	default:
-		return errors.New("wildcard has invalid mode")
+		return newBuildDefect("wildcard has invalid mode")
 	}
 }
 
 func validateInactiveWildcardNamespaces(w wildcardRuntime) error {
 	if len(w.Namespaces) != 0 || w.OtherThan != emptyNamespaceID {
-		return errors.New("wildcard stores inactive namespace fields")
+		return newBuildDefect("wildcard stores inactive namespace fields")
 	}
 	return nil
 }
 
 func validateOtherWildcardNamespace(names *nameTable, w wildcardRuntime) error {
 	if len(w.Namespaces) != 0 || !names.ValidNamespaceID(w.OtherThan) {
-		return errors.New("wildcard other namespace is invalid")
+		return newBuildDefect("wildcard other namespace is invalid")
 	}
 	return nil
 }
 
 func validateTargetWildcardNamespace(names *nameTable, w wildcardRuntime) error {
 	if len(w.Namespaces) != 1 || w.OtherThan != emptyNamespaceID || !names.ValidNamespaceID(w.Namespaces[0]) {
-		return errors.New("targetNamespace wildcard has invalid namespace")
+		return newBuildDefect("targetNamespace wildcard has invalid namespace")
 	}
 	return nil
 }
 
 func validateListWildcardNamespaces(names *nameTable, w wildcardRuntime) error {
 	if w.OtherThan != emptyNamespaceID {
-		return errors.New("namespace list wildcard stores inactive other namespace")
+		return newBuildDefect("namespace list wildcard stores inactive other namespace")
 	}
 	if !validWildcardNamespaceList(names, w.Namespaces) {
-		return errors.New("namespace list wildcard is invalid")
+		return newBuildDefect("namespace list wildcard is invalid")
 	}
 	return nil
 }

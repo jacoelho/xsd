@@ -51,7 +51,10 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 	if err = c.admitNotationTypeUse(n, typ); err != nil {
 		return attributeDecl{}, err
 	}
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	if err != nil {
+		return attributeDecl{}, err
+	}
 	constraint, err := sourceValueConstraint(n, source.Default, source.Fixed)
 	if err != nil {
 		return attributeDecl{}, err
@@ -64,9 +67,9 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 }
 
 func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNode) (SimpleTypeID, error) {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if source == nil {
-		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source", nil))
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	if err != nil {
+		return NoSimpleType, err
 	}
 	if typeLex := source.Type.Lexical; typeLex.Present {
 		q, err := c.referenceQName(ctx, n, source.Type.Name)
@@ -246,7 +249,10 @@ func (b *attributeUseCompilation) add(child *schemaNode) error {
 }
 
 func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
-	overrides := readAttributeUseOverrides(child)
+	overrides, err := readAttributeUseOverrides(child)
+	if err != nil {
+		return err
+	}
 	mode, err := parseAttributeUseModeChecked(child, overrides.mode)
 	if err != nil {
 		return err
@@ -474,12 +480,12 @@ type attributeUseOverrides struct {
 	mode        lexicalAttribute
 }
 
-func readAttributeUseOverrides(n *schemaNode) attributeUseOverrides {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if source == nil {
-		return attributeUseOverrides{}
+func readAttributeUseOverrides(n *schemaNode) (attributeUseOverrides, error) {
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	if err != nil {
+		return attributeUseOverrides{}, err
 	}
-	return attributeUseOverrides{defaultAttr: source.Default, fixedAttr: source.Fixed, mode: source.Use}
+	return attributeUseOverrides{defaultAttr: source.Default, fixedAttr: source.Fixed, mode: source.Use}, nil
 }
 
 func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUse, base attributeUseBase, overrides attributeUseOverrides) error {
@@ -501,9 +507,9 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUs
 }
 
 func (c *compiler) compileAttributeUseBase(ctx *schemaSetDocument, n *schemaNode) (attributeUseBase, error) {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
-	if source == nil {
-		return attributeUseBase{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source", nil))
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	if err != nil {
+		return attributeUseBase{}, err
 	}
 	if source.Ref.Lexical.Present {
 		return c.compileAttributeRefUse(ctx, n, source.Ref.Name)
@@ -546,7 +552,10 @@ func (c *compiler) compileLocalAttributeUse(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) localAttributeUseName(ctx *schemaSetDocument, n *schemaNode) (QName, error) {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	if err != nil {
+		return QName{}, err
+	}
 	name := source.Global.Name.Value
 	ns := ""
 	form, hasForm := source.Form.Value, source.Form.Present
@@ -568,7 +577,10 @@ func (c *compiler) localAttributeUseName(ctx *schemaSetDocument, n *schemaNode) 
 // contributes only a name directive rather than an attribute-use component,
 // even when fixed is present. See I-008 in docs/spec/INTERPRETATIONS.md.
 func (c *compiler) admitAttributeProhibition(ctx *schemaSetDocument, n *schemaNode) (result QName, err error) {
-	source := semanticSource[*schemaAttributeSource](&n.semantic)
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	if err != nil {
+		return QName{}, err
+	}
 	if source.Ref.Lexical.Present {
 		if err = c.spendComponentDependency(n); err != nil {
 			return QName{}, err
@@ -627,9 +639,9 @@ func (c *compiler) compileAttributeGroupUse(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) compileAttributeGroupUseID(ctx *schemaSetDocument, n *schemaNode) (attributeUseSetID, error) {
-	source := semanticSource[*schemaAttributeGroupSource](&n.semantic)
-	if source == nil {
-		return noAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source", nil))
+	source, err := requiredSemanticSource[*schemaAttributeGroupSource](n)
+	if err != nil {
+		return noAttributeUseSet, err
 	}
 	q, err := c.referenceQName(ctx, n, source.Ref.Name)
 	if err != nil {

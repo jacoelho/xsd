@@ -164,7 +164,7 @@ func TestContentRestrictionEmptyAgainstEmptiableChoice(t *testing.T) {
 			err := validateContentRestriction(rt, 1, 2, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt))
 			switch {
 			case test.malformed:
-				if !isContentRestrictionInvariant(err) {
+				if !isBuildDefect(err) {
 					t.Fatalf("restriction error = %v, want graph invariant", err)
 				}
 			case !test.epsilon:

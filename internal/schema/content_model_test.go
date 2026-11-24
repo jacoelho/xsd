@@ -564,7 +564,7 @@ func TestContentRestrictionRejectsInvalidElementScope(t *testing.T) {
 		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
 	}
 	err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if !isContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "invalid scope") {
+	if !isBuildDefect(err) || !strings.Contains(err.Error(), "invalid scope") {
 		t.Fatalf("ValidateContentRestriction() error = %v, want invalid-scope invariant", err)
 	}
 }
@@ -579,7 +579,7 @@ func TestContentRestrictionPropagatesMissingNestedModel(t *testing.T) {
 	}
 	rt := contentRestrictionRuntimeWith(models)
 	err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
-	if !isContentRestrictionInvariant(err) || !strings.Contains(err.Error(), "missing content model") {
+	if !isBuildDefect(err) || !strings.Contains(err.Error(), "missing content model") {
 		t.Fatalf("ValidateContentRestriction() error = %v, want missing-model invariant", err)
 	}
 }

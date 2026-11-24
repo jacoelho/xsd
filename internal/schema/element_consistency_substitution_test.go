@@ -64,7 +64,7 @@ func TestPublishSchemaChecksImplicitSubstitutionConsistencyAndAllowsRetry(t *tes
 	}
 	local, original := changeConsistencyLocalType(t, &c.rt, "member", "int")
 	published, err := c.publishSchema()
-	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaContentModel)
+	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 	if published != nil || len(c.rt.Models) == 0 {
 		t.Fatal("failed EDC publication returned a schema or consumed the build")
 	}

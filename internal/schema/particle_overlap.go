@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"slices"
 )
 
@@ -50,7 +49,7 @@ type particleAcceptedNames struct {
 // newContentModelAnalysis creates a reusable bounded analysis context.
 func newContentModelAnalysis(rt *schemaBuild, work contentModelWork) (*contentModelAnalysis, error) {
 	if rt == nil {
-		return nil, errors.New("content model analysis runtime is nil")
+		return nil, newBuildDefect("content model analysis runtime is nil")
 	}
 	if err := requireContentModelWork(work); err != nil {
 		return nil, err
@@ -151,14 +150,14 @@ func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (countRa
 		return result, nil
 	}
 	if a.rangePath[id] {
-		return countRange{}, errors.New("content model count analysis contains a cycle")
+		return countRange{}, newBuildDefect("content model count analysis contains a cycle")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
 		return countRange{}, err
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return countRange{}, errors.New("content model count analysis references missing content model")
+		return countRange{}, newBuildDefect("content model count analysis references missing content model")
 	}
 	a.rangePath[id] = true
 	defer delete(a.rangePath, id)
@@ -315,7 +314,7 @@ func (a *contentModelAnalysis) elementParticleOverlap(left, right contentParticl
 func (a *contentModelAnalysis) modelStartOverlap(id contentModelID, particle contentParticle) (particleOverlap, bool, error) {
 	model, ok := a.contentModel(id)
 	if !ok {
-		return particleOverlap{}, false, errors.New("content model overlap analysis references missing content model")
+		return particleOverlap{}, false, newBuildDefect("content model overlap analysis references missing content model")
 	}
 	switch model.Kind {
 	case modelAll, modelChoice, modelSequence:
@@ -466,13 +465,17 @@ func (a *contentModelAnalysis) cachedParticleEmptiable(particle contentParticle)
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
 	}
-	if particle.Occurs.Min == 0 {
-		return true, nil
+	switch particle.Kind {
+	case particleElement, particleWildcard:
+		return particle.Occurs.Min == 0, nil
+	case particleModel:
+		if particle.Occurs.Min == 0 {
+			return true, nil
+		}
+		return a.ModelEmptiable(particle.Model)
+	default:
+		return false, newBuildDefect("content model emptiability analysis references invalid particle kind")
 	}
-	if particle.Kind != particleModel {
-		return false, nil
-	}
-	return a.ModelEmptiable(particle.Model)
 }
 
 func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, error) {
@@ -480,11 +483,11 @@ func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, er
 		return result, nil
 	}
 	if a.emptyPath[id] {
-		return false, errors.New("content model emptiability analysis contains a cycle")
+		return false, newBuildDefect("content model emptiability analysis contains a cycle")
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return false, errors.New("content model emptiability analysis references missing content model")
+		return false, newBuildDefect("content model emptiability analysis references missing content model")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
@@ -509,19 +512,20 @@ func (a *contentModelAnalysis) emptiableModel(id contentModelID, model contentMo
 }
 
 func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool, error) {
-	if model.Occurs.Min == 0 || model.Kind == modelEmpty {
+	switch model.Kind {
+	case modelEmpty:
+		return true, nil
+	case modelSequence, modelAll, modelChoice:
+	default:
+		return false, newBuildDefect("content model emptiability analysis references invalid model kind")
+	}
+	if model.Occurs.Min == 0 {
 		return true, nil
 	}
-	switch model.Kind {
-	case modelSequence, modelAll:
-		return a.allParticlesEmptiable(model.Particles)
-	case modelChoice:
+	if model.Kind == modelChoice {
 		return a.anyParticleEmptiable(model.Particles)
-	case modelEmpty:
-		return false, nil
-	default:
 	}
-	return false, nil
+	return a.allParticlesEmptiable(model.Particles)
 }
 
 func (a *contentModelAnalysis) allParticlesEmptiable(particles []contentParticle) (bool, error) {

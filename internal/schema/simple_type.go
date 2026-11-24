@@ -80,13 +80,13 @@ func validateOrderedFacetStep(step orderedFacetStep) error {
 // validateSimpleTypeFinalAllows checks whether derivation is allowed by final.
 func validateSimpleTypeFinalAllows(final, derivation DerivationMask) error {
 	if !validSimpleFinalMask(final) {
-		return errors.New("simple type final mask is invalid")
+		return newBuildDefect("simple type final mask is invalid")
 	}
 	//nolint:exhaustive // only simple-type derivation kinds are valid here.
 	switch derivation {
 	case DerivationRestriction, derivationList, derivationUnion:
 	default:
-		return errors.New("simple type final derivation is invalid")
+		return newBuildDefect("simple type final derivation is invalid")
 	}
 	if final&derivation != 0 {
 		return errors.New("simple type final blocks " + simpleTypeFinalDerivationName(derivation))

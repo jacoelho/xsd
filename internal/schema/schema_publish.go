@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"maps"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -18,14 +17,14 @@ import (
 // affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
-		return nil, errors.New("nil schema build")
+		return nil, xsderrors.InternalInvariant("schema build is nil", nil)
 	}
 	if err := requireContentModelWork(work); err != nil {
-		return nil, err
+		return nil, untypedFailure(err)
 	}
 	program, err := sealSchemaProgram(build, work)
 	if err != nil {
-		return nil, err
+		return nil, untypedFailure(err)
 	}
 	*build = schemaBuild{}
 	return &Schema{program: program}, nil
@@ -40,7 +39,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	contentAnalysis, err := newContentModelAnalysis(build, work)
 	if err != nil {
-		return schemaProgram{}, err
+		return schemaProgram{}, auditError("", err)
 	}
 	validation := schemaValidation{
 		build:            build,
@@ -52,7 +51,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	program, err := newSchemaProgram(build, work)
 	if err != nil {
-		return schemaProgram{}, schemaBuildValidationError(err)
+		return schemaProgram{}, auditError("", err)
 	}
 	if build.valueBuilder == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("schema build has no value program builder", nil)
@@ -62,7 +61,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	valueProgram, err := build.valueBuilder.SealKeeping(build.ReachableSimpleTypes)
 	if err != nil {
-		return schemaProgram{}, xsderrors.InternalInvariant("sealing the value program", err)
+		return schemaProgram{}, auditError("sealing the value program", err)
 	}
 	if valueProgram == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program", nil)

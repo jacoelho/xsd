@@ -48,7 +48,6 @@ func TestCompileKindPanics(t *testing.T) {
 	}{
 		{name: "invalid simple derivation", call: func() { simpleDerivationOrder(simpleDerivationInvalid) }},
 		{name: "unknown simple derivation", call: func() { simpleDerivationOrder(simpleDerivationKind(99)) }},
-		{name: "unknown DFA repeat counter", call: func() { dfaRepeatCounter{kind: dfaRepeatCounterKind(99)}.active() }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

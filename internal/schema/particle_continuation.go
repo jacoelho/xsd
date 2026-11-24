@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"slices"
 )
 
@@ -77,7 +76,7 @@ func (a *contentModelAnalysis) groupStart(id contentModelID, view continuationVi
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return nil, errors.New("content model continuation analysis references missing content model")
+		return nil, newBuildDefect("content model continuation analysis references missing content model")
 	}
 	start, err := a.startParticles(model)
 	if err != nil || view == allContinuations {
@@ -153,14 +152,14 @@ func (a *contentModelAnalysis) ModelContinuations(id contentModelID) ([]contentP
 		return set, nil
 	}
 	if a.continuationPath[id] {
-		return nil, errors.New("content model continuation analysis contains a cycle")
+		return nil, newBuildDefect("content model continuation analysis contains a cycle")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
 		return nil, err
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return nil, errors.New("content model continuation analysis references missing content model")
+		return nil, newBuildDefect("content model continuation analysis references missing content model")
 	}
 	a.continuationPath[id] = true
 	defer delete(a.continuationPath, id)

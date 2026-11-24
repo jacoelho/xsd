@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -211,7 +210,7 @@ func (n *nameTable) NameCount() int {
 // runtime namespace/name seeds.
 func validateRuntimeNameTable(n *nameTable) error {
 	if n == nil {
-		return errors.New("runtime name table is missing")
+		return newBuildDefect("runtime name table is missing")
 	}
 	return n.Validate(requiredRuntimeNamespaces, requiredRuntimeNames)
 }
@@ -219,13 +218,13 @@ func validateRuntimeNameTable(n *nameTable) error {
 // Validate reports whether n is internally consistent and contains required names.
 func (n *nameTable) Validate(requiredNamespaces []string, requiredNames []ExpandedName) error {
 	if n == nil || len(n.namespaces) == 0 || n.namespaces[emptyNamespaceID] != vocab.EmptyNamespaceURI {
-		return errors.New("name table must reserve namespace zero for the empty namespace")
+		return newBuildDefect("name table must reserve namespace zero for the empty namespace")
 	}
 	if len(n.nsIndex) != len(n.namespaces) {
-		return errors.New("name table namespace index size does not match namespace slice")
+		return newBuildDefect("name table namespace index size does not match namespace slice")
 	}
 	if len(n.localIndex) != len(n.locals) {
-		return errors.New("name table local index size does not match local slice")
+		return newBuildDefect("name table local index size does not match local slice")
 	}
 	if err := n.validateNamespaceIndex(); err != nil {
 		return err
@@ -243,12 +242,12 @@ func (n *nameTable) validateNamespaceIndex() error {
 	for i, uri := range n.namespaces {
 		id, ok := n.nsIndex[uri]
 		if !ok || id != namespaceID(i) {
-			return errors.New("name table namespace index does not match namespace slice")
+			return newBuildDefect("name table namespace index does not match namespace slice")
 		}
 	}
 	for uri, id := range n.nsIndex {
 		if !validRuntimeID(uint32(id), len(n.namespaces)) || n.namespaces[id] != uri {
-			return errors.New("name table namespace slice does not match namespace index")
+			return newBuildDefect("name table namespace slice does not match namespace index")
 		}
 	}
 	return nil
@@ -258,12 +257,12 @@ func (n *nameTable) validateLocalIndex() error {
 	for i, local := range n.locals {
 		id, ok := n.localIndex[local]
 		if !ok || id != localNameID(i) {
-			return errors.New("name table local index does not match local slice")
+			return newBuildDefect("name table local index does not match local slice")
 		}
 	}
 	for local, id := range n.localIndex {
 		if !validRuntimeID(uint32(id), len(n.locals)) || n.locals[id] != local {
-			return errors.New("name table local slice does not match local index")
+			return newBuildDefect("name table local slice does not match local index")
 		}
 	}
 	return nil
@@ -273,7 +272,7 @@ func (n *nameTable) validateRequiredNamespaces(required []string) error {
 	for _, uri := range required {
 		id, ok := n.LookupNamespace(uri)
 		if !ok || n.Namespace(id) != uri {
-			return errors.New("name table is missing required namespace")
+			return newBuildDefect("name table is missing required namespace")
 		}
 	}
 	return nil
@@ -283,7 +282,7 @@ func (n *nameTable) validateRequiredNames(required []ExpandedName) error {
 	for _, name := range required {
 		q, ok := n.LookupQName(name.Namespace, name.Local)
 		if !ok || !n.ValidQName(q) {
-			return errors.New("name table is missing required name")
+			return newBuildDefect("name table is missing required name")
 		}
 	}
 	return nil

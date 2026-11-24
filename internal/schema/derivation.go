@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"math"
 	"slices"
 
@@ -71,7 +70,7 @@ func newTypeDerivationReadForTypes(
 	complexTypes []complexTypeMetadata,
 ) (typeDerivationRead, error) {
 	if !validComplexTypeID(anyType, len(complexTypes)) {
-		return typeDerivationRead{}, errors.New("type derivation projection stores invalid anyType")
+		return typeDerivationRead{}, newBuildDefect("type derivation projection stores invalid anyType")
 	}
 	index := &typeDerivationIndex{
 		simpleTypes: make([]simpleTypeDerivation, len(simpleTypes)),
@@ -93,7 +92,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	simpleForest, simpleOK := buildDerivationForest(simpleParents)
 	if !simpleOK {
-		return errors.New("simple type derivation graph contains a cycle")
+		return newBuildDefect("simple type derivation graph contains a cycle")
 	}
 	r.simpleIn = simpleForest.in
 	r.simpleOut = simpleForest.out
@@ -103,7 +102,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	complexForest, complexOK := buildDerivationForest(complexParents)
 	if !complexOK {
-		return errors.New("complex type derivation graph contains a cycle")
+		return newBuildDefect("complex type derivation graph contains a cycle")
 	}
 	r.complexIn = complexForest.in
 	r.complexOut = complexForest.out
@@ -120,7 +119,7 @@ func simpleDerivationParents(types []simpleType) ([]int, error) {
 			continue
 		}
 		if !validSimpleTypeID(base, len(types)) || int(base) == i {
-			return nil, errors.New("simple type derivation graph references invalid base")
+			return nil, newBuildDefect("simple type derivation graph references invalid base")
 		}
 		parents[i] = int(base)
 	}
@@ -134,13 +133,13 @@ func complexDerivationParents(simpleTypes []simpleType, complexTypes []complexTy
 		base, ok := complexTypes[i].Base.Complex()
 		if ok {
 			if !validComplexTypeID(base, len(complexTypes)) || int(base) == i {
-				return nil, errors.New("complex type derivation graph references invalid base")
+				return nil, newBuildDefect("complex type derivation graph references invalid base")
 			}
 			parents[i] = int(base)
 			continue
 		}
 		if base, ok := complexTypes[i].Base.Simple(); ok && !validSimpleTypeID(base, len(simpleTypes)) {
-			return nil, errors.New("complex type derivation graph references invalid simple base")
+			return nil, newBuildDefect("complex type derivation graph references invalid simple base")
 		}
 	}
 	return parents, nil
@@ -172,7 +171,7 @@ func populateComplexDerivationIndex(
 			r.complexSimpleBase[i] = base
 		}
 		if err := applyComplexDerivationKind(r, i, ct.Derivation); err != nil {
-			return errors.New("complex type derivation graph stores invalid derivation kind")
+			return newBuildDefect("complex type derivation graph stores invalid derivation kind")
 		}
 	}
 	return nil
@@ -188,7 +187,7 @@ func applyComplexDerivationKind(r *typeDerivationIndex, index int, kind derivati
 		r.complexSimpleMask[index] |= DerivationRestriction
 	case derivationKindNone:
 	default:
-		return errors.New("invalid derivation kind")
+		return newBuildDefect("invalid derivation kind")
 	}
 	return nil
 }
@@ -713,7 +712,10 @@ func substitutionTypeBlocks(rt *schemaBuild, derived, base TypeID, work func(int
 	if derived == base {
 		return 0, nil
 	}
-	blocks := baseSubstitutionTypeBlock(rt, base)
+	blocks, err := baseSubstitutionTypeBlock(rt, base)
+	if err != nil {
+		return 0, err
+	}
 	current, ok := derived.Complex()
 	if !ok {
 		return blocks, nil
@@ -722,46 +724,58 @@ func substitutionTypeBlocks(rt *schemaBuild, derived, base TypeID, work func(int
 		if err := work(1); err != nil {
 			return 0, err
 		}
-		block, parent, done := nextSubstitutionTypeBlock(rt, current, base)
-		if done {
+		step, err := nextSubstitutionTypeBlock(rt, current, base)
+		if err != nil {
+			return 0, err
+		}
+		if step.done {
 			return blocks, nil
 		}
-		blocks |= block
-		current = parent
+		blocks |= step.block
+		current = step.parent
 	}
-	return blocks, nil
+	return 0, newBuildDefect("complex type derivation graph is cyclic")
 }
 
-func baseSubstitutionTypeBlock(rt *schemaBuild, base TypeID) DerivationMask {
+func baseSubstitutionTypeBlock(rt *schemaBuild, base TypeID) (DerivationMask, error) {
 	baseID, ok := base.Complex()
 	if !ok {
-		return 0
+		return 0, nil
 	}
 	baseType, ok := rt.ComplexTypeDerivation(baseID)
 	if !ok {
-		return 0
+		return 0, newBuildDefect("substitution type derivation references invalid base")
 	}
-	return baseType.Block
+	return baseType.Block, nil
+}
+
+type substitutionTypeBlockStep struct {
+	parent ComplexTypeID
+	block  DerivationMask
+	done   bool
 }
 
 func nextSubstitutionTypeBlock(
 	rt *schemaBuild,
 	current ComplexTypeID,
 	base TypeID,
-) (DerivationMask, ComplexTypeID, bool) {
+) (substitutionTypeBlockStep, error) {
 	typ, ok := rt.ComplexTypeDerivation(current)
-	if !ok || typ.Base == base {
-		return 0, 0, true
+	if !ok {
+		return substitutionTypeBlockStep{}, newBuildDefect("substitution type derivation references invalid type")
+	}
+	if typ.Base == base {
+		return substitutionTypeBlockStep{done: true}, nil
 	}
 	parent, ok := typ.Base.Complex()
 	if !ok {
-		return 0, 0, true
+		return substitutionTypeBlockStep{done: true}, nil
 	}
 	parentType, ok := rt.ComplexTypeDerivation(parent)
 	if !ok {
-		return 0, 0, true
+		return substitutionTypeBlockStep{}, newBuildDefect("substitution type derivation references invalid base")
 	}
-	return parentType.Block, parent, false
+	return substitutionTypeBlockStep{block: parentType.Block, parent: parent}, nil
 }
 
 func derivationKindMask(kind derivationKind) DerivationMask {
@@ -789,7 +803,7 @@ func complexSimpleContentCore(rt *schemaBuild, current ComplexTypeID, work func(
 		}
 		derivation, found := rt.ComplexTypeDerivation(current)
 		if !found {
-			return NoSimpleType, 0, nil
+			return NoSimpleType, 0, newBuildDefect("complex type derivation references invalid type")
 		}
 		steps |= derivationKindMask(derivation.Kind)
 		if simple, isSimple := derivation.Base.Simple(); isSimple {
@@ -800,7 +814,7 @@ func complexSimpleContentCore(rt *schemaBuild, current ComplexTypeID, work func(
 			return NoSimpleType, 0, nil
 		}
 	}
-	return NoSimpleType, 0, nil
+	return NoSimpleType, 0, newBuildDefect("complex type derivation graph is cyclic")
 }
 
 func complexAnyTypeDerivationMask(
@@ -823,7 +837,7 @@ func complexAnyTypeDerivationMask(
 		}
 		derived = step.next
 	}
-	return 0, false, nil
+	return 0, false, newBuildDefect("complex type derivation graph is cyclic")
 }
 
 type complexAnyTypeDerivationStep struct {
@@ -846,7 +860,7 @@ func nextComplexAnyTypeDerivation(
 	}
 	typ, ok := rt.ComplexTypeDerivation(derived)
 	if !ok {
-		return complexAnyTypeDerivationStep{}, nil
+		return complexAnyTypeDerivationStep{}, newBuildDefect("complex type derivation references invalid type")
 	}
 	step := complexAnyTypeDerivationStep{mask: derivationKindMask(typ.Kind), valid: true}
 	if typ.Base.IsSimple() {
@@ -873,13 +887,13 @@ func simpleTypeDerivationMaskOf(
 	if err := work(2); err != nil {
 		return 0, false, err
 	}
-	st, ok := rt.SimpleTypeDerivation(derived)
-	if !ok {
-		return 0, false, nil
+	st, ok, err := simpleTypeDerivationOf(rt, derived)
+	if err != nil || !ok {
+		return 0, false, err
 	}
-	baseType, ok := rt.SimpleTypeDerivation(base)
-	if !ok {
-		return 0, false, nil
+	baseType, ok, err := simpleTypeDerivationOf(rt, base)
+	if err != nil || !ok {
+		return 0, false, err
 	}
 	if baseType.Variety != valuepkg.Union {
 		return simpleTypeBaseChainDerivationMask(rt, derived, base, st, work)
@@ -929,16 +943,26 @@ func nextSimpleBaseDerivation(
 		return simpleBaseDerivationStep{id: next, found: true, valid: true}, nil
 	}
 	if cycle.repeats(next) {
-		return simpleBaseDerivationStep{}, nil
+		return simpleBaseDerivationStep{}, newBuildDefect("simple type derivation graph is cyclic")
 	}
 	if err := work(1); err != nil {
 		return simpleBaseDerivationStep{}, err
 	}
-	nextType, ok := rt.SimpleTypeDerivation(next)
-	if !ok {
-		return simpleBaseDerivationStep{}, nil
+	nextType, ok, err := simpleTypeDerivationOf(rt, next)
+	if err != nil || !ok {
+		return simpleBaseDerivationStep{}, err
 	}
 	return simpleBaseDerivationStep{id: next, typ: nextType, valid: true}, nil
+}
+
+// simpleTypeDerivationOf returns the derivation of id, and false when id is a
+// missing type, which derives from nothing.
+func simpleTypeDerivationOf(rt *schemaBuild, id SimpleTypeID) (simpleTypeDerivation, bool, error) {
+	if !validSimpleTypeID(id, len(rt.SimpleTypes)) {
+		return simpleTypeDerivation{}, false, newBuildDefect("simple type derivation references invalid type")
+	}
+	st, ok := rt.SimpleTypeDerivation(id)
+	return st, ok, nil
 }
 
 type simpleTypeBaseChainCycle struct {
@@ -1231,6 +1255,9 @@ func complexTypeDerivationMask(
 	derived, base ComplexTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
+	if !validComplexTypeID(base, len(rt.ComplexTypes)) {
+		return 0, false, newBuildDefect("complex type derivation references invalid base")
+	}
 	var mask DerivationMask
 	for range len(rt.ComplexTypes) {
 		step, ok, err := complexParentDerivation(rt, derived, work)
@@ -1246,7 +1273,7 @@ func complexTypeDerivationMask(
 		}
 		derived = step.parent
 	}
-	return 0, false, nil
+	return 0, false, newBuildDefect("complex type derivation graph is cyclic")
 }
 
 type complexParentDerivationStep struct {
@@ -1264,7 +1291,7 @@ func complexParentDerivation(
 	}
 	typ, ok := rt.ComplexTypeDerivation(derived)
 	if !ok {
-		return complexParentDerivationStep{}, false, nil
+		return complexParentDerivationStep{}, false, newBuildDefect("complex type derivation references invalid type")
 	}
 	parent, ok := typ.Base.Complex()
 	if !ok {

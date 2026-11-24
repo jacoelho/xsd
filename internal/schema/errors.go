@@ -36,8 +36,8 @@ func isSchemaLimit(err error) bool {
 }
 
 // buildDefectError reports a state that only a corrupt build reaches, such as an
-// out-of-range ID, from a check that compilation and the publication audit
-// share. A schema violation found by the same check is a plain error.
+// out-of-range ID or an unknown kind. A schema violation found by the same
+// check is a plain error.
 type buildDefectError struct {
 	message string
 }
@@ -75,6 +75,35 @@ func compileRuleError(code xsderrors.Code, subject string, err error) error {
 		return xsderrors.SchemaCompile(code, err.Error(), nil)
 	}
 	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
+}
+
+// untypedFailure guards the compile and publication entries. Every failure
+// compilation reports to a schema author or caller is a diagnostic, so an error
+// without one is a defect of this package.
+func untypedFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, ok := errors.AsType[*xsderrors.Error](err); ok {
+		return err
+	}
+	return xsderrors.InternalInvariant("compilation failed without a diagnostic", err)
+}
+
+// auditError translates a failure of the publication audit. The audit
+// re-checks state that compilation already admitted, so any failure other than
+// a schema.limit diagnostic or an internal invariant, including a schema
+// diagnostic, is a defect of this package.
+func auditError(subject string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+		if code := diagnostic.Code(); code == xsderrors.CodeSchemaLimit || code == xsderrors.CodeInternalInvariant {
+			return err
+		}
+	}
+	return xsderrors.InternalInvariant(subject, err)
 }
 
 func withSchemaCompileLocation(n schemaLocated, err error) error {

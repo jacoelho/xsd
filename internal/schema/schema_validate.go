@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -67,7 +65,7 @@ func validateSchemaBuildOwnership(build *schemaBuild) error {
 		return err
 	}
 	if err := validateIdentityConstraintOwnership(build.Elements, build.Identities); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return nil
 }
@@ -178,7 +176,7 @@ func validateIdentityBuildOwnership(build *schemaBuild) error {
 
 func validateNameTable(rt *schemaValidation) error {
 	if err := validateRuntimeNameTable(&rt.build.Names); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return nil
 }
@@ -321,7 +319,7 @@ func validateRuntimeElementAndAttributeRecords(rt *schemaValidation) error {
 func validateRuntimeWildcards(rt *schemaValidation) error {
 	for i := range rt.build.Wildcards {
 		if err := validateWildcard(&rt.build.Names, rt.build.Wildcards[i]); err != nil {
-			return xsderrors.InternalInvariant("", err)
+			return auditError("", err)
 		}
 	}
 	return nil
@@ -347,7 +345,7 @@ func validateRuntimeContentModelComponents(rt *schemaValidation) error {
 	checker := newElementDeclarationConsistencyChecker(rt.build, rt.contentModelWork)
 	for id := range rt.build.Models {
 		if err := checker.checkModel(contentModelID(id)); err != nil {
-			return schemaBuildValidationError(err)
+			return auditError("", err)
 		}
 	}
 	return nil
@@ -361,7 +359,7 @@ func validateRuntimeComplexComponents(rt *schemaValidation) error {
 		return err
 	}
 	if err := validateIdentityConstraints(&rt.build.Names, rt.build.Identities); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return validateRuntimeElementValueConstraints(rt)
 }
@@ -373,7 +371,7 @@ func validateRuntimeComplexTypeRecords(rt *schemaValidation) error {
 		}
 	}
 	if err := validateComplexTypeGraph(rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return nil
 }
@@ -568,7 +566,7 @@ func validateBuiltinDeclarations(rt *schemaValidation) error {
 		AttributeUseSets: len(rt.build.AttributeUseSets),
 		Models:           len(rt.build.Models),
 	}); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return nil
 }
@@ -626,7 +624,7 @@ func validateElementDeclShape(rt *schemaValidation, decl elementDecl) error {
 		ComplexTypeCount: len(rt.build.ComplexTypes),
 		ElementCount:     len(rt.build.Elements),
 	}); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if simple, ok := decl.Type.Simple(); ok {
 		return validateNotationTypeUse(rt.build, simple)
@@ -640,7 +638,7 @@ func validateElementDeclValueConstraints(rt *schemaValidation, decl elementDecl)
 		return err
 	}
 	if err := validateValueConstraintIdentity(rt.build, defaultType, decl.ValueConstraint, valueConstraintOwnerElementDeclaration); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return validateValueConstraintRuntime(rt, decl.ValueConstraint, defaultType, valueConstraintOwnerElementDeclaration)
 }
@@ -649,13 +647,13 @@ func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
 	if err := validateAttributeDeclRuntime(&rt.build.Names, decl, declRefLimits{
 		SimpleTypeCount: len(rt.build.SimpleTypes),
 	}); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if err := checkNotationTypeUse(rt.build, decl.Type); err != nil {
-		return schemaBuildValidationError(err)
+		return auditError("", err)
 	}
 	if err := validateValueConstraintIdentity(rt.build, decl.Type, decl.ValueConstraint, valueConstraintOwnerAttributeDeclaration); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return validateValueConstraintRuntime(rt, decl.ValueConstraint, decl.Type, valueConstraintOwnerAttributeDeclaration)
 }
@@ -684,7 +682,7 @@ func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct complexT
 		AttributeUseSetCount: len(build.AttributeUseSets),
 		AnyType:              build.AnyType,
 	}); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if ct.TextType != NoSimpleType {
 		return validateNotationTypeUse(build, ct.TextType)
@@ -700,7 +698,7 @@ func validateComplexTypeDerivation(rt *schemaValidation, id ComplexTypeID, ct co
 		return validateSimpleBaseComplexDerivation(rt, baseID, ct)
 	}
 	if err := validateComplexTypeDerivationRuntime(rt.build.AnyType, id, ct); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	switch ct.Derivation {
 	case derivationKindExtension:
@@ -715,7 +713,7 @@ func validateComplexTypeDerivation(rt *schemaValidation, id ComplexTypeID, ct co
 
 func validateSimpleBaseComplexDerivation(rt *schemaValidation, baseID SimpleTypeID, ct complexTypeMetadata) error {
 	if err := validateComplexTypeSimpleBaseExtensionRuntime(rt.build, baseID, ct); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return checkDerivedAttributeWildcard(attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard}, rt.build.AttributeUseSets[ct.Attrs], attributeWildcardExtension)
 }
@@ -726,10 +724,10 @@ func validateComplexExtensionRuntime(rt *schemaValidation, ct complexTypeMetadat
 		return err
 	}
 	if err := validateComplexTypeExtensionRuntime(rt.build, base, ct); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if err := validateComplexExtensionAttributeAncestry(rt.build, ct); err != nil {
-		return schemaBuildValidationError(err)
+		return auditError("", err)
 	}
 	return validateAttributeUsesExtend(rt, base.Attrs, ct.Attrs)
 }
@@ -740,10 +738,10 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct complexTypeMetad
 		return err
 	}
 	if err := validateComplexTypeRestrictionRuntime(rt.build, rt.contentAnalysis, base, ct, rt.build.spendTypeDerivationWork); err != nil {
-		return schemaBuildValidationError(err)
+		return auditError("", err)
 	}
 	if err := validateComplexRestrictionAttributeWildcard(rt.build, ct); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if !baseIsUrType(rt.build, ct) {
 		if err := validateContentRestriction(
@@ -753,7 +751,7 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct complexTypeMetad
 			rt.contentModelWork,
 			rt.contentAnalysis,
 		); err != nil {
-			return schemaBuildValidationError(err)
+			return auditError("", err)
 		}
 	}
 	binding := attributeWildcardUnbound
@@ -763,17 +761,10 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct complexTypeMetad
 	return validateAttributeUsesRestrict(rt, base.Attrs, ct.Attrs, binding)
 }
 
-func schemaBuildValidationError(err error) error {
-	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-		return err
-	}
-	return xsderrors.InternalInvariant("", err)
-}
-
 func complexBaseRuntime(rt *schemaValidation, ct complexTypeMetadata) (complexTypeMetadata, error) {
 	baseID, err := complexTypeDerivationBaseID(ct.Base, len(rt.build.ComplexTypes))
 	if err != nil {
-		return complexTypeMetadata{}, xsderrors.InternalInvariant("", err)
+		return complexTypeMetadata{}, auditError("", err)
 	}
 	return rt.build.ComplexTypes[baseID], nil
 }
@@ -782,7 +773,7 @@ func validateAttributeUsesExtend(rt *schemaValidation, baseID, derivedID attribu
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := validateAttributeUseSetExtension(base, derived); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return checkDerivedAttributeWildcard(base, derived, attributeWildcardExtension)
 }
@@ -801,7 +792,7 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 		derived,
 		binding,
 	); err != nil {
-		return schemaBuildValidationError(err)
+		return auditError("", err)
 	}
 	if !memoized {
 		return nil
@@ -815,14 +806,14 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 
 func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, set attributeUseSet) error {
 	if err := validateAttributeWildcardProvenance(rt.build, set); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if err := validateAttributeUseSetRecord(&rt.build.Names, rt.build, set); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	for _, use := range set.Uses {
 		if err := checkNotationTypeUse(rt.build, use.Type); err != nil {
-			return schemaBuildValidationError(err)
+			return auditError("", err)
 		}
 		if err := validateValueConstraintRuntime(rt, use.ValueConstraint, use.Type, valueConstraintOwnerAttributeUse); err != nil {
 			return err
@@ -833,7 +824,7 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, s
 
 func checkDerivedAttributeWildcard(base, derived attributeUseSet, expected attributeWildcardDerivation) error {
 	if err := validateAttributeWildcardDerivation(base, derived, expected); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	return nil
 }
@@ -844,7 +835,7 @@ func auditElementValueConstraintType(rt *schemaValidation, decl elementDecl) (Si
 	}
 	id, err := elementValueConstraintType(rt.build, rt.contentAnalysis, decl.Type)
 	if err != nil {
-		return NoSimpleType, schemaBuildValidationError(err)
+		return NoSimpleType, auditError("", err)
 	}
 	return id, nil
 }
@@ -860,11 +851,11 @@ func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, e
 	label := owner.label() + " " + vc.kind().label()
 	cached := newValueConstraintValidation(vc)
 	if err := validateValueConstraintShape(rt.build, cached, expected); err != nil {
-		return xsderrors.InternalInvariant(label, err)
+		return auditError(label, err)
 	}
 	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
 	if err := validateResolvedNameProof(application, vc.ResolvedNames); err != nil {
-		return xsderrors.InternalInvariant(label, err)
+		return auditError(label, err)
 	}
 	return nil
 }

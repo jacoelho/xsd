@@ -1,7 +1,5 @@
 package schema
 
-import "github.com/jacoelho/xsd/xsderrors"
-
 func (c *compiler) compileWildcardParticle(ctx *schemaSetDocument, n *schemaNode) (contentParticle, error) {
 	id, err := c.compileWildcard(ctx, n)
 	if err != nil {
@@ -19,9 +17,9 @@ func (c *compiler) compileAttributeWildcard(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) compileWildcard(ctx *schemaSetDocument, n *schemaNode) (WildcardID, error) {
-	source := semanticSource[*schemaWildcardSource](&n.semantic)
-	if source == nil {
-		return NoWildcard, withSchemaCompileLocation(n, xsderrors.InternalInvariant("wildcard node has no typed wildcard source", nil))
+	source, err := requiredSemanticSource[*schemaWildcardSource](n)
+	if err != nil {
+		return NoWildcard, err
 	}
 	ns, hasNS := source.Namespace.Value, source.Namespace.Present
 	process, hasProcess := source.ProcessContents.Value, source.ProcessContents.Present

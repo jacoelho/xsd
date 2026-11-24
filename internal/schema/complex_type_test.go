@@ -1409,5 +1409,3 @@ func (f complexTypeValidationFixture) build() *schemaBuild {
 	}
 	return b
 }
-
-func (emptyTypeDerivationFixture) build() *schemaBuild { return &schemaBuild{} }

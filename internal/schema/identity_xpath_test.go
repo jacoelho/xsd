@@ -359,12 +359,9 @@ func TestSelectorAndFieldBindTheirNamesAtTheStartTagAndEachCompilerInternsThemIn
 		t.Fatalf("parseSchemaDocument() error = %v", err)
 	}
 	key := doc.node(doc.node(doc.root.children[0]).children[0])
-	selector := semanticSource[*schemaIdentityXPathSource](&doc.node(key.children[0]).semantic)
-	code := semanticSource[*schemaIdentityXPathSource](&doc.node(key.children[1]).semantic)
-	wildcard := semanticSource[*schemaIdentityXPathSource](&doc.node(key.children[2]).semantic)
-	if selector == nil || code == nil || wildcard == nil {
-		t.Fatalf("sources = %#v, %#v, %#v, want an XPath source on the selector and each field", selector, code, wildcard)
-	}
+	selector := testSemanticSource[*schemaIdentityXPathSource](t, &doc.node(key.children[0]).semantic)
+	code := testSemanticSource[*schemaIdentityXPathSource](t, &doc.node(key.children[1]).semantic)
+	wildcard := testSemanticSource[*schemaIdentityXPathSource](t, &doc.node(key.children[2]).semantic)
 
 	for _, unrelated := range [][]string{nil, {"cell", "code", "row", "id", "urn:outer"}} {
 		names, err := newRuntimeNameTable(0)

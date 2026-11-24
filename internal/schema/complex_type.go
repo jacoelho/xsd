@@ -132,19 +132,19 @@ func validateComplexTypeRuntime(
 
 func validateComplexTypeShape(ct complexTypeMetadata) error {
 	if !validContentKind(ct.ContentKind) {
-		return errors.New("complex type has invalid content kind")
+		return newBuildDefect("complex type has invalid content kind")
 	}
 	if !validDerivationKind(ct.Derivation) {
-		return errors.New("complex type has invalid derivation kind")
+		return newBuildDefect("complex type has invalid derivation kind")
 	}
 	if !validComplexBlockMask(ct.Block) {
-		return errors.New("complex type block mask contains invalid derivation")
+		return newBuildDefect("complex type block mask contains invalid derivation")
 	}
 	if !validComplexFinalMask(ct.Final) {
-		return errors.New("complex type final mask contains invalid derivation")
+		return newBuildDefect("complex type final mask contains invalid derivation")
 	}
 	if ct.ExplicitDerivation && ct.Derivation == derivationKindNone {
-		return errors.New("complex type marks explicit derivation without derivation kind")
+		return newBuildDefect("complex type marks explicit derivation without derivation kind")
 	}
 	return nil
 }
@@ -152,16 +152,16 @@ func validateComplexTypeShape(ct complexTypeMetadata) error {
 func validateComplexTypeReferences(id ComplexTypeID, ct complexTypeMetadata, models []contentModelNode, limits complexTypeRefLimits) error {
 	if ct.Base == (TypeID{}) {
 		if id != limits.AnyType {
-			return errors.New("complex type has no base type")
+			return newBuildDefect("complex type has no base type")
 		}
 	} else if !validTypeID(ct.Base, limits.SimpleTypeCount, limits.ComplexTypeCount) {
-		return errors.New("complex type references invalid base")
+		return newBuildDefect("complex type references invalid base")
 	}
 	if !validContentModelID(ct.Content, len(models)) {
-		return errors.New("complex type references invalid content model")
+		return newBuildDefect("complex type references invalid content model")
 	}
 	if !validAttributeUseSetID(ct.Attrs, limits.AttributeUseSetCount) {
-		return errors.New("complex type references invalid attribute use set")
+		return newBuildDefect("complex type references invalid attribute use set")
 	}
 	return nil
 }
@@ -171,12 +171,12 @@ func validateComplexTypeContent(ct complexTypeMetadata, models []contentModelNod
 		return validateSimpleComplexTypeContent(ct, models, simpleTypeCount)
 	}
 	if ct.TextType != NoSimpleType {
-		return errors.New("complex type stores text type without simple content")
+		return newBuildDefect("complex type stores text type without simple content")
 	}
 	if ct.ContentKind == contentEmpty {
 		model := models[ct.Content]
 		if model.Kind != modelEmpty {
-			return errors.New("empty complex type must reference an empty content model")
+			return newBuildDefect("empty complex type must reference an empty content model")
 		}
 	}
 	return nil
@@ -184,10 +184,10 @@ func validateComplexTypeContent(ct complexTypeMetadata, models []contentModelNod
 
 func validateSimpleComplexTypeContent(ct complexTypeMetadata, models []contentModelNode, simpleTypeCount int) error {
 	if !validSimpleTypeID(ct.TextType, simpleTypeCount) {
-		return errors.New("complex type references invalid text type")
+		return newBuildDefect("complex type references invalid text type")
 	}
 	if models[ct.Content].Kind != modelEmpty {
-		return errors.New("complex type simple content must have empty content model")
+		return newBuildDefect("complex type simple content must have empty content model")
 	}
 	return nil
 }
@@ -238,13 +238,13 @@ func advanceComplexTypeGraph(types []complexTypeMetadata, state []complexTypeGra
 		baseID, _ := base.Complex()
 		return advanceComplexTypeBase(types, state, stack, id, baseID)
 	default:
-		return errors.New("complex type graph references invalid base")
+		return newBuildDefect("complex type graph references invalid base")
 	}
 }
 
 func advanceComplexTypeBase(types []complexTypeMetadata, state []complexTypeGraphState, stack *[]ComplexTypeID, id, baseID ComplexTypeID) error {
 	if !validComplexTypeID(baseID, len(types)) {
-		return errors.New("complex type graph references invalid base")
+		return newBuildDefect("complex type graph references invalid base")
 	}
 	switch state[baseID] {
 	case complexTypeGraphUnchecked:
@@ -252,13 +252,13 @@ func advanceComplexTypeBase(types []complexTypeMetadata, state []complexTypeGrap
 		*stack = appendDFSFrame(*stack, baseID, len(types))
 		return nil
 	case complexTypeGraphChecking:
-		return errors.New("complex type graph contains cycle")
+		return newBuildDefect("complex type graph contains cycle")
 	case complexTypeGraphChecked:
 		state[id] = complexTypeGraphChecked
 		*stack = (*stack)[:len(*stack)-1]
 		return nil
 	default:
-		return errors.New("complex type graph references invalid base")
+		return newBuildDefect("complex type graph references invalid base")
 	}
 }
 
@@ -275,16 +275,16 @@ func validateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct complexT
 	switch ct.Derivation {
 	case derivationKindExtension:
 		if !ct.ExplicitDerivation {
-			return errors.New("complex extension is not marked explicit")
+			return newBuildDefect("complex extension is not marked explicit")
 		}
 	case derivationKindRestriction:
 		if !ct.ExplicitDerivation && ct.Base != ComplexRef(anyType) {
-			return errors.New("complex restriction is not marked explicit")
+			return newBuildDefect("complex restriction is not marked explicit")
 		}
 	case derivationKindNone:
-		return errors.New("non-anyType complex type has no derivation")
+		return newBuildDefect("non-anyType complex type has no derivation")
 	default:
-		return errors.New("complex type has invalid derivation kind")
+		return newBuildDefect("complex type has invalid derivation kind")
 	}
 	return nil
 }
@@ -303,7 +303,7 @@ func complexTypeDerivationBaseID(base TypeID, complexTypeCount int) (ComplexType
 // admits one complex derivation step.
 func validateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 	if !validComplexFinalMask(final) {
-		return errors.New("complex type final mask contains invalid derivation")
+		return newBuildDefect("complex type final mask contains invalid derivation")
 	}
 	// DerivationMask is a bitmask; only single complex-derivation bits are valid here.
 	//exhaustive:ignore
@@ -317,7 +317,7 @@ func validateComplexTypeFinalAllows(final, derivation DerivationMask) error {
 			return errors.New("complex type restriction is blocked by base final")
 		}
 	default:
-		return errors.New("complex type final derivation is invalid")
+		return newBuildDefect("complex type final derivation is invalid")
 	}
 	return nil
 }
@@ -382,7 +382,7 @@ func complexExtensionAttributeAnchor(rt *schemaBuild, base TypeID) (*complexType
 		restricted = restricted || ancestor.Derivation == derivationKindRestriction
 		current = ancestor.Base
 	}
-	return nil, false, errors.New("extension ancestry contains a cycle")
+	return nil, false, newBuildDefect("extension ancestry contains a cycle")
 }
 
 func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID attributeUseSetID) error {
@@ -413,17 +413,17 @@ func validateComplexTypeSimpleBaseExtensionRuntime(rt *schemaBuild, base SimpleT
 		return errors.New("complex type with simple base is not an extension")
 	}
 	if !derived.ExplicitDerivation {
-		return errors.New("complex simple-base extension is not marked explicit")
+		return newBuildDefect("complex simple-base extension is not marked explicit")
 	}
 	baseFinal, ok := rt.SimpleTypeFinal(base)
 	if !ok {
-		return errors.New("complex type references invalid simple base")
+		return newBuildDefect("complex type references invalid simple base")
 	}
 	if err := validateSimpleBaseComplexExtensionFinalAllows(baseFinal); err != nil {
 		return err
 	}
 	if !derived.SimpleContent() || derived.TextType != base || !contentModelKind(rt, derived.Content, modelEmpty) {
-		return errors.New("complex type simple-base extension shape is invalid")
+		return newBuildDefect("complex type simple-base extension shape is invalid")
 	}
 	return nil
 }
@@ -530,7 +530,7 @@ func simpleContentDerivationBaseAllowed(analysis *contentModelAnalysis, base com
 		return false, nil
 	}
 	if analysis == nil {
-		return false, errors.New("content model analysis is nil")
+		return false, newBuildDefect("content model analysis is nil")
 	}
 	return analysis.ModelEmptiable(base.Content)
 }
