@@ -1351,6 +1351,102 @@ func TestFileURIUserinfoDoesNotAliasLocalPath(t *testing.T) {
 	}
 }
 
+func TestKeySeparatesURISchemesFromLocalPaths(t *testing.T) {
+	t.Parallel()
+	for _, scheme := range []string{"az", "za", "Az", "Za", "aZ", "zA", "a+b", "a-b", "a.b", "a0", "a9"} {
+		in := scheme + ":item%7e"
+		want := strings.ToLower(scheme) + ":item~"
+		if got := Key(in); got != want {
+			t.Errorf("Key(%q) = %q, want URI key %q", in, got, want)
+		}
+	}
+	for _, prefix := range []string{"1a", "`a", "{a", "@a", "[a", "a`", "a{", "a@", "a[", "a_b", "a~b"} {
+		in := prefix + ":x/../y.xsd"
+		if got, want := Key(in), "y.xsd"; got != want {
+			t.Errorf("Key(%q) = %q, want local path %q", in, got, want)
+		}
+	}
+	if got, want := Key("dir//a:b.xsd"), filepath.FromSlash("dir/a:b.xsd"); got != want {
+		t.Errorf("Key(colon after a separator) = %q, want local path %q", got, want)
+	}
+}
+
+func TestSameResolutionContext(t *testing.T) {
+	t.Parallel()
+	resolver := Resolver(func(_, location string) (Source, error) {
+		return Bytes(location, nil), nil
+	})
+	custom := Bytes("root.xsd", nil).WithResolver(resolver)
+	resolution, err := custom.ResolveFrom(NewReferenceBase("root.xsd"), mustURIReference(t, "child.xsd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, ok := resolution.Source()
+	if !ok {
+		t.Fatal("ResolveFrom() found no source")
+	}
+	tests := []struct {
+		name        string
+		left, right Source
+		want        bool
+	}{
+		{name: "files", left: File("a.xsd"), right: File("b.xsd"), want: true},
+		{name: "bytes and opener", left: Bytes("a.xsd", nil), right: Opener("b.xsd", nil), want: true},
+		{name: "resolved child", left: custom, right: child, want: true},
+		{name: "file and bytes", left: File("a.xsd"), right: Bytes("a.xsd", nil), want: false},
+		{name: "file and custom resolver", left: File("a.xsd"), right: File("a.xsd").WithResolver(resolver), want: false},
+		{name: "bytes and custom resolver", left: Bytes("a.xsd", nil), right: custom, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := tt.left.SameResolutionContext(tt.right); got != tt.want {
+				t.Fatalf("SameResolutionContext() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type emptyJoinError struct{}
+
+func (emptyJoinError) Error() string { return "no causes" }
+
+func (emptyJoinError) Unwrap() []error { return nil }
+
+func TestResolveFromFallsBackOnlyWhenEveryResolverCauseIsNotFound(t *testing.T) {
+	t.Parallel()
+	other := errors.New("resolver failed")
+	tests := []struct {
+		name string
+		err  error
+		miss bool
+	}{
+		{name: "not found", err: xsderrors.ErrSchemaNotFound, miss: true},
+		{name: "join of one not found", err: errors.Join(xsderrors.ErrSchemaNotFound), miss: true},
+		{name: "wrapped join of not founds", err: fmt.Errorf("lookup: %w", errors.Join(xsderrors.ErrSchemaNotFound, fmt.Errorf("mirror: %w", xsderrors.ErrSchemaNotFound))), miss: true},
+		{name: "join with another error", err: errors.Join(xsderrors.ErrSchemaNotFound, other), miss: false},
+		{name: "join without causes", err: emptyJoinError{}, miss: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			s := Bytes("root.xsd", nil).WithResolver(func(_, _ string) (Source, error) {
+				return Source{}, tt.err
+			})
+			resolution, err := s.ResolveFrom(NewReferenceBase("root.xsd"), mustURIReference(t, "child.xsd"))
+			if tt.miss {
+				if err != nil || resolution.Target() != "child.xsd" {
+					t.Fatalf("ResolveFrom() = target %q, error %v; want built-in fallback target", resolution.Target(), err)
+				}
+				return
+			}
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("ResolveFrom() error = %v, want resolver error %v", err, tt.err)
+			}
+		})
+	}
+}
+
 func hasSchemaLimitCode(err error) bool {
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	return ok && diagnostic.Code() == xsderrors.CodeSchemaLimit
