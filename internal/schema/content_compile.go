@@ -1438,25 +1438,31 @@ func (b *dfaBuilder) row(entries []dfaStateEntry) (dfaSourceRow, error) {
 			row.Accept = append(row.Accept, dfaAccept{Guards: p.guards})
 			continue
 		}
-		if e.Pos < 0 || e.Pos >= len(b.positions) {
-			return dfaSourceRow{}, xsderrors.InternalInvariant("content model DFA references invalid position", nil)
-		}
-		to, err := b.followStateID(e.Pos)
-		if err != nil {
+		if err := b.appendRowEdge(&row, e.Pos, p); err != nil {
 			return dfaSourceRow{}, err
 		}
-		if b.positions[e.Pos] == emptyChoicePosition {
-			continue
-		}
-		row.Edges = append(row.Edges, dfaSourceEdge{
-			Particle: b.positions[e.Pos],
-			Guards:   p.guards,
-			Actions:  p.actions,
-			To:       to,
-			Pos:      e.Pos,
-		})
 	}
 	return row, nil
+}
+
+// appendRowEdge discovers the follow state of pos and appends its edge to
+// row, unless pos is an empty choice, which no edge takes.
+func (b *dfaBuilder) appendRowEdge(row *dfaSourceRow, pos int, p followPrefix) error {
+	if pos < 0 || pos >= len(b.positions) {
+		return xsderrors.InternalInvariant("content model DFA references invalid position", nil)
+	}
+	to, err := b.followStateID(pos)
+	if err != nil || b.positions[pos] == emptyChoicePosition {
+		return err
+	}
+	row.Edges = append(row.Edges, dfaSourceEdge{
+		Particle: b.positions[pos],
+		Guards:   p.guards,
+		Actions:  p.actions,
+		To:       to,
+		Pos:      pos,
+	})
+	return nil
 }
 
 func newDFASourceRow(entries []dfaStateEntry) dfaSourceRow {
@@ -1564,12 +1570,6 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 		if err != nil {
 			return dfaNode{}, err
 		}
-		if !node.Nullable && len(node.First) == 0 {
-			if err := b.c.work.spend(2); err != nil {
-				return dfaNode{}, err
-			}
-			node = b.leaf(emptyChoicePosition)
-		}
 	case modelAll:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models", nil)
 	default:
@@ -1635,7 +1635,13 @@ func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
 		node.Counters = mergeCounters(node.Counters, child.Counters)
 		node.Nullable = node.Nullable || child.Nullable
 	}
-	return node, nil
+	if node.Nullable || len(node.First) != 0 {
+		return node, nil
+	}
+	if err := b.c.work.spend(2); err != nil {
+		return dfaNode{}, err
+	}
+	return b.leaf(emptyChoicePosition), nil
 }
 
 // dfaSetUnion accumulates the union of normalized position or entry sets,
