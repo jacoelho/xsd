@@ -263,6 +263,12 @@ func (b *byteStream) pos() (line, column int) {
 	return b.line, b.offset() - b.lineStart
 }
 
+// nextBytePos reports the line and 1-based byte column of the next unread
+// byte, the position a token starting at that byte carries.
+func (b *byteStream) nextBytePos() (line, column int) {
+	return b.line, b.offset() - b.lineStart + 1
+}
+
 // offset reports the logical source position of the next byte.
 func (b *byteStream) offset() int {
 	offset := b.admittedBytes - int64(b.end-b.off)

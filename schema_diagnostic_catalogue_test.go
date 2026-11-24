@@ -917,7 +917,7 @@ func standaloneFixture() fixture {
 			}),
 		attributeViolation("source of appinfo is no anyURI", invalidAttribute, `invalid "source"`).at(key).
 			alone(func(string) []*node { return []*node{xs("annotation").with(xs("appinfo", `source="%zz"`).as(key))} }),
-		parseViolation(stageText, "text in an annotation-only element", contentModel, `xs:"anyAttribute" cannot contain text`).at(key).
+		textInside(key, "anyAttribute").titled("text in an annotation-only element").
 			alone(inComplexType(func(string) []*node {
 				wildcard := xs("anyAttribute").as(key)
 				wildcard.tail = characterData
