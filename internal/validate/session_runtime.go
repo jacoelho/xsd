@@ -207,7 +207,7 @@ func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidat
 }
 
 func (s *session) parseError(err error) error {
-	line, col := streamErrorPosition(&s.reader, err)
+	line, col := s.reader.ErrorPos(err)
 	return streamError(s.startContext(line, col), err, s.limits)
 }
 
@@ -221,7 +221,7 @@ func (s *session) finishValidation() error {
 				s.discardSemanticState()
 				return s.result()
 			}
-			line, col := readerPosition(&s.reader)
+			line, col := s.reader.DiagnosticPos()
 			return s.locateCurrent(err, line, col)
 		}
 	}

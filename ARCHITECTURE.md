@@ -816,6 +816,10 @@ instance validation, and formatting share one `Reader` contract:
   limits already handed to the reader; `internal/schema` owns only the
   cross-token measure the reader cannot see, character data accumulated in one
   element under `MaxSchemaTokenBytes`.
+- The reader owns diagnostic positions: `Reader.ErrorPos` locates a reader
+  error and `Reader.DiagnosticPos` a failure without a token, both with line
+  and column at least 1. Validate and format consumers do not read `Pos` or
+  `Error.Line` for a diagnostic; `internal/schema` still does.
 - The reader owns the exclusive input-failure classification
   (`IsInputFailure`): a failure of the caller's `io.Reader` (read error, no
   progress, nil reader) rather than of the document. It is false whenever
@@ -908,9 +912,13 @@ Formatting flow:
    acquire or buffer a reader's complete contents.
 2. One `internal/xmlstream` reader validates the complete input and records
    bounded source spans and layout decisions; malformed input writes nothing.
-3. Rendering replays those spans from the caller's immutable string. Writer
-   failures may leave partial output; the WASM adapter discards its output
-   builder on any error.
+3. Rendering replays those spans from the caller's immutable string and never
+   reports malformed input. Output failures are owned by `maxBytesWriter`: it
+   returns the writer's error, `io.ErrShortWrite` (joined with that error when
+   there is one) for an incomplete or invalid count, or the output limit,
+   which `XMLWithOptions` reports as `format.limit`. Tape spans rendering
+   cannot read are owned by `invalidSpan`. Writer failures may leave partial
+   output; the WASM adapter discards its output builder on any error.
 4. Formatting does not belong in the root public `xsd` package.
 
 Diagnostics flow:
