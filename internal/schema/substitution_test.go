@@ -343,6 +343,7 @@ func TestPublishedSubstitutionTableNamesPublishedMembersAndLeavesTheBuildTable(t
 		AttributeUseSets:  []attributeUseSet{{}},
 		CompiledContent:   compiledContent{Sources: []contentModelID{0}, Models: []compiledModelRead{{}}, Runs: [][]compiledModelEdgeRead{nil}},
 	}
+	renumberCompiledContent(t, &build)
 	reads, err := newSchemaProgram(&build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("newSchemaProgram() error = %v", err)

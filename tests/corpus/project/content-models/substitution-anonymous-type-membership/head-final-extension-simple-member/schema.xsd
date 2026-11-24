@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="h" type="xs:integer" final="extension"/>
+<xs:element name="m" substitutionGroup="h"><xs:simpleType><xs:restriction base="xs:integer"><xs:maxInclusive value="10"/></xs:restriction></xs:simpleType></xs:element>
+<xs:element name="w"><xs:complexType><xs:sequence><xs:element ref="h" maxOccurs="unbounded"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

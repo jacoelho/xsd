@@ -205,3 +205,59 @@ func TestXMLNameRangesMatchNamePredicates(t *testing.T) {
 		}
 	}
 }
+
+func TestASCIIXMLNamePredicatesAcrossByteRange(t *testing.T) {
+	t.Parallel()
+	const nameStart = ":_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	const nameChar = nameStart + "-.0123456789"
+	for i := range 256 {
+		b := byte(i)
+		if got, want := IsASCIIXMLNameStart(b), strings.IndexByte(nameStart, b) >= 0; got != want {
+			t.Errorf("IsASCIIXMLNameStart(0x%02x) = %v, want %v", b, got, want)
+		}
+		if got, want := IsASCIIXMLNameChar(b), strings.IndexByte(nameChar, b) >= 0; got != want {
+			t.Errorf("IsASCIIXMLNameChar(0x%02x) = %v, want %v", b, got, want)
+		}
+	}
+}
+
+func TestIsNMTOKENBytesAcceptsOnlyXMLNameCharacters(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		in   string
+		want bool
+	}{
+		{in: "", want: false},
+		{in: "-1.:_a", want: true},
+		{in: "é.name", want: true},
+		{in: "a b", want: false},
+		{in: "a<", want: false},
+		{in: "a/", want: false},
+		{in: "é b", want: false},
+		{in: "é×", want: false},
+		{in: "a\u00d7", want: false},
+		{in: "é\xff", want: false},
+		{in: "a\xc3", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			t.Parallel()
+			if got := IsNMTOKENBytes([]byte(tt.in)); got != tt.want {
+				t.Fatalf("IsNMTOKENBytes(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+var collapsedSink string
+
+func TestCollapseXMLWhitespaceDoesNotCopyCollapsedInput(t *testing.T) {
+	for _, in := range []string{"a b", "a b c", "a\u00a0 b"} {
+		allocs := testing.AllocsPerRun(10, func() {
+			collapsedSink = CollapseXMLWhitespace(in)
+		})
+		if allocs != 0 || collapsedSink != in {
+			t.Fatalf("CollapseXMLWhitespace(%q) = %q with %v allocations, want the input with 0", in, collapsedSink, allocs)
+		}
+	}
+}

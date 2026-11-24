@@ -66,6 +66,26 @@ func TestPublicationOmitsUnreachedElementDeclarations(t *testing.T) {
 func TestPublishedElementIDsNameTheDeclarationsTheBuildNamed(t *testing.T) {
 	t.Parallel()
 
+	publishedContent := func(t *testing.T, schema *Schema) []ExpandedName {
+		t.Helper()
+		var names []ExpandedName
+		for i := range schema.program.CompiledModels {
+			names = appendContentElementNames(names, &schema.program.CompiledModels[i], func(id ElementID) ExpandedName {
+				name, ok := schema.DiagnosticElementName(id)
+				if !ok {
+					t.Fatalf("published content model names element %d, outside the %d published declarations", id, len(schema.program.Elements.meta))
+				}
+				return name
+			})
+		}
+		return names
+	}
+	oracle, err := publishSchema(compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, "", "")), unlimitedContentModelWork)
+	if err != nil {
+		t.Fatalf("publishSchema() without unreached declarations error = %v", err)
+	}
+	wantContent := publishedContent(t, oracle)
+
 	build := compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals))
 	names := newNameReadView(&build.Names)
 	buildName := func(id ElementID) ExpandedName {
@@ -75,10 +95,8 @@ func TestPublishedElementIDsNameTheDeclarationsTheBuildNamed(t *testing.T) {
 	if head := build.GlobalElements[mustBuildQName(t, build, "head")]; head == 0 || build.ReachableElements[0] {
 		t.Fatalf("fixture: global head has build ID %d after a reached declaration, want unreached declarations first", head)
 	}
-	var wantContent []ExpandedName
 	counted := false
 	for _, root := range enteredContentForTest(t, build).Models {
-		wantContent = appendContentElementNames(wantContent, &build.CompiledContent.Models[root], buildName)
 		for _, row := range build.CompiledContent.Models[root].Rows {
 			counted = counted || row.Counted
 		}
@@ -107,12 +125,8 @@ func TestPublishedElementIDsNameTheDeclarationsTheBuildNamed(t *testing.T) {
 		}
 		return name
 	}
-	var gotContent []ExpandedName
-	for i := range schema.program.CompiledModels {
-		gotContent = appendContentElementNames(gotContent, &schema.program.CompiledModels[i], publishedName)
-	}
-	if !slices.Equal(gotContent, wantContent) {
-		t.Errorf("published content particles name %v, want %v", gotContent, wantContent)
+	if gotContent := publishedContent(t, schema); !slices.Equal(gotContent, wantContent) {
+		t.Errorf("published content particles name %v, want %v as without unreached declarations", gotContent, wantContent)
 	}
 	if len(schema.program.GlobalElements) != len(wantGlobals) {
 		t.Errorf("published %d global elements, want %d", len(schema.program.GlobalElements), len(wantGlobals))
@@ -171,107 +185,86 @@ func TestPublicationRejectedWhenSealingValuesLeavesBuildUnchanged(t *testing.T) 
 	}
 }
 
-func TestPublicationCopiesOnlyTablesNamingRenumberedDeclarations(t *testing.T) {
+func TestPublicationSharesEveryContentTableWithTheBuild(t *testing.T) {
 	t.Parallel()
 
-	for _, test := range []struct {
-		name   string
-		schema string
-		shared bool
-	}{
-		{name: "every declaration reached", schema: fmt.Sprintf(publishedElementsSchema, "", ""), shared: true},
-		{name: "every global renumbered", schema: fmt.Sprintf(publishedElementsSchema, unreachedGroup, "")},
+	for name, schema := range map[string]string{
+		"every declaration reached":    fmt.Sprintf(publishedElementsSchema, "", ""),
+		"unreached declarations first": fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals),
 	} {
-		t.Run(test.name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			build := compiledTestBuild(t, test.schema)
+			build := compiledTestBuild(t, schema)
 			var buildRows []*compiledModelRowRead
 			for _, root := range enteredContentForTest(t, build).Models {
 				if rows := build.CompiledContent.Models[root].Rows; len(rows) != 0 {
 					buildRows = append(buildRows, &rows[0])
 				}
 			}
-			schema, err := publishSchema(build, unlimitedContentModelWork)
+			published, err := publishSchema(build, unlimitedContentModelWork)
 			if err != nil {
 				t.Fatalf("publishSchema() error = %v", err)
 			}
-			var published []*compiledModelRowRead
-			for i := range schema.program.CompiledModels {
-				if rows := schema.program.CompiledModels[i].Rows; len(rows) != 0 {
-					published = append(published, &rows[0])
+			var rows []*compiledModelRowRead
+			for i := range published.program.CompiledModels {
+				if modelRows := published.program.CompiledModels[i].Rows; len(modelRows) != 0 {
+					rows = append(rows, &modelRows[0])
 				}
 			}
-			if len(published) != len(buildRows) || len(published) == 0 {
-				t.Fatalf("published %d tables with rows, want %d and at least one", len(published), len(buildRows))
+			if len(rows) != len(buildRows) || len(rows) == 0 {
+				t.Fatalf("published %d tables with rows, want %d and at least one", len(rows), len(buildRows))
 			}
-			for i := range published {
-				if shared := published[i] == buildRows[i]; shared != test.shared {
-					t.Errorf("published table %d shares the build's rows = %v, want %v", i, shared, test.shared)
+			for i := range rows {
+				if rows[i] != buildRows[i] {
+					t.Errorf("published table %d does not share the build's rows", i)
 				}
 			}
 		})
 	}
 }
 
-func TestPublicationNamesTheDeclarationsOfRowsSharingEdges(t *testing.T) {
+func TestPublicationRejectsContentTablesBuiltOverAnotherNumbering(t *testing.T) {
 	t.Parallel()
 
-	build := compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals))
-	names := newNameReadView(&build.Names)
-	var model *compiledModelRead
-	for _, root := range enteredContentForTest(t, build).Models {
-		candidate := &build.CompiledContent.Models[root]
-		if build.CompiledContent.Runs[root] == nil && len(candidate.Rows) > 1 && len(candidate.Rows[0].Edges) != 0 {
-			model = candidate
-			break
-		}
-	}
-	if model == nil {
-		t.Fatal("fixture publishes no model with rows owning their edges")
-	}
-	model.Rows = slices.Clone(model.Rows)
-	shared := model.Rows[0].Edges
-	for i := range model.Rows {
-		model.Rows[i].Edges = shared
-	}
-	var want []ExpandedName
-	for _, edge := range shared {
-		if edge.Particle.Kind == particleElement {
-			q := build.Elements[edge.Particle.Element].Name
-			want = append(want, ExpandedName{Namespace: names.Namespace(q.Namespace), Local: build.Names.locals[q.Local]})
-		}
-	}
-	rows := len(model.Rows)
-	schema, err := publishSchema(build, unlimitedContentModelWork)
-	if err != nil {
-		t.Fatalf("publishSchema() error = %v", err)
-	}
-	found := 0
-	for i := range schema.program.CompiledModels {
-		published := &schema.program.CompiledModels[i]
-		if len(published.Rows) != rows || len(published.Rows[0].Edges) != len(shared) {
-			continue
-		}
-		for _, row := range published.Rows {
-			got := appendContentElementNames(nil, &compiledModelRead{Rows: []compiledModelRowRead{{Edges: row.Edges}}}, func(id ElementID) ExpandedName {
-				name, _ := schema.DiagnosticElementName(id)
-				return name
-			})
-			if !slices.Equal(got, want) {
-				t.Fatalf("published row of a shared edge array names %v, want %v", got, want)
+	for _, test := range []struct {
+		name    string
+		corrupt func(*testing.T, *schemaBuild)
+	}{
+		{name: "unreached declaration marked reached", corrupt: func(t *testing.T, build *schemaBuild) {
+			t.Helper()
+			id := slices.Index(build.ReachableElements, false)
+			if id < 0 {
+				t.Fatal("fixture has no unreached element declaration")
 			}
-		}
-		found++
-	}
-	if found == 0 {
-		t.Fatal("published tables hold no model with the shared rows")
+			build.ReachableElements[id] = true
+		}},
+		{name: "reached local declaration marked unreached", corrupt: func(t *testing.T, build *schemaBuild) {
+			t.Helper()
+			for i := range build.Elements {
+				if build.ReachableElements[i] && build.Elements[i].Scope != declarationScopeGlobal {
+					build.ReachableElements[i] = false
+					return
+				}
+			}
+			t.Fatal("fixture has no reached local element declaration")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			build := compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals))
+			test.corrupt(t, build)
+			_, err := publishSchema(build, unlimitedContentModelWork)
+			if err == nil || !strings.Contains(err.Error(), "compiled content tables number element declarations other than reachability does") {
+				t.Fatalf("publishSchema() error = %v, want content tables over another numbering rejected", err)
+			}
+		})
 	}
 }
 
 func appendContentElementNames(names []ExpandedName, model *compiledModelRead, name func(ElementID) ExpandedName) []ExpandedName {
 	add := func(p compiledParticleRead) {
 		if p.Kind == particleElement {
-			names = append(names, name(p.Element))
+			names = append(names, name(ElementID(p.Element)))
 		}
 	}
 	for _, row := range model.Rows {
@@ -308,10 +301,6 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 			t.Helper()
 			build.ReachableElements = build.ReachableElements[:len(build.ReachableElements)-1]
 		}},
-		{name: "global element unreached", message: "global element declaration has no published ID", corrupt: func(t *testing.T, build *schemaBuild) {
-			t.Helper()
-			build.ReachableElements[build.GlobalElements[mustBuildQName(t, build, "other")]] = false
-		}},
 		{name: "substitution member unreached", message: "substitution member has no published ID", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			build.Substitutions.entries[0].member = unreached(t, build)
@@ -330,11 +319,11 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 			t.Helper()
 			build.Substitutions.spans = build.Substitutions.spans[:len(build.Substitutions.spans)-1]
 		}},
-		{name: "content particle unreached", message: "published content model names an unreachable element declaration", corrupt: func(t *testing.T, build *schemaBuild) {
+		{name: "content particle outside the published declarations", message: "published content model references an invalid element declaration", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			for _, root := range enteredContentForTest(t, build).Models {
 				if all := build.CompiledContent.Models[root].All; len(all) != 0 {
-					all[0].Particle.Element = unreached(t, build)
+					all[0].Particle.Element = publishedElementID(build.CompiledContent.Elements.count) // #nosec G115 -- count is an element-declaration count.
 					return
 				}
 			}
@@ -350,6 +339,64 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 				t.Fatalf("publishSchema() error = %v, want %q", err, test.message)
 			}
 		})
+	}
+}
+
+func TestPublishedElementMapsRejectAGlobalWithoutPublishedID(t *testing.T) {
+	t.Parallel()
+
+	build := &schemaBuild{
+		Elements:          make([]elementDecl, 2),
+		ReachableElements: []bool{false, true},
+		GlobalElements:    map[QName]ElementID{{Local: 1}: 0},
+	}
+	elements, err := newPublishedElements(build.ReachableElements, len(build.Elements))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := publishedElementMaps(build, elements); err == nil || !strings.Contains(err.Error(), "global element declaration has no published ID") {
+		t.Fatalf("publishedElementMaps() error = %v, want a global without a published ID rejected", err)
+	}
+}
+
+func TestPublicationRejectsEnteredRootWithoutTables(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range map[string]compiledModelKind{"xs:all": compiledModelAll, "automaton": compiledModelDFA} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			build := compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals))
+			stripped := false
+			for _, root := range enteredContentForTest(t, build).Models {
+				if model := &build.CompiledContent.Models[root]; model.Kind == kind {
+					*model = model.withoutTables()
+					build.CompiledContent.Runs[root] = nil
+					stripped = true
+					break
+				}
+			}
+			if !stripped {
+				t.Fatalf("fixture enters no %s root", name)
+			}
+			_, err := publishSchema(build, unlimitedContentModelWork)
+			if err == nil || !strings.Contains(err.Error(), "published content model has no tables") {
+				t.Fatalf("publishSchema() error = %v, want an entered root without tables rejected", err)
+			}
+		})
+	}
+}
+
+// renumberCompiledContent records the numbering of build.ReachableElements
+// as the one the compiled content tables were built over.
+func renumberCompiledContent(t *testing.T, build *schemaBuild) {
+	t.Helper()
+	elements, err := newPublishedElements(build.ReachableElements, len(build.Elements))
+	if err != nil {
+		t.Fatal(err)
+	}
+	build.CompiledContent.Elements = nil
+	if !elements.identity() {
+		build.CompiledContent.Elements = &elements
 	}
 }
 

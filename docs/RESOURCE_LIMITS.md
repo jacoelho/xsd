@@ -123,7 +123,8 @@ required wildcards, each of its own namespace, compiles at the defaults with
 29 complex types and retains about 44 MiB, about 46 bytes per step; 30 types
 exceed the limit. 800 complex types that each hold a sequence of 40 optional
 elements need about 167,000 steps and retain about 2.9 MiB, and the 93
-document schemas of UBL 2.4 compiled together need about 54,000. A choice of
+document schemas of UBL 2.4 compiled together need a
+`MaxSchemaDependencySteps` of about 54,000 and retain about 2.4 MiB. A choice of
 120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
 with both step limits raised, retains about 60 MiB at its least limit of about
 7.7 million steps, about 8 bytes per step. Direct compilation decides that it
@@ -131,9 +132,8 @@ applies before it builds a row, so a sequence or choice that automaton
 construction compiles is charged for the automaton's table alone. While a
 model compiles, the heap also holds that model's construction state, which
 `MaxContentModelAnalysisSteps` bounds as above, and its transient name indexes, so the peak is the retained tables
-plus one model's construction. Publication adds a copy of each table that
-names an element declaration renumbered because an earlier one is unreached
-(see `internal/schema`); a schema whose declarations are all reached adds none. Name indexing also keeps, for the whole
+plus one model's construction. The tables are built over published element
+IDs, so publication copies none of them. Name indexing also keeps, for the whole
 compilation, the member names of each substitution head an indexed edge
 names, at most the entries `MaxSubstitutionClosureEntries` caps. The dense
 dispatch indexes that publication adds to rows of at least 16 edges that own
