@@ -72,7 +72,7 @@ func buildSubstitutionTable(
 	work func(int) error,
 ) (substitutionTable, error) {
 	if maxClosureEntries < 0 {
-		return substitutionTable{}, errors.New("substitution closure entry limit must be non-negative")
+		return substitutionTable{}, newBuildDefect("substitution closure entry limit must be non-negative")
 	}
 	forest, err := validateSubstitutionForest(names, elements, globals)
 	if err != nil {
@@ -359,7 +359,7 @@ func validateSubstitutionForest(
 	globals map[QName]ElementID,
 ) (substitutionForest, error) {
 	if names == nil {
-		return substitutionForest{}, errors.New("substitution table requires name table")
+		return substitutionForest{}, newBuildDefect("substitution table requires name table")
 	}
 	parents, hasHeads, err := validateSubstitutionParents(names, elements, globals)
 	if err != nil {
@@ -421,7 +421,7 @@ func validateSubstitutionParent(
 	}
 	globalMember, ok := globals[member.Name]
 	if !ok || globalMember != memberID {
-		return NoElement, errors.New("substitution member is not a global element")
+		return NoElement, newBuildDefect("substitution member is not a global element")
 	}
 	if !validSubstitutionElementID(elements, member.SubstHead) {
 		return NoElement, newBuildDefect("element declaration references invalid substitution head")
@@ -432,7 +432,7 @@ func validateSubstitutionParent(
 	}
 	globalHead, ok := globals[head.Name]
 	if !ok || globalHead != member.SubstHead {
-		return NoElement, errors.New("substitution head is not a global element")
+		return NoElement, newBuildDefect("substitution head is not a global element")
 	}
 	return member.SubstHead, nil
 }
@@ -527,7 +527,7 @@ func validateSubstitutionEdge(
 ) (substitutionEdge, error) {
 	memberID, ok := elementIndexID(member)
 	if !ok {
-		return substitutionEdge{}, errors.New("substitution member index exceeds element ID range")
+		return substitutionEdge{}, newBuildDefect("substitution member index exceeds element ID range")
 	}
 	derivation, ok, err := deriveSubstitution(rt, elements[member].Type, elements[head].Type, memberWalk, work)
 	if err != nil {

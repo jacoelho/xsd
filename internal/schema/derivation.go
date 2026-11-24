@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"math"
 	"slices"
 
@@ -93,7 +92,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	simpleForest, simpleOK := buildDerivationForest(simpleParents)
 	if !simpleOK {
-		return errors.New("simple type derivation graph contains a cycle")
+		return newBuildDefect("simple type derivation graph contains a cycle")
 	}
 	r.simpleIn = simpleForest.in
 	r.simpleOut = simpleForest.out
@@ -103,7 +102,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	complexForest, complexOK := buildDerivationForest(complexParents)
 	if !complexOK {
-		return errors.New("complex type derivation graph contains a cycle")
+		return newBuildDefect("complex type derivation graph contains a cycle")
 	}
 	r.complexIn = complexForest.in
 	r.complexOut = complexForest.out

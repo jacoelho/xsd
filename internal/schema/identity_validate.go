@@ -5,7 +5,7 @@ import "errors"
 // validateIdentityConstraints validates canonical identity-constraint metadata.
 func validateIdentityConstraints(names *nameTable, identities []identityConstraintSpec) error {
 	if names == nil {
-		return errors.New("identity constraints require name table")
+		return newBuildDefect("identity constraints require name table")
 	}
 	for i := range identities {
 		if err := validateIdentityConstraint(names, identities, identities[i]); err != nil {
@@ -29,7 +29,7 @@ func validateIdentityConstraintOwnership(elements []elementDecl, identities []id
 	for id := range identities {
 		declarer := identities[id].Declarer
 		if declarer != NoElement && (!validElementID(declarer, len(elements)) || !attached[id]) {
-			return errors.New("identity constraint is not attached to its declaring element declaration")
+			return newBuildDefect("identity constraint is not attached to its declaring element declaration")
 		}
 	}
 	return nil
@@ -41,10 +41,10 @@ func markDeclaredIdentityConstraints(attached []bool, identities []identityConst
 			return newBuildDefect("element declaration references invalid identity constraint")
 		}
 		if attached[id] {
-			return errors.New("identity constraint is attached more than once")
+			return newBuildDefect("identity constraint is attached more than once")
 		}
 		if identities[id].Declarer != element {
-			return errors.New("identity constraint is attached to an element declaration other than its declarer")
+			return newBuildDefect("identity constraint is attached to an element declaration other than its declarer")
 		}
 		attached[id] = true
 	}
@@ -56,10 +56,10 @@ func validateIdentityConstraint(names *nameTable, identities []identityConstrain
 		return newBuildDefect("identity constraint references invalid name")
 	}
 	if len(ic.Selector) == 0 {
-		return errors.New("identity constraint has no selector")
+		return newBuildDefect("identity constraint has no selector")
 	}
 	if len(ic.Fields) == 0 {
-		return errors.New("identity constraint has no fields")
+		return newBuildDefect("identity constraint has no fields")
 	}
 	if err := validateIdentityConstraintKind(identities, ic); err != nil {
 		return err
@@ -74,7 +74,7 @@ func validateIdentityConstraintKind(identities []identityConstraintSpec, ic iden
 	switch ic.Kind {
 	case IdentityUnique, IdentityKey:
 		if ic.Refer != NoIdentityConstraint {
-			return errors.New("non-keyref identity constraint stores refer")
+			return newBuildDefect("non-keyref identity constraint stores refer")
 		}
 		return nil
 	case IdentityKeyRef:
@@ -110,7 +110,7 @@ func validateIdentitySelectorPaths(names *nameTable, paths []identityPath) error
 func validateIdentityFieldPaths(names *nameTable, fields []identityField) error {
 	for _, field := range fields {
 		if len(field.Paths) == 0 {
-			return errors.New("identity field has no paths")
+			return newBuildDefect("identity field has no paths")
 		}
 		if err := validateIdentityFieldPathSet(names, field.Paths); err != nil {
 			return err

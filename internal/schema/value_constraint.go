@@ -226,7 +226,7 @@ func newValueConstraintNameReplay(entries []resolvedValueName) (valueConstraintN
 	for _, entry := range entries {
 		parts := resolvedValueNameLexicalParts(entry.Lexical)
 		if !parts.Valid || entry.Local != parts.Local || !lex.IsNCName(entry.Local) {
-			return valueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
+			return valueConstraintNameReplay{}, newBuildDefect("resolved name proof is not deterministic")
 		}
 		prev, ok := seen[entry.Lexical]
 		if !ok {
@@ -234,7 +234,7 @@ func newValueConstraintNameReplay(entries []resolvedValueName) (valueConstraintN
 			continue
 		}
 		if prev.NS != entry.NS || prev.Local != entry.Local {
-			return valueConstraintNameReplay{}, errors.New("resolved name proof is not deterministic")
+			return valueConstraintNameReplay{}, newBuildDefect("resolved name proof is not deterministic")
 		}
 	}
 	return valueConstraintNameReplay{
@@ -409,7 +409,7 @@ func elementValueConstraintType(
 
 func mixedElementValueConstraintType(analysis *contentModelAnalysis, content contentModelID) (SimpleTypeID, error) {
 	if analysis == nil {
-		return NoSimpleType, errors.New("content model analysis is nil")
+		return NoSimpleType, newBuildDefect("content model analysis is nil")
 	}
 	emptiable, err := analysis.ModelEmptiable(content)
 	if err != nil {
@@ -426,7 +426,7 @@ func mixedElementValueConstraintType(analysis *contentModelAnalysis, content con
 func validateValueConstraintShape(rt *schemaBuild, vc valueConstraintValidation, expected SimpleTypeID) error {
 	if expected == NoSimpleType {
 		if vc.Value.CanonicalText() != vc.Canonical {
-			return errors.New("canonical value mismatch")
+			return newBuildDefect("canonical value mismatch")
 		}
 		if vc.Value.Type() != valuepkg.NoType ||
 			vc.Canonical != vc.Lexical ||
@@ -434,22 +434,22 @@ func validateValueConstraintShape(rt *schemaBuild, vc valueConstraintValidation,
 			vc.Value.IDRefs() != "" ||
 			vc.Value.HasIdentity() ||
 			vc.HasResolvedNames {
-			return errors.New("mixed value constraint is not untyped lexical text")
+			return newBuildDefect("mixed value constraint is not untyped lexical text")
 		}
 		return nil
 	}
 	if rt == nil {
-		return errors.New("value type does not match owner type")
+		return newBuildDefect("value type does not match owner type")
 	}
 	_, ok := rt.valueBuilder.InputRequirements(vc.Value.Type())
 	if !ok {
-		return errors.New("value type does not match owner type")
+		return newBuildDefect("value type does not match owner type")
 	}
 	if vc.Value.Type() != expected {
-		return errors.New("value type does not match owner type")
+		return newBuildDefect("value type does not match owner type")
 	}
 	if vc.Value.CanonicalText() != vc.Canonical {
-		return errors.New("canonical value mismatch")
+		return newBuildDefect("canonical value mismatch")
 	}
 	return nil
 }
@@ -464,10 +464,10 @@ func validateResolvedNameProof(application string, names []resolvedValueName) er
 	}
 	for _, entry := range names {
 		if _, ok := fields[entry.Lexical]; !ok {
-			return errors.New("resolved name proof is not used by the value constraint")
+			return newBuildDefect("resolved name proof is not used by the value constraint")
 		}
 		if !resolvedValueNameLexicalParts(entry.Lexical).Valid {
-			return errors.New("resolved name proof is not a valid QName")
+			return newBuildDefect("resolved name proof is not a valid QName")
 		}
 	}
 	return nil

@@ -317,7 +317,7 @@ func (d AttributeDeclRead) FixedValue() (ValueConstraintRead, bool) {
 // checks the set's wildcard provenance separately, once per set.
 func validateAttributeUseSetRecord(names *nameTable, rt *schemaBuild, set attributeUseSet) error {
 	if len(set.Index) != len(set.Uses) {
-		return errors.New("attribute use set index size does not match uses")
+		return newBuildDefect("attribute use set index size does not match uses")
 	}
 	audit := attributeUseSetAudit{names: names, rt: rt, set: set}
 	for i, use := range set.Uses {
@@ -452,7 +452,7 @@ func validateRestrictedAttributeWildcard(
 	switch binding {
 	case attributeWildcardUnbound:
 		if derived.WildcardDerive != attributeWildcardNone {
-			return errors.New("implicit complex type stores derived attribute wildcard provenance")
+			return newBuildDefect("implicit complex type stores derived attribute wildcard provenance")
 		}
 		return nil
 	case attributeWildcardBound:
@@ -507,7 +507,7 @@ func validateAttributeUseRuntime(
 		return false, newBuildDefect("attribute use slot is invalid")
 	}
 	if indexed, ok := index[use.Name]; !ok || indexed != slot {
-		return false, errors.New("attribute use index does not match use slice")
+		return false, newBuildDefect("attribute use index does not match use slice")
 	}
 	return carriesID, nil
 }
@@ -520,10 +520,10 @@ func validateAttributeWildcardDerivation(
 	expected attributeWildcardDerivation,
 ) error {
 	if derived.WildcardDerive != expected {
-		return errors.New("attribute wildcard derivation does not match owning type")
+		return newBuildDefect("attribute wildcard derivation does not match owning type")
 	}
 	if derived.WildcardBase != base.Wildcard {
-		return errors.New("attribute wildcard base does not match owning type")
+		return newBuildDefect("attribute wildcard base does not match owning type")
 	}
 	return nil
 }
@@ -546,7 +546,7 @@ func validateAttributeWildcardProvenance(rt *schemaBuild, state attributeUseSet)
 	switch state.WildcardDerive {
 	case attributeWildcardNone:
 		if state.WildcardBase != NoWildcard || state.Wildcard != state.WildcardDeclared {
-			return errors.New("attribute wildcard does not match declared wildcard")
+			return newBuildDefect("attribute wildcard does not match declared wildcard")
 		}
 	case attributeWildcardRestriction:
 		return validateAttributeWildcardRestriction(rt, state)
@@ -559,7 +559,7 @@ func validateAttributeWildcardProvenance(rt *schemaBuild, state attributeUseSet)
 func validateAttributeWildcardRestriction(rt *schemaBuild, state attributeUseSet) error {
 	if state.WildcardDeclared == NoWildcard {
 		if state.Wildcard != NoWildcard {
-			return errors.New("attribute wildcard restriction stores undeclared wildcard")
+			return newBuildDefect("attribute wildcard restriction stores undeclared wildcard")
 		}
 		return nil
 	}
@@ -579,7 +579,7 @@ func validateAttributeWildcardRestriction(rt *schemaBuild, state attributeUseSet
 		return err
 	}
 	if !subset || state.Wildcard != state.WildcardDeclared {
-		return errors.New("attribute wildcard restriction does not match provenance")
+		return newBuildDefect("attribute wildcard restriction does not match provenance")
 	}
 	return nil
 }
@@ -597,7 +597,7 @@ func validateAttributeWildcardExtension(rt *schemaBuild, state attributeUseSet) 
 
 func validateAttributeWildcardExtensionWithoutBase(state attributeUseSet) error {
 	if state.Wildcard != state.WildcardDeclared {
-		return errors.New("attribute wildcard extension without base does not match declared wildcard")
+		return newBuildDefect("attribute wildcard extension without base does not match declared wildcard")
 	}
 	return nil
 }
@@ -631,7 +631,7 @@ func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state attributeUse
 		return err
 	}
 	if !equal || actual.Process != union.Process {
-		return errors.New("attribute wildcard extension does not match provenance")
+		return newBuildDefect("attribute wildcard extension does not match provenance")
 	}
 	return nil
 }

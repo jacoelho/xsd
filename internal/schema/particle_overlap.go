@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"slices"
 )
 
@@ -50,7 +49,7 @@ type particleAcceptedNames struct {
 // newContentModelAnalysis creates a reusable bounded analysis context.
 func newContentModelAnalysis(rt *schemaBuild, work contentModelWork) (*contentModelAnalysis, error) {
 	if rt == nil {
-		return nil, errors.New("content model analysis runtime is nil")
+		return nil, newBuildDefect("content model analysis runtime is nil")
 	}
 	if err := requireContentModelWork(work); err != nil {
 		return nil, err
@@ -151,7 +150,7 @@ func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (countRa
 		return result, nil
 	}
 	if a.rangePath[id] {
-		return countRange{}, errors.New("content model count analysis contains a cycle")
+		return countRange{}, newBuildDefect("content model count analysis contains a cycle")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
 		return countRange{}, err
@@ -480,7 +479,7 @@ func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, er
 		return result, nil
 	}
 	if a.emptyPath[id] {
-		return false, errors.New("content model emptiability analysis contains a cycle")
+		return false, newBuildDefect("content model emptiability analysis contains a cycle")
 	}
 	model, ok := a.contentModel(id)
 	if !ok {

@@ -161,7 +161,7 @@ func wildcardViewByID(views []WildcardView, id WildcardID) (WildcardView, bool) 
 // validateWildcard validates frozen wildcard metadata.
 func validateWildcard(names *nameTable, w wildcardRuntime) error {
 	if names == nil {
-		return errors.New("wildcard requires name table")
+		return newBuildDefect("wildcard requires name table")
 	}
 	if !validProcessContents(w.Process) {
 		return newBuildDefect("wildcard has invalid process contents")
@@ -195,7 +195,7 @@ func validateWildcardNamespaceShape(names *nameTable, w wildcardRuntime) error {
 
 func validateInactiveWildcardNamespaces(w wildcardRuntime) error {
 	if len(w.Namespaces) != 0 || w.OtherThan != emptyNamespaceID {
-		return errors.New("wildcard stores inactive namespace fields")
+		return newBuildDefect("wildcard stores inactive namespace fields")
 	}
 	return nil
 }
@@ -216,7 +216,7 @@ func validateTargetWildcardNamespace(names *nameTable, w wildcardRuntime) error 
 
 func validateListWildcardNamespaces(names *nameTable, w wildcardRuntime) error {
 	if w.OtherThan != emptyNamespaceID {
-		return errors.New("namespace list wildcard stores inactive other namespace")
+		return newBuildDefect("namespace list wildcard stores inactive other namespace")
 	}
 	if !validWildcardNamespaceList(names, w.Namespaces) {
 		return newBuildDefect("namespace list wildcard is invalid")
