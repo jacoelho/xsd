@@ -39,7 +39,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	contentAnalysis, err := newContentModelAnalysis(build, work)
 	if err != nil {
-		return schemaProgram{}, err
+		return schemaProgram{}, auditError("", err)
 	}
 	validation := schemaValidation{
 		build:            build,
@@ -61,7 +61,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	valueProgram, err := build.valueBuilder.SealKeeping(build.ReachableSimpleTypes)
 	if err != nil {
-		return schemaProgram{}, xsderrors.InternalInvariant("sealing the value program", err)
+		return schemaProgram{}, auditError("sealing the value program", err)
 	}
 	if valueProgram == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program", nil)

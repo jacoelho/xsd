@@ -228,7 +228,7 @@ type contentModelGraphFrame struct {
 // particles through chargedParticles.
 func validateContentModelTable(models []contentModelNode, limits contentModelRefLimits, work contentModelWork) error {
 	if err := requireContentModelWork(work); err != nil {
-		return err
+		return auditError("", err)
 	}
 	audit := contentModelTableAudit{
 		models: models,
@@ -264,7 +264,7 @@ func (a *contentModelTableAudit) enter(id contentModelID) error {
 		return err
 	}
 	if err := validateContentModelKindShape(model); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if model.NonUnitParticle != slices.ContainsFunc(particles, nonUnitParticle) {
 		return xsderrors.InternalInvariant("content model non-unit particle flag disagrees with its particles", nil)
@@ -297,10 +297,10 @@ func (a *contentModelTableAudit) advance() error {
 	particle := frame.particles[frame.next]
 	frame.next++
 	if err := validateParticleShape(particle); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if err := validateParticleRuntimeReference(particle, a.limits, len(a.models)); err != nil {
-		return xsderrors.InternalInvariant("", err)
+		return auditError("", err)
 	}
 	if particle.Kind != particleModel {
 		return nil
