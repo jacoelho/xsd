@@ -68,11 +68,11 @@ func mapSchemaSources[T any](sources []T, sourceOf func(T) source.Source) ([]sou
 // target namespace, because chameleon documents are indexed once per context.
 func (c *compiler) compileMappedSources(owned []source.Source) (*Schema, error) {
 	if err := c.loadOwned(owned); err != nil {
-		return nil, err
+		return nil, untypedFailure(err)
 	}
 	rt, err := c.compileLoaded()
 	if err != nil {
-		return nil, c.locateSetWideLimit(untranslatedBuildDefect(err))
+		return nil, c.locateSetWideLimit(untypedFailure(err))
 	}
 	return rt, nil
 }

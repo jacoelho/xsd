@@ -138,22 +138,39 @@ func TestDFAGuardsAndActionsReportCounterOutOfRangeAsInternalInvariant(t *testin
 	}
 }
 
-func TestUntranslatedBuildDefectBecomesInternalInvariantAndDiagnosticsPassThrough(t *testing.T) {
+func TestUntypedFailureBecomesInternalInvariantAndDiagnosticsPassThrough(t *testing.T) {
 	t.Parallel()
-	defect := newBuildDefect("walk references invalid type")
-	got := untranslatedBuildDefect(fmt.Errorf("walk: %w", defect))
-	expectDiagnostic(t, got, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	if !errors.Is(got, defect) {
-		t.Fatalf("error = %v, want the defect as its cause", got)
+	for _, untyped := range []error{
+		fmt.Errorf("walk: %w", newBuildDefect("walk references invalid type")),
+		errors.New("plain failure"),
+	} {
+		got := untypedFailure(untyped)
+		expectDiagnostic(t, got, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		if !errors.Is(got, untyped) {
+			t.Fatalf("untypedFailure(%v) = %v, want it as the cause", untyped, got)
+		}
 	}
-	limit := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "budget", nil)
-	if got := untranslatedBuildDefect(limit); !errors.Is(got, limit) {
+	limit := fmt.Errorf("located: %w", xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "budget", nil))
+	if got := untypedFailure(limit); !errors.Is(got, limit) {
 		t.Fatalf("diagnostic = %v, want it unchanged", got)
 	}
-	expectDiagnostic(t, untranslatedBuildDefect(limit), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
-	violation := errors.New("schema violation")
-	if got := untranslatedBuildDefect(violation); !errors.Is(got, violation) || isDiagnostic(got) {
-		t.Fatalf("plain error = %v, want it unchanged", got)
+	expectDiagnostic(t, untypedFailure(limit), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+}
+
+func TestPublishReportsAPlainWorkFailureAsInternalInvariant(t *testing.T) {
+	t.Parallel()
+	c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+	if err := c.compileReachedContentModelsForTest(); err != nil {
+		t.Fatal(err)
+	}
+	plain := errors.New("work account failed")
+	published, err := publishSchema(&c.rt, func(int) error { return plain })
+	if published != nil {
+		t.Fatal("publication returned a schema after its work account failed")
+	}
+	expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	if !errors.Is(err, plain) {
+		t.Fatalf("error = %v, want the work failure as its cause", err)
 	}
 }
 

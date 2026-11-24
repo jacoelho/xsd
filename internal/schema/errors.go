@@ -77,15 +77,19 @@ func compileRuleError(code xsderrors.Code, subject string, err error) error {
 	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
 }
 
-// untranslatedBuildDefect makes a build defect that reached the compile or
-// publication entry without passing a classifier an internal invariant, so a
-// walk that returns a defect through callers that only propagate errors
-// cannot leave compilation as an untyped error.
-func untranslatedBuildDefect(err error) error {
-	if _, ok := errors.AsType[*xsderrors.Error](err); ok || !isBuildDefect(err) {
+// untypedFailure makes an error that reached the compile or publication entry
+// with no diagnostic in its chain an internal invariant with the error as its
+// cause. Every failure compilation reports to a schema author or caller is a
+// diagnostic, so an untyped one is a defect of this package, whether a build
+// defect that only propagating callers carried up or a plain error.
+func untypedFailure(err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, ok := errors.AsType[*xsderrors.Error](err); ok {
 		return err
 	}
-	return xsderrors.InternalInvariant("", err)
+	return xsderrors.InternalInvariant("compilation failed without a diagnostic", err)
 }
 
 // auditError translates a failure of the publication audit. The audit

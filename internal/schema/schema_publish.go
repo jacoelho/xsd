@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"maps"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -18,14 +17,14 @@ import (
 // affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
-		return nil, errors.New("nil schema build")
+		return nil, xsderrors.InternalInvariant("schema build is nil", nil)
 	}
 	if err := requireContentModelWork(work); err != nil {
-		return nil, err
+		return nil, untypedFailure(err)
 	}
 	program, err := sealSchemaProgram(build, work)
 	if err != nil {
-		return nil, untranslatedBuildDefect(err)
+		return nil, untypedFailure(err)
 	}
 	*build = schemaBuild{}
 	return &Schema{program: program}, nil
