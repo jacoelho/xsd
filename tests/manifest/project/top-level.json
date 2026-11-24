@@ -1264,6 +1264,75 @@
       ]
     },
     {
+      "id": "project/prohibited-no-component-inline-type-unavailable-item",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/prohibited-no-component",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "The inline list type of a prohibited attribute and the inline list type of attribute a both name the missing item type t:missing, the prohibited one first, so the schema loads; an element that omits a is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-008 and I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-008"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/prohibited-no-component-invalid-inline-type",
       "expectedSource": "project",
       "source": {
