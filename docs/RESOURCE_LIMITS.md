@@ -123,7 +123,8 @@ required wildcards, each of its own namespace, compiles at the defaults with
 29 complex types and retains about 44 MiB, about 46 bytes per step; 30 types
 exceed the limit. 800 complex types that each hold a sequence of 40 optional
 elements need about 167,000 steps and retain about 2.9 MiB, and the 93
-document schemas of UBL 2.4 compiled together need about 54,000. A choice of
+document schemas of UBL 2.4 compiled together need a
+`MaxSchemaDependencySteps` of about 54,000 and retain about 2.4 MiB. A choice of
 120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
 with both step limits raised, retains about 60 MiB at its least limit of about
 7.7 million steps, about 8 bytes per step. Direct compilation decides that it
