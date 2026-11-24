@@ -919,7 +919,7 @@ type failAtWriter struct {
 	err    error
 }
 
-func (w *failAtWriter) write(n int) (int, error) {
+func (w *failAtWriter) accept(n int) (int, error) {
 	w.calls++
 	if w.calls == w.failAt {
 		return 0, w.err
@@ -928,7 +928,7 @@ func (w *failAtWriter) write(n int) (int, error) {
 }
 
 func (w *failAtWriter) Write(p []byte) (int, error) {
-	return w.write(len(p))
+	return w.accept(len(p))
 }
 
 type failAtStringWriter struct {
@@ -936,7 +936,7 @@ type failAtStringWriter struct {
 }
 
 func (w *failAtStringWriter) WriteString(s string) (int, error) {
-	return w.write(len(s))
+	return w.accept(len(s))
 }
 
 func TestFormatXMLReturnsEveryWriterFailureUnchanged(t *testing.T) {
