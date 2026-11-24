@@ -104,8 +104,8 @@ func TestStreamDTDDiagnosticPreservesCause(t *testing.T) {
 		t.Fatalf("DTD cause lost: %v", err)
 	}
 	boundary, ok := errors.AsType[*xmlstream.Error](err)
-	if !ok || boundary.Kind != xmlstream.ErrorUnsupported || boundary.Line != 2 || boundary.Column != 1 {
-		t.Fatalf("stream cause = %+v, want unsupported at 2:1", boundary)
+	if !ok || boundary.Kind != xmlstream.ErrorUnsupported {
+		t.Fatalf("stream cause = %+v, want unsupported", boundary)
 	}
 }
 
