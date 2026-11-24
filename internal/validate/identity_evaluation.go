@@ -2,7 +2,6 @@ package validate
 
 import (
 	"encoding/xml"
-	"errors"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -909,12 +908,11 @@ func (e *identityEvaluation) captureXSIAttribute(
 		if invalidateErr := e.invalidateFields(e.matches); invalidateErr != nil {
 			return invalidateErr
 		}
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok &&
-			diagnostic != nil && diagnostic.Code() == xsderrors.CodeValidationLimit {
+		if !xsderrors.IsConclusiveValidation(err) {
 			return err
 		}
-		// Start assessment owns XSI diagnostics; this conversion only derives
-		// the identity-field key.
+		// Start assessment owns XSI validity diagnostics; this conversion only
+		// derives the identity-field key.
 		return nil
 	}
 	if !identity.present {

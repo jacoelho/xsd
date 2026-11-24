@@ -181,3 +181,63 @@ func TestXSIAttributeIdentityKeyUsesSuppliedEvaluation(t *testing.T) {
 		}
 	}
 }
+
+func TestCaptureXSIAttributeDropsOnlyConclusiveValueFailures(t *testing.T) {
+	t.Parallel()
+
+	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <xs:element name="root" nillable="true">
+    <xs:complexType/>
+    <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@xsi:nil"/></xs:key>
+  </xs:element>
+</xs:schema>`)
+	elemName, ok := rt.LookupQName("", "root")
+	if !ok {
+		t.Fatal("LookupQName(root) failed")
+	}
+	elemID, _, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: elemName})
+	if !ok {
+		t.Fatal("GlobalElement(root) failed")
+	}
+	xsiNil := xml.Name{Space: vocab.XSINamespaceURI, Local: vocab.XSIAttrNil}
+	unfunded := value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: defaultMaxInstancePatternWork}
+	tests := []struct {
+		name     string
+		lexical  string
+		eval     value.EvaluationLimits
+		wantCode xsderrors.Code
+	}{
+		{name: "invalid boolean is left to start assessment", lexical: "maybe", eval: testEval()},
+		{name: "internal invariant propagates", lexical: "true", eval: unfunded, wantCode: xsderrors.CodeInternalInvariant},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			evaluation := newIdentityEvaluation(rt, identityLimits{})
+			ctx := identityTestContext("/root", 1, 1)
+			if err := evaluation.startElement(identityElementStart{
+				Context: ctx,
+				Name:    xsdSchema.RuntimeName{Known: true, Name: elemName},
+				Element: elemID,
+				Mode:    elementAssessed,
+			}); err != nil {
+				t.Fatalf("startElement() error = %v", err)
+			}
+			target, err := evaluation.prepareAttributeValue(resolveRuntimeName(rt, xsiNil), 1)
+			if err != nil {
+				t.Fatalf("prepareAttributeValue(xsi:nil) error = %v", err)
+			}
+			if !target.needsIdentity() {
+				t.Fatal("prepareAttributeValue(xsi:nil) did not match the key field")
+			}
+			err = evaluation.captureXSIAttribute(ctx, target, xsiNil, test.lexical, nil, test.eval)
+			if test.wantCode == "" {
+				if err != nil {
+					t.Fatalf("captureXSIAttribute(%q) error = %v, want nil", test.lexical, err)
+				}
+				return
+			}
+			expectXSDCode(t, err, test.wantCode)
+		})
+	}
+}
