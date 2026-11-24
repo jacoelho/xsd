@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/xmlstream"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestSchemaDTDDiagnosticPreservesCause(t *testing.T) {
@@ -17,8 +18,12 @@ func TestSchemaDTDDiagnosticPreservesCause(t *testing.T) {
 		t.Fatalf("DTD cause lost: %v", err)
 	}
 	boundary, ok := errors.AsType[*xmlstream.Error](err)
-	if !ok || boundary.Kind != xmlstream.ErrorUnsupported || boundary.Line != 2 || boundary.Column != 1 {
-		t.Fatalf("stream cause = %+v, want unsupported at 2:1", boundary)
+	if !ok || boundary.Kind != xmlstream.ErrorUnsupported {
+		t.Fatalf("stream cause = %+v, want unsupported", boundary)
+	}
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Line() != 2 || diagnostic.Column() != 1 {
+		t.Fatalf("diagnostic = %v, want located at 2:1", err)
 	}
 }
 

@@ -138,7 +138,7 @@ func TestXMLDeclarationPreviewBoundary(t *testing.T) {
 					_, err = reader.Next()
 				}
 				xerr, ok := errors.AsType[*Error](err)
-				if !ok || !errors.Is(err, errUnsupportedNonUTF8) || xerr.Kind != ErrorUnsupported || xerr.Line != 1 || xerr.Column != test.column {
+				if !ok || !errors.Is(err, errUnsupportedNonUTF8) || xerr.Kind != ErrorUnsupported || xerr.line != 1 || xerr.column != test.column {
 					t.Fatalf("bom=%t end=%d %s: error = %#v, want unsupported encoding at 1:%d", bom != "", test.end, rc.name, err, test.column)
 				}
 				reader.Detach()
