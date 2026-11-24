@@ -83,8 +83,15 @@ type node struct {
 	children []*node
 	line     int
 	column   int
-	start    int
-	end      int
+	// leadAt and tailAt locate the first character of lead and tail.
+	leadAt textAt
+	tailAt textAt
+	start  int
+	end    int
+}
+
+type textAt struct {
+	line, column int
 }
 
 func xs(local string, attrs ...string) *node {
@@ -174,6 +181,7 @@ func (r *documentRenderer) writeLine(text string) {
 func (r *documentRenderer) element(n *node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	if n.lead != "" {
+		n.leadAt = textAt{r.line, len(indent) + 1}
 		r.writeLine(indent + n.lead)
 	}
 	n.line, n.column = r.line, len(indent)+1
@@ -191,6 +199,7 @@ func (r *documentRenderer) element(n *node, depth int) {
 			r.element(child, depth+1)
 		}
 		if n.tail != "" {
+			n.tailAt = textAt{r.line, len(indent) + 3}
 			r.writeLine(indent + "  " + n.tail)
 		}
 		r.writeLine(indent + "</" + n.tag + ">")
@@ -277,6 +286,11 @@ func (v violation) after(sibling func() *node) violation {
 
 func (v violation) without(keys ...string) violation {
 	v.dropKeys = keys
+	return v
+}
+
+func (v violation) titled(name string) violation {
+	v.name = name
 	return v
 }
 
@@ -552,11 +566,26 @@ func (o compileOutcome) reports(p placed, path string) bool {
 	if !o.identifies(p.entry) {
 		return false
 	}
-	return d.Path() == path && d.Line() == p.named.line && d.Column() == p.named.column
+	at := p.location()
+	return d.Path() == path && d.Line() == at.line && d.Column() == at.column
+}
+
+// location is where the diagnostic of p is located: forbidden character data
+// at its first character, any other violation at the start tag of the element
+// it names.
+func (p placed) location() textAt {
+	switch {
+	case p.entry.leadText:
+		return p.decided.leadAt
+	case p.entry.tailText:
+		return p.decided.tailAt
+	}
+	return textAt{p.named.line, p.named.column}
 }
 
 func (p placed) want(path string) string {
-	return fmt.Sprintf("(%s, %q) at %s:%d:%d, from %s", p.entry.code, p.entry.message, path, p.named.line, p.named.column, p.entry.describe())
+	at := p.location()
+	return fmt.Sprintf("(%s, %q) at %s:%d:%d, from %s", p.entry.code, p.entry.message, path, at.line, at.column, p.entry.describe())
 }
 
 // orderGaps tracks the known gaps: catalogue entries the compiler decides

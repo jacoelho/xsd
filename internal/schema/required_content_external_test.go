@@ -60,8 +60,8 @@ func TestMissingRequiredChildWinsOverLaterErrors(t *testing.T) {
 
 		missing("earlier sibling attribute before missing derivation", `  <xs:element name="a" foo="1"/>`+"\n"+`  <xs:simpleType name="S"/>`, xsderrors.CodeSchemaInvalidAttribute, `"element" cannot have attribute "foo"`, 2, 3),
 		missing("child attribute before missing base", inSimpleType(`<xs:restriction><xs:minLength value="1" foo="1"/></xs:restriction>`), xsderrors.CodeSchemaInvalidAttribute, `"minLength" cannot have attribute "foo"`, 3, 5+len(`<xs:restriction>`)),
-		missing("text before missing derivation", `  <xs:simpleType name="S">text</xs:simpleType>`, contentModel, `xs:"simpleType" cannot contain text`, 2, 3),
-		missing("text before missing selector", inIdentity(`text`), contentModel, `xs:"key" cannot contain text`, 3, 5),
+		missing("text before missing derivation", `  <xs:simpleType name="S">text</xs:simpleType>`, contentModel, `xs:"simpleType" cannot contain text`, 2, 27),
+		missing("text before missing selector", inIdentity(`text`), contentModel, `xs:"key" cannot contain text`, 4, 7),
 
 		{name: "restriction with anonymous base", body: inSimpleType(`<xs:restriction><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:restriction>`)},
 		{name: "list with anonymous item type", body: inSimpleType(`<xs:list><xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType></xs:list>`)},

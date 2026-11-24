@@ -173,7 +173,13 @@ func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
 	case xmlstream.KindEnd:
 		return s.end(tok.Line, tok.Column)
 	case xmlstream.KindCharData:
-		return s.chars(tok.Data, tok.Line, tok.Column)
+		if err := s.chars(tok.Data, tok.Line, tok.Column); err != nil {
+			return err
+		}
+		if node := s.firstTextNode(tok.Data); node != nil {
+			node.text.line, node.text.column = s.parser.ContentPos()
+		}
+		return nil
 	case xmlstream.KindComment:
 		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode", nil)
 	default: // processing instructions are ignored.
@@ -557,8 +563,9 @@ func rejectInvalidSchemaTextTyped(n *schemaNode) error {
 	if n == nil || n.local == vocab.XSDElemAppinfo || n.local == vocab.XSDElemDocumentation {
 		return nil
 	}
-	if n.hasNonWhitespaceText {
-		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, "xs:"+diagnostictext.Quote(n.local)+" cannot contain text")
+	if n.HasNonWhitespaceText() {
+		path, line, column := n.textLocation()
+		return xsderrors.WithLocation(path, line, column, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:"+diagnostictext.Quote(n.local)+" cannot contain text", nil))
 	}
 	return nil
 }
@@ -574,13 +581,20 @@ func (s *typedSchemaParseState) chars(t []byte, line, col int) error {
 	if limit := s.limits.MaxSchemaTokenBytes; limit > 0 && s.stack[last].textBytes > limit {
 		return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, "MaxSchemaTokenBytes="+strconv.FormatInt(limit, 10)+" exceeded: schema element character data too large", nil)
 	}
-	if s.stack[last].node == nil || s.stack[last].opaque {
+	return nil
+}
+
+// firstTextNode returns the open element's node when t is its first text that
+// is not XML whitespace, for the caller to record where that text starts.
+func (s *typedSchemaParseState) firstTextNode(t []byte) *schemaNode {
+	if len(s.stack) == 0 {
 		return nil
 	}
-	if !lex.IsXMLWhitespaceBytes(t) {
-		s.stack[last].node.hasNonWhitespaceText = true
+	frame := &s.stack[len(s.stack)-1]
+	if frame.node == nil || frame.opaque || frame.node.HasNonWhitespaceText() || lex.IsXMLWhitespaceBytes(t) {
+		return nil
 	}
-	return nil
+	return frame.node
 }
 
 func (s *typedSchemaParseState) abortStart(frame xmlstream.Handle, cause error) error {

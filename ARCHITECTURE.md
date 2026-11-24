@@ -850,7 +850,16 @@ instance validation, and formatting share one `Reader` contract:
   position are unexported, so schema, validate, and format consumers locate a
   reader failure only through these two methods, inside their one reader-error
   mapping. Token positions (`Token.Line`, `Token.Column`) are exported and
-  read directly to locate token diagnostics.
+  read directly to locate token diagnostics. Forbidden character content is
+  located at its first offending character. Instance and schema text in
+  element-only content is located at `Reader.ContentPos`: the first character
+  that is not XML whitespace after decoding, at its source bytes (the `&` of a
+  reference, inside a CDATA section past its whitespace). Outside the root a
+  reference is forbidden even when it decodes to whitespace, so the reader
+  classifies and locates that failure by the first source byte that is not
+  literal whitespace. A diagnostic about the token as a whole (empty or nilled
+  content, where whitespace is forbidden too, and the schema text limit) keeps
+  the token position.
 - The reader owns the exclusive input-failure classification
   (`IsInputFailure`): a failure of the caller's `io.Reader` (read error, no
   progress, nil reader) rather than of the document. It is false whenever

@@ -4,8 +4,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
-
-	"github.com/jacoelho/xsd/internal/lex"
 )
 
 // ErrorKind identifies the neutral failure class reported by Reader. Policy
@@ -248,29 +246,12 @@ func (r *Reader) acceptToken(tok *Token) error {
 		// Comments and processing instructions do not affect document state.
 	case KindCharData:
 		if r.ns.depth() == 0 {
-			if textErr := validateOutsideRoot(tok); textErr != nil {
-				return &Error{Kind: ErrorOutsideRoot, line: tok.Line, column: tok.Column, Cause: textErr}
+			if line, column, textErr := r.parser.outsideRootFailure(tok); textErr != nil {
+				return &Error{Kind: ErrorOutsideRoot, line: line, column: column, Cause: textErr}
 			}
 		}
 	}
 	return nil
-}
-
-func validateOutsideRoot(tok *Token) error {
-	switch tok.TextKind {
-	case CharacterDataCDATA:
-		return ErrCDATOutsideRoot
-	case CharacterDataReference:
-		return ErrReferenceOutsideRoot
-	case CharacterDataText:
-		if lex.IsXMLWhitespaceBytes(tok.Data) {
-			return nil
-		}
-		return ErrTextOutsideRoot
-	case CharacterDataInvalid:
-		return ErrTextOutsideRoot
-	}
-	return ErrTextOutsideRoot
 }
 
 func positionedParserError(err error, line, column int) error {
@@ -425,6 +406,17 @@ func (r *Reader) End(opaque Handle) error {
 		return err
 	}
 	return r.CommitEnd(opaque)
+}
+
+// ContentPos reports the source position of the current character-data
+// token's first character that is not XML whitespace after decoding, the
+// character a diagnostic about forbidden character content points at. A
+// reference that decodes to such a character is located at its '&'; whitespace
+// inside a CDATA section is skipped. A token of only whitespace, and any token
+// that is not character data, reports its own position. It must be called
+// while the token is current.
+func (r *Reader) ContentPos() (line, column int) {
+	return r.parser.contentPos(&r.token)
 }
 
 // Depth reports the number of currently open elements.

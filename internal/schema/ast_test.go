@@ -17,12 +17,19 @@ func TestSchemaParseStateDiscardsSchemaTextAfterAdmission(t *testing.T) {
 
 	node := &schemaNode{}
 	state := typedSchemaParseState{stack: []typedSchemaParseFrame{{node: node}}}
-	for _, chunk := range [][]byte{[]byte("first"), []byte(" "), []byte("second")} {
+	for i, chunk := range [][]byte{[]byte(" "), []byte("first"), []byte(" "), []byte("second")} {
 		if err := state.chars(chunk, 1, 1); err != nil {
 			t.Fatalf("chars() error = %v", err)
 		}
+		textNode := state.firstTextNode(chunk)
+		if wantFirst := i == 1; (textNode == node) != wantFirst {
+			t.Fatalf("chunk %d: firstTextNode() = %p, want first text %t", i, textNode, wantFirst)
+		}
+		if textNode != nil {
+			textNode.text = schemaTextPosition{line: 1, column: 1}
+		}
 	}
-	if !node.hasNonWhitespaceText {
+	if !node.HasNonWhitespaceText() {
 		t.Fatal("schema text was not recorded for admission")
 	}
 }

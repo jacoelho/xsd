@@ -12,14 +12,18 @@ import (
 
 // FuzzReader exercises the public Reader lifecycle against arbitrary XML and
 // requires the token stream and final outcome to be independent of how the
-// input reader splits its bytes. chunks cycles through read lengths; an empty
-// chunks reads the whole input and is the reference.
+// input reader splits its bytes, and every token position to have line and
+// column at least 1 and match the source position of the token's first byte,
+// with comments and processing instructions both discarded and emitted.
+// chunks cycles through read lengths; an empty chunks reads the whole input and
+// is the reference.
 func FuzzReader(f *testing.F) {
 	for _, seed := range []string{
 		`<root/>`,
 		`<?xml version="1.0"?><root a="&amp;">text</root>`,
 		`<root><![CDATA[x<y]]><!--c--><?pi v?></root>`,
 		`<root><a/><b attr="value">text</b></root>`,
+		"\n<root>\r\n<a/>\r<![CDATA[\n]]></root>",
 	} {
 		f.Add(seed, []byte(nil))
 		f.Add(seed, []byte{1})
@@ -42,27 +46,61 @@ func FuzzReader(f *testing.F) {
 		for i, size := range chunks {
 			sizes[i] = int(size)
 		}
-		whole, wholeErr := recordReader(strings.NewReader(input), Config{}, 4096)
-		chunked, chunkedErr := recordReader(newChunkedReader(strings.NewReader(input), sizes...), Config{}, 4096)
-		// Config{} sets no token or input limit, and chunkedReader never makes
-		// enough empty reads to trip no-progress, so every outcome is compared.
-		for _, err := range []error{wholeErr, chunkedErr} {
-			if errors.Is(err, errRecordedTokenLimit) {
-				t.Fatalf("Reader.Next emitted more than 4096 tokens for %d input bytes", len(input))
+		for _, config := range []Config{{}, {CommentMode: CommentModeEmit, EmitPI: true}} {
+			whole, wholeErr := recordReader(strings.NewReader(input), config, 4096)
+			chunked, chunkedErr := recordReader(newChunkedReader(strings.NewReader(input), sizes...), config, 4096)
+			// Neither config sets a token or input limit, and chunkedReader never makes
+			// enough empty reads to trip no-progress, so every outcome is compared.
+			for _, err := range []error{wholeErr, chunkedErr} {
+				if errors.Is(err, errRecordedTokenLimit) {
+					t.Fatalf("Reader.Next emitted more than 4096 tokens for %d input bytes", len(input))
+				}
 			}
-		}
-		if got, want := readerOutcome(chunkedErr), readerOutcome(wholeErr); got != want {
-			t.Fatalf("chunked outcome = %s, whole outcome = %s", got, want)
-		}
-		if len(chunked) != len(whole) {
-			t.Fatalf("chunked tokens = %d, whole tokens = %d", len(chunked), len(whole))
-		}
-		for i := range whole {
-			if chunked[i] != whole[i] {
-				t.Fatalf("token %d chunked = %+v, whole = %+v", i, chunked[i], whole[i])
+			if got, want := readerOutcome(chunkedErr), readerOutcome(wholeErr); got != want {
+				t.Fatalf("chunked outcome = %s, whole outcome = %s", got, want)
+			}
+			if len(chunked) != len(whole) {
+				t.Fatalf("chunked tokens = %d, whole tokens = %d", len(chunked), len(whole))
+			}
+			for i := range whole {
+				if chunked[i] != whole[i] {
+					t.Fatalf("token %d chunked = %+v, whole = %+v", i, chunked[i], whole[i])
+				}
+				if whole[i].line < 1 || whole[i].column < 1 || whole[i].contentLine < 1 || whole[i].contentCol < 1 {
+					t.Fatalf("token %d position = %d:%d, content position = %d:%d, want line and column at least 1", i, whole[i].line, whole[i].column, whole[i].contentLine, whole[i].contentCol)
+				}
+				if whole[i].kind == KindEnd && !strings.HasPrefix(input[whole[i].startOffset:], "</") {
+					continue
+				}
+				if line, column := sourcePosition(input, whole[i].startOffset); whole[i].line != line || whole[i].column != column {
+					t.Fatalf("token %d at offset %d position = %d:%d, want %d:%d", i, whole[i].startOffset, whole[i].line, whole[i].column, line, column)
+				}
 			}
 		}
 	})
+}
+
+// sourcePosition is the line and 1-based byte column of input[offset], with
+// CR, LF and CRLF each ending one line and a leading byte order mark not
+// counted as a column.
+func sourcePosition(input string, offset int) (line, column int) {
+	line, lineStart := 1, 0
+	if strings.HasPrefix(input, "\ufeff") {
+		lineStart = len("\ufeff")
+	}
+	for i := lineStart; i < offset; i++ {
+		switch input[i] {
+		case '\r':
+			line++
+			lineStart = i + 1
+		case '\n':
+			if i == 0 || input[i-1] != '\r' {
+				line++
+			}
+			lineStart = i + 1
+		}
+	}
+	return line, offset - lineStart + 1
 }
 
 // recordedToken is a comparable copy of one Reader.Next token. Borrowed bytes
@@ -76,6 +114,8 @@ type recordedToken struct {
 	endOffset   int
 	line        int
 	column      int
+	contentLine int
+	contentCol  int
 	kind        TokenKind
 	textKind    CharacterDataKind
 }
@@ -137,6 +177,7 @@ func recordToken(reader *Reader, tok *Token) recordedToken {
 		kind:        tok.Kind,
 		textKind:    tok.TextKind,
 	}
+	record.contentLine, record.contentCol = reader.ContentPos()
 	switch tok.Kind {
 	case KindStart:
 		record.name = tok.Start.Name

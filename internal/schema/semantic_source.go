@@ -22,12 +22,18 @@ type schemaNode struct {
 	// namespace is retained only for deferred QName-valued literals (default,
 	// fixed and enumeration values); schema QName attributes and identity XPath
 	// names are resolved at admission.
-	namespace            xmlstream.Context
-	children             []schemaNodeID
-	line                 int
-	column               int
-	id                   schemaNodeID
-	hasNonWhitespaceText bool
+	namespace xmlstream.Context
+	children  []schemaNodeID
+	line      int
+	column    int
+	id        schemaNodeID
+	// text locates the node's first character that is not XML whitespace;
+	// line 0 means the node has no such text.
+	text schemaTextPosition
+}
+
+type schemaTextPosition struct {
+	line, column int
 }
 
 func (n *schemaNode) ID() schemaNodeID {
@@ -45,7 +51,15 @@ func (n *schemaNode) schemaLocation() (path string, line int, column int) {
 }
 
 func (n *schemaNode) HasNonWhitespaceText() bool {
-	return n != nil && n.hasNonWhitespaceText
+	return n != nil && n.text.line != 0
+}
+
+// textLocation locates n's first character that is not XML whitespace.
+func (n *schemaNode) textLocation() (path string, line int, column int) {
+	if n.doc == nil {
+		return "", 0, 0
+	}
+	return n.doc.name, n.text.line, n.text.column
 }
 
 func (n *schemaNode) attrNS(namespace, local string) (string, bool) {
