@@ -74,40 +74,6 @@ type Token struct {
 	TextKind CharacterDataKind
 }
 
-// contentPos implements Reader.ContentPos for t, whose first decoded
-// reference, if t is a CharacterDataReference token, starts at Data index
-// referenceStart.
-func (t *Token) contentPos(referenceStart int) (line, column int) {
-	if t.Kind != KindCharData {
-		return t.Line, t.Column
-	}
-	var literal []byte
-	switch t.TextKind {
-	case CharacterDataText:
-		literal = t.Data
-	case CharacterDataReference:
-		literal = t.Data[:referenceStart]
-	case CharacterDataCDATA, CharacterDataInvalid:
-		return t.Line, t.Column
-	}
-	line, column = t.Line, t.Column
-	for _, b := range literal {
-		switch b {
-		case ' ', '\t':
-			column++
-		case '\n':
-			line++
-			column = 1
-		default:
-			return line, column
-		}
-	}
-	if t.TextKind == CharacterDataReference {
-		return line, column
-	}
-	return t.Line, t.Column
-}
-
 // begin retires only the previous active payload. t must be zero or a produced
 // token with zero inactive fields. Clear headers, never their borrowed backing:
 // a publisher may already have prepared its next payload in that same storage.
@@ -156,25 +122,23 @@ type parser struct {
 	// expectedEnd is the open element's name, supplied by Reader before each
 	// token. It only lets an end tag that spells it skip interning; Reader
 	// still owns topology and the closing-name match.
-	expectedEnd       LexicalName
-	pendingEnd        EndElement
-	attrs             []Attr
-	nameBuf           []byte
-	attrValueBuf      []byte
-	attrValueEnds     []int
-	attrValueRetained []bool
-	entityBuf         []byte
-	textBuf           []byte
-	directive         []byte
-	br                byteStream
-	cdataChunkOffset  int
-	maxAttrs          int
-	maxTokenBytes     int64
-	retainedBytes     int64
-	cdataMatched      int
-	// referenceStart is the textBuf index where the current
-	// CharacterDataReference token's first decoded reference begins.
-	referenceStart         int
+	expectedEnd            LexicalName
+	pendingEnd             EndElement
+	attrs                  []Attr
+	nameBuf                []byte
+	attrValueBuf           []byte
+	attrValueEnds          []int
+	attrValueRetained      []bool
+	entityBuf              []byte
+	textBuf                []byte
+	directive              []byte
+	br                     byteStream
+	cdataChunkOffset       int
+	maxAttrs               int
+	maxTokenBytes          int64
+	retainedBytes          int64
+	cdataMatched           int
+	reference              referenceContent
 	cdataOffset            int
 	pendingEndOffset       int
 	inCDATA                bool
@@ -258,6 +222,7 @@ func (p *parser) reset(r io.Reader, names, values *cache, config Config) error {
 	p.cdataMatched = 0
 	p.cdataOffset = 0
 	p.cdataChunkOffset = 0
+	p.reference = referenceContent{}
 	p.inCDATA = false
 	p.atStart = true
 	p.commentMode = config.CommentMode
@@ -299,6 +264,7 @@ func (p *parser) detach() {
 	p.inCDATA = false
 	p.cdataOffset = 0
 	p.cdataChunkOffset = 0
+	p.reference = referenceContent{}
 	p.atStart = false
 	p.cdataMatched = 0
 	p.retainedBytes = 0
@@ -437,10 +403,10 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 	switch first {
 	case '&':
 		borrowFirst = false
-		var err error
-		if kind, err = p.readCharDataReference(kind); err != nil {
+		if err := p.readCharDataReference(kind, line, col); err != nil {
 			return err
 		}
+		kind = CharacterDataReference
 	case '\r':
 		borrowFirst = false
 		if err := p.consumeLineFeed(); err != nil {
@@ -533,9 +499,10 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			continue
 		}
 		if b == '&' {
-			if kind, err = p.readCharDataReference(kind); err != nil {
+			if err = p.readCharDataReference(kind, line, col); err != nil {
 				return err
 			}
+			kind = CharacterDataReference
 			cdataEnd = 0
 			continue
 		}
@@ -547,13 +514,6 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			return err
 		}
 	}
-}
-
-func (p *parser) readCharDataReference(kind CharacterDataKind) (CharacterDataKind, error) {
-	if kind != CharacterDataReference {
-		p.referenceStart = len(p.textBuf)
-	}
-	return CharacterDataReference, p.readEntity(&p.textBuf)
 }
 
 func isBorrowedASCIITextByte(b byte) bool {

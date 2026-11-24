@@ -1012,33 +1012,35 @@ func (s *session) chars(tok *xmlstream.Token) error {
 	if f.Nilled {
 		return validation(s.startContext(tok.Line, tok.Column), xsderrors.CodeValidationNil, msgNilledContent)
 	}
-	return s.validateAssessedCharacterData(f, tok)
+	elementOnlyText, err := s.validateAssessedCharacterData(f, tok.Data, tok.Line, tok.Column)
+	if elementOnlyText {
+		return validation(s.startContext(s.reader.ContentPos()), xsderrors.CodeValidationText, msgElementOnlyText)
+	}
+	return err
 }
 
 // validateAssessedCharacterData applies the content type's character policy.
 // Empty content rejects any nonempty character data, including XML
 // whitespace; element-only content permits whitespace only. Comments, PIs and
-// zero-length CDATA never reach here, so they add no character content.
-func (s *session) validateAssessedCharacterData(f *frame, tok *xmlstream.Token) error {
-	data, line, col := tok.Data, tok.Line, tok.Column
+// zero-length CDATA never reach here, so they add no character content. It
+// reports text that element-only content forbids as elementOnlyText, for the
+// caller to locate at the token's content position.
+func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col int) (elementOnlyText bool, err error) {
 	if f.SimpleContent != xsdSchema.NoSimpleType {
-		return s.appendText(data, line, col)
+		return false, s.appendText(data, line, col)
 	}
 	content := f.TextContent
 	if content.IsEmptyContent() {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationText, msgEmptyText)
+		return false, validation(s.startContext(line, col), xsderrors.CodeValidationText, msgEmptyText)
 	}
 	whitespace := lex.IsXMLWhitespaceBytes(data)
 	if !whitespace {
 		f.HasText = true
 	}
 	if content.AllowsMixedContent() {
-		return s.captureMixedCharacterData(content, data, line, col)
+		return false, s.captureMixedCharacterData(content, data, line, col)
 	}
-	if !whitespace {
-		return validation(s.startContext(s.reader.ContentPos()), xsderrors.CodeValidationText, msgElementOnlyText)
-	}
-	return nil
+	return !whitespace, nil
 }
 
 func (s *session) captureMixedCharacterData(content xsdSchema.ElementTextContent, data []byte, line, col int) error {

@@ -64,7 +64,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     text
     <xs:attribute name="a"/>
   </xs:include>`,
-			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"include\" cannot contain text",
 		},
 		{
@@ -73,7 +73,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     text
     <xs:attribute name="a"/>
   </xs:import>`,
-			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"import\" cannot contain text",
 		},
 		{
@@ -199,7 +199,7 @@ func TestSchemaEndAdmissionDiagnosticPrecedence(t *testing.T) {
     text
     <xs:element name="e"/>
   </xs:annotation>`,
-			wantLine: 2, wantCol: 3, wantCode: xsderrors.CodeSchemaContentModel,
+			wantLine: 3, wantCol: 5, wantCode: xsderrors.CodeSchemaContentModel,
 			wantMsg: "xs:\"annotation\" cannot contain text",
 		},
 		{
@@ -491,7 +491,7 @@ func TestAnnotationOnlyAsFirstChildReportedWhenItStarts(t *testing.T) {
     <xs:sequence/>
     text
     <xs:annotation/>
-  </xs:complexType>`, wantLine: 2, wantCol: 3, wantMsg: `xs:"complexType" cannot contain text`},
+  </xs:complexType>`, wantLine: 4, wantCol: 5, wantMsg: `xs:"complexType" cannot contain text`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -127,7 +127,7 @@ func TestChildAdmissionWinsOverLaterErrors(t *testing.T) {
 		misplaced("identity selector after field", inIdentity(`<xs:selector xpath="."/><xs:field xpath="."/><xs:selector xpath="."/>`), "identity constraint can contain at most one selector", 4, 7+len(`<xs:selector xpath="."/><xs:field xpath="."/>`)),
 		misplaced("identity element child", inIdentity(`<xs:selector xpath="."/><xs:element name="e" type="p:T"/>`), `invalid identity constraint child "element"`, 4, 7+len(`<xs:selector xpath="."/>`)),
 
-		misplaced("earlier text wins over misplaced child", inSequence(`text<xs:complexType/>`), `xs:"sequence" cannot contain text`, 3, 5),
+		misplaced("earlier text wins over misplaced child", inSequence(`text<xs:complexType/>`), `xs:"sequence" cannot contain text`, 4, 7),
 		{name: "XSD 1.1 vocabulary wins over misplaced child", body: inSequence(`<xs:assert test="true()"/>`), wantCode: xsderrors.CodeUnsupportedXSD11, wantMsg: "XSD 1.1 feature assert is not supported", wantLine: 4, wantCol: 7},
 	}
 	for _, tc := range cases {

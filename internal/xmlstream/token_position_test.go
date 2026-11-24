@@ -157,7 +157,7 @@ func TestCDATAContinuationChunkStartsAtPendingBrackets(t *testing.T) {
 	}
 }
 
-func TestContentPosSkipsLiteralLeadingWhitespace(t *testing.T) {
+func TestContentPosSkipsLeadingWhitespaceAfterDecoding(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
@@ -171,11 +171,18 @@ func TestContentPosSkipsLiteralLeadingWhitespace(t *testing.T) {
 		{"after crlf", "\r\nx", 2, 1},
 		{"after blank lines and spaces", "\n\n\n   x", 4, 4},
 		{"after mixed line breaks", "\r\n\n\r\t x", 4, 3},
-		{"reference after whitespace", "\r\n &#32;x", 2, 2},
-		{"reference first", "&#10;x", 1, 4},
+		{"after whitespace reference", "\r\n &#32;x", 2, 7},
+		{"after line feed reference", "&#10;x", 1, 9},
+		{"after whitespace reference and line break", "&#32;\n x", 2, 2},
+		{"after several whitespace references", "&#32; &#9;\n&#xA;  x&amp;", 2, 8},
+		{"reference decoding to content", "\n &amp;", 2, 2},
+		{"reference decoding to content after whitespace reference", "&#32;&#x41;", 1, 9},
 		{"text before reference", "\n y&amp;", 2, 2},
 		{"whitespace only", "\n  ", 1, 4},
-		{"cdata", "<![CDATA[\n x]]>", 1, 4},
+		{"whitespace references only", "&#32;\n&#10;", 1, 4},
+		{"cdata", "<![CDATA[\n x]]>", 2, 2},
+		{"cdata content first", "<![CDATA[x]]>", 1, 13},
+		{"whitespace cdata", "<![CDATA[\n ]]>", 1, 4},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -212,6 +219,8 @@ func TestOutsideRootFailureLocatedAtFirstContentByte(t *testing.T) {
 		{"text after blank lines and spaces", "\n\n\n   x", ErrTextOutsideRoot, 4, 4},
 		{"text after crlf and cr", "\r\n\r\tx", ErrTextOutsideRoot, 3, 2},
 		{"reference after whitespace", "\r\n  &#32;", ErrReferenceOutsideRoot, 2, 3},
+		{"whitespace reference before text", "\n &#32;x", ErrReferenceOutsideRoot, 2, 2},
+		{"text before reference", "\n x&amp;", ErrTextOutsideRoot, 2, 2},
 		{"cdata after lf", "\n<![CDATA[x]]>", ErrCDATOutsideRoot, 2, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
