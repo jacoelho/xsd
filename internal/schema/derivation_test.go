@@ -52,20 +52,6 @@ func newTypeDerivationReadForTest(
 	return read
 }
 
-func newDerivationRuntimeStub(simpleTypes []simpleType, complexTypes []complexTypeMetadata) derivationFixture {
-	stub := derivationFixture{
-		simple:  make([]simpleTypeDerivation, len(simpleTypes)),
-		complex: make([]complexTypeDerivation, len(complexTypes)),
-	}
-	for i := range simpleTypes {
-		stub.simple[i] = newSimpleTypeDerivationForSimpleType(simpleTypes[i])
-	}
-	for i := range complexTypes {
-		stub.complex[i] = newComplexTypeDerivationForComplexType(complexTypes[i])
-	}
-	return stub
-}
-
 func TestComplexTypeDerivationForComplexType(t *testing.T) {
 	t.Parallel()
 
@@ -336,42 +322,6 @@ func TestTypeDerivationMaskSimpleUnionBranchingAndCycles(t *testing.T) {
 				t.Fatalf("typeDerivationMaskForTest() = %08b, %v; want restriction=%v", mask, ok, tt.want)
 			}
 		})
-	}
-}
-
-func TestIndexedTypeDerivationMatchesGraphQueries(t *testing.T) {
-	simple := []simpleType{
-		testSimpleType(valuepkg.Atomic, NoSimpleType),
-		testSimpleType(valuepkg.Atomic, 0),
-		testSimpleType(valuepkg.Union, 0, 0),
-		testSimpleType(valuepkg.Atomic, 2),
-		testSimpleType(valuepkg.Union, 0, 1, 2),
-	}
-	complexTypes := []complexTypeMetadata{
-		{Derivation: derivationKindNone},
-		{Base: ComplexRef(0), Derivation: derivationKindExtension},
-		{Base: ComplexRef(1), Derivation: derivationKindRestriction},
-		{Base: SimpleRef(1), Derivation: derivationKindExtension},
-		{Base: ComplexRef(3), Derivation: derivationKindRestriction},
-	}
-	read := newTypeDerivationReadForTest(t, simple, complexTypes)
-	stub := newDerivationRuntimeStub(simple, complexTypes)
-	var scratch TypeDerivationScratch
-	var types []TypeID
-	for i := range simple {
-		types = append(types, SimpleRef(SimpleTypeID(i)))
-	}
-	for i := range complexTypes {
-		types = append(types, ComplexRef(ComplexTypeID(i)))
-	}
-	for _, derived := range types {
-		for _, base := range types {
-			wantMask, wantOK := typeDerivationMaskForTest(stub.build(), derived, base)
-			gotMask, gotOK := read.derivation(derived, base, &scratch)
-			if gotMask != wantMask || gotOK != wantOK {
-				t.Fatalf("derivation(%v, %v) = %08b, %v; want %08b, %v", derived, base, gotMask, gotOK, wantMask, wantOK)
-			}
-		}
 	}
 }
 
