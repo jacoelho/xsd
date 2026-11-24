@@ -97,7 +97,7 @@ func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
 			first := completeCanonicalProjectionType(t, builder, test.first)
 			fallback := value.BuiltinType(value.PrimitiveString)
 			union := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{first, fallback}})
-			program, sealErr := builder.Seal()
+			program, sealErr := sealAll(builder)
 			if sealErr != nil {
 				t.Fatal(sealErr)
 			}
@@ -126,7 +126,7 @@ func TestTerminalLexicalAndUnionDiagnostics(t *testing.T) {
 	integer, _ := value.BuiltinTypeID("integer")
 	union := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveBoolean), integer}})
 	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.List, Base: value.NoType, ListItem: integer, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestConstrainedUnionDiagnostic(t *testing.T) {
 	}
 	ready, waiting := member("ready"), member("waiting")
 	union := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{ready, waiting}})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestListItemFacetDiagnostic(t *testing.T) {
 	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	item := completeCanonicalProjectionType(t, builder, atomicFacetType(value.PrimitiveString, value.FacetSpec{Length: value.CardinalityFacet{Value: 1, Present: true}}))
 	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.List, Base: value.NoType, ListItem: item, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Facets: value.FacetSpec{Length: value.CardinalityFacet{Value: 2, Present: true}}})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestOrderedBoundDiagnosticNamesNearestFailedBound(t *testing.T) {
 			}
 		})
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

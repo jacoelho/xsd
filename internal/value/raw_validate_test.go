@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	patternProgram, err := b.Seal()
+	patternProgram, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestValidateBytesScalarFastPathsRetainNoAllocation(t *testing.T) {
 }
 
 func TestValidateAdmittedSkipsXMLAdmissionForOwnedString(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestValidateBytesStringEnumerationRetainsBorrowedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestValidateBytesStringEnumerationRetainsBorrowedInput(t *testing.T) {
 }
 
 func TestValidateBytesNMTokensListChargesEveryItem(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestValidateNMTokensListItemDepth(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, err := b.Seal()
+			p, err := sealAll(b)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -290,7 +290,7 @@ func TestValidateNMTokensUnionItemDepth(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, err := b.Seal()
+			p, err := sealAll(b)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -357,7 +357,7 @@ func TestValidateBytesIntegerBoundsUseIntegerLexicalRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,7 +438,7 @@ func TestValidateBytesInheritedStringEnumerationUsesEveryGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +465,7 @@ func TestValidateBytesDecimalFractionDigitsZeroUsesDecimalValueSpace(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -485,7 +485,7 @@ func TestValidateBytesDecimalFractionDigitsZeroUsesDecimalValueSpace(t *testing.
 }
 
 func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +510,7 @@ func TestValidateBytesFallsBackForProjectionAndList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err = b.Seal()
+	p, err = sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,7 +547,7 @@ func TestValidateBytesDecimalInclusiveBoundsAvoidStringMaterialization(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,7 +583,7 @@ func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -626,7 +626,7 @@ func TestValidateBytesUnionChargesFailedAttempts(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		p, err := b.Seal()
+		p, err := sealAll(b)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -651,7 +651,7 @@ func TestValidateBytesFallbackRetainsRawWork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -683,7 +683,7 @@ func TestValidateBytesTextFacetsCountNormalizedCharacters(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		p, err := b.Seal()
+		p, err := sealAll(b)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -719,7 +719,7 @@ func TestValidateBytesChecksCustomIntegerLexicalSpace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -747,7 +747,7 @@ func TestValidateBytesUnionProjectsSelectedIDMember(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -771,7 +771,7 @@ func TestValidateBytesUnionRetainsIDREFSelectionAndProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -820,7 +820,7 @@ func TestAdmittedNumericBoundNormalization(t *testing.T) {
 			}); completeErr != nil {
 				t.Fatal(completeErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -865,7 +865,7 @@ func TestBorrowedNumericInheritedAndExclusiveBounds(t *testing.T) {
 	if completeErr := builder.Complete(exclusive, spec); completeErr != nil {
 		t.Fatal(completeErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -922,7 +922,7 @@ func TestPresentZeroNumericBoundAndRecovery(t *testing.T) {
 	if err = builder.Complete(bounded, spec); err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -982,7 +982,7 @@ func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
 			}); completeErr != nil {
 				t.Fatal(completeErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1015,7 +1015,7 @@ func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
 }
 
 func TestTemporalCanonicalProjectionOwnsBytes(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1060,7 +1060,7 @@ func TestTemporalCanonicalProjectionOwnsBytes(t *testing.T) {
 }
 
 func TestRawPrimitiveTokenValidationReuse(t *testing.T) {
-	program, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1086,7 +1086,7 @@ func TestRawPrimitiveTokenValidationReuse(t *testing.T) {
 }
 
 func TestUnprojectedStringByteResultAndWorkContract(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}

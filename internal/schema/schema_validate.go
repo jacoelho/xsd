@@ -14,6 +14,18 @@ type schemaValidation struct {
 	contentModelWork contentModelWork
 	contentAnalysis  *contentModelAnalysis
 	build            *schemaBuild
+	// restrictedAttributeUses holds the restrictions of a base set with no
+	// uses already shown valid. Such a check charges nothing and its result
+	// depends only on the two sets and the binding, so types that share a
+	// set, such as many plain types referencing one attribute group, check it
+	// once rather than once per type. A base with uses is checked every time,
+	// since each check charges its derivation work.
+	restrictedAttributeUses map[attributeUseRestriction]struct{}
+}
+
+type attributeUseRestriction struct {
+	base, derived attributeUseSetID
+	binding       attributeWildcardBinding
 }
 
 func validateSchema(rt *schemaValidation) error {
@@ -773,6 +785,11 @@ func validateAttributeUsesExtend(rt *schemaValidation, baseID, derivedID attribu
 func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attributeUseSetID, binding attributeWildcardBinding) error {
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
+	key := attributeUseRestriction{base: baseID, derived: derivedID, binding: binding}
+	memoized := len(base.Uses) == 0
+	if _, checked := rt.restrictedAttributeUses[key]; memoized && checked {
+		return nil
+	}
 	if err := validateAttributeUseSetRestriction(
 		rt.build,
 		base,
@@ -781,6 +798,13 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 	); err != nil {
 		return schemaBuildValidationError(err)
 	}
+	if !memoized {
+		return nil
+	}
+	if rt.restrictedAttributeUses == nil {
+		rt.restrictedAttributeUses = make(map[attributeUseRestriction]struct{})
+	}
+	rt.restrictedAttributeUses[key] = struct{}{}
 	return nil
 }
 

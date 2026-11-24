@@ -305,17 +305,24 @@ what is detached: an instance names only global components (root, `xsi:type`,
 wildcard, substitution member), so a complex type or identity constraint no
 walk from them reaches is never assessed. `detachUnreachableComponents` owns
 that decision and charges no budget, because it reads only models
-`complexTypeReachableModels` already charged; simple types it does not reach
-are kept. Publication keeps a detached type's ID and derivation record and a
+`complexTypeReachableModels` already charged. The same walk reaches the
+simple types a published read can name: global types, global attribute
+types, a reached element's type, a reached complex type's text type and
+attribute-use types, and the base, list item and union members of a reached
+simple type. It reads each model, attribute-use set and simple type once, so
+an attribute group that many types share costs one read, not one per type. Publication keeps a detached type's ID and derivation record and a
 detached constraint's ID for keyref `refer` and diagnostics, but no content
-model, attribute uses or evaluation program. Unreached element declarations
+model, attribute uses or evaluation program. An unreached simple type keeps
+its ID, derivation record and value-program slot, but `Builder.SealKeeping`
+drops its value definition (facets, patterns, enumerations), and validating
+it reports `value.ErrMetadata`. Unreached element declarations
 are not published, and validation sees only published element IDs, which
 `publishedElements` owns. A published holder of element IDs is either a build
 table that names only declarations whose published ID is their build ID or a
 copy built over published IDs, never a table that mixes the two.
-`validateReachableHolders`, `validatePublishedIdentityConstraints` and
-`publishedElements` reject a published holder that names a detached or
-unreached component. Unique
+`validateReachableHolders`, `validatePublishedIdentityConstraints`,
+`validatePublishedSimpleTypes`, `SealKeeping` and `publishedElements` reject a
+published holder that names a detached or unreached component. Unique
 Particle Attribution, restriction and automaton construction still cover
 unreached components, so reachability changes no verdict.
 Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
@@ -537,7 +544,12 @@ schema documents and `xsi:nil` is parsed with `ParseBooleanValue`; only
 owner, `internal/schema`, because no value-owned parser exists for them.
 
 - **Construction.** The schema compiler drives `Builder` (`Reserve`,
-  `Complete`, `Seal`) and supplies its construction limits. Enumeration and
+  `Complete`, `SealKeeping`) and supplies its construction limits.
+  `SealKeeping` keeps every type's ID but drops the definition of each type
+  the compiler did not reach, after checking that no kept type's base, list
+  item or union member is dropped; the dropped record's variety is one no
+  `TypeSpec` can carry, so every evaluation switch rejects it without a check
+  on the per-value type lookup. Enumeration and
   value-constraint literals (`Builder.Validate`) and instance values have the
   same value semantics. A bound literal is admitted by
   `Builder.AdmitBoundLiteral`: base value-space membership, or, for a
@@ -1103,6 +1115,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the functions it lists, each with the owner that charges the particles it reads. The list is followed to a fixpoint from the `Particles` field into every holder: a parameter of a static in-package call, including a variadic parameter it is spread into with an ellipsis, and a variable, struct field or function result it is assigned, stored in a composite literal, or returned as; the result of `chargedParticles` holds none. A new function that reads a holder fails it, whether directly, through a package-level variable initializer, or through a list another function stored or returned, and so does a listed function that no longer exists or reads no particle list. A list passed to an interface method, a function value, or a variadic parameter without an ellipsis is read by the caller, and a list returned by a function that is exported, referenced other than as a callee, or a method named like an interface method is read by that function. It does not catch an uncharged loop added inside a listed function, a list stored as an element of an array, map or slice (the continuation sets and their cache) and read through it elsewhere, or a list whose particles are copied into another slice |
 | `tests/content_model_compile_work_test.go` with `tests/internal/compilework` | For each content-model work family (restrictions of all, choice, sequence and wildcard bases, extension, wildcards in a sequence, group references, spliced groups, an emptiable base restricted to empty content, substitution groups in a choice, and a repeated sequence group), the statements of `internal/schema` per charged step of two added components may grow by at most the family's limit when the components grow sixteenfold; each limit lies between the family's measured growth and its growth under an uncharged loop one degree above its charged steps. Every function the particle-list guard allows must execute more often with the added components of some family, except one listed as reachable only from a rejected restriction. It catches only uncharged work that grows faster than the charged steps of its component, so a quadratic loop in a family whose charged steps are quadratic passes. It does not see work in a for-clause condition or post statement, inside a library or builtin call, or in another package, and measures only compilations that succeed |
 | `tests/attribute_use_audit_work_test.go` with `tests/internal/compilework` | Pins the publication audit of a derived attribute-use set to index lookups: the statements of `internal/schema` per charged step of an added extension, or of an added restriction redeclaring every base attribute, may grow by at most 1.4 when the base grows from 128 to 2048 attributes. It has the measurement limits of the row above |
+| `tests/shared_attribute_group_work_test.go` with `tests/internal/compilework` | Types that share one attribute-use set read it once: the statements of `internal/schema` per charged step of two added types referencing one attribute group may grow by at most 1.4 when the group grows from 128 to 2048 attributes, so neither the reachability walk nor the implicit restriction check of each type rereads the shared uses. It has the measurement limits of the content-model row above |
 | `cmd/wasmxsd/api_test.go`, `cmd/wasmxsd/main_js_test.go`, `cmd/wasmxsd/build_test.go`, and `cmd/xsdweb/main_test.go` | Go adapter response/build contracts, input bounds, asset catalog, and server shutdown lifecycle |
 | `web/js/validation-worker.test.js` | Worker queue, cancellation, timeout, generation, and state ownership |
 | `web/js/xsd-runtime.test.js` | Go runtime readiness and single-fatal reporting on runtime exit or startup failure |
@@ -1406,9 +1419,17 @@ graph preserves these ownership rules:
   complex types and identity constraints among those definitions, the
   declarations nested in them and the children of a zero-count compositor,
   unless a live type also reaches them, as it does a declaration in a named
-  group that a live type references; it keeps the simple types and does not
-  publish the element declarations (see `internal/schema`). Treating the whole subtree as absent was rejected:
+  group that a live type references; it drops the value definitions of the
+  simple types among them and does not publish the element declarations (see
+  `internal/schema`). Treating the whole subtree as absent was rejected:
   §3.11.2 maps every identity constraint regardless of its parent.
+- Renumbering simple types densely over the reached ones, as element
+  declarations are, was rejected: the simple-type ID is the value-program ID,
+  named by the value program's own base, item and member references, the
+  derivation records, the global type map and every value constraint, so
+  every holder would need a copy. A per-type indirection in the value
+  program's type lookup would free the 200-byte slot of an unreached type but
+  adds a dependent load to every value evaluation.
 - Writing published element IDs while the compiled content tables are
   projected, before publication, was rejected: the name indexes built with
   them read build IDs against the declarations and the substitution table,

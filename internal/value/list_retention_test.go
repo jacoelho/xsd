@@ -28,7 +28,7 @@ func TestListEnumerationRetainsCompleteValueOrNoItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestListEnumerationStillValidatesItemsPastRetentionBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestUnionListMemberFirstSuccessCannotFallThroughAfterOuterEnumeration(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestUnionOuterScalarEnumerationDoesNotFallThroughListFirstSuccess(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func TestUnionFallsBackAfterListEnumerationFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestUnionScalarEnumerationAcceptsFallbackAfterListEnumerationFailure(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

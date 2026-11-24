@@ -260,7 +260,7 @@ func TestFacetContractSupportsListAndUnionFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestBooleanEnumerationRejectionAndCompletionRetry(t *testing.T) {
 	if err = builder.Complete(id, spec); err != nil {
 		t.Fatalf("Complete(boolean pattern) retry = %v", err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestBooleanListAndUnionEnumeration(t *testing.T) {
 			if err = builder.Complete(id, spec); err != nil {
 				t.Fatalf("Complete(%s Boolean enumeration) = %v", test.name, err)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -493,7 +493,7 @@ func TestFacetContractUsesORWithinStepAndANDAcrossAncestors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +548,7 @@ func TestFacetContractAllowsExplicitSelfTypedBound(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -602,7 +602,7 @@ func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -647,7 +647,7 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := builder.Seal(); err != nil {
+	if _, err := sealAll(builder); err != nil {
 		t.Fatalf("value-equivalent fixed bound rejected: %v", err)
 	}
 
@@ -686,8 +686,8 @@ func TestFacetContractUsesValueSpaceForFixedAndPartialOrderedBounds(t *testing.T
 				t.Fatalf("Complete() error = %v, wantErr=%v", err, test.wantErr)
 			}
 			if err == nil {
-				if _, sealErr := b.Seal(); sealErr != nil {
-					t.Fatalf("Seal() after successful completion = %v", sealErr)
+				if _, sealErr := sealAll(b); sealErr != nil {
+					t.Fatalf("SealKeeping() after successful completion = %v", sealErr)
 				}
 			}
 		})
@@ -779,7 +779,7 @@ func TestFacetContractEqualOrderedBounds(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Complete() rejected consistent equal bounds: %v", err)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -811,7 +811,7 @@ func TestFacetContractEqualNaNBounds(t *testing.T) {
 			})); completeErr != nil {
 				t.Fatal(completeErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -885,7 +885,7 @@ func TestCollectionFacetsCannotBeFixedAndCompletionCanRetry(t *testing.T) {
 			if completionErr := builder.Complete(id, spec); completionErr != nil {
 				t.Fatalf("Complete() retry = %v", completionErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -929,7 +929,7 @@ func TestFixedWhitespaceRejectsStrengtheningAndCompletionCanRetry(t *testing.T) 
 	if completionErr := builder.Complete(derivedID, derived); completionErr != nil {
 		t.Fatalf("Complete() retry = %v", completionErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1019,7 +1019,7 @@ func TestInheritedCardinalityConflictsAndRetry(t *testing.T) {
 			if retryErr := builder.Complete(id, spec); retryErr != nil {
 				t.Fatalf("Complete() retry = %v", retryErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1068,7 +1068,7 @@ func TestProgramLexicalPayloadLengthFacets(t *testing.T) {
 			}); completeErr != nil {
 				t.Fatal(completeErr)
 			}
-			program, sealErr := builder.Seal()
+			program, sealErr := sealAll(builder)
 			if sealErr != nil {
 				t.Fatal(sealErr)
 			}

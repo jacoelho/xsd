@@ -8,7 +8,7 @@ import (
 
 func TestBuiltinValueContracts(t *testing.T) {
 	t.Parallel()
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestForwardBaseRetainsFacets(t *testing.T) {
 	if err := builder.Complete(derived, value.TypeSpec{Variety: value.Atomic, Primitive: value.PrimitiveDecimal, Base: base, ListItem: value.NoType}); err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestForwardBaseRetainsFacets(t *testing.T) {
 
 func TestValueEqualityUsesValueSpace(t *testing.T) {
 	t.Parallel()
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +206,7 @@ func TestBuiltinEntityUnionFallback(t *testing.T) {
 	if err = builder.Complete(id, value.TypeSpec{Variety: value.Union, Union: []value.TypeID{entity, stringID}, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, Base: value.NoType, ListItem: value.NoType}); err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,7 +28,7 @@ func TestCompositeValueIdentityProjections(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -55,7 +55,7 @@ func TestListIdentityUsesSharedFraming(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestIdentityPayloadsSurviveLaterEvaluation(t *testing.T) {
 	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{
 		Variety: value.List, Base: value.NoType, ListItem: item,
 	})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 	if err = builder.Complete(outer, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{inner, stringType}}); err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestCanonicalProjectionRequestsAndOwnership(t *testing.T) {
 	if (value.Value{}).HasIdentity() {
 		t.Fatal("zero value has an identity projection")
 	}
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestCanonicalProjectionClearsRejectedUnionMember(t *testing.T) {
 		Variety: value.Union, Base: value.NoType, ListItem: value.NoType,
 		Union: []value.TypeID{first, stringType},
 	})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestCanonicalProjectionRetainsFloatListEnumeration(t *testing.T) {
 		Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
 		Facets: value.FacetSpec{Enumeration: []value.LiteralSpec{{Lexical: "1 2", Type: value.NoType}}},
 	})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func assertRequestedCanonicalProjection(t *testing.T, got value.Value, needs val
 }
 
 func TestDecimalAndIntegerProjectionRequests(t *testing.T) {
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -49,9 +49,9 @@ func TestSchemaTypeInfoClassifiesUnavailableSimpleDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("value.Builder.Complete() error = %v", err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
-		t.Fatalf("value.Builder.Seal() error = %v", err)
+		t.Fatalf("value.Builder.SealKeeping() error = %v", err)
 	}
 	missing := value.BuiltinTypeCount + 1
 	unavailableList := value.BuiltinTypeCount + 2

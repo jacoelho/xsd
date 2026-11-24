@@ -11,9 +11,9 @@ import (
 func testValue(t *testing.T, id valuepkg.TypeID, lexical string, resolver valuepkg.Resolver, needs valuepkg.Needs) valuepkg.Value {
 	t.Helper()
 	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
-		t.Fatalf("Seal() error = %v", err)
+		t.Fatalf("SealKeeping() error = %v", err)
 	}
 	v, err := p.Validate(id, lexical, resolver, needs, valuepkg.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
@@ -29,7 +29,7 @@ func testBuiltinValue(t *testing.T, kind valuepkg.PrimitiveKind, lexical string)
 
 func valueIdentityKey(kind valuepkg.PrimitiveKind, lexical string) string {
 	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		panic(err)
 	}
@@ -78,7 +78,7 @@ func testConstraintValue(lexical, canonical string, typ SimpleTypeID, identity s
 		}}
 	}
 	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		panic(err)
 	}

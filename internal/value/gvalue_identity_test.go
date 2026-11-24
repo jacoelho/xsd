@@ -9,7 +9,7 @@ import (
 func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 	t.Parallel()
 
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 	t.Parallel()
 
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 }
 
 func TestGValueIdentityCalendarDefaults(t *testing.T) {
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}

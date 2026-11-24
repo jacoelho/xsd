@@ -121,7 +121,7 @@ func TestProgramValidatePatternWorkIsPerValue(t *testing.T) {
 	}); completeErr != nil {
 		t.Fatal(completeErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestPatternAccountSaturates(t *testing.T) {
 }
 
 func TestEvaluationRequiresPatternAccount(t *testing.T) {
-	program, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 20, MaxTotalPatternWork: 1 << 20}).Seal()
+	program, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 20, MaxTotalPatternWork: 1 << 20}))
 	if err != nil {
 		t.Fatal(err)
 	}

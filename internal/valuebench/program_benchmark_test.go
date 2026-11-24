@@ -34,7 +34,7 @@ func BenchmarkProgramDecimalBound(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	p, err := builder.Seal()
+	p, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func BenchmarkProgramList(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	p, err := builder.Seal()
+	p, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func BenchmarkProgramUnion(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	p, err := builder.Seal()
+	p, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func benchmarkProgramPrimitive(b *testing.B) (*valuepkg.Program, valuepkg.TypeID
 	if err != nil {
 		b.Fatal(err)
 	}
-	p, err := builder.Seal()
+	p, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func BenchmarkReentrantQNameConstruction(b *testing.B) {
 		if completionErr != nil {
 			return nil, parent, child, completionErr
 		}
-		program, err := builder.Seal()
+		program, err := sealAll(builder)
 		return program, parent, child, err
 	}
 	check := func(program *valuepkg.Program, parent, child valuepkg.TypeID) {
@@ -371,7 +371,7 @@ func completeFloatPolicyType(tb testing.TB, builder *valuepkg.Builder, spec valu
 
 func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 	tb.Helper()
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -414,7 +414,7 @@ func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 		lists = append(lists, floatPolicyRow{id: list, selected: valuepkg.NoType, input: "1 1.5", canonical: "1.0E0 1.5E0", identity: valuepkg.ListIdentityKey([]string{entry.prefix + "1.0E0", entry.prefix + "1.5E0"})})
 		unions = append(unions, floatPolicyRow{id: union, selected: item, input: "1.5", canonical: "1.5E0", identity: entry.prefix + "1.5E0"})
 	}
-	composed, err := builder.Seal()
+	composed, err := sealAll(builder)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -591,7 +591,7 @@ func admittedOrderedFixtures(tb testing.TB) [4]admittedOrderedFixture {
 	timeUpper := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDateTime, valuepkg.NoType, admittedOrderedFacet(valuepkg.FacetMaxInclusive, "2000-01-01T12:00:00Z", false)))
 	durationLower := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDuration, valuepkg.NoType, admittedOrderedFacet(valuepkg.FacetMinInclusive, "P365D", false)))
 	durationUpper := completeAdmittedOrdered(tb, builder, admittedOrderedSpec(valuepkg.PrimitiveDuration, valuepkg.NoType, admittedOrderedFacet(valuepkg.FacetMaxInclusive, "P365D", false)))
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -721,7 +721,7 @@ func buildAdmittedOrderedBatch(tb testing.TB, widening bool) ([4]*valuepkg.Progr
 		if retryErr := builder.Complete(leaf, admittedOrderedSpec(valuepkg.PrimitiveDecimal, omitted, admittedOrderedFacet(flag, equivalent, false))); retryErr != nil {
 			tb.Fatal(retryErr)
 		}
-		program, err := builder.Seal()
+		program, err := sealAll(builder)
 		if err != nil {
 			tb.Fatal(err)
 		}

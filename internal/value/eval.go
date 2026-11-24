@@ -212,7 +212,7 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 }
 
 // Validate parses one value against the completed portion of an incremental
-// builder. It is intended for compiler literals and constraints before Seal;
+// builder. It is intended for compiler literals and constraints before SealKeeping;
 // published callers use Program.Validate. Every call charges the builder's
 // aggregate pattern account (BuilderOptions.MaxTotalPatternWork), as Complete
 // does; the builder has no uncharged evaluation.
@@ -426,7 +426,7 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget 
 	if !ok {
 		return NoType, true, ErrMetadata
 	}
-	switch t.variety {
+	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
 		return validateAtomicBytesFast(t, lexical, scratch, budget)
 	case Union:
@@ -1080,7 +1080,7 @@ func (p *Program) eval(id TypeID, lexical string, options evalOptions, out *pars
 		normalized = normalize(lexical, t.whitespace)
 	}
 	var err error
-	switch t.variety {
+	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
 		err = evalAtomic(id, t, normalized, options, out)
 	case List:

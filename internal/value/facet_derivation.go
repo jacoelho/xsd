@@ -29,7 +29,7 @@ func FacetAllowed(variety Variety, primitive PrimitiveKind, bit FacetMask) bool 
 
 func allowedFacetMask(variety Variety, primitive PrimitiveKind) FacetMask {
 	const common = FacetPattern | FacetEnumeration
-	switch variety {
+	switch variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case List:
 		return common | FacetWhiteSpace | lengthFacetMask
 	case Union:
@@ -105,7 +105,7 @@ func validateTypeDerivation(baseID TypeID, derived, base typeDef) error {
 }
 
 func validateTypeShape(derived, base typeDef) error {
-	switch base.variety {
+	switch base.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case List:
 		if derived.listItem != base.listItem {
 			return errRestrictionListItem

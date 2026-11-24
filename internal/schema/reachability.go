@@ -11,18 +11,25 @@ import (
 // declarations and types: a root element, xsi:type, a wildcard and a
 // substitution group member all resolve by global name. From there validation
 // reaches an element declaration's type, and a complex type's content model
-// with every element particle in it and in its nested models. Each model is
-// visited once by ID, so a group shared by many types is read once.
+// with every element particle in it and in its nested models, its text type
+// and the types of its attribute uses. A simple type reaches its base, list
+// item and union members, which its evaluation and diagnostics read. Each
+// model, attribute-use set and simple type is visited once by ID, so a group
+// or attribute group shared by many types is read once.
 type componentReach struct {
-	elements     []bool
-	complexTypes []bool
-	models       []bool
-	queue        []contentModelID
+	elements      []bool
+	complexTypes  []bool
+	models        []bool
+	attributeSets []bool
+	simpleTypes   []bool
+	queue         []contentModelID
+	simpleQueue   []SimpleTypeID
 }
 
 // detachUnreachableComponents marks the components no instance element
 // reaches. It is the one writer of complexTypeMetadata.Detached,
-// identityConstraintSpec.Detached and schemaBuild.ReachableElements. A
+// identityConstraintSpec.Detached, schemaBuild.ReachableElements and
+// schemaBuild.ReachableSimpleTypes. A
 // constraint is detached when its declarer is unreached or it has none.
 // Element declarations keep their identity lists, which the restriction
 // checks compare; publication omits unreached declarations
@@ -32,7 +39,11 @@ type componentReach struct {
 // only models complexTypeReachableModels already read and charged under
 // MaxContentModelAnalysisSteps, and it visits each element declaration and
 // complex type once, from a global declaration or from such a particle, so
-// its work is bounded by steps already spent.
+// its work is bounded by steps already spent. It reads the uses of each
+// attribute-use set once, uses its compilation charged under
+// MaxSchemaDependencySteps, and visits each simple type once, reading its
+// base, list item and union members, which its definition charged when it
+// was compiled.
 func (c *compiler) detachUnreachableComponents() error {
 	r, err := c.reachFromGlobals()
 	if err != nil {
@@ -46,14 +57,21 @@ func (c *compiler) detachUnreachableComponents() error {
 		c.rt.Identities[i].Detached = declarer == NoElement || !validElementID(declarer, len(r.elements)) || !r.elements[declarer]
 	}
 	c.rt.ReachableElements = r.elements
+	c.rt.ReachableSimpleTypes = r.simpleTypes
 	return nil
 }
 
 func (c *compiler) reachFromGlobals() (componentReach, error) {
 	r := componentReach{
-		elements:     make([]bool, len(c.rt.Elements)),
-		complexTypes: make([]bool, len(c.rt.ComplexTypes)),
-		models:       make([]bool, len(c.rt.Models)),
+		elements:      make([]bool, len(c.rt.Elements)),
+		complexTypes:  make([]bool, len(c.rt.ComplexTypes)),
+		models:        make([]bool, len(c.rt.Models)),
+		attributeSets: make([]bool, len(c.rt.AttributeUseSets)),
+		simpleTypes:   make([]bool, len(c.rt.SimpleTypes)),
+		simpleQueue:   make([]SimpleTypeID, 0, len(c.rt.SimpleTypes)),
+	}
+	if err := c.reachGlobalSimpleTypes(&r); err != nil {
+		return componentReach{}, err
 	}
 	if err := c.reachGlobalDeclarations(&r); err != nil {
 		return componentReach{}, err
@@ -66,7 +84,63 @@ func (c *compiler) reachFromGlobals() (componentReach, error) {
 			return componentReach{}, err
 		}
 	}
+	for next := 0; next < len(r.simpleQueue); {
+		id := r.simpleQueue[next]
+		next++
+		if err := c.reachSimpleTypeDependencies(&r, id); err != nil {
+			return componentReach{}, err
+		}
+	}
 	return r, nil
+}
+
+// reachGlobalSimpleTypes roots the simple types validation can name without
+// an element: the global types, builtins included, that xsi:type names, and
+// the types of the global and intrinsic xsi attribute declarations.
+func (c *compiler) reachGlobalSimpleTypes(r *componentReach) error {
+	for _, typ := range c.rt.GlobalTypes {
+		if id, ok := typ.Simple(); ok {
+			if err := r.reachSimpleType(id); err != nil {
+				return err
+			}
+		}
+	}
+	for i := range c.rt.Attributes {
+		if err := r.reachSimpleType(c.rt.Attributes[i].Type); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *componentReach) reachSimpleType(id SimpleTypeID) error {
+	if id == NoSimpleType {
+		return nil
+	}
+	if !validSimpleTypeID(id, len(r.simpleTypes)) {
+		return xsderrors.InternalInvariant("simple type reference is invalid")
+	}
+	if !r.simpleTypes[id] {
+		r.simpleTypes[id] = true
+		r.simpleQueue = append(r.simpleQueue, id)
+	}
+	return nil
+}
+
+func (c *compiler) reachSimpleTypeDependencies(r *componentReach, id SimpleTypeID) error {
+	spec := &c.rt.SimpleTypes[id].ValueSpec
+	if err := r.reachSimpleType(spec.Base); err != nil {
+		return err
+	}
+	if err := r.reachSimpleType(spec.ListItem); err != nil {
+		return err
+	}
+	for _, member := range spec.Union {
+		if err := r.reachSimpleType(member); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *compiler) reachGlobalDeclarations(r *componentReach) error {
@@ -94,8 +168,12 @@ func (c *compiler) reachElement(r *componentReach, id ElementID) error {
 		return nil
 	}
 	r.elements[id] = true
-	if typ, ok := c.rt.Elements[id].Type.Complex(); ok {
-		return c.reachComplexType(r, typ)
+	typ := c.rt.Elements[id].Type
+	if simple, ok := typ.Simple(); ok {
+		return r.reachSimpleType(simple)
+	}
+	if complexType, ok := typ.Complex(); ok {
+		return c.reachComplexType(r, complexType)
 	}
 	return nil
 }
@@ -108,7 +186,30 @@ func (c *compiler) reachComplexType(r *componentReach, id ComplexTypeID) error {
 		return nil
 	}
 	r.complexTypes[id] = true
-	return r.reachModel(c.rt.ComplexTypes[id].Content)
+	typ := &c.rt.ComplexTypes[id]
+	if err := r.reachSimpleType(typ.TextType); err != nil {
+		return err
+	}
+	if err := c.reachAttributeUseSet(r, typ.Attrs); err != nil {
+		return err
+	}
+	return r.reachModel(typ.Content)
+}
+
+func (c *compiler) reachAttributeUseSet(r *componentReach, id attributeUseSetID) error {
+	if !validAttributeUseSetID(id, len(r.attributeSets)) {
+		return xsderrors.InternalInvariant("complex type references invalid attribute use set")
+	}
+	if r.attributeSets[id] {
+		return nil
+	}
+	r.attributeSets[id] = true
+	for _, use := range c.rt.AttributeUseSets[id].Uses {
+		if err := r.reachSimpleType(use.Type); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *componentReach) reachModel(id contentModelID) error {
@@ -432,6 +533,88 @@ func validatePublishedIdentityConstraints(elements *elementReadTable, identities
 		}
 	}
 	return nil
+}
+
+// validatePublishedSimpleTypes checks that every simple type a published read
+// names is one build.ReachableSimpleTypes marks, so sealing the value program
+// keeping only the reached types leaves no read naming a type without a
+// definition.
+func validatePublishedSimpleTypes(p *schemaProgram, build *schemaBuild) error {
+	r := reachedSimpleTypes(build.ReachableSimpleTypes)
+	switch {
+	case len(r) != len(build.SimpleTypes):
+		return xsderrors.InternalInvariant("reachable simple types do not cover the simple types")
+	case !r.keepElementTypes(p.Elements.meta):
+		return xsderrors.InternalInvariant("published element declaration names an unreached simple type")
+	case !r.keepTextTypes(p.ComplexTypes):
+		return xsderrors.InternalInvariant("published complex type names an unreached text type")
+	case !r.keepAttributeUseTypes(p.AttributeUseSets):
+		return xsderrors.InternalInvariant("published attribute use names an unreached simple type")
+	case !r.keepAttributeDeclTypes(p.Attributes):
+		return xsderrors.InternalInvariant("published attribute declaration names an unreached simple type")
+	case !r.keepGlobalTypes(p.GlobalTypes):
+		return xsderrors.InternalInvariant("global simple type is unreached")
+	}
+	return nil
+}
+
+// reachedSimpleTypes is schemaBuild.ReachableSimpleTypes.
+type reachedSimpleTypes []bool
+
+func (r reachedSimpleTypes) keeps(id SimpleTypeID) bool {
+	return id == NoSimpleType || validSimpleTypeID(id, len(r)) && r[id]
+}
+
+func (r reachedSimpleTypes) keepsType(typ TypeID) bool {
+	id, simple := typ.Simple()
+	return !simple || r.keeps(id)
+}
+
+func (r reachedSimpleTypes) keepElementTypes(meta []elementReadMeta) bool {
+	for i := range meta {
+		if !r.keepsType(meta[i].typ) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r reachedSimpleTypes) keepTextTypes(types []complexTypeRead) bool {
+	for i := range types {
+		if !r.keeps(types[i].textType) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r reachedSimpleTypes) keepAttributeUseTypes(sets []AttributeUseSetRead) bool {
+	for i := range sets {
+		for _, use := range sets[i].uses {
+			if !r.keeps(use.typ) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (r reachedSimpleTypes) keepAttributeDeclTypes(decls []AttributeDeclRead) bool {
+	for i := range decls {
+		if !r.keeps(decls[i].typ) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r reachedSimpleTypes) keepGlobalTypes(types map[QName]TypeID) bool {
+	for _, typ := range types {
+		if !r.keepsType(typ) {
+			return false
+		}
+	}
+	return true
 }
 
 func uncharged(int) error { return nil }

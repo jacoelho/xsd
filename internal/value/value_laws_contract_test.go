@@ -386,7 +386,7 @@ func (l valueLaws) restricted(description string, facets value.FacetSpec) (*valu
 	if completeErr := builder.Complete(id, spec); completeErr != nil {
 		l.t.Fatalf("%s restricted by %s: Complete = %v", l.table.builtin, description, completeErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		l.t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func (l valueLaws) restricted(description string, facets value.FacetSpec) (*valu
 
 func (l valueLaws) value(lexical string) value.Value {
 	l.t.Helper()
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		l.t.Fatal(err)
 	}
@@ -771,7 +771,7 @@ func newValueLawGrid(t *testing.T, table valueLawTable) *valueLawGrid {
 			})
 		}
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

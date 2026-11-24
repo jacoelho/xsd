@@ -82,7 +82,7 @@ func enumerationValueProgram(tb testing.TB, kind enumerationValueKind, size, ste
 		restricted.Base = id
 		id = complete(restricted)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		tb.Fatalf("%s n=%d: %v", kind.name, size, err)
 	}
@@ -174,7 +174,7 @@ func BenchmarkEnumerationValueKeyLongQName(b *testing.B) {
 		}); err != nil {
 			b.Fatalf("QName n=%d: %v", size, err)
 		}
-		program, err := builder.Seal()
+		program, err := sealAll(builder)
 		if err != nil {
 			b.Fatalf("QName n=%d: %v", size, err)
 		}

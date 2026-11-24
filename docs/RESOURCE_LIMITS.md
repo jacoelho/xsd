@@ -29,7 +29,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaSources` | `1024` | Max explicit source descriptors, and, separately, max distinct schema documents loaded (explicit and resolver-loaded together). An unavailable include/import target loads nothing and is not counted; the document that exceeds the count is opened and closed without being read. |
 | `MaxSchemaTotalBytes` | `256 MiB` | Max aggregate bytes read from schema sources. Each document is charged when first loaded; an opener source reached again is reopened and charged again; a file source is read once; an in-memory source is compared by digest without charge. |
 | `MaxSchemaReferences` | `16_384` | Max include/import references processed across the schema set. |
-| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, each row, edge, `xs:all` term and name-index entry of a compiled content-model table, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step; a compiled content model's record costs two. The walk that detaches the components no instance element reaches costs nothing: it reads only content models whose particles compilation already charged under `MaxContentModelAnalysisSteps`, each once. The compiled tables are bounded per step below. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. An extension whose effective content is not empty (Structures §3.4.2) compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types that each add one element exceeds that limit instead, as do 2,000 that each add an empty `xs:choice`. An extension whose effective content is empty, such as one with no model group or an empty `xs:sequence` and not effectively mixed, reuses its base's content model, and 2,000 of them compile at the defaults. |
+| `MaxSchemaDependencySteps` | `1_000_000` | Max aggregate schema-graph expansion, target-context propagation, and component-dependency resolution work. Each particle appended to a content model, each attribute use and wildcard namespace admitted to a compiled set, each model record, each row, edge, `xs:all` term and name-index entry of a compiled content-model table, and each namespace that an attribute-wildcard intersection, union or restriction check looks up or merges costs one step; a compiled content model's record costs two. The walk that detaches the components no instance element reaches costs nothing: it reads each content model, attribute-use set and simple type at most once, and compilation already charged their particles under `MaxContentModelAnalysisSteps`, their uses under this limit and their base, list item and union members, so a group or attribute group that many types share is read once. The compiled tables are bounded per step below. A derived type's content model holds its base particle as one particle rather than a copy of the base particles, but its attribute-use set is its own copy and is charged for every use it inherits: a base type with 300 attributes extended by 4,000 types needs about 1.2 million steps and exceeds the default. An extension whose effective content is not empty (Structures §3.4.2) compiles its own content model under `MaxContentModelAnalysisSteps`, so a base type with 300 optional elements extended by 2,000 types that each add one element exceeds that limit instead, as do 2,000 that each add an empty `xs:choice`. An extension whose effective content is empty, such as one with no model group or an empty `xs:sequence` and not effectively mixed, reuses its base's content model, and 2,000 of them compile at the defaults. |
 | `MaxSchemaTargetContexts` | `4_096` | Max distinct source/effective-target-namespace contexts, including primary and chameleon-derived contexts. |
 | `MaxSchemaInstantiatedNodes` | `1_000_000` | Max aggregate schema node occurrences across effective target contexts. Every anonymous type definition is at least one node occurrence, so this limit also bounds the number of anonymous types. |
 | `MaxSchemaNames` | `0` | Max interned schema names, including built-ins. An anonymous type interns no name and is not counted. `0` means no explicit limit. |
@@ -188,6 +188,7 @@ default options; no test pins them:
 | Key with its selector and field | 3 | about 470 bytes |
 | Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
 | The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 299 bytes |
+| The same element with an anonymous simple type restricting `xs:string` by a pattern and two enumerations | 6 | about 299 bytes |
 | The same element with an anonymous complex type holding one element | 4 | about 46 bytes |
 | The same element with an anonymous complex type and a key | 7 | about 128 bytes |
 
@@ -206,8 +207,13 @@ references. A detached complex type keeps its ID and derivation record but no
 content model or attribute uses, and a detached identity constraint keeps its
 name but no evaluation program or dispatch branch. An element declaration no
 instance element reaches is not published and retains nothing in the element
-table, though its local name stays in the name table. Simple types no
-instance element reaches are kept and retain as they would elsewhere.
+table, though its local name stays in the name table. A simple type no
+instance element reaches keeps its ID, its derivation record and its
+value-program slot, about 250 bytes with slice growth, but no facets,
+patterns or enumerations, so the same element retains the same whatever
+facets its type has. Such a type is still compiled and checked first, so its
+patterns and facet literals charge the pattern, storage and work limits as a
+reached type's do.
 
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand

@@ -27,7 +27,7 @@ func TestRawStringEnumerationMembershipAcrossShapes(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				program, err := builder.Seal()
+				program, err := sealAll(builder)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -88,7 +88,7 @@ func TestLargeRawStringEnumerationRetainsDuplicateAndEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestLargeInheritedRawStringEnumerationKeepsGroupOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestBase64EnumerationCompactsDocumentValueOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestBase64ListEnumerationPreparesRetainedItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -406,7 +406,7 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -503,7 +503,7 @@ func TestInheritedBase64EnumerationKeepsLiteralsImmutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -596,7 +596,7 @@ func TestBase64EmptyEnumerationAndRecovery(t *testing.T) {
 	}); completeErr != nil {
 		t.Fatal(completeErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -639,7 +639,7 @@ func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 		}); completeErr != nil {
 			t.Fatal(completeErr)
 		}
-		program, err := builder.Seal()
+		program, err := sealAll(builder)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -664,7 +664,7 @@ func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 }
 
 func TestBase64PaddingAdmissionContract(t *testing.T) {
-	program, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}

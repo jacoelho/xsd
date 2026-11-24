@@ -25,7 +25,7 @@ func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestUnionEnumerationUsesSelectedMemberValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, err := b.Seal()
+			p, err := sealAll(b)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -311,7 +311,7 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +337,7 @@ func TestNestedUnionPatternUsesTerminalMemberWhitespace(t *testing.T) {
 }
 
 func TestListXMLWhitespaceAdmission(t *testing.T) {
-	program, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}

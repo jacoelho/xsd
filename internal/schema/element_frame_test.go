@@ -9,9 +9,9 @@ import (
 func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 	t.Parallel()
 
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
-		t.Fatalf("value.Builder.Seal() error = %v", err)
+		t.Fatalf("value.Builder.SealKeeping() error = %v", err)
 	}
 	stringID := value.BuiltinType(value.PrimitiveString)
 	integerID, ok := value.BuiltinTypeID("integer")
@@ -75,7 +75,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 }
 
 func TestSchemaReadsRejectInvalidSimpleContent(t *testing.T) {
-	program, sealErr := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, sealErr := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if sealErr != nil {
 		t.Fatal(sealErr)
 	}

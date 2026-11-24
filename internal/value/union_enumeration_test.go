@@ -69,7 +69,7 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestProgramNestedUnionEnumerationEnforcesNestedMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestProgramInheritedUnionEnumerationRetainsNestedListItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}

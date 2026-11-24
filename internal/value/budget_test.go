@@ -7,7 +7,7 @@ import (
 )
 
 func TestProgramValueWorkLimitIsRequiredBeforeFastPaths(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestProgramValueWorkLimitIsRequiredBeforeFastPaths(t *testing.T) {
 }
 
 func TestProgramValueWorkLimitBoundsPlainStringAndResetsPerCall(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,8 +106,8 @@ func TestBuilderFacetBatchSharesConstructionBudget(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Complete() error = %v", err)
 			}
-			if _, sealErr := builder.Seal(); sealErr != nil {
-				t.Fatalf("Seal() after successful completion = %v", sealErr)
+			if _, sealErr := sealAll(builder); sealErr != nil {
+				t.Fatalf("SealKeeping() after successful completion = %v", sealErr)
 			}
 		})
 	}
@@ -139,8 +139,8 @@ func TestBuilderCompleteGetsFreshFacetBudgetAfterFailure(t *testing.T) {
 	if err := builder.Complete(id, second); err != nil {
 		t.Fatalf("retry Complete() error = %v", err)
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() after retry error = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() after retry error = %v", err)
 	}
 }
 
@@ -159,7 +159,7 @@ func TestEvaluationBudgetRejectsUsageOverflow(t *testing.T) {
 }
 
 func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestBorrowedRawListBudgetRouting(t *testing.T) {
 	}); completeErr != nil {
 		t.Fatal(completeErr)
 	}
-	program, sealErr := builder.Seal()
+	program, sealErr := sealAll(builder)
 	if sealErr != nil {
 		t.Fatal(sealErr)
 	}

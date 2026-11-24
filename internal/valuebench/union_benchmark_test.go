@@ -54,7 +54,7 @@ func BenchmarkPublishedRawUnionLateMember(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func BenchmarkPublishedUnionRejectedMember(b *testing.B) {
 			}); completeErr != nil {
 				b.Fatal(completeErr)
 			}
-			program, sealErr := builder.Seal()
+			program, sealErr := sealAll(builder)
 			if sealErr != nil {
 				b.Fatal(sealErr)
 			}

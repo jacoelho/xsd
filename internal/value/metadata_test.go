@@ -113,25 +113,25 @@ func TestBuilderMetadataLifecycle(t *testing.T) {
 	if _, validateErr := builder.Validate(id, "value", Resolver{}, 0, nil); validateErr != nil {
 		t.Fatalf("builder Validate() = %v", validateErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertUnavailable(builder, id)
 	if reserved, reserveErr := builder.Reserve(); reserved != NoType || !errors.Is(reserveErr, ErrMetadata) {
-		t.Fatalf("Reserve after Seal = %d, %v; want NoType, ErrMetadata", reserved, reserveErr)
+		t.Fatalf("Reserve after SealKeeping = %d, %v; want NoType, ErrMetadata", reserved, reserveErr)
 	}
 	if capacityErr := builder.ReserveCapacity(2); !errors.Is(capacityErr, ErrMetadata) {
-		t.Fatalf("ReserveCapacity after Seal = %v; want ErrMetadata", capacityErr)
+		t.Fatalf("ReserveCapacity after SealKeeping = %v; want ErrMetadata", capacityErr)
 	}
 	if completionErr := builder.Complete(id, spec); !errors.Is(completionErr, ErrMetadata) {
-		t.Fatalf("Complete after Seal = %v; want ErrMetadata", completionErr)
+		t.Fatalf("Complete after SealKeeping = %v; want ErrMetadata", completionErr)
 	}
 	if _, validationErr := builder.Validate(id, "x", Resolver{}, NeedCanonical, nil); !errors.Is(validationErr, ErrMetadata) {
-		t.Fatalf("Builder Validate after Seal = %v; want ErrMetadata", validationErr)
+		t.Fatalf("Builder Validate after SealKeeping = %v; want ErrMetadata", validationErr)
 	}
-	if repeated, sealErr := builder.Seal(); repeated != nil || !errors.Is(sealErr, ErrMetadata) {
-		t.Fatalf("repeated Seal = %v, %v; want nil, ErrMetadata", repeated, sealErr)
+	if repeated, sealErr := sealAll(builder); repeated != nil || !errors.Is(sealErr, ErrMetadata) {
+		t.Fatalf("repeated SealKeeping = %v, %v; want nil, ErrMetadata", repeated, sealErr)
 	}
 	if got, validationErr := program.Validate(id, "x", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); validationErr != nil || got.CanonicalText() != "x" {
 		t.Fatalf("published Validate after rejected Builder calls = %q, %v; want x, nil", got.CanonicalText(), validationErr)
@@ -180,7 +180,7 @@ func TestBuilderTypeViewOwnsUnionCopy(t *testing.T) {
 	if !valid || !reflect.DeepEqual(again.Union, []TypeID{builtinBoolean, builtinDecimal}) {
 		t.Fatalf("TypeView() after returned-slice mutation = %#v, %v; want boolean, decimal", again, valid)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,9 +320,9 @@ func unconstrainedStringQueryProgram(tb testing.TB) (*Program, map[string]TypeID
 		tb.Fatalf("Add(inherited facet) error = %v", err)
 	}
 	types["inherited facet"] = inherited
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
-		tb.Fatalf("Seal() error = %v", err)
+		tb.Fatalf("SealKeeping() error = %v", err)
 	}
 	return program, types
 }

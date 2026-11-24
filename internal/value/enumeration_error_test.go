@@ -116,7 +116,7 @@ func enumerationDiagnosticProgram(t *testing.T, spec value.TypeSpec) (*value.Pro
 	if completionErr := builder.Complete(id, spec); completionErr != nil {
 		t.Fatal(completionErr)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
