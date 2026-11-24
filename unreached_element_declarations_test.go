@@ -33,6 +33,16 @@ const unreachedDeclarationsSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001
     <xs:element name="dflt" type="xs:int" default="3"/>
     <xs:element name="strict"><xs:complexType><xs:sequence><xs:any processContents="strict"/></xs:sequence></xs:complexType></xs:element>
     <xs:element name="lax"><xs:complexType><xs:sequence><xs:any processContents="lax"/></xs:sequence></xs:complexType></xs:element>
+    <xs:element name="pick"><xs:complexType><xs:choice maxOccurs="unbounded">
+      <xs:element name="p1" type="xs:int"/><xs:element name="p2" type="xs:int"/><xs:element name="p3" type="xs:int"/>
+      <xs:element name="p4" type="xs:int"/><xs:element name="p5" type="xs:int"/><xs:element name="p6" type="xs:int"/>
+      <xs:element name="p7" type="xs:int"/><xs:element name="p8" type="xs:int"/><xs:element name="p9" type="xs:string"/>
+    </xs:choice></xs:complexType></xs:element>
+    <xs:element name="run"><xs:complexType><xs:sequence>
+      <xs:element name="r1" type="xs:int" minOccurs="0"/><xs:element name="r2" type="xs:int" minOccurs="0"/><xs:element name="r3" type="xs:int" minOccurs="0"/>
+      <xs:element name="r4" type="xs:int" minOccurs="0"/><xs:element name="r5" type="xs:int" minOccurs="0"/><xs:element name="r6" type="xs:int" minOccurs="0"/>
+      <xs:element name="r7" type="xs:int" minOccurs="0"/><xs:element name="r8" type="xs:int" minOccurs="0"/><xs:element name="r9" type="xs:string" minOccurs="0"/>
+    </xs:sequence></xs:complexType></xs:element>
   </xs:sequence></xs:complexType></xs:element>
 </xs:schema>`
 
@@ -66,7 +76,8 @@ func TestUnreachedElementDeclarationsDoNotChangeValidation(t *testing.T) {
 	const xsi = `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`
 	live := func(replace ...string) string {
 		document := `<root ` + xsi + `><pair><d>7</d><c>1</c></pair><member>m</member><head>h</head><other>o</other>` +
-			`<items><item id="a">1</item><item id="b" xsi:nil="true"/></items><dflt/><strict><head>s</head></strict><lax><unknown/></lax></root>`
+			`<items><item id="a">1</item><item id="b" xsi:nil="true"/></items><dflt/><strict><head>s</head></strict><lax><unknown/></lax>` +
+			`<pick><p9>s</p9><p2>2</p2></pick><run><r2>2</r2><r9>s</r9></run></root>`
 		return strings.NewReplacer(replace...).Replace(document)
 	}
 	for _, test := range []struct {
@@ -86,6 +97,10 @@ func TestUnreachedElementDeclarationsDoNotChangeValidation(t *testing.T) {
 		{name: "strict wildcard naming an unreached local", document: live("<strict><head>s</head></strict>", "<strict><g1>s</g1></strict>")},
 		{name: "strict wildcard global member", document: live("<strict><head>s</head></strict>", "<strict><member><x/></member></strict>")},
 		{name: "lax wildcard global head", document: live("<lax><unknown/></lax>", "<lax><head><x/></head></lax>")},
+		{name: "indexed choice term type", document: live("<p2>2</p2>", "<p8>x</p8>")},
+		{name: "indexed choice unknown term", document: live("<p2>2</p2>", "<p0>2</p0>")},
+		{name: "indexed sequence term type", document: live("<r2>2</r2>", "<r8>x</r8>")},
+		{name: "indexed sequence term order", document: live("<r2>2</r2><r9>s</r9>", "<r9>s</r9><r2>2</r2>")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			want := without.Validate(strings.NewReader(test.document))

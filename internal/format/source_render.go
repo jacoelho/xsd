@@ -1,14 +1,20 @@
 package format
 
 import (
-	"errors"
 	"io"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/jacoelho/xsd/internal/lex"
 	"github.com/jacoelho/xsd/internal/xmlstream"
+	"github.com/jacoelho/xsd/xsderrors"
 )
+
+// invalidSpan reports a tape span that analysis should have rejected. Rendering
+// replays input the reader already accepted, so it never reports malformed XML.
+func invalidSpan(msg string) error {
+	return xsderrors.InternalInvariant("format: "+msg, nil)
+}
 
 func sourceNameSpan(input string, start, end int) (nameStart, nameEnd int) {
 	i := start
@@ -29,7 +35,7 @@ func sourceNameSpan(input string, start, end int) (nameStart, nameEnd int) {
 //nolint:gocognit // This scanner owns the validated start-tag source grammar.
 func writeSourceStart(w io.Writer, input string, end, nameStart, nameEnd int) error {
 	if nameStart >= nameEnd || nameEnd > len(input) {
-		return errors.New("invalid start element source span")
+		return invalidSpan("invalid start element source span")
 	}
 	if _, err := io.WriteString(w, "<"); err != nil {
 		return err
@@ -43,7 +49,7 @@ func writeSourceStart(w io.Writer, input string, end, nameStart, nameEnd int) er
 			i++
 		}
 		if i >= end {
-			return errors.New("invalid start element source span")
+			return invalidSpan("invalid start element source span")
 		}
 		switch input[i] {
 		case '>':
@@ -55,7 +61,7 @@ func writeSourceStart(w io.Writer, input string, end, nameStart, nameEnd int) er
 				i++
 			}
 			if i >= end || input[i] != '>' {
-				return errors.New("invalid empty start element source span")
+				return invalidSpan("invalid empty start element source span")
 			}
 			_, err := io.WriteString(w, ">")
 			return err
@@ -67,26 +73,26 @@ func writeSourceStart(w io.Writer, input string, end, nameStart, nameEnd int) er
 		}
 		attrEnd := i
 		if attrStart == attrEnd {
-			return errors.New("invalid attribute source span")
+			return invalidSpan("invalid attribute source span")
 		}
 		for i < end && lex.IsXMLWhitespaceByte(input[i]) {
 			i++
 		}
 		if i >= end || input[i] != '=' {
-			return errors.New("invalid attribute source span")
+			return invalidSpan("invalid attribute source span")
 		}
 		i++
 		for i < end && lex.IsXMLWhitespaceByte(input[i]) {
 			i++
 		}
 		if i >= end || (input[i] != '\'' && input[i] != '"') {
-			return errors.New("invalid attribute source span")
+			return invalidSpan("invalid attribute source span")
 		}
 		quote := input[i]
 		valueStart := i + 1
 		quoteOffset := strings.IndexByte(input[valueStart:end], quote)
 		if quoteOffset < 0 {
-			return errors.New("invalid attribute source span")
+			return invalidSpan("invalid attribute source span")
 		}
 		valueEnd := valueStart + quoteOffset
 		if _, err := io.WriteString(w, " "); err != nil {
@@ -111,7 +117,7 @@ func writeSourceStart(w io.Writer, input string, end, nameStart, nameEnd int) er
 func writeSourceEnd(w io.Writer, input string, start, end int) error {
 	nameStart, nameEnd := sourceNameSpan(input, start, end)
 	if nameStart >= nameEnd || nameEnd > len(input) {
-		return errors.New("invalid end element source span")
+		return invalidSpan("invalid end element source span")
 	}
 	if _, err := io.WriteString(w, "</"); err != nil {
 		return err
@@ -141,13 +147,13 @@ func writeSourceAttributeValue(w io.Writer, value string) error {
 		case '&':
 			semi := strings.IndexByte(value[end:], ';')
 			if semi < 0 {
-				return errors.New("invalid entity source span")
+				return invalidSpan("invalid entity source span")
 			}
 			end += semi + 1
 			var err error
 			decoded, err = xmlstream.DecodeEntityReferenceString(value[i+1 : end-1])
 			if err != nil {
-				return err
+				return invalidSpan("invalid attribute entity source span")
 			}
 			if decoded < utf8.RuneSelf {
 				escape := xmlAttributeEscape(byte(decoded)) //nolint:gosec // decoded is below utf8.RuneSelf.
@@ -210,12 +216,12 @@ func writeSourceText(w io.Writer, input string, event formatEvent) error {
 		}
 		semi := strings.IndexByte(raw[i+1:], ';')
 		if semi < 0 {
-			return errors.New("invalid entity source span")
+			return invalidSpan("invalid entity source span")
 		}
 		semi += i + 1
 		decoded, err := xmlstream.DecodeEntityReferenceString(raw[i+1 : semi])
 		if err != nil {
-			return err
+			return invalidSpan("invalid text entity source span")
 		}
 		if err := writeEscapedTextRune(w, decoded); err != nil {
 			return err
@@ -229,7 +235,7 @@ func writeSourceText(w io.Writer, input string, event formatEvent) error {
 func writeSourceComment(w io.Writer, input string, start, end int) error {
 	raw := input[start:end]
 	if !strings.HasPrefix(raw, "<!--") || !strings.HasSuffix(raw, "-->") {
-		return errors.New("invalid comment source span")
+		return invalidSpan("invalid comment source span")
 	}
 	if _, err := io.WriteString(w, "<!--"); err != nil {
 		return err
@@ -245,7 +251,7 @@ func writeSourceComment(w io.Writer, input string, start, end int) error {
 func writeSourcePI(w io.Writer, input string, start, end int) error {
 	raw := input[start:end]
 	if !strings.HasPrefix(raw, "<?") || !strings.HasSuffix(raw, "?>") {
-		return errors.New("invalid processing instruction source span")
+		return invalidSpan("invalid processing instruction source span")
 	}
 	limit := len(raw) - len("?>")
 	i := 2
@@ -254,7 +260,7 @@ func writeSourcePI(w io.Writer, input string, start, end int) error {
 		i++
 	}
 	if targetStart == i {
-		return errors.New("invalid processing instruction source span")
+		return invalidSpan("invalid processing instruction source span")
 	}
 	if _, err := io.WriteString(w, "<?"); err != nil {
 		return err

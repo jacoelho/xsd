@@ -38,11 +38,16 @@ type compiledModel struct {
 }
 
 // compiledContent holds one record for each content model that
-// complexTypeReachableModels returns, and no other. A complex type's root
-// model holds its published form over build element IDs, which publication
-// copies over published IDs (publishedElements.publishedModel); any other
-// model holds only its kind.
+// complexTypeReachableModels returns, and no other. A root model validation
+// can enter (entersContent) holds its published form over the published
+// element IDs of Elements, which publication takes as it is; any other root
+// holds the kind and the scalars of its form, and any other model its kind
+// alone.
 type compiledContent struct {
+	// Elements is the element numbering the published tables were built
+	// over, or nil for the identity, which publication checks against
+	// schemaBuild.ReachableElements.
+	Elements *publishedElements
 	// Sources holds the source IDs of the compiled models, ascending and
 	// distinct.
 	Sources []contentModelID
@@ -50,7 +55,7 @@ type compiledContent struct {
 	Models []compiledModelRead
 	// Runs is parallel to Models: the edge run that every row of a root's
 	// published table is a window of, or nil when each row holds its own
-	// edges. It lets publication copy each published edge once.
+	// edges. It lets publication check each published edge once.
 	Runs [][]compiledModelEdgeRead
 }
 
@@ -96,9 +101,12 @@ const publishedRunRepeated uint32 = 1 << 31
 // indexed only when no name selects two of its edges. The rows that are
 // windows of one edge run share one index of the run. Each substitution
 // head's member names are computed once per analysis and kept for the
-// analysis, at most the schema's substitution closure.
+// analysis, at most the schema's substitution closure. A table names
+// declarations by their IDs in elements, which the analysis maps back to
+// build IDs to read names and substitution members.
 type dfaRowIndexAnalysis struct {
 	rt            *schemaBuild
+	elements      *publishedElements
 	work          contentModelWork
 	retained      *workBudget
 	substitutions map[ElementID][]QName
@@ -110,13 +118,22 @@ type dfaRowIndexAnalysis struct {
 // installable, so a row's or run's transient index, bounded by its edges and
 // their substitution members, is allocated before it is charged; an index that
 // is not installed is never charged.
-func newDFARowIndexAnalysis(rt *schemaBuild, work contentModelWork, retained *workBudget) *dfaRowIndexAnalysis {
+func newDFARowIndexAnalysis(rt *schemaBuild, elements *publishedElements, work contentModelWork, retained *workBudget) *dfaRowIndexAnalysis {
 	return &dfaRowIndexAnalysis{
 		rt:            rt,
+		elements:      elements,
 		work:          work,
 		retained:      retained,
 		substitutions: make(map[ElementID][]QName),
 	}
+}
+
+// over returns an analysis of tables numbered by elements that shares a's
+// budgets and substitution member names.
+func (a *dfaRowIndexAnalysis) over(elements *publishedElements) *dfaRowIndexAnalysis {
+	over := *a
+	over.elements = elements
+	return &over
 }
 
 // indexModel installs the name indexes of one published model. run is the
@@ -459,9 +476,13 @@ func (a *dfaRowIndexAnalysis) indexAllTerms(model *compiledModelRead) error {
 // collectElementNames passes the name of element and of each of its
 // substitution members, with pos, to add, charging one unit of work for each,
 // and stops when add reports false.
-func (a *dfaRowIndexAnalysis) collectElementNames(element ElementID, pos uint32, add func(QName, uint32) bool) (bool, error) {
+func (a *dfaRowIndexAnalysis) collectElementNames(published publishedElementID, pos uint32, add func(QName, uint32) bool) (bool, error) {
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
+	}
+	element, ok := a.elements.buildID(published)
+	if !ok {
+		return false, xsderrors.InternalInvariant("compiled content model index references invalid element", nil)
 	}
 	name, ok := a.rt.ElementName(element)
 	if !ok {

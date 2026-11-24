@@ -232,7 +232,7 @@ func (d *xmlDocument[P]) truncatePathText(depth int) {
 // Complete reports document-end diagnostics at the reader position.
 func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
 	if err := reader.Complete(); err != nil {
-		line, col := readerPosition(reader)
+		line, col := reader.DiagnosticPos()
 		ctx := d.context(line, col)
 		if errors.Is(err, xmlstream.ErrNoRoot) {
 			return validation(ctx, xsderrors.CodeValidationXML, msgNoRoot)

@@ -616,13 +616,13 @@ func (c *contentModelCompiler) checkSequenceContinuation(candidate, next content
 // sequenceHasWildcardEquivalentOverlap reports whether a wildcard that can
 // continue a member of the sequence model meets a following member that is a
 // wildcard with the same namespaces. Only a wildcard candidate can meet one,
-// so the following members are walked for wildcard candidates only.
+// so the pass reads only the wildcards among each member's continuations.
 func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model contentModelNode) (bool, error) {
 	if model.Kind != modelSequence {
 		return false, nil
 	}
 	for i := range len(model.Particles) - 1 {
-		sets, err := c.analysis.ParticleContinuations(model.Particles, i)
+		sets, err := c.analysis.ParticleWildcardContinuations(model.Particles, i)
 		if err != nil {
 			return false, err
 		}
@@ -635,15 +635,23 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 }
 
 func (c *contentModelCompiler) wildcardContinuationOverlaps(sets continuationSets, following []contentParticle) (bool, error) {
-	for _, candidates := range sets {
-		for _, candidate := range candidates {
-			if candidate.Kind != particleWildcard {
-				continue
-			}
-			overlap, err := c.wildcardCandidateOverlaps(following, candidate)
-			if err != nil || overlap {
-				return overlap, err
-			}
+	for _, wildcards := range sets {
+		overlap, err := c.wildcardCandidatesOverlap(wildcards, following)
+		if err != nil || overlap {
+			return overlap, err
+		}
+	}
+	return false, nil
+}
+
+func (c *contentModelCompiler) wildcardCandidatesOverlap(wildcards, following []contentParticle) (bool, error) {
+	if err := c.work.spend(len(wildcards)); err != nil {
+		return false, err
+	}
+	for _, candidate := range wildcards {
+		overlap, err := c.wildcardCandidateOverlaps(following, candidate)
+		if err != nil || overlap {
+			return overlap, err
 		}
 	}
 	return false, nil

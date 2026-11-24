@@ -264,18 +264,19 @@ func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input string
-		code  xsderrors.Code
-		line  int
+		name   string
+		input  string
+		code   xsderrors.Code
+		line   int
+		column int
 	}{
-		{name: "declared latin1", input: `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "utf16 bom", input: "\xFE\xFF<root/>", code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "doctype first", input: `<!DOCTYPE root><root/>`, code: xsderrors.CodeUnsupportedDTD, line: 1},
-		{name: "doctype after comment", input: "<!-- c -->\n<!DOCTYPE root><root/>", code: xsderrors.CodeUnsupportedDTD, line: 2},
-		{name: "text entity", input: "<root>\n&x;</root>", code: xsderrors.CodeUnsupportedExternal, line: 2},
-		{name: "attribute entity", input: "<root\na=\"&x;\"/>", code: xsderrors.CodeUnsupportedExternal, line: 2},
-		{name: "colon entity name", input: "<root>\n&a:b;</root>", code: xsderrors.CodeFormatXML, line: 2},
+		{name: "declared latin1", input: `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, code: xsderrors.CodeUnsupportedNonUTF8, line: 1, column: 1},
+		{name: "utf16 bom", input: "\xFE\xFF<root/>", code: xsderrors.CodeUnsupportedNonUTF8, line: 1, column: 1},
+		{name: "doctype first", input: `<!DOCTYPE root><root/>`, code: xsderrors.CodeUnsupportedDTD, line: 1, column: 1},
+		{name: "doctype after comment", input: "<!-- c -->\n<!DOCTYPE root><root/>", code: xsderrors.CodeUnsupportedDTD, line: 2, column: 1},
+		{name: "text entity", input: "<root>\n&x;</root>", code: xsderrors.CodeUnsupportedExternal, line: 2, column: 3},
+		{name: "attribute entity", input: "<root\na=\"&x;\"/>", code: xsderrors.CodeUnsupportedExternal, line: 2, column: 6},
+		{name: "colon entity name", input: "<root>\n&a:b;</root>", code: xsderrors.CodeFormatXML, line: 2, column: 5},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -287,10 +288,53 @@ func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
 			if !ok || diagnostic.Code() != tt.code {
 				t.Fatalf("XML() error = %v, want %q", err, tt.code)
 			}
-			if diagnostic.Line() != tt.line {
-				t.Fatalf("XML() error line = %d, want %d", diagnostic.Line(), tt.line)
+			if diagnostic.Line() != tt.line || diagnostic.Column() != tt.column {
+				t.Fatalf("XML() location = %d:%d, want %d:%d", diagnostic.Line(), diagnostic.Column(), tt.line, tt.column)
 			}
 		})
+	}
+}
+
+func TestFormatXMLLocatesLineStartFailuresAtColumnOne(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		opts  Options
+		code  xsderrors.Code
+	}{
+		{name: "text outside root", input: "<r/>\nx", code: xsderrors.CodeFormatXML},
+		{name: "unclosed element", input: "<root>\n", code: xsderrors.CodeFormatXML},
+		{name: "input limit in prolog", input: "<!--a-->\n<r/>", opts: Options{MaxInputBytes: 9}, code: xsderrors.CodeFormatLimit},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out strings.Builder
+			err := XMLWithOptions(&out, tt.input, tt.opts)
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Code() != tt.code {
+				t.Fatalf("XMLWithOptions() error = %v, want %q", err, tt.code)
+			}
+			if diagnostic.Line() != 2 || diagnostic.Column() != 1 {
+				t.Fatalf("XMLWithOptions() location = %d:%d, want 2:1", diagnostic.Line(), diagnostic.Column())
+			}
+		})
+	}
+}
+
+func TestFormatXMLKeepsLineBreakOnlyLeafTextInline(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	if err := XML(&out, "<root><v>\n</v></root>"); err != nil {
+		t.Fatalf("XML() error = %v", err)
+	}
+	const want = "<root>\n  <v>&#xA;</v>\n</root>"
+	if out.String() != want {
+		t.Fatalf("XML() = %q, want %q", out.String(), want)
 	}
 }
 
@@ -748,6 +792,20 @@ func TestFormatXMLRejectsEmptyAndUnclosedDocuments(t *testing.T) {
 	}
 }
 
+func TestFormatXMLLocatesEmptyDocumentAtFirstLineAndColumn(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	err := XML(&out, "")
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
+		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeFormatXML)
+	}
+	if diagnostic.Line() != 1 || diagnostic.Column() != 1 {
+		t.Fatalf("XML() location = %d:%d, want 1:1", diagnostic.Line(), diagnostic.Column())
+	}
+}
+
 func TestFormatXMLRejectsTruncatedTrailingMarkup(t *testing.T) {
 	t.Parallel()
 	for _, suffix := range []string{`</`, `</root `, `<next `} {
@@ -840,6 +898,57 @@ func TestFormatXMLWithOptionsRejectsOutputBytesAfterPartialWrite(t *testing.T) {
 	}
 }
 
+func TestFormatXMLReportsEveryOutputLimitWithoutLocation(t *testing.T) {
+	t.Parallel()
+
+	const input = "<?pi data?>\n<root a=\"x &amp; y\">\n  <item>text &#x263A;</item>\n  <!-- c -->\n</root>"
+	var full strings.Builder
+	if err := XML(&full, input); err != nil {
+		t.Fatalf("XML() error = %v", err)
+	}
+	for limit := int64(1); limit < int64(full.Len()); limit++ {
+		var out strings.Builder
+		err := XMLWithOptions(&out, input, Options{MaxOutputBytes: limit})
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic.Code() != xsderrors.CodeFormatLimit {
+			t.Fatalf("MaxOutputBytes=%d: error = %v, want %q", limit, err, xsderrors.CodeFormatLimit)
+		}
+		if diagnostic.Line() != 0 || diagnostic.Column() != 0 {
+			t.Fatalf("MaxOutputBytes=%d: location = %d:%d, want none", limit, diagnostic.Line(), diagnostic.Column())
+		}
+	}
+}
+
+func TestFormatRenderReportsUnreadableTapeAsInternalInvariant(t *testing.T) {
+	t.Parallel()
+
+	const input = "<r><!-- c --></r>"
+	tests := []struct {
+		name  string
+		event formatEvent
+	}{
+		{name: "comment without terminator", event: formatEvent{start: 3, end: 10, kind: xmlstream.KindComment}},
+		{name: "content in block element", event: formatEvent{start: 8, end: 9, kind: xmlstream.KindCharData}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out strings.Builder
+			f := xmlFormatter{
+				w:     &out,
+				input: input,
+				tape:  []formatEvent{{start: 0, end: 3, kind: xmlstream.KindStart}, tt.event},
+			}
+			err := f.format()
+			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+			if !ok || diagnostic.Category() != xsderrors.CategoryInternal {
+				t.Fatalf("format() error = %v, want an internal invariant", err)
+			}
+		})
+	}
+}
+
 func TestFormatXMLRejectsShortWriteWithoutWriterError(t *testing.T) {
 	err := XML(shortNilWriter{}, `<root/>`)
 	if !errors.Is(err, io.ErrShortWrite) {
@@ -881,6 +990,79 @@ func TestFormatXMLRejectsInvalidWriterCounts(t *testing.T) {
 			}
 			if errors.Is(err, writeErr) != test.wantCause {
 				t.Fatalf("XML() error = %v, write cause present = %t, want %t", err, errors.Is(err, writeErr), test.wantCause)
+			}
+		})
+	}
+}
+
+type failAtWriter struct {
+	failAt int
+	calls  int
+	err    error
+}
+
+func (w *failAtWriter) accept(n int) (int, error) {
+	w.calls++
+	if w.calls == w.failAt {
+		return 0, w.err
+	}
+	return n, nil
+}
+
+func (w *failAtWriter) Write(p []byte) (int, error) {
+	return w.accept(len(p))
+}
+
+type failAtStringWriter struct {
+	failAtWriter
+}
+
+func (w *failAtStringWriter) WriteString(s string) (int, error) {
+	return w.accept(len(s))
+}
+
+func TestFormatXMLReturnsEveryWriterFailureUnchanged(t *testing.T) {
+	t.Parallel()
+
+	const input = "<?pi data?>\n<!-- head -->\n" +
+		"<root a=\"x &amp; y\" b='a&#x41;b'>\n" +
+		"  <item>text &lt; more &#x263A;</item>\n" +
+		"  <data><![CDATA[a\nb]]></data>\n" +
+		"  <empty/>\n" +
+		"  <!-- inner -->\n" +
+		"  <?inner pi?>\n" +
+		"</root>\n<!-- tail -->"
+	writeErr := errors.New("write failed")
+	shapes := []struct {
+		name   string
+		writer func(failAt int) (io.Writer, *failAtWriter)
+	}{
+		{name: "Write only", writer: func(failAt int) (io.Writer, *failAtWriter) {
+			w := &failAtWriter{failAt: failAt, err: writeErr}
+			return w, w
+		}},
+		{name: "WriteString", writer: func(failAt int) (io.Writer, *failAtWriter) {
+			w := &failAtStringWriter{failAtWriter{failAt: failAt, err: writeErr}}
+			return w, &w.failAtWriter
+		}},
+	}
+	for _, shape := range shapes {
+		t.Run(shape.name, func(t *testing.T) {
+			t.Parallel()
+
+			w, counter := shape.writer(0)
+			if err := XML(w, input); err != nil {
+				t.Fatalf("XML() error = %v", err)
+			}
+			for n := 1; n <= counter.calls; n++ {
+				w, _ := shape.writer(n)
+				err := XML(w, input)
+				if !errors.Is(err, writeErr) {
+					t.Fatalf("XML() failing write %d of %d: error = %v, want %v", n, counter.calls, err, writeErr)
+				}
+				if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok {
+					t.Fatalf("XML() failing write %d of %d: diagnostic %q, want the writer error", n, counter.calls, diagnostic.Code())
+				}
 			}
 		})
 	}

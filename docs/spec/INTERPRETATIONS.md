@@ -1369,6 +1369,7 @@ Cases: `project/elements/chains-block-owners-*`, `project/elements/chains-depth3
 `project/content-models/chains-affiliation-middle-*`,
 `project/content-models/implicit-substitution-consistency/abstract-member`, `project/content-models/implicit-substitution-consistency/conflicting-type`, `project/content-models/implicit-substitution-consistency/transitive-conflicting-type`,
 `project/content-models/substitution-intermediate-type-*`,
+`project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member`,
 `project/content-models/substitution-boundaries/abstract-blocked-intermediate`,
 `project/content-models/substitution-normalize-both-ranges-d-literal-member`,
 `project/content-models/substitution-normalize-mapandsum-dab-repeated-first`,

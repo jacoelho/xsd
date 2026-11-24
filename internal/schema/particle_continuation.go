@@ -11,8 +11,33 @@ import (
 // callers must not write either slice.
 type continuationSets [2][]contentParticle
 
+// continuationView selects the particles of a member's continuation sets a
+// check reads: all of them for Unique Particle Attribution, or only the
+// wildcards for the wildcard-overlap pass. Both views follow one rule for
+// which sets a member has, so the two checks cannot disagree on them.
+type continuationView uint8
+
+const (
+	allContinuations continuationView = iota
+	wildcardContinuations
+)
+
 // ParticleContinuations returns the continuation sets of particles[i].
 func (a *contentModelAnalysis) ParticleContinuations(particles []contentParticle, i int) (continuationSets, error) {
+	return a.memberContinuations(particles, i, allContinuations)
+}
+
+// ParticleWildcardContinuations returns the wildcards among the continuation
+// sets of particles[i]. A group's wildcards are filtered from each of its sets
+// once per model, so a caller reads and charges only wildcard candidates.
+func (a *contentModelAnalysis) ParticleWildcardContinuations(particles []contentParticle, i int) (continuationSets, error) {
+	return a.memberContinuations(particles, i, wildcardContinuations)
+}
+
+// memberContinuations returns the continuation sets of particles[i] in view:
+// a repeated leaf continues itself, and a group continues with its start
+// particles when it repeats and with its model's continuation set.
+func (a *contentModelAnalysis) memberContinuations(particles []contentParticle, i int, view continuationView) (continuationSets, error) {
 	if err := spendContentModelWork(a.work); err != nil {
 		return continuationSets{}, err
 	}
@@ -20,10 +45,22 @@ func (a *contentModelAnalysis) ParticleContinuations(particles []contentParticle
 	switch {
 	case p.Occurs.IsAbsent():
 		return continuationSets{}, nil
+	case p.Kind != particleModel && view == wildcardContinuations && p.Kind != particleWildcard:
+		return continuationSets{}, nil
 	case p.Kind != particleModel:
 		return a.leafContinuations(particles[i : i+1])
 	}
-	return a.groupContinuations(p)
+	var sets continuationSets
+	if countsRepeat(p.Occurs) {
+		start, err := a.groupStart(p.Model, view)
+		if err != nil {
+			return continuationSets{}, err
+		}
+		sets[0] = start
+	}
+	continuations, err := a.groupModelContinuations(p.Model, view)
+	sets[1] = continuations
+	return sets, err
 }
 
 func (a *contentModelAnalysis) leafContinuations(leaf []contentParticle) (continuationSets, error) {
@@ -34,22 +71,74 @@ func (a *contentModelAnalysis) leafContinuations(leaf []contentParticle) (contin
 	return continuationSets{nil, leaf}, nil
 }
 
-func (a *contentModelAnalysis) groupContinuations(p contentParticle) (continuationSets, error) {
-	var sets continuationSets
-	if countsRepeat(p.Occurs) {
-		model, ok := a.contentModel(p.Model)
-		if !ok {
-			return continuationSets{}, errors.New("content model continuation analysis references missing content model")
-		}
-		start, err := a.startParticles(model)
-		if err != nil {
-			return continuationSets{}, err
-		}
-		sets[0] = start
+func (a *contentModelAnalysis) groupStart(id contentModelID, view continuationView) ([]contentParticle, error) {
+	if cached := a.wildcards[id]; cached.startKnown && view == wildcardContinuations {
+		return cached.start, nil
 	}
-	continuations, err := a.ModelContinuations(p.Model)
-	sets[1] = continuations
-	return sets, err
+	model, ok := a.contentModel(id)
+	if !ok {
+		return nil, errors.New("content model continuation analysis references missing content model")
+	}
+	start, err := a.startParticles(model)
+	if err != nil || view == allContinuations {
+		return start, err
+	}
+	wildcards, err := a.wildcardsOf(start)
+	if err != nil {
+		return nil, err
+	}
+	cached := a.wildcards[id]
+	cached.start, cached.startKnown = wildcards, true
+	a.storeWildcards(id, cached)
+	return wildcards, nil
+}
+
+func (a *contentModelAnalysis) groupModelContinuations(id contentModelID, view continuationView) ([]contentParticle, error) {
+	if cached := a.wildcards[id]; cached.continuationsKnown && view == wildcardContinuations {
+		return cached.continuations, nil
+	}
+	continuations, err := a.ModelContinuations(id)
+	if err != nil || view == allContinuations {
+		return continuations, err
+	}
+	wildcards, err := a.wildcardsOf(continuations)
+	if err != nil {
+		return nil, err
+	}
+	cached := a.wildcards[id]
+	cached.continuations, cached.continuationsKnown = wildcards, true
+	a.storeWildcards(id, cached)
+	return wildcards, nil
+}
+
+func (a *contentModelAnalysis) wildcardsOf(set []contentParticle) ([]contentParticle, error) {
+	if err := a.work(len(set)); err != nil {
+		return nil, err
+	}
+	var wildcards []contentParticle
+	for _, p := range set {
+		if p.Kind == particleWildcard {
+			wildcards = append(wildcards, p)
+		}
+	}
+	return wildcards, nil
+}
+
+// modelWildcards holds the wildcards among a model's start particles and
+// among its continuation set, each filtered once.
+type modelWildcards struct {
+	start, continuations           []contentParticle
+	startKnown, continuationsKnown bool
+}
+
+// storeWildcards records the wildcards of model id. The cache is allocated on
+// the first store, so an analysis that never runs the wildcard-overlap pass
+// allocates none.
+func (a *contentModelAnalysis) storeWildcards(id contentModelID, wildcards modelWildcards) {
+	if a.wildcards == nil {
+		a.wildcards = make(map[contentModelID]modelWildcards)
+	}
+	a.wildcards[id] = wildcards
 }
 
 // ModelContinuations returns the continuation set of the model id: its start

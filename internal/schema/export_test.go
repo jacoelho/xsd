@@ -54,6 +54,9 @@ func (c *compiler) compileReachedContentModelsForTest() error {
 	if err != nil {
 		return err
 	}
+	if err := c.detachUnreachableComponents(); err != nil {
+		return err
+	}
 	return c.compileContentModels(reached)
 }
 
