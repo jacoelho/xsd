@@ -3,6 +3,7 @@ package corpus
 import (
 	"errors"
 	"io/fs"
+	"maps"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -63,10 +64,10 @@ func TestLoadInventoryRejectsInvalidCases(t *testing.T) {
 		{name: "oracle without reason", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"w3c":{"expected":"invalid","reason":" "}}}}`, want: `oracle "w3c" has no reason`},
 		{name: "w3c oracle equal to the effective expectation", w3c: `{"id":"w3c/msMeta/Regex_w3c.xml/g","expectedSource":"w3c","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"w3c":{"expected":"valid","reason":"retained"}}}}`, want: `phase "schema": oracle "w3c" expectation "valid" equals the effective expectation`},
 		{name: "project oracle equal to the effective expectation", project: `{"id":"project/a","expectedSource":"project","instances":[{"file":"i.xml","testName":"i","expected":"invalid","oracle":{"project":{"expected":"invalid","reason":"r"}}}]}`, want: `phase "i": oracle "project" expectation "invalid" equals the effective expectation`},
-		{name: "oracle status", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"project":{"status":"blocked","reason":"r"}}}}`, want: `oracle "project" has unknown expected value ""`},
+		{name: "oracle status", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","oracle":{"project":{"status":"blocked","reason":"r"}}}}`, want: `unknown field "status"`},
 		{name: "rule without specRef", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","rule":{"clause":"c"}}}`, want: "rule has no specRef"},
 		{name: "difference for unknown provider", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotNet":{"record":"I-001"}}}}`, want: `difference for unknown provider "dotNet"`},
-		{name: "difference with only a note", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"note":"n"}}}}`, want: "difference for dotnet has no record"},
+		{name: "difference with only a note", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"note":"n"}}}}`, want: `unknown field "note"`},
 		{name: "malformed record", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"record":"I-1"}}}}`, want: `names record "I-1", want I-NNN or a row anchor`},
 		{name: "malformed row anchor", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{"record":"Temporal boundaries"}}}}`, want: `names record "Temporal boundaries"`},
 		{name: "empty difference", project: `{"id":"project/a","expectedSource":"project","schema":{"documents":[{"file":"s.xsd"}],"expected":"valid","differences":{"dotnet":{}}}}`, want: "difference for dotnet has no record"},
@@ -76,6 +77,31 @@ func TestLoadInventoryRejectsInvalidCases(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := LoadInventory(inventoryFS(tt.project, tt.w3c))
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("LoadInventory() error = %v, want containing %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadInventoryRejectsUndeclaredKeys(t *testing.T) {
+	for _, tt := range []struct {
+		name, index, project, want string
+	}{
+		{name: "index key", index: `{"version":"2.0","specification":"XSD 1.0","shard":["project/top-level"],"shards":["project/top-level","w3c/msMeta/Regex_w3c"]}`, project: validProjectCase, want: `manifest/index.json: json: unknown field "shard"`},
+		{name: "case key", project: `{"id":"project/a","expectedSource":"project","titel":"t"}`, want: `unknown field "titel"`},
+		{name: "schema key", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"invalid","errrorCode":"schema.reference","documents":[{"file":"a.xsd"}]}}`, want: `unknown field "errrorCode"`},
+		{name: "instance key", project: `{"id":"project/a","expectedSource":"project","instances":[{"testName":"i","file":"i.xml","expected":"valid","rules":{"specRef":"r"}}]}`, want: `unknown field "rules"`},
+		{name: "provenance key", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"invalid","documents":[{"file":"a.xsd"}],"oracle":{"project":{"expected":"valid","reason":"r","specification":"s"}}}}`, want: `unknown field "specification"`},
+		{name: "difference key", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"a.xsd"}],"differences":{"xerces":{"records":"I-001"}}}}`, want: `unknown field "records"`},
+		{name: "data after the index", index: testIndex + `{}`, project: validProjectCase, want: "manifest/index.json: data after the JSON value"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fsys := inventoryFS(tt.project, validW3CCase)
+			if tt.index != "" {
+				fsys["manifest/index.json"] = &fstest.MapFile{Data: []byte(tt.index)}
+			}
+			_, err := LoadInventory(fsys)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("LoadInventory() error = %v, want containing %q", err, tt.want)
 			}
@@ -188,8 +214,80 @@ func TestLoadObservations(t *testing.T) {
 		t.Fatalf("profile = %+v", obs.Profile)
 	}
 	shuffled := []Row{want[2], want[0], want[1]}
-	if got := string(FormatRows(shuffled)); got != data {
-		t.Fatalf("FormatRows() = %q, want the sorted file %q", got, data)
+	got, err := FormatRows(shuffled)
+	if err != nil || string(got) != data {
+		t.Fatalf("FormatRows() = %q, %v; want the sorted file %q", got, err, data)
+	}
+}
+
+func TestFormatRowsRejectsRowsThatDoNotLoad(t *testing.T) {
+	valid := Row{CaseID: "project/a", Phase: SchemaPhase, Provider: Xerces, Verdict: SchemaValid}
+	for _, tt := range []struct {
+		name string
+		row  Row
+		want string
+	}{
+		{name: "tab in message", row: Row{CaseID: "project/a", Phase: "i", Provider: Xerces, Verdict: Invalid, Message: "a\tb"}, want: "a tab or a line break in its message"},
+		{name: "line break in message", row: Row{CaseID: "project/a", Phase: "i", Provider: Xerces, Verdict: Invalid, Message: "a\nb"}, want: "a tab or a line break in its message"},
+		{name: "line break in phase", row: Row{CaseID: "project/a", Phase: "i\r", Provider: Xerces, Verdict: Invalid}, want: "holds a tab or a line break"},
+		{name: "tab in case", row: Row{CaseID: "project/a\tb", Phase: "i", Provider: Xerces, Verdict: Invalid}, want: "holds a tab or a line break"},
+		{name: "empty phase", row: Row{CaseID: "project/a", Provider: Xerces, Verdict: Invalid}, want: "empty case or phase"},
+		{name: "unknown provider", row: Row{CaseID: "project/a", Phase: "i", Provider: "saxon", Verdict: Invalid}, want: `unknown provider "saxon"`},
+		{name: "unknown verdict", row: Row{CaseID: "project/a", Phase: "i", Provider: Xerces, Verdict: "accepted"}, want: `unknown verdict "accepted"`},
+		{name: "absolute path", row: Row{CaseID: "project/a", Phase: "i", Provider: Xerces, Verdict: Invalid, Message: "file:///x.xml: bad"}, want: "an absolute path in its message"},
+		{name: "repeated provider", row: Row{CaseID: "project/a", Phase: SchemaPhase, Provider: Xerces, Verdict: SchemaInvalid}, want: `case "project/a" phase "schema" has two rows for xerces`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FormatRows([]Row{valid, tt.row})
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("FormatRows() = %q, %v; want an error containing %q", got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatProfileLoadsBack(t *testing.T) {
+	p := Profile{
+		Providers: map[Provider]string{Xerces: "Xerces-J 2.12.2", DotNet: ".NET 10.0.14", XMLSchema: "xmlschema 4.3.2", LibXML2: "libxml2 2.9.13"},
+		Date:      "2026-11-19",
+		Image:     "sha256:0",
+	}
+	data, err := FormatProfile(p)
+	if err != nil {
+		t.Fatalf("FormatProfile() error = %v", err)
+	}
+	want := `{
+  "providers": {
+    "dotnet": ".NET 10.0.14",
+    "libxml2": "libxml2 2.9.13",
+    "xerces": "Xerces-J 2.12.2",
+    "xmlschema": "xmlschema 4.3.2"
+  },
+  "date": "2026-11-19",
+  "image": "sha256:0"
+}
+`
+	if string(data) != want {
+		t.Fatalf("FormatProfile() = %q, want %q", data, want)
+	}
+	fsys := observationFS("")
+	fsys["oracles/profile.json"] = &fstest.MapFile{Data: data}
+	inv, err := LoadInventory(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obs, err := LoadObservations(fsys, &inv)
+	if err != nil {
+		t.Fatalf("LoadObservations() error = %v", err)
+	}
+	if !maps.Equal(obs.Profile.Providers, p.Providers) || obs.Profile.Date != p.Date || obs.Profile.Image != p.Image {
+		t.Fatalf("loaded profile = %+v, want %+v", obs.Profile, p)
+	}
+}
+
+func TestFormatProfileRejectsAProfileThatDoesNotLoad(t *testing.T) {
+	if data, err := FormatProfile(Profile{Providers: map[Provider]string{Xerces: "Xerces-J 2.12.2"}, Date: "2026-11-19", Image: "sha256:0"}); err == nil || !strings.Contains(err.Error(), "has no version for dotnet") {
+		t.Fatalf("FormatProfile(only xerces) = %q, %v; want the missing dotnet version", data, err)
 	}
 }
 
@@ -217,8 +315,8 @@ func TestLoadObservationsRejectsBadRows(t *testing.T) {
 		{name: "unknown verdict", rows: "project/a\tschema\txerces\taccepted\t\n", want: `unknown verdict "accepted"`},
 		{name: "unknown provider", rows: "project/a\tschema\tsaxon\tvalid\t\n", want: `unknown provider "saxon"`},
 		{name: "field count", rows: "project/a\tschema\txerces\tvalid\n", want: "row has 4 fields, want 5"},
-		{name: "encoded file URI", rows: "project/a\tschema\txmlschema\tschema-invalid\tSchema URL: file:///home/u/xsd/tests/corpus/project/a%23b/schema.xsd\n", want: "has an absolute path in its message"},
-		{name: "absolute corpus path", rows: "project/a\tschema\txerces\tschema-invalid\tC:\\src\\xsd/tests/corpus/project/a/schema.xsd: bad\n", want: "has an absolute path in its message"},
+		{name: "encoded file URI", rows: "project/a\tschema\txmlschema\tschema-invalid\tSchema URL: file:///home/u/xsd/tests/corpus/project/a%23b/schema.xsd\n", want: "an absolute path in its message"},
+		{name: "absolute corpus path", rows: "project/a\tschema\txerces\tschema-invalid\tC:\\src\\xsd/tests/corpus/project/a/schema.xsd: bad\n", want: "an absolute path in its message"},
 		{name: "no final line break", rows: "project/a\tschema\txerces\tvalid\t", want: "does not end with a line break"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -235,15 +333,28 @@ func TestLoadObservationsRejectsBadRows(t *testing.T) {
 	}
 }
 
-func TestLoadObservationsRejectsIncompleteProfile(t *testing.T) {
-	fsys := observationFS("")
-	fsys["oracles/profile.json"] = &fstest.MapFile{Data: []byte(`{"providers":{"xerces":"Xerces-J 2.12.2"},"date":"2026-11-19","image":"sha256:0"}`)}
-	inv, err := LoadInventory(fsys)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := LoadObservations(fsys, &inv); err == nil || !strings.Contains(err.Error(), "has no version for dotnet") {
-		t.Fatalf("LoadObservations() error = %v, want the missing dotnet version", err)
+func TestLoadObservationsRejectsInvalidProfile(t *testing.T) {
+	const versions = `"xerces":"Xerces-J 2.12.2","dotnet":".NET 10.0.14","xmlschema":"xmlschema 4.3.2","libxml2":"libxml2 2.9.13"`
+	for _, tt := range []struct {
+		name, profile, want string
+	}{
+		{name: "missing version", profile: `{"providers":{"xerces":"Xerces-J 2.12.2"},"date":"2026-11-19","image":"sha256:0"}`, want: "has no version for dotnet"},
+		{name: "no date", profile: `{"providers":{` + versions + `},"image":"sha256:0"}`, want: "needs a date and an image"},
+		{name: "no image", profile: `{"providers":{` + versions + `},"date":"2026-11-19","image":""}`, want: "needs a date and an image"},
+		{name: "unknown provider", profile: `{"providers":{` + versions + `,"saxon":"Saxon 12"},"date":"2026-11-19","image":"sha256:0"}`, want: "lists an unknown provider"},
+		{name: "misspelt key", profile: `{"providers":{` + versions + `},"date":"2026-11-19","imag":"sha256:0"}`, want: `unknown field "imag"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fsys := observationFS("")
+			fsys["oracles/profile.json"] = &fstest.MapFile{Data: []byte(tt.profile)}
+			inv, err := LoadInventory(fsys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadObservations(fsys, &inv); err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("LoadObservations() error = %v, want containing %q", err, tt.want)
+			}
+		})
 	}
 }
 

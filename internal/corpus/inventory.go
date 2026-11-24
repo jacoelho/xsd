@@ -3,14 +3,17 @@
 // cross-validator observations in tests/oracles. tests/README.md owns the
 // meaning of both; this package owns their file layout and grammar.
 //
-// Every loader reads from an fs.FS rooted at the tests directory, so callers
-// choose the filesystem and the package performs no file I/O of its own.
+// Every loader reads from an fs.FS rooted at the tests directory, and every
+// formatter returns the bytes of a file, so callers choose the filesystem and
+// the package performs no file I/O of its own.
 package corpus
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"path"
@@ -41,33 +44,48 @@ type Inventory struct {
 }
 
 // Case is one corpus case: an optional schema phase and its instance phases.
+// Title, Source, DocRefs and Internal are provenance metadata that no
+// consumer interprets; Source and DocRefs keep their upstream shape.
 type Case struct {
-	Schema         *Schema    `json:"schema"`
-	ID             string     `json:"id"`
-	ExpectedSource string     `json:"expectedSource"`
-	Instances      []Instance `json:"instances"`
-	Files          []File     `json:"files"`
+	Schema         *Schema         `json:"schema"`
+	ID             string          `json:"id"`
+	ExpectedSource string          `json:"expectedSource"`
+	Title          string          `json:"title"`
+	Source         json.RawMessage `json:"source"`
+	DocRefs        json.RawMessage `json:"docRefs"`
+	Internal       json.RawMessage `json:"internal"`
+	Instances      []Instance      `json:"instances"`
+	Files          []File          `json:"files"`
 }
 
-// Schema is the schema phase of a case.
+// Schema is the schema phase of a case. TestName, Status and Version are
+// upstream provenance metadata that no consumer interprets.
 type Schema struct {
 	Rule        *Rule                   `json:"rule"`
 	Oracle      map[string]Provenance   `json:"oracle"`
 	Differences map[Provider]Difference `json:"differences"`
 	Expected    Expectation             `json:"expected"`
 	ErrorCode   string                  `json:"errorCode"`
+	TestName    string                  `json:"testName"`
+	Status      string                  `json:"status"`
+	Version     string                  `json:"version"`
 	Documents   []Document              `json:"documents"`
 }
 
-// Instance is one instance phase of a case.
+// Instance is one instance phase of a case. Status, Version and
+// InternalExpected are upstream or extraction provenance metadata that no
+// consumer interprets.
 type Instance struct {
-	Rule        *Rule                   `json:"rule"`
-	Oracle      map[string]Provenance   `json:"oracle"`
-	Differences map[Provider]Difference `json:"differences"`
-	TestName    string                  `json:"testName"`
-	File        string                  `json:"file"`
-	Expected    Expectation             `json:"expected"`
-	ErrorCode   string                  `json:"errorCode"`
+	Rule             *Rule                   `json:"rule"`
+	Oracle           map[string]Provenance   `json:"oracle"`
+	Differences      map[Provider]Difference `json:"differences"`
+	TestName         string                  `json:"testName"`
+	File             string                  `json:"file"`
+	Expected         Expectation             `json:"expected"`
+	ErrorCode        string                  `json:"errorCode"`
+	Status           string                  `json:"status"`
+	Version          string                  `json:"version"`
+	InternalExpected string                  `json:"internalExpected"`
 }
 
 // Phase is what every schema or instance phase has: its name within its case,
@@ -81,9 +99,11 @@ type Phase struct {
 	Expected    Expectation
 }
 
-// Document is a schema compilation root.
+// Document is a schema compilation root. Role is upstream metadata that no
+// consumer interprets.
 type Document struct {
 	File string `json:"file"`
+	Role string `json:"role"`
 }
 
 // File is a corpus file a case references.
@@ -189,10 +209,13 @@ func shardPath(name string) string {
 	return "manifest/" + name + ".json"
 }
 
+// index is the IndexPath file; source records the upstream suites the
+// inventory was extracted from, which no consumer interprets.
 type index struct {
-	Version       string   `json:"version"`
-	Specification string   `json:"specification"`
-	Shards        []string `json:"shards"`
+	Version       string          `json:"version"`
+	Specification string          `json:"specification"`
+	Source        json.RawMessage `json:"source"`
+	Shards        []string        `json:"shards"`
 }
 
 type shard struct {
@@ -200,7 +223,8 @@ type shard struct {
 }
 
 // LoadInventory reads the index and every shard it lists from fsys, rooted at
-// the tests directory, and validates the result.
+// the tests directory, and validates the result. A key the grammar does not
+// declare is an error, so a misspelt optional key cannot load as an absent one.
 func LoadInventory(fsys fs.FS) (Inventory, error) {
 	var idx index
 	if err := readJSON(fsys, IndexPath, &idx); err != nil {
@@ -228,13 +252,20 @@ func LoadInventory(fsys fs.FS) (Inventory, error) {
 	return inv, nil
 }
 
+// readJSON decodes the one JSON value of file name into v, rejecting keys v
+// does not declare and data after the value.
 func readJSON(fsys fs.FS, name string, v any) error {
 	data, err := fs.ReadFile(fsys, name)
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(data, v); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
 		return fmt.Errorf("%s: %w", name, err)
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("%s: data after the JSON value", name)
 	}
 	return nil
 }

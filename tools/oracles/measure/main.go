@@ -31,7 +31,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -118,23 +117,19 @@ func run(argv []string) (err error) {
 	if err != nil {
 		return err
 	}
-	return record(&inv, results, all, digest)
+	return record(&inv, results, all, digest, time.Now().UTC().Format(time.DateOnly))
 }
 
-// record writes results as observation rows. Unless all is set it keeps the
-// rows of unmeasured cases and the profile they share.
-func record(inv *corpus.Inventory, results map[string]caseResult, all bool, digest string) error { //nolint:revive // all selects between a full and a partial rewrite, a single decision.
+// record writes results as observation rows. With all set it also writes the
+// profile of the measurement, dated date; otherwise it keeps the rows of
+// unmeasured cases and the profile they share.
+func record(inv *corpus.Inventory, results map[string]caseResult, all bool, digest, date string) error { //nolint:revive // all selects between a full and a partial rewrite, a single decision.
 	versions, err := providerVersions(results)
 	if err != nil {
 		return err
 	}
 	if all {
-		for _, p := range corpus.Providers() {
-			if versions[p] == "" {
-				return fmt.Errorf("no run reported a %s version", p)
-			}
-		}
-		profile := corpus.Profile{Providers: versions, Date: time.Now().UTC().Format(time.DateOnly), Image: digest}
+		profile := corpus.Profile{Providers: versions, Date: date, Image: digest}
 		return write(inv, results, nil, &profile)
 	}
 	kept, err := unmeasuredRows(inv, results, digest, versions)
@@ -361,32 +356,53 @@ type caseResult struct {
 	errored  bool
 }
 
-// measureAll measures cases with one concurrent run per slot, stopping
-// scheduling on interrupt, and fails if any case failed.
+// measureAll measures cases with one concurrent run per slot and fails if any
+// case failed. It stops starting cases on interrupt or after the first
+// failure; runs already started finish, and every failure is reported.
 func (m *measurer) measureAll(ctx context.Context, slots []string, cases []*corpus.Case) (map[string]caseResult, error) {
 	col := &collector{results: make(map[string]caseResult, len(cases)), total: len(cases)}
+	scheduling, stopScheduling := context.WithCancel(ctx)
+	defer stopScheduling()
 	queue := make(chan *corpus.Case)
 	var wg sync.WaitGroup
 	for _, slot := range slots {
 		wg.Go(func() {
 			for c := range queue {
-				res, err := m.measureCase(ctx, slot, c)
-				col.add(c, res, err)
+				m.measureScheduled(ctx, scheduling, stopScheduling, slot, c, col)
 			}
 		})
 	}
-	for _, c := range cases {
-		if ctx.Err() != nil {
-			break
-		}
-		queue <- c
-	}
+	enqueue(scheduling, queue, cases)
 	close(queue)
 	wg.Wait()
 	if err := errors.Join(append(col.failures, ctx.Err())...); err != nil {
 		return nil, err
 	}
 	return m.retryErrors(ctx, slots[0], cases, col.results)
+}
+
+// measureScheduled measures c unless scheduling has stopped, and stops it if
+// c fails. A case queued as scheduling stopped is skipped.
+func (m *measurer) measureScheduled(ctx, scheduling context.Context, stopScheduling context.CancelFunc, slot string, c *corpus.Case, col *collector) {
+	if scheduling.Err() != nil {
+		return
+	}
+	res, err := m.measureCase(ctx, slot, c)
+	if err != nil {
+		stopScheduling()
+	}
+	col.add(c, res, err)
+}
+
+// enqueue sends cases to queue in order until scheduling stops.
+func enqueue(scheduling context.Context, queue chan<- *corpus.Case, cases []*corpus.Case) {
+	for _, c := range cases {
+		select {
+		case queue <- c:
+		case <-scheduling.Done():
+			return
+		}
+	}
 }
 
 // collector gathers the workers' case results and reports progress.
@@ -474,20 +490,27 @@ func (m *measurer) measurePhase(ctx context.Context, slot string, c *corpus.Case
 	}
 	cached := filepath.Join(m.cache, key[:2], key+".tsv")
 	out, err := os.ReadFile(cached) //nolint:gosec // The cache path is derived from a content hash.
-	if err != nil {
+	fresh := errors.Is(err, fs.ErrNotExist)
+	switch {
+	case fresh:
 		out, err = runOracles(ctx, slot, args)
 		if err != nil {
 			return nil, fmt.Errorf("phase %s: %w", phase, err)
 		}
+	case err != nil:
+		return nil, fmt.Errorf("phase %s: read cache: %w", phase, err)
 	}
 	rows, versions, err := parseRun(c.ID, phase, out)
 	if err != nil {
 		return nil, fmt.Errorf("phase %s: %w", phase, err)
 	}
-	if slices.ContainsFunc(rows, func(r corpus.Row) bool { return r.Verdict == corpus.Error }) {
+	switch {
+	case slices.ContainsFunc(rows, func(r corpus.Row) bool { return r.Verdict == corpus.Error }):
 		res.errored = true
-	} else if err := writeFile(cached, out); err != nil {
-		return nil, err
+	case fresh:
+		if err := writeFile(cached, out); err != nil {
+			return nil, err
+		}
 	}
 	maps.Copy(res.versions, versions)
 	return rows, nil
@@ -600,13 +623,13 @@ func parseRun(caseID, phase string, out []byte) ([]corpus.Row, map[corpus.Provid
 	rows := make([]corpus.Row, 0, len(lines)-1)
 	versions := make(map[corpus.Provider]string)
 	for _, line := range lines[1:] {
-		fields := strings.SplitN(line, "\t", 3)
-		if len(fields) != 3 {
-			return nil, nil, fmt.Errorf("unexpected run.sh row %q", line)
+		fields := strings.Split(line, "\t")
+		if len(fields) != 4 {
+			return nil, nil, fmt.Errorf("run.sh row %q has %d fields, want 4", line, len(fields))
 		}
-		r, err := corpus.ParseRow(caseID + "\t" + phase + "\t" + fields[0] + "\t" + fields[2])
-		if err != nil {
-			return nil, nil, err
+		r := corpus.Row{CaseID: caseID, Phase: phase, Provider: corpus.Provider(fields[0]), Verdict: corpus.Verdict(fields[2]), Message: fields[3]}
+		if err := r.Validate(); err != nil {
+			return nil, nil, fmt.Errorf("run.sh row %q: %w", line, err)
 		}
 		if fields[1] != "?" {
 			versions[r.Provider] = fields[1]
@@ -693,36 +716,66 @@ func recordedObservations(inv *corpus.Inventory) (fs.FS, error) {
 }
 
 // write replaces every observation file with the rows of results and kept,
-// and the profile with profile unless it is nil.
+// and the profile with profile unless it is nil. It renders every file before
+// writing any, so a row or profile that does not validate leaves the tree
+// unchanged and only a failed write can leave it partly replaced.
 func write(inv *corpus.Inventory, results map[string]caseResult, kept []corpus.Row, profile *corpus.Profile) error {
-	rows := kept
-	for _, res := range results {
-		rows = append(rows, res.rows...)
+	files, err := render(inv, results, kept, profile)
+	if err != nil {
+		return err
 	}
-	files := make(map[string][]corpus.Row)
+	for _, name := range slices.Sorted(maps.Keys(files)) {
+		if err := writeFile(filepath.Join("tests", filepath.FromSlash(name)), files[name]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rowsByFile groups rows by observation file, with an entry for every
+// observation file of inv.
+func rowsByFile(inv *corpus.Inventory, rows []corpus.Row) (map[string][]corpus.Row, error) {
+	byFile := make(map[string][]corpus.Row)
 	for _, name := range inv.ObservationPaths() {
-		files[name] = nil
+		byFile[name] = nil
 	}
 	for _, r := range rows {
 		name, err := corpus.ObservationPath(r.CaseID)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		files[name] = append(files[name], r)
+		byFile[name] = append(byFile[name], r)
 	}
-	for name, shardRows := range files {
-		if err := writeFile(filepath.Join("tests", filepath.FromSlash(name)), corpus.FormatRows(shardRows)); err != nil {
-			return err
-		}
+	return byFile, nil
+}
+
+// render returns the text of every observation file and, unless profile is
+// nil, of the profile, keyed by path relative to the tests directory.
+func render(inv *corpus.Inventory, results map[string]caseResult, kept []corpus.Row, profile *corpus.Profile) (map[string][]byte, error) {
+	rows := kept
+	for _, res := range results {
+		rows = append(rows, res.rows...)
 	}
-	if profile == nil {
-		return nil
-	}
-	data, err := json.MarshalIndent(profile, "", "  ")
+	byFile, err := rowsByFile(inv, rows)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return writeFile(filepath.Join("tests", filepath.FromSlash(corpus.ProfilePath)), append(data, '\n'))
+	files := make(map[string][]byte, len(byFile)+1)
+	for name, fileRows := range byFile {
+		data, err := corpus.FormatRows(fileRows)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		files[name] = data
+	}
+	if profile != nil {
+		data, err := corpus.FormatProfile(*profile)
+		if err != nil {
+			return nil, err
+		}
+		files[corpus.ProfilePath] = data
+	}
+	return files, nil
 }
 
 func writeFile(name string, data []byte) error {

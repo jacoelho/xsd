@@ -53,7 +53,7 @@ The package graph follows capability ownership:
 | `internal/format` | Repository-internal formatting and its input/output limits |
 | `internal/lex`, `internal/vocab`, `internal/uriref`, `xsderrors` | Shared lexical facts, vocabulary, URI-reference semantics, and structured errors |
 | `internal/valuebench` | Value-program benchmarks over the `internal/value` interface; no production code |
-| `internal/corpus` | Conformance corpus file layout and grammar for tests and tools: inventory shards, observation rows and profile; read through `fs.FS`, imported by no library package |
+| `internal/corpus` | Conformance corpus file layout and grammar for tests and tools: inventory shards, observation rows and profile; read through `fs.FS` with undeclared keys rejected, observation and profile text formatted only after validation, imported by no library package |
 | `tests/internal/compilework` | Test-only command that compiles one schema through the root facade and reports the least analysis and dependency limits under which it compiles; built with coverage counters by `TestContentModelCompileWorkGrowsWithChargedSteps` in `tests/content_model_compile_work_test.go` and `TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps` in `tests/attribute_use_audit_work_test.go`. It is the one internal package that imports the facade: the depguard rule `internal-must-not-import-facade` exempts it by path, and no library package imports it |
 | Root `xsd` | Sources, options, engines, and sessions delegated to their owners |
 | CLI, WASM, browser, and local web adapters | Wire translation, product composition, and process lifecycle |
