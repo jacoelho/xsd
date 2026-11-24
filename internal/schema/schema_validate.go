@@ -14,6 +14,17 @@ type schemaValidation struct {
 	contentModelWork contentModelWork
 	contentAnalysis  *contentModelAnalysis
 	build            *schemaBuild
+	// restrictedAttributeUses holds the attribute-use restrictions already
+	// shown valid. The check reads only the two sets, the binding and
+	// immutable build tables, so types that share a set, such as many plain
+	// types referencing one attribute group, check it once rather than once
+	// per type, uncharged.
+	restrictedAttributeUses map[attributeUseRestriction]struct{}
+}
+
+type attributeUseRestriction struct {
+	base, derived attributeUseSetID
+	binding       attributeWildcardBinding
 }
 
 func validateSchema(rt *schemaValidation) error {
@@ -771,6 +782,10 @@ func validateAttributeUsesExtend(rt *schemaValidation, baseID, derivedID attribu
 }
 
 func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attributeUseSetID, binding attributeWildcardBinding) error {
+	key := attributeUseRestriction{base: baseID, derived: derivedID, binding: binding}
+	if _, checked := rt.restrictedAttributeUses[key]; checked {
+		return nil
+	}
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := validateAttributeUseSetRestriction(
@@ -781,6 +796,10 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 	); err != nil {
 		return schemaBuildValidationError(err)
 	}
+	if rt.restrictedAttributeUses == nil {
+		rt.restrictedAttributeUses = make(map[attributeUseRestriction]struct{})
+	}
+	rt.restrictedAttributeUses[key] = struct{}{}
 	return nil
 }
 
