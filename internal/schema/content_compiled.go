@@ -537,8 +537,7 @@ func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead, element
 	return rows, nil
 }
 
-// runWindow returns the window of run that row, a compiled row's edges,
-// occupies.
+// runWindow returns the part of run that holds the reads of row's edges.
 func runWindow(row []compiledModelEdge, run []compiledModelEdgeRead) ([]compiledModelEdgeRead, error) {
 	if len(row) == 0 {
 		return nil, nil
