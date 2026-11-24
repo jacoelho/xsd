@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
+	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -21,6 +22,8 @@ const buildDefectSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema
   <xs:complexType name="Derived">
     <xs:complexContent><xs:extension base="Base"><xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence></xs:extension></xs:complexContent>
   </xs:complexType>
+  <xs:simpleType name="Code"><xs:restriction base="xs:token"/></xs:simpleType>
+  <xs:simpleType name="ShortCode"><xs:restriction base="Code"><xs:maxLength value="4"/></xs:restriction></xs:simpleType>
   <xs:element name="head" type="Base"/>
   <xs:element name="member" type="Derived" substitutionGroup="head"/>
   <xs:element name="root">
@@ -247,6 +250,19 @@ func buildDefectComplexType(t *testing.T, rt *schemaBuild, local string) Complex
 	return id
 }
 
+func builtinSimpleTypeIDOf(t *testing.T, rt *schemaBuild, local string) SimpleTypeID {
+	t.Helper()
+	name, ok := rt.Names.LookupQName(vocab.XSDNamespaceURI, local)
+	if !ok {
+		t.Fatalf("missing built-in type name %q", local)
+	}
+	id, ok := rt.GlobalTypes[name].Simple()
+	if !ok {
+		t.Fatalf("built-in type %q is not simple", local)
+	}
+	return id
+}
+
 func buildDefectGlobalElement(t *testing.T, rt *schemaBuild, local string) ElementID {
 	t.Helper()
 	name, ok := rt.Names.LookupQName("", local)
@@ -258,25 +274,25 @@ func buildDefectGlobalElement(t *testing.T, rt *schemaBuild, local string) Eleme
 
 func TestDerivationWalksReportMissingTypesAndCyclesAsBuildDefects(t *testing.T) {
 	t.Parallel()
-	walks := map[string]func(rt *schemaBuild, derived, base ComplexTypeID) error{
-		"substitution blocks": func(rt *schemaBuild, derived, base ComplexTypeID) error {
-			_, err := substitutionTypeBlocks(rt, ComplexRef(derived), ComplexRef(base), unboundedTypeDerivationWork)
+	complexWalks := map[string]func(rt *schemaBuild, derived ComplexTypeID) error{
+		"substitution blocks": func(rt *schemaBuild, derived ComplexTypeID) error {
+			_, err := substitutionTypeBlocks(rt, ComplexRef(derived), ComplexRef(rt.AnyType), unboundedTypeDerivationWork)
 			return err
 		},
-		"derivation to a complex base": func(rt *schemaBuild, derived, base ComplexTypeID) error {
-			_, _, err := deriveTypeMask(rt, ComplexRef(derived), ComplexRef(base), unboundedTypeDerivationWork)
+		"derivation to a complex base": func(rt *schemaBuild, derived ComplexTypeID) error {
+			_, _, err := complexTypeDerivationMask(rt, derived, rt.AnyType, unboundedTypeDerivationWork)
 			return err
 		},
-		"derivation to anyType": func(rt *schemaBuild, derived, _ ComplexTypeID) error {
+		"derivation to anyType": func(rt *schemaBuild, derived ComplexTypeID) error {
 			_, _, err := deriveTypeMask(rt, ComplexRef(derived), ComplexRef(rt.AnyType), unboundedTypeDerivationWork)
 			return err
 		},
-		"derivation to a simple base": func(rt *schemaBuild, derived, _ ComplexTypeID) error {
+		"derivation to a simple base": func(rt *schemaBuild, derived ComplexTypeID) error {
 			_, _, err := deriveTypeMask(rt, ComplexRef(derived), SimpleRef(value.AnySimpleTypeID), unboundedTypeDerivationWork)
 			return err
 		},
 	}
-	corruptions := map[string]func(rt *schemaBuild, derived, base ComplexTypeID){
+	complexCorruptions := map[string]func(rt *schemaBuild, derived, base ComplexTypeID){
 		"base outside the type table": func(rt *schemaBuild, derived, _ ComplexTypeID) {
 			rt.ComplexTypes[derived].Base = ComplexRef(ComplexTypeID(outsideTable))
 		},
@@ -284,19 +300,101 @@ func TestDerivationWalksReportMissingTypesAndCyclesAsBuildDefects(t *testing.T) 
 			rt.ComplexTypes[base].Base = ComplexRef(derived)
 		},
 	}
-	for walkName, walk := range walks {
-		for corruptionName, corrupt := range corruptions {
+	for walkName, walk := range complexWalks {
+		t.Run(walkName+"/intact", func(t *testing.T) {
+			t.Parallel()
+			c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+			if err := walk(&c.rt, buildDefectComplexType(t, &c.rt, "Derived")); err != nil {
+				t.Fatalf("walk error = %v, want none", err)
+			}
+		})
+		for corruptionName, corrupt := range complexCorruptions {
 			t.Run(walkName+"/"+corruptionName, func(t *testing.T) {
 				t.Parallel()
 				c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
 				derived, base := buildDefectComplexType(t, &c.rt, "Derived"), buildDefectComplexType(t, &c.rt, "Base")
 				corrupt(&c.rt, derived, base)
-				if err := walk(&c.rt, derived, ComplexTypeID(outsideTable+1)); !isBuildDefect(err) {
+				if err := walk(&c.rt, derived); !isBuildDefect(err) {
 					t.Fatalf("walk error = %v, want a build defect", err)
 				}
 			})
 		}
+		t.Run(walkName+"/derived outside the type table", func(t *testing.T) {
+			t.Parallel()
+			c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+			if err := walk(&c.rt, ComplexTypeID(outsideTable)); !isBuildDefect(err) {
+				t.Fatalf("walk error = %v, want a build defect", err)
+			}
+		})
 	}
+	baseWalks := map[string]func(rt *schemaBuild, derived, base ComplexTypeID) error{
+		"substitution blocks": func(rt *schemaBuild, derived, base ComplexTypeID) error {
+			_, err := substitutionTypeBlocks(rt, ComplexRef(derived), ComplexRef(base), unboundedTypeDerivationWork)
+			return err
+		},
+		"derivation to a complex base": func(rt *schemaBuild, derived, base ComplexTypeID) error {
+			_, _, err := complexTypeDerivationMask(rt, derived, base, unboundedTypeDerivationWork)
+			return err
+		},
+	}
+	for walkName, walk := range baseWalks {
+		t.Run(walkName+"/walk base outside the type table", func(t *testing.T) {
+			t.Parallel()
+			c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+			if err := walk(&c.rt, buildDefectComplexType(t, &c.rt, "Derived"), ComplexTypeID(outsideTable)); !isBuildDefect(err) {
+				t.Fatalf("walk error = %v, want a build defect", err)
+			}
+		})
+	}
+	simpleCorruptions := map[string]func(rt *schemaBuild, derived, base SimpleTypeID){
+		"intact": func(*schemaBuild, SimpleTypeID, SimpleTypeID) {},
+		"base outside the type table": func(rt *schemaBuild, derived, _ SimpleTypeID) {
+			rt.SimpleTypes[derived].ValueSpec.Base = SimpleTypeID(outsideTable)
+		},
+		"cycle": func(rt *schemaBuild, derived, base SimpleTypeID) {
+			rt.SimpleTypes[base].ValueSpec.Base = derived
+		},
+	}
+	for name, corrupt := range simpleCorruptions {
+		t.Run("simple derivation/"+name, func(t *testing.T) {
+			t.Parallel()
+			c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+			derived, base := buildDefectSimpleType(t, &c.rt, "ShortCode"), buildDefectSimpleType(t, &c.rt, "Code")
+			corrupt(&c.rt, derived, base)
+			offChain := builtinSimpleTypeIDOf(t, &c.rt, "boolean")
+			_, found, err := simpleTypeDerivationMaskOf(&c.rt, derived, offChain, unboundedTypeDerivationWork)
+			if name == "intact" {
+				if err != nil || found {
+					t.Fatalf("derivation = %v, %v, want not derived and no error", found, err)
+				}
+				return
+			}
+			if !isBuildDefect(err) {
+				t.Fatalf("walk error = %v, want a build defect", err)
+			}
+		})
+	}
+	t.Run("simple derivation/derived outside the type table", func(t *testing.T) {
+		t.Parallel()
+		c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+		_, _, err := simpleTypeDerivationMaskOf(&c.rt, SimpleTypeID(outsideTable), builtinSimpleTypeIDOf(t, &c.rt, "boolean"), unboundedTypeDerivationWork)
+		if !isBuildDefect(err) {
+			t.Fatalf("walk error = %v, want a build defect", err)
+		}
+	})
+}
+
+func buildDefectSimpleType(t *testing.T, rt *schemaBuild, local string) SimpleTypeID {
+	t.Helper()
+	name, ok := rt.Names.LookupQName("", local)
+	if !ok {
+		t.Fatalf("missing type name %q", local)
+	}
+	id, ok := rt.GlobalTypes[name].Simple()
+	if !ok {
+		t.Fatalf("type %q is not simple", local)
+	}
+	return id
 }
 
 func TestCompileRuleChecksReportCorruptInputsAsInternalInvariantAndViolationsAsSchemaErrors(t *testing.T) {

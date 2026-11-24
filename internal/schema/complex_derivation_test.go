@@ -104,11 +104,12 @@ func TestCheckSimpleContentRestrictionTextTypePresent(t *testing.T) {
 func TestCheckSimpleContentRestrictionTextType(t *testing.T) {
 	t.Parallel()
 
-	rt := emptyTypeDerivationFixture{}
-	if err := checkSimpleContentRestrictionTextType(rt.build(), 1, NoSimpleType, unboundedTypeDerivationWork); err != nil {
+	c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+	stringType, booleanType := builtinSimpleTypeIDOf(t, &c.rt, "string"), builtinSimpleTypeIDOf(t, &c.rt, "boolean")
+	if err := checkSimpleContentRestrictionTextType(&c.rt, stringType, NoSimpleType, unboundedTypeDerivationWork); err != nil {
 		t.Fatalf("CheckSimpleContentRestrictionTextType(no base) error = %v", err)
 	}
-	err := checkSimpleContentRestrictionTextType(rt.build(), 2, 1, unboundedTypeDerivationWork)
+	err := checkSimpleContentRestrictionTextType(&c.rt, booleanType, stringType, unboundedTypeDerivationWork)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "simpleContent restriction type is not derived from base")
 }
 
@@ -121,5 +122,3 @@ func TestCheckComplexContentMixedDerivationBase(t *testing.T) {
 	err := checkComplexContentMixedDerivationBase(complexTypeMetadata{ContentKind: contentElementOnly}, contentDerivationRestriction, contentMixed)
 	expectCompileDiagnostic(t, err, xsderrors.CodeSchemaContentModel, "complexContent mixed derivation requires mixed base")
 }
-
-type emptyTypeDerivationFixture struct{}

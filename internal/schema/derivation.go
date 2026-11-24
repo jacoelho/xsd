@@ -891,13 +891,13 @@ func simpleTypeDerivationMaskOf(
 	if err := work(2); err != nil {
 		return 0, false, err
 	}
-	st, ok := rt.SimpleTypeDerivation(derived)
-	if !ok {
-		return 0, false, nil
+	st, ok, err := simpleTypeDerivationOf(rt, derived)
+	if err != nil || !ok {
+		return 0, false, err
 	}
-	baseType, ok := rt.SimpleTypeDerivation(base)
-	if !ok {
-		return 0, false, nil
+	baseType, ok, err := simpleTypeDerivationOf(rt, base)
+	if err != nil || !ok {
+		return 0, false, err
 	}
 	if baseType.Variety != valuepkg.Union {
 		return simpleTypeBaseChainDerivationMask(rt, derived, base, st, work)
@@ -947,16 +947,26 @@ func nextSimpleBaseDerivation(
 		return simpleBaseDerivationStep{id: next, found: true, valid: true}, nil
 	}
 	if cycle.repeats(next) {
-		return simpleBaseDerivationStep{}, nil
+		return simpleBaseDerivationStep{}, newBuildDefect("simple type derivation graph is cyclic")
 	}
 	if err := work(1); err != nil {
 		return simpleBaseDerivationStep{}, err
 	}
-	nextType, ok := rt.SimpleTypeDerivation(next)
-	if !ok {
-		return simpleBaseDerivationStep{}, nil
+	nextType, ok, err := simpleTypeDerivationOf(rt, next)
+	if err != nil || !ok {
+		return simpleBaseDerivationStep{}, err
 	}
 	return simpleBaseDerivationStep{id: next, typ: nextType, valid: true}, nil
+}
+
+// simpleTypeDerivationOf returns the derivation of id, and false when id is a
+// missing type, which derives from nothing.
+func simpleTypeDerivationOf(rt *schemaBuild, id SimpleTypeID) (simpleTypeDerivation, bool, error) {
+	if !validSimpleTypeID(id, len(rt.SimpleTypes)) {
+		return simpleTypeDerivation{}, false, newBuildDefect("simple type derivation references invalid type")
+	}
+	st, ok := rt.SimpleTypeDerivation(id)
+	return st, ok, nil
 }
 
 type simpleTypeBaseChainCycle struct {
@@ -1249,6 +1259,9 @@ func complexTypeDerivationMask(
 	derived, base ComplexTypeID,
 	work func(int) error,
 ) (DerivationMask, bool, error) {
+	if !validComplexTypeID(base, len(rt.ComplexTypes)) {
+		return 0, false, newBuildDefect("complex type derivation references invalid base")
+	}
 	var mask DerivationMask
 	for range len(rt.ComplexTypes) {
 		step, ok, err := complexParentDerivation(rt, derived, work)
