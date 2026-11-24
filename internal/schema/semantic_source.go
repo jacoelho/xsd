@@ -310,17 +310,14 @@ func (*schemaWildcardSource) semanticKind()        {}
 func (*schemaGroupSource) semanticKind()           {}
 
 // semanticSource returns the typed source of s, and false when s holds another
-// kind or a nil source of kind T.
+// kind. buildSemanticKind stores only non-nil sources.
 func semanticSource[T schemaSemanticKind](s *schemaSemanticSource) (T, bool) {
-	var zero T
 	if s == nil {
+		var zero T
 		return zero, false
 	}
 	source, ok := s.kind.(T)
-	if !ok || any(source) == any(zero) {
-		return zero, false
-	}
-	return source, true
+	return source, ok
 }
 
 // requiredSemanticSource returns the typed source of n, whose element name fixed
