@@ -74,6 +74,7 @@ type Token struct {
 	TextKind CharacterDataKind
 	// referenceStart is the Data index where the first decoded reference of a
 	// CharacterDataReference token begins; Data before it is literal source.
+	// Every CharacterDataReference token sets it, and no other token reads it.
 	referenceStart int
 }
 
@@ -127,7 +128,6 @@ func (t *Token) begin(kind TokenKind, line, column int) {
 	case KindCharData:
 		t.Data = nil
 		t.TextKind = CharacterDataInvalid
-		t.referenceStart = 0
 	case KindPI:
 		t.Data = nil
 		t.Directive = nil
@@ -438,13 +438,12 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
 	kind := CharacterDataText
-	referenceStart := 0
 	borrowFirst := isBorrowedASCIITextByte(first)
 	switch first {
 	case '&':
 		borrowFirst = false
-		kind = CharacterDataReference
-		if err := p.readEntity(&p.textBuf); err != nil {
+		var err error
+		if kind, err = p.readCharDataReference(dst, kind); err != nil {
 			return err
 		}
 	case '\r':
@@ -478,7 +477,6 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			dst.begin(KindCharData, line, col)
 			dst.TextKind = kind
 			dst.Data = p.textBuf
-			dst.referenceStart = referenceStart
 			return nil
 		}
 		if err != nil {
@@ -523,7 +521,6 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			dst.begin(KindCharData, line, col)
 			dst.TextKind = kind
 			dst.Data = p.textBuf
-			dst.referenceStart = referenceStart
 			return nil
 		}
 		b, err = p.br.readByte()
@@ -531,21 +528,17 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			return err
 		}
 		if b == '\r' {
-			if err := p.consumeLineFeed(); err != nil {
+			if err = p.consumeLineFeed(); err != nil {
 				return err
 			}
-			if err := p.appendTokenByte(&p.textBuf, '\n'); err != nil {
+			if err = p.appendTokenByte(&p.textBuf, '\n'); err != nil {
 				return err
 			}
 			cdataEnd = 0
 			continue
 		}
 		if b == '&' {
-			if kind != CharacterDataReference {
-				kind = CharacterDataReference
-				referenceStart = len(p.textBuf)
-			}
-			if err := p.readEntity(&p.textBuf); err != nil {
+			if kind, err = p.readCharDataReference(dst, kind); err != nil {
 				return err
 			}
 			cdataEnd = 0
@@ -559,6 +552,13 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			return err
 		}
 	}
+}
+
+func (p *parser) readCharDataReference(dst *Token, kind CharacterDataKind) (CharacterDataKind, error) {
+	if kind != CharacterDataReference {
+		dst.referenceStart = len(p.textBuf)
+	}
+	return CharacterDataReference, p.readEntity(&p.textBuf)
 }
 
 func isBorrowedASCIITextByte(b byte) bool {
