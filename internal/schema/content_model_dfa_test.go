@@ -587,10 +587,10 @@ func TestFollowStateChargesEachEntryWithItsGuardsAndActions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := follow.add(0, guards, actions, set); err != nil {
+		if err = follow.add(0, guards, actions, set); err != nil {
 			t.Fatal(err)
 		}
-		if err := follow.chargeNormalization(func(int) error { return nil }); err != nil {
+		if err = follow.chargeNormalization(func(int) error { return nil }); err != nil {
 			t.Fatal(err)
 		}
 		work := newWorkBudget(contentModelWorkBudget, tc.budget)
