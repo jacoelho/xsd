@@ -55,6 +55,7 @@ var particleListReaders = map[string]string{
 	"restrictionNormalizer.children":     "callee child charges each particle through particle",
 	"restrictionNormalizer.child":        "takes a spliced group's list unread; appendChild, reached from children through replaceChild, charges each member",
 	"restrictionNormalizer.replaceChild": "callee copyPrefix charges the whole list",
+	"restrictionNormalizer.appendChild":  "charges each spliced member and kept particle it appends; the normalized list it appends onto grows only by particles so charged",
 
 	"contentRestrictionValidator.modelContainsWildcard":               "callee particleContainsWildcard charges each particle",
 	"contentRestrictionValidator.validateChoiceRestriction":           "compareParticleRestriction charges each base particle compared, and validateChoiceSpans charges the base list",
@@ -731,12 +732,13 @@ type particleListRead struct {
 // operand of len or indexed by an integer literal. A use of any other holder,
 // or a call whose result holds a list, reads it other than as the operand of
 // len, a comparison with nil, the range of a loop that takes only indexes,
-// indexed by an integer literal, written by an assignment or as a composite
-// literal key, passed whole or subsliced as an argument the flow follows,
-// handed to a variable, a struct field, a container, or a result of a
-// function that is not escaping, or copied into a holder by copy or append. A
-// container is read only through an element that is read, and its range loop
-// reads nothing when the value it takes is a variable.
+// indexed by an integer literal, written by an assignment, a range loop or
+// copy or as a composite literal key, passed whole or subsliced as an
+// argument the flow follows, handed to a variable, a struct field, a
+// container, or a result of a function that is not escaping, or handed on
+// without its particles being copied, as copiedBy defines. A container is
+// read only through an element that is read, and its range loop reads
+// nothing when the value it takes is a variable.
 func (f *particleListFlow) reads(fn ast.Node) []particleListRead {
 	var reads []particleListRead
 	var stack []ast.Node
@@ -834,21 +836,32 @@ func (f *particleListFlow) isStruct(lit *ast.CompositeLit) bool {
 	return ok
 }
 
-// copiedBy reports whether expr, an argument of call, is copied by it into a
-// holder: the operand or a spread or appended element of an append whose
-// result is handed on, or the source of a copy into a holder.
+// copiedBy reports whether expr, an argument of call, is handed on by it
+// without its particles being copied: the destination of a copy, which is
+// written, or a container of lists, or a list appended as one element, given
+// to an append whose result is handed on. Copying a list's particles, as the
+// operand or spread source of an append or the source of a copy, reads it.
 func (f *particleListFlow) copiedBy(call *ast.CallExpr, expr ast.Expr, outer []ast.Node) bool {
 	switch {
 	case f.isBuiltin(call, "append") && len(call.Args) > 0:
 		last := len(call.Args) - 1
 		switch {
 		case call.Args[0] == expr, call.Ellipsis.IsValid() && call.Args[last] == expr:
+			if f.flowOf(expr)&holdsList != 0 {
+				return false
+			}
 		case !call.Ellipsis.IsValid() && slices.Contains(call.Args[1:], expr) && elementOf(f.flowOf(expr)) != 0:
 		default:
 			return false
 		}
 		return f.handedOn(call, outer)
-	case f.isBuiltin(call, "copy") && len(call.Args) == 2 && call.Args[1] == expr:
+	case f.isBuiltin(call, "copy") && len(call.Args) == 2:
+		if call.Args[0] == expr {
+			return true
+		}
+		if call.Args[1] != expr || f.flowOf(expr)&holdsList != 0 {
+			return false
+		}
 		target, _ := f.storeTarget(unslice(call.Args[0]), f.flowOf(expr))
 		return target != nil
 	}
@@ -929,7 +942,8 @@ func (f *particleListFlow) returnsList(fn *types.Func) bool {
 }
 
 // written reports whether expr, whose ancestors are parents, is the target of
-// an assignment or the key of a composite literal element.
+// an assignment, the key or value a range loop assigns, or the key of a
+// composite literal element.
 func written(expr ast.Expr, parents []ast.Node) bool {
 	if len(parents) == 0 {
 		return false
@@ -937,6 +951,8 @@ func written(expr ast.Expr, parents []ast.Node) bool {
 	switch p := parents[len(parents)-1].(type) {
 	case *ast.AssignStmt:
 		return slices.Contains(p.Lhs, expr)
+	case *ast.RangeStmt:
+		return p.Key == expr || p.Value == expr
 	case *ast.KeyValueExpr:
 		if p.Key != expr || len(parents) < 2 {
 			return false
