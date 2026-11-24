@@ -207,11 +207,11 @@ each model record, row, edge and `xs:all` term before allocating it, and
 rows are windows of one edge run (`compiledModel.Run`) and share one index of
 the run (`publishedDFARun`), so its tables grow linearly with its particles.
 `compileContentModels` keeps only the published form (`compiledModelRead`) of
-each complex type's root model, indexed in the model's scope, and the kind of
+the root model of each complex type an instance can reach, built over
+published element IDs and indexed in the model's scope, and the kind of
 every other reached model, whose rows are still charged because its Unique
-Particle Attribution check reads them; publication takes a table without
-copying it when every element it names keeps its ID in the published
-numbering, and copies it otherwise; `sealSchemaProgram` adds dense indexes,
+Particle Attribution check reads them; publication takes every table without
+copying it; `sealSchemaProgram` adds dense indexes,
 which rewrite rows the build shares, only after the last step that can reject
 the build. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
@@ -305,7 +305,9 @@ what is detached: an instance names only global components (root, `xsi:type`,
 wildcard, substitution member), so a complex type or identity constraint no
 walk from them reaches is never assessed. `detachUnreachableComponents` owns
 that decision and charges no budget, because it reads only models
-`complexTypeReachableModels` already charged. The same walk reaches the
+`complexTypeReachableModels` already charged, and it runs before Unique
+Particle Attribution and automaton construction so the compiled tables can be
+built over published element IDs. The same walk reaches the
 simple types a published read can name: global types, global attribute
 types, a reached element's type, a reached complex type's text type and
 attribute-use types, and the base, list item and union members of a reached
@@ -317,9 +319,20 @@ its ID, derivation record and value-program slot, but `Builder.SealKeeping`
 drops its value definition (facets, patterns, enumerations), and validating
 it reports `value.ErrMetadata`. Unreached element declarations
 are not published, and validation sees only published element IDs, which
-`publishedElements` owns. A published holder of element IDs is either a build
-table that names only declarations whose published ID is their build ID or a
-copy built over published IDs, never a table that mixes the two.
+`publishedElements` owns. Every published holder of element IDs names
+declarations only by published IDs. A compiled content table is built over
+them when it is projected: its particles hold `publishedElementID`, which only
+`newCompiledParticleRead` produces from a build ID, so a build ID cannot be
+stored in a table without that translation, and the name index maps each
+published ID back to its build ID to read names and substitution members. The
+root of a type no instance reaches may name unpublished declarations, so it
+is projected and indexed over build IDs, spending what a published root
+would, and then kept as its kind alone. `compiledContent` records the
+numbering its tables were built over, and publication rejects a build whose
+reachability no longer derives it. The global element map and the
+substitution table, which compilation reads in build IDs, are copied over
+published IDs at publication; the substitution table is at most
+`MaxSubstitutionClosureEntries` entries.
 `validateReachableHolders`, `validatePublishedIdentityConstraints`,
 `validatePublishedSimpleTypes`, `SealKeeping` and `publishedElements` reject a
 published holder that names a detached or unreached component. Unique
@@ -1430,23 +1443,24 @@ graph preserves these ownership rules:
   every holder would need a copy. A per-type indirection in the value
   program's type lookup would free the 200-byte slot of an unreached type but
   adds a dependent load to every value evaluation.
-- Writing published element IDs while the compiled content tables are
-  projected, before publication, was rejected: the name indexes built with
-  them read build IDs against the declarations and the substitution table,
-  the root tables of detached types name declarations that have no published
-  ID, and publication's restriction checks read the substitution table in
-  build IDs, so the build would hold two element ID spaces.
-- Rewriting the element IDs of the build's content tables and substitution
-  entries in place after the last step that can reject the build was
-  rejected: its correctness rested on that ordering and on every particle
-  being reached exactly once, so a table whose rows shared an edge array
-  would be renumbered twice without any check failing.
-- Copying every content table at publication was rejected: on a schema with
-  no unreached declaration it raised the compilation peak and total
-  allocation by about a fifth (a choice of 120 elements with `maxOccurs`
-  16,000) to renumber nothing. Publication copies only a table that names a
-  declaration whose published ID differs from its build ID, which every
-  declaration below the first unreached one keeps.
+- Copying the content tables over published IDs at publication was
+  rejected: a schema with an unreached declaration before reached ones held
+  two copies of every table naming a renumbered declaration at the
+  compilation peak, up to about a fifth more peak and total allocation (a
+  choice of 120 elements with `maxOccurs` 16,000), and copying only the
+  tables that need it left two ways for a table to become published. Building
+  the tables over published IDs needs the reachability walk before automaton
+  construction, which costs nothing because the walk reads only models
+  `complexTypeReachableModels` already charged.
+- Rewriting the element IDs of the build's content tables in place after the
+  last step that can reject the build was rejected: its correctness rested on
+  that ordering and on every particle being reached exactly once, so a table
+  whose rows shared an edge array would be renumbered twice without any check
+  failing.
+- Building the substitution table over published IDs during compilation was
+  rejected: restriction checks, Unique Particle Attribution and automaton
+  construction read it in build IDs, against declarations that unreached
+  components still name, so compilation would hold two element ID spaces.
 - Marking detachment lexically, on the definitions nested under a zero-count
   element or compositor, was rejected: a local element declaration is
   compiled once per source node, so a named group referenced by both a

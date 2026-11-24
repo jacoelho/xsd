@@ -216,7 +216,7 @@ func (t substitutionTable) published(elements publishedElements) (substitutionTa
 	if len(t.spans) == 0 {
 		return substitutionTable{entries: entries, byName: t.byName}, nil
 	}
-	if len(t.spans) != len(elements.ids) {
+	if len(t.spans) != elements.declarations {
 		return substitutionTable{}, xsderrors.InternalInvariant("substitution table does not cover the element declarations")
 	}
 	spans := make([]substitutionSpan, elements.count)

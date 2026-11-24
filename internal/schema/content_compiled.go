@@ -185,6 +185,11 @@ type compiledModelRead struct {
 	Empty     bool
 }
 
+// withoutTables returns m without its rows, xs:all terms and name index.
+func (m compiledModelRead) withoutTables() compiledModelRead {
+	return compiledModelRead{Start: m.Start, AllBitLen: m.AllBitLen, Kind: m.Kind, Empty: m.Empty}
+}
+
 // compiledModelRowRead has a per-architecture storage ceiling
 // (TestCompiledModelRowReadStorageCeiling); optional dispatch metadata must not
 // enlarge it. Each published row owns exactly one index variant, named by
@@ -236,13 +241,24 @@ type compiledAllTermRead struct {
 }
 
 type compiledParticleRead struct {
-	Element  ElementID
+	Element  publishedElementID
 	Wildcard WildcardID
 	Kind     particleKind
 }
 
-func newCompiledParticleRead(p contentParticle) compiledParticleRead {
-	return compiledParticleRead{Element: p.Element, Wildcard: p.Wildcard, Kind: p.Kind}
+// newCompiledParticleRead returns p naming its element declaration by its
+// published ID in elements, rejecting a declaration elements does not publish.
+func newCompiledParticleRead(p contentParticle, elements publishedElements) (compiledParticleRead, error) {
+	read := compiledParticleRead{Element: noPublishedElement, Wildcard: p.Wildcard, Kind: p.Kind}
+	if p.Kind != particleElement {
+		return read, nil
+	}
+	id, ok := elements.id(p.Element)
+	if !ok {
+		return compiledParticleRead{}, xsderrors.InternalInvariant("compiled content model names an element declaration with no published ID")
+	}
+	read.Element = publishedElementID(id)
+	return read, nil
 }
 
 // enteredContent is the set of compiled models validation can enter, with
@@ -336,45 +352,106 @@ func foldEmptyRoots(roots []int, models []compiledModelRead) {
 	}
 }
 
-// publishedContentModels returns copies of the entered models in entered
-// order over published element IDs (publishedElements.publishedModel). They
-// share only their name indexes with content.
-func publishedContentModels(build *schemaBuild, entered []int, elements publishedElements) ([]compiledModelRead, error) {
-	content := &build.CompiledContent
+// publishedContentModels returns the entered tables in entered order,
+// sharing their storage with content, once each element particle they hold is
+// checked to name one of count published declarations. A row of a run model
+// is checked to be a window of its run, which is read once, so the check reads
+// each edge, row and xs:all term once and charges nothing: projection charged
+// them.
+func publishedContentModels(content *compiledContent, entered []int, count int) ([]compiledModelRead, error) {
 	reads := make([]compiledModelRead, len(entered))
 	for i, id := range entered {
-		read, err := elements.publishedModel(build, content.Models[id], content.Runs[id])
-		if err != nil {
+		if err := validatePublishedModel(&content.Models[id], content.Runs[id], count); err != nil {
 			return nil, err
 		}
-		reads[i] = read
+		reads[i] = content.Models[id]
 	}
 	return reads, nil
 }
 
-// newCompiledModelRead projects one compiled model to its published form,
-// charging one unit of work per model, row, edge and xs:all term. Each table
-// is allocated at its exact length, and each row's Edges has no spare
-// capacity, so appending to it never writes into another row's edges. When
-// the model's rows are windows of one run of edges, the published rows are
-// windows of its projected run, which newCompiledModelRead also returns.
-func newCompiledModelRead(model compiledModel, work contentModelWork) (compiledModelRead, []compiledModelEdgeRead, error) {
+func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRead, count int) error {
+	if err := validatePublishedEdges(run, count); err != nil {
+		return err
+	}
+	for i := range model.Rows {
+		row := &model.Rows[i]
+		if run == nil {
+			if err := validatePublishedEdges(row.Edges, count); err != nil {
+				return err
+			}
+		} else if !isRunWindow(row.Edges, run) {
+			return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
+		}
+		if row.Counted {
+			if err := validatePublishedParticle(row.CountParticle, count); err != nil {
+				return err
+			}
+		}
+	}
+	for _, term := range model.All {
+		if err := validatePublishedParticle(term.Particle, count); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePublishedEdges(edges []compiledModelEdgeRead, count int) error {
+	for _, edge := range edges {
+		if err := validatePublishedParticle(edge.Particle, count); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePublishedParticle(particle compiledParticleRead, count int) error {
+	if particle.Kind == particleElement && !validElementID(ElementID(particle.Element), count) {
+		return xsderrors.InternalInvariant("published content model references an invalid element declaration")
+	}
+	return nil
+}
+
+// isRunWindow reports whether row is empty or a window of run located by its
+// first edge's target.
+func isRunWindow(row, run []compiledModelEdgeRead) bool {
+	if len(row) == 0 {
+		return true
+	}
+	start := uint64(row[0].To) - 1
+	return row[0].To != 0 && start+uint64(len(row)) <= uint64(len(run)) && &row[0] == &run[start]
+}
+
+// newCompiledModelRead projects one compiled model to its published form over
+// elements, charging one unit of work per model, row, edge and xs:all term.
+// Each table is allocated at its exact length, and each row's Edges has no
+// spare capacity, so appending to it never writes into another row's edges.
+// When the model's rows are windows of one run of edges, the published rows
+// are windows of its projected run, which newCompiledModelRead also returns.
+func newCompiledModelRead(model compiledModel, work contentModelWork, elements publishedElements) (compiledModelRead, []compiledModelEdgeRead, error) {
 	if err := chargeCompiledModelProjectionWork(model, work); err != nil {
 		return compiledModelRead{}, nil, err
 	}
-	run := readEdges(model.Run)
+	run, err := readEdges(model.Run, elements)
+	if err != nil {
+		return compiledModelRead{}, nil, err
+	}
 	var rows []compiledModelRowRead
 	if model.Run == nil {
-		rows = readRows(model.Rows)
+		rows, err = readRows(model.Rows, elements)
 	} else {
-		var err error
-		if rows, err = readRunRows(model.Rows, run); err != nil {
-			return compiledModelRead{}, nil, err
-		}
+		rows, err = readRunRows(model.Rows, run, elements)
+	}
+	if err != nil {
+		return compiledModelRead{}, nil, err
+	}
+	all, err := readAll(model.All, elements)
+	if err != nil {
+		return compiledModelRead{}, nil, err
 	}
 	return compiledModelRead{
 		Rows:      rows,
-		All:       readAll(model.All),
+		All:       all,
 		Start:     model.Start,
 		AllBitLen: model.AllBitLen,
 		Kind:      model.Kind,
@@ -382,9 +459,9 @@ func newCompiledModelRead(model compiledModel, work contentModelWork) (compiledM
 	}, run, nil
 }
 
-func readRows(source []compiledModelRow) []compiledModelRowRead {
+func readRows(source []compiledModelRow, elements publishedElements) ([]compiledModelRowRead, error) {
 	if len(source) == 0 {
-		return nil
+		return nil, nil
 	}
 	edgeCount := 0
 	for i := range source {
@@ -397,19 +474,28 @@ func readRows(source []compiledModelRow) []compiledModelRowRead {
 		rowEdges := edges[:end:end]
 		edges = edges[end:]
 		for j, edge := range row.Edges {
-			rowEdges[j] = newCompiledModelEdgeRead(edge)
+			particle, err := newCompiledParticleRead(edge.Particle, elements)
+			if err != nil {
+				return nil, err
+			}
+			rowEdges[j] = compiledModelEdgeRead{Particle: particle, To: edge.To}
 		}
 		if end == 0 {
 			rowEdges = nil
 		}
-		rows[i] = newCompiledModelRowRead(row, rowEdges)
+		read, err := newCompiledModelRowRead(row, rowEdges, elements)
+		if err != nil {
+			return nil, err
+		}
+		rows[i] = read
 	}
-	return rows
+	return rows, nil
 }
 
-// readRunRows projects rows whose edges are windows of run. Edge k of run
-// targets row k+1, so a window's first target locates it in run.
-func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead) ([]compiledModelRowRead, error) {
+// readRunRows projects rows whose edges are windows of run, the projected
+// run, so no edge is projected twice. Edge k of run targets row k+1, so a
+// window's first target locates it in run.
+func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead, elements publishedElements) ([]compiledModelRowRead, error) {
 	for k, edge := range run {
 		if uint64(edge.To) != uint64(k)+1 {
 			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows")
@@ -426,47 +512,64 @@ func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead) ([]comp
 			}
 			window = run[start:end:end]
 		}
-		rows[i] = newCompiledModelRowRead(row, window)
+		read, err := newCompiledModelRowRead(row, window, elements)
+		if err != nil {
+			return nil, err
+		}
+		rows[i] = read
 	}
 	return rows, nil
 }
 
-func newCompiledModelRowRead(row compiledModelRow, edges []compiledModelEdgeRead) compiledModelRowRead {
-	return compiledModelRowRead{
-		Edges:         edges,
-		CountParticle: newCompiledParticleRead(row.CountParticle),
-		Min:           row.Min,
-		Max:           row.Max,
-		Accept:        row.Accept,
-		Counted:       row.Counted,
-		Unbounded:     row.Unbounded,
+// newCompiledModelRowRead projects row with edges, its projected edges. Only
+// a counted row's count particle names a declaration.
+func newCompiledModelRowRead(row compiledModelRow, edges []compiledModelEdgeRead, elements publishedElements) (compiledModelRowRead, error) {
+	read := compiledModelRowRead{
+		Edges:     edges,
+		Min:       row.Min,
+		Max:       row.Max,
+		Accept:    row.Accept,
+		Counted:   row.Counted,
+		Unbounded: row.Unbounded,
 	}
+	if row.Counted {
+		particle, err := newCompiledParticleRead(row.CountParticle, elements)
+		if err != nil {
+			return compiledModelRowRead{}, err
+		}
+		read.CountParticle = particle
+	}
+	return read, nil
 }
 
-func readEdges(source []compiledModelEdge) []compiledModelEdgeRead {
+func readEdges(source []compiledModelEdge, elements publishedElements) ([]compiledModelEdgeRead, error) {
 	if len(source) == 0 {
-		return nil
+		return nil, nil
 	}
 	edges := make([]compiledModelEdgeRead, len(source))
 	for i, edge := range source {
-		edges[i] = newCompiledModelEdgeRead(edge)
+		particle, err := newCompiledParticleRead(edge.Particle, elements)
+		if err != nil {
+			return nil, err
+		}
+		edges[i] = compiledModelEdgeRead{Particle: particle, To: edge.To}
 	}
-	return edges
+	return edges, nil
 }
 
-func newCompiledModelEdgeRead(edge compiledModelEdge) compiledModelEdgeRead {
-	return compiledModelEdgeRead{Particle: newCompiledParticleRead(edge.Particle), To: edge.To}
-}
-
-func readAll(source []compiledAllTerm) []compiledAllTermRead {
+func readAll(source []compiledAllTerm, elements publishedElements) ([]compiledAllTermRead, error) {
 	if len(source) == 0 {
-		return nil
+		return nil, nil
 	}
 	all := make([]compiledAllTermRead, len(source))
 	for i, term := range source {
-		all[i] = compiledAllTermRead{Particle: newCompiledParticleRead(term.Particle), Required: term.Required}
+		particle, err := newCompiledParticleRead(term.Particle, elements)
+		if err != nil {
+			return nil, err
+		}
+		all[i] = compiledAllTermRead{Particle: particle, Required: term.Required}
 	}
-	return all
+	return all, nil
 }
 
 // chargeCompiledModelProjectionWork charges one unit per model, row, xs:all
@@ -888,7 +991,7 @@ func (c *publishedDFACandidates) next() (int, bool) {
 func (rt *Schema) matchPublishedDirectParticle(p compiledParticleRead, in ContentInput) (contentMatch, bool) {
 	switch p.Kind {
 	case particleElement:
-		return rt.matchPublishedElementParticle(p.Element, in)
+		return rt.matchPublishedElementParticle(ElementID(p.Element), in)
 	case particleWildcard:
 		if !validWildcardID(p.Wildcard, len(rt.program.Wildcards)) {
 			return contentMatch{}, false

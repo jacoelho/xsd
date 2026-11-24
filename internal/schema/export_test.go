@@ -54,7 +54,11 @@ func (c *compiler) compileReachedContentModelsForTest() error {
 	if err != nil {
 		return err
 	}
-	return c.compileContentModels(reached)
+	instanceModels, err := c.detachUnreachableComponents()
+	if err != nil {
+		return err
+	}
+	return c.compileContentModels(reached, instanceModels)
 }
 
 // RuntimeForTest returns the compiler-owned mutable runtime for white-box tests.

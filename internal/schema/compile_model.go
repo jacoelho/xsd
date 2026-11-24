@@ -359,11 +359,27 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 // source-ID order and in the scope of its owner. A nested model is compiled on
 // its own as well as in its ancestors' rows, so a violation or limit inside a
 // group stops compilation at the first model, in source order, holding it.
-// Only a complex type's root model can be published, so only a root keeps its
-// published form; any other model keeps its kind alone.
-func (c *compiler) compileContentModels(reached []reachedModel) error {
+// Only the root model of a complex type an instance can reach can be
+// published, so only such a root keeps its published form, built over the
+// published element numbering of instanceModels' walk; any other model keeps
+// its kind alone. A root no instance reaches, of detached types only, may name
+// unpublished declarations, so it is projected and indexed over build IDs and
+// then dropped to its kind, spending what a published root would.
+func (c *compiler) compileContentModels(reached []reachedModel, instanceModels []bool) error {
+	if len(instanceModels) != len(c.rt.Models) {
+		return xsderrors.InternalInvariant("instance reachability does not cover the content models")
+	}
+	elements, err := newPublishedElements(c.rt.ReachableElements, len(c.rt.Elements))
+	if err != nil {
+		return err
+	}
 	cc := newContentModelCompiler(&c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
-	index := newDFARowIndexAnalysis(&c.rt, c.contentWork.spend, &c.dependencyWork)
+	published := newDFARowIndexAnalysis(&c.rt, &elements, c.contentWork.spend, &c.dependencyWork)
+	detached := published
+	if !elements.identity() {
+		identity := identityElements(len(c.rt.Elements))
+		detached = published.over(&identity)
+	}
 	roots := make([]contentModelID, len(c.rt.ComplexTypes))
 	for i := range c.rt.ComplexTypes {
 		roots[i] = c.rt.ComplexTypes[i].Content
@@ -373,18 +389,30 @@ func (c *compiler) compileContentModels(reached []reachedModel) error {
 	models := make([]compiledModelRead, 0, len(reached))
 	runs := make([][]compiledModelEdgeRead, 0, len(reached))
 	for _, r := range reached {
+		index, instance := published, instanceModels[r.id]
+		if !instance {
+			index = detached
+		}
 		model, run, err := c.compileContentModel(&cc, index, roots, r)
 		if err != nil {
 			return err
+		}
+		if !instance {
+			model, run = model.withoutTables(), nil
 		}
 		sources = append(sources, r.id)
 		models = append(models, model)
 		runs = append(runs, run)
 	}
 	c.rt.CompiledContent = compiledContent{Sources: sources, Models: models, Runs: runs}
+	if !elements.identity() {
+		c.rt.CompiledContent.Elements = new(elements)
+	}
 	return nil
 }
 
+// compileContentModel compiles one reached model; a root is projected and
+// indexed over the element numbering of index.
 func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
 	id := reached.id
 	scope, err := c.enterContentModel(id)
@@ -400,7 +428,7 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIn
 	if _, root := slices.BinarySearch(roots, id); !root {
 		return compiledModelRead{Kind: compiled.Kind}, nil, nil
 	}
-	model, run, err := newCompiledModelRead(compiled, c.contentWork.spend)
+	model, run, err := newCompiledModelRead(compiled, c.contentWork.spend, *index.elements)
 	if err != nil {
 		return compiledModelRead{}, nil, err
 	}

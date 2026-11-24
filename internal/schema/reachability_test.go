@@ -47,7 +47,7 @@ func TestDetachingUnreachableComponentsSpendsNoBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	dependency, content := c.dependencyWork.remaining, c.contentWork.remaining
-	if err := c.detachUnreachableComponents(); err != nil {
+	if _, err := c.detachUnreachableComponents(); err != nil {
 		t.Fatalf("detachUnreachableComponents() error = %v", err)
 	}
 	if c.dependencyWork.remaining != dependency || c.contentWork.remaining != content {
@@ -123,7 +123,7 @@ func TestPublicationRejectsReachabilityCorruption(t *testing.T) {
 		{name: "content model naming an invalid element", message: "published content model references an invalid element declaration", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			_, edges := run(t, build)
-			edges[0].Particle.Element = NoElement - 1
+			edges[0].Particle.Element = noPublishedElement - 1
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

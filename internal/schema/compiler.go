@@ -393,13 +393,14 @@ func (c *compiler) finalizeCompiledGlobals() error {
 	if err != nil {
 		return err
 	}
-	if err := c.detachUnreachableComponents(); err != nil {
+	instanceModels, err := c.detachUnreachableComponents()
+	if err != nil {
 		return err
 	}
 	if err := c.checkCompiledModelsUPA(reached); err != nil {
 		return err
 	}
-	return c.compileContentModels(reached)
+	return c.compileContentModels(reached, instanceModels)
 }
 
 func (c *compiler) compileModelGroupByQName(q QName) error {
