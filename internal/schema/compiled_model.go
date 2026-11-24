@@ -43,6 +43,10 @@ type compiledModel struct {
 // over the published element IDs of Elements, which publication takes as it
 // is; any other model holds only its kind and the scalars of its form.
 type compiledContent struct {
+	// Elements is the element numbering the published tables were built
+	// over, or nil for the identity, which publication checks against
+	// schemaBuild.ReachableElements.
+	Elements *publishedElements
 	// Sources holds the source IDs of the compiled models, ascending and
 	// distinct.
 	Sources []contentModelID
@@ -52,10 +56,6 @@ type compiledContent struct {
 	// published table is a window of, or nil when each row holds its own
 	// edges. It lets publication check each published edge once.
 	Runs [][]compiledModelEdgeRead
-	// Elements is the element numbering the published tables were built
-	// over, or nil for the identity, which publication checks against
-	// schemaBuild.ReachableElements.
-	Elements *publishedElements
 }
 
 // compiledModelRow stores a compiled DFA state.

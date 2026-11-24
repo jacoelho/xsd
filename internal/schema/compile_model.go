@@ -374,11 +374,14 @@ func (c *compiler) compileContentModels(reached []reachedModel, instanceModels [
 		return err
 	}
 	cc := newContentModelCompiler(&c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
-	published := newDFARowIndexAnalysis(&c.rt, &elements, c.contentWork.spend, &c.dependencyWork)
-	detached := published
+	projection := rootProjection{
+		published: newDFARowIndexAnalysis(&c.rt, &elements, c.contentWork.spend, &c.dependencyWork),
+		instance:  instanceModels,
+	}
+	projection.detached = projection.published
 	if !elements.identity() {
 		identity := identityElements(len(c.rt.Elements))
-		detached = published.over(&identity)
+		projection.detached = projection.published.over(&identity)
 	}
 	roots := make([]contentModelID, len(c.rt.ComplexTypes))
 	for i := range c.rt.ComplexTypes {
@@ -389,16 +392,9 @@ func (c *compiler) compileContentModels(reached []reachedModel, instanceModels [
 	models := make([]compiledModelRead, 0, len(reached))
 	runs := make([][]compiledModelEdgeRead, 0, len(reached))
 	for _, r := range reached {
-		index, instance := published, instanceModels[r.id]
-		if !instance {
-			index = detached
-		}
-		model, run, err := c.compileContentModel(&cc, index, roots, r)
+		model, run, err := c.compileContentModel(&cc, projection, roots, r)
 		if err != nil {
 			return err
-		}
-		if !instance {
-			model, run = model.withoutTables(), nil
 		}
 		sources = append(sources, r.id)
 		models = append(models, model)
@@ -411,9 +407,36 @@ func (c *compiler) compileContentModels(reached []reachedModel, instanceModels [
 	return nil
 }
 
-// compileContentModel compiles one reached model; a root is projected and
-// indexed over the element numbering of index.
-func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIndexAnalysis, roots []contentModelID, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
+// rootProjection projects and indexes the root models of complex types:
+// a root the instance walk reached over published element IDs, and any other
+// over build IDs.
+type rootProjection struct {
+	published *dfaRowIndexAnalysis
+	detached  *dfaRowIndexAnalysis
+	instance  []bool
+}
+
+// project returns the published form of root, or its kind and scalars alone
+// when no instance reaches it.
+func (p rootProjection) project(root contentModelID, compiled compiledModel, work contentModelWork) (compiledModelRead, []compiledModelEdgeRead, error) {
+	index := p.published
+	if !p.instance[root] {
+		index = p.detached
+	}
+	model, run, err := newCompiledModelRead(compiled, work, *index.elements)
+	if err != nil {
+		return compiledModelRead{}, nil, err
+	}
+	if err := index.indexModel(&model, run); err != nil {
+		return compiledModelRead{}, nil, err
+	}
+	if !p.instance[root] {
+		return model.withoutTables(), nil, nil
+	}
+	return model, run, nil
+}
+
+func (c *compiler) compileContentModel(cc *contentModelCompiler, projection rootProjection, roots []contentModelID, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
 	id := reached.id
 	scope, err := c.enterContentModel(id)
 	if err != nil {
@@ -428,14 +451,7 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, index *dfaRowIn
 	if _, root := slices.BinarySearch(roots, id); !root {
 		return compiledModelRead{Kind: compiled.Kind}, nil, nil
 	}
-	model, run, err := newCompiledModelRead(compiled, c.contentWork.spend, *index.elements)
-	if err != nil {
-		return compiledModelRead{}, nil, err
-	}
-	if err := index.indexModel(&model, run); err != nil {
-		return compiledModelRead{}, nil, err
-	}
-	return model, run, nil
+	return projection.project(id, compiled, c.contentWork.spend)
 }
 
 func (c *compiler) checkCompiledModelsUPA(reached []reachedModel) error {

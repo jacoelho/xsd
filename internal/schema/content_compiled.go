@@ -374,18 +374,8 @@ func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRea
 		return err
 	}
 	for i := range model.Rows {
-		row := &model.Rows[i]
-		if run == nil {
-			if err := validatePublishedEdges(row.Edges, count); err != nil {
-				return err
-			}
-		} else if !isRunWindow(row.Edges, run) {
-			return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
-		}
-		if row.Counted {
-			if err := validatePublishedParticle(row.CountParticle, count); err != nil {
-				return err
-			}
+		if err := validatePublishedRow(&model.Rows[i], run, count); err != nil {
+			return err
 		}
 	}
 	for _, term := range model.All {
@@ -394,6 +384,21 @@ func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRea
 		}
 	}
 	return nil
+}
+
+func validatePublishedRow(row *compiledModelRowRead, run []compiledModelEdgeRead, count int) error {
+	if run != nil && !isRunWindow(row.Edges, run) {
+		return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
+	}
+	if run == nil {
+		if err := validatePublishedEdges(row.Edges, count); err != nil {
+			return err
+		}
+	}
+	if !row.Counted {
+		return nil
+	}
+	return validatePublishedParticle(row.CountParticle, count)
 }
 
 func validatePublishedEdges(edges []compiledModelEdgeRead, count int) error {
@@ -473,12 +478,8 @@ func readRows(source []compiledModelRow, elements publishedElements) ([]compiled
 		end := len(row.Edges)
 		rowEdges := edges[:end:end]
 		edges = edges[end:]
-		for j, edge := range row.Edges {
-			particle, err := newCompiledParticleRead(edge.Particle, elements)
-			if err != nil {
-				return nil, err
-			}
-			rowEdges[j] = compiledModelEdgeRead{Particle: particle, To: edge.To}
+		if err := readEdgesInto(rowEdges, row.Edges, elements); err != nil {
+			return nil, err
 		}
 		if end == 0 {
 			rowEdges = nil
@@ -503,22 +504,29 @@ func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead, element
 	}
 	rows := make([]compiledModelRowRead, len(source))
 	for i, row := range source {
-		var window []compiledModelEdgeRead
-		if len(row.Edges) > 0 {
-			start := uint64(row.Edges[0].To) - 1
-			end := start + uint64(len(row.Edges))
-			if row.Edges[0].To == 0 || end > uint64(len(run)) || uint64(row.Edges[len(row.Edges)-1].To) != end {
-				return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run")
-			}
-			window = run[start:end:end]
-		}
-		read, err := newCompiledModelRowRead(row, window, elements)
+		window, err := runWindow(row.Edges, run)
 		if err != nil {
 			return nil, err
 		}
-		rows[i] = read
+		if rows[i], err = newCompiledModelRowRead(row, window, elements); err != nil {
+			return nil, err
+		}
 	}
 	return rows, nil
+}
+
+// runWindow returns the window of run that row, a compiled row's edges,
+// occupies.
+func runWindow(row []compiledModelEdge, run []compiledModelEdgeRead) ([]compiledModelEdgeRead, error) {
+	if len(row) == 0 {
+		return nil, nil
+	}
+	start := uint64(row[0].To) - 1
+	end := start + uint64(len(row))
+	if row[0].To == 0 || end > uint64(len(run)) || uint64(row[len(row)-1].To) != end {
+		return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run")
+	}
+	return run[start:end:end], nil
 }
 
 // newCompiledModelRowRead projects row with edges, its projected edges. Only
@@ -547,14 +555,22 @@ func readEdges(source []compiledModelEdge, elements publishedElements) ([]compil
 		return nil, nil
 	}
 	edges := make([]compiledModelEdgeRead, len(source))
+	if err := readEdgesInto(edges, source, elements); err != nil {
+		return nil, err
+	}
+	return edges, nil
+}
+
+// readEdgesInto projects source into dst, which has its length.
+func readEdgesInto(dst []compiledModelEdgeRead, source []compiledModelEdge, elements publishedElements) error {
 	for i, edge := range source {
 		particle, err := newCompiledParticleRead(edge.Particle, elements)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		edges[i] = compiledModelEdgeRead{Particle: particle, To: edge.To}
+		dst[i] = compiledModelEdgeRead{Particle: particle, To: edge.To}
 	}
-	return edges, nil
+	return nil
 }
 
 func readAll(source []compiledAllTerm, elements publishedElements) ([]compiledAllTermRead, error) {
