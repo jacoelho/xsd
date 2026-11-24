@@ -139,8 +139,9 @@ func NewBuilder(options BuilderOptions) *Builder {
 	return b
 }
 
-// Reserve allocates one stable user-type ID. The slot remains incomplete until
-// Complete succeeds; builtins occupy the fixed prefix below this ID.
+// Reserve allocates one user-type ID, stable until a Truncate at or below it.
+// The slot remains incomplete until Complete succeeds; builtins occupy the
+// fixed prefix below this ID.
 func (b *Builder) Reserve() (TypeID, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return NoType, ErrMetadata
@@ -163,14 +164,18 @@ func (b *Builder) Reserve() (TypeID, error) {
 	return id, nil
 }
 
-// Truncate removes every user type whose ID is next or above, so Reserve
-// issues next again. It refunds no charge: the slot, storage, construction
-// and pattern charges of the removed types stay spent, and they still count
-// against MaxTypes. Truncate fails with ErrMetadata on a sealed builder, when
-// next is a builtin ID or past the user types the builder holds, and when a
-// removed slot is not committed, since a reserved or in-progress slot has a
-// caller still completing it.
-func (b *Builder) Truncate(next TypeID) error {
+// Truncate removes every user type whose ID is next or above, except keep,
+// which moves to ID next; NoType keeps none. Reserve then issues the ID after
+// the last remaining type. Truncate refunds no charge: the slot, storage,
+// construction and pattern charges of the removed types stay spent, and they
+// still count against MaxTypes. The caller guarantees that nothing outside the
+// removed types names them or the old ID of keep. Truncate fails with
+// ErrMetadata on a sealed builder, when next is a builtin ID or past the user
+// types the builder holds, when a removed slot or keep is not committed, since
+// a reserved or in-progress slot has a caller still completing it, when keep
+// is below next or past the user types, and when keep's base, list item or a
+// union member is next or above, since that type would be removed.
+func (b *Builder) Truncate(next, keep TypeID) error {
 	if b == nil || b.program == nil || b.program.sealed {
 		return ErrMetadata
 	}
@@ -183,18 +188,44 @@ func (b *Builder) Truncate(next TypeID) error {
 			return ErrMetadata
 		}
 	}
-	clear(b.program.types[first:])
-	b.program.types = b.program.types[:first]
-	b.program.complete = b.program.complete[:first]
+	last := first
+	if keep != NoType {
+		kept, ok := userTypeIndex(keep, len(b.program.types))
+		if !ok || kept < first || !b.program.types[kept].referencesOnlyBelow(next) {
+			return ErrMetadata
+		}
+		b.program.types[first] = b.program.types[kept]
+		last++
+	}
+	clear(b.program.types[last:])
+	b.program.types = b.program.types[:last]
+	b.program.complete = b.program.complete[:last]
 	return nil
+}
+
+// referencesOnlyBelow reports whether t's base, list item and union members
+// are all builtins, NoType or user types below next.
+func (t *typeDef) referencesOnlyBelow(next TypeID) bool {
+	below := func(id TypeID) bool { return id == NoType || id < next }
+	if !below(t.base) || !below(t.listItem) {
+		return false
+	}
+	for _, member := range t.union {
+		if !below(member) {
+			return false
+		}
+	}
+	return true
 }
 
 // ReserveCapacity admits storage for user-type slots and grows the construction
 // slices before records are reserved. The charge is a bounded accounting unit
 // for each slot, not an exact Go allocator byte measurement; slices.Grow may
-// retain implementation-defined capacity slack.
+// retain implementation-defined capacity slack. It fails with ErrMetadata
+// after a Truncate that removed a type, since the slots it counts would no
+// longer match the IDs issued.
 func (b *Builder) ReserveCapacity(userTypes int) error {
-	if b == nil || b.program == nil || b.program.sealed || userTypes < 0 {
+	if b == nil || b.program == nil || b.program.sealed || userTypes < 0 || b.issued != uint64(len(b.program.types)) {
 		return ErrMetadata
 	}
 	if b.maxTypes < uint32(BuiltinTypeCount) || uint64(userTypes) > uint64(b.maxTypes)-uint64(BuiltinTypeCount) {

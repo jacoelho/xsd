@@ -179,32 +179,32 @@ func TestProhibitedAttributeKeepsNoInlineSimpleType(t *testing.T) {
 	}
 }
 
-func TestZeroCountInlineTypeCreatingTheMissingTypeIsKept(t *testing.T) {
+func TestZeroCountInlineTypeCreatingTheMissingTypeKeepsOnlyThePlaceholder(t *testing.T) {
 	t.Parallel()
 
-	build := compiledTestBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:o="urn:o">
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:o="urn:o">
   <xs:import namespace="urn:o"/>
   <xs:complexType name="W"><xs:sequence>
-    <xs:element name="z" minOccurs="0" maxOccurs="0"><xs:simpleType><xs:list itemType="o:x"/></xs:simpleType></xs:element>
+    ZERO
   </xs:sequence></xs:complexType>
   <xs:attribute name="g"><xs:simpleType><xs:list itemType="o:x"/></xs:simpleType></xs:attribute>
-</xs:schema>`)
+</xs:schema>`
+	build := compiledTestBuild(t, strings.Replace(schema, "ZERO", `<xs:element name="z" minOccurs="0" maxOccurs="0"><xs:simpleType><xs:list itemType="o:x"/></xs:simpleType></xs:element>`, 1))
+	withoutZ := compiledTestBuild(t, strings.Replace(schema, "ZERO", "", 1))
+	if got, want := len(build.SimpleTypes), len(withoutZ.SimpleTypes); got != want {
+		t.Fatalf("simple types with z = %d, want %d as without z: z's inline list is dropped and the placeholder it created is kept", got, want)
+	}
 	g := build.Attributes[build.GlobalAttributes[mustBuildQName(t, build, "g")]].Type
 	item := build.SimpleTypes[g].ValueSpec.ListItem
 	if !validSimpleTypeID(item, len(build.SimpleTypes)) || !build.SimpleTypes[item].Missing {
 		t.Fatalf("g's list item = %d of %d simple types, want the missing-type placeholder", item, len(build.SimpleTypes))
 	}
-	lists := 0
-	for _, typ := range build.SimpleTypes[value.BuiltinTypeCount:] {
-		if typ.ValueSpec.Variety == value.List && typ.ValueSpec.ListItem == item {
-			lists++
-		}
-	}
-	if lists != 2 {
-		t.Fatalf("lists of the missing-type placeholder = %d, want 2: z's inline type is kept with the placeholder it created", lists)
-	}
-	if _, err := publishSchema(build, unlimitedContentModelWork); err != nil {
+	rt, err := publishSchema(build, unlimitedContentModelWork)
+	if err != nil {
 		t.Fatalf("publishSchema() error = %v", err)
+	}
+	if discarded := discardedSimpleTypes(t, rt); len(discarded) != 0 {
+		t.Fatalf("discarded simple types = %v, want none: g's list and the placeholder it names are reached", discarded)
 	}
 }
 

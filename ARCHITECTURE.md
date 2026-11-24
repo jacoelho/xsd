@@ -319,7 +319,8 @@ it reports `value.ErrMetadata`. The inline simple type of a source item that
 maps to no component, a zero-count element or a prohibited attribute, keeps
 nothing once checked, because no component can hold its ID:
 `compileUnheldSimpleType` drops it from the build and the value builder
-(`dropSimpleTypesFrom`, `value.Builder.Truncate`) without changing a verdict
+(`dropSimpleTypesFrom`, `value.Builder.Truncate`), moving a missing-type
+placeholder its compile created to the first dropped ID, without changing a verdict
 (`droppedSimpleTypeCharges`). Unreached element declarations
 are not published, and validation sees only published element IDs, which
 `publishedElements` owns. A published holder of element IDs is either a build

@@ -303,19 +303,15 @@ func (c *compiler) completeSimpleType(id SimpleTypeID, typ simpleType) error {
 // source item that maps to no component, a zero-count element or a prohibited
 // attribute, then drops it with the anonymous types nested in it, since no
 // component holds them (dropSimpleTypesFrom). The one shared record compiling
-// them can create is the missing-type placeholder, for a simple-type name
-// outside the XSD namespace that resolves to no component, the target
-// namespace included; later references reuse it, so the types are kept when
-// it was created for them.
+// them can create is the missing-type placeholder, which a simple-type name
+// outside the XSD namespace that resolves to no component names, the target
+// namespace included. Later references reuse it, so it is kept, at the first
+// dropped ID.
 func (c *compiler) compileUnheldSimpleType(ctx *schemaSetDocument, n *schemaNode) error {
-	missing := c.missingSimple
 	globalTypes := len(c.rt.GlobalTypes)
 	id, err := c.compileAnonymousSimple(ctx, n)
 	if err != nil {
 		return err
-	}
-	if c.missingSimple != missing {
-		return nil
 	}
 	if len(c.rt.GlobalTypes) != globalTypes {
 		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unheld inline simple type registered a global type"))
@@ -324,31 +320,48 @@ func (c *compiler) compileUnheldSimpleType(ctx *schemaSetDocument, n *schemaNode
 }
 
 // dropSimpleTypesFrom removes the simple types whose ID is next or above
-// from the build and the value builder, so the next added type takes ID next.
-// The caller guarantees that nothing outside the removed types names them.
-// Their names stay interned and their charges stay spent, and publication
-// still makes its per-type charges for them (droppedSimpleTypeCharges), so
-// dropping changes no diagnostic or limit verdict.
+// from the build and the value builder, except the missing-type placeholder,
+// which moves to ID next; the next added type takes the ID after the last
+// remaining one. The caller guarantees that nothing outside the removed types
+// names them or the placeholder's old ID. Their names stay interned and their
+// charges stay spent, and publication still makes its per-type charges for
+// them (droppedSimpleTypeCharges), so dropping changes no diagnostic or limit
+// verdict.
 func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 	if next < value.BuiltinTypeCount || !validSimpleTypeID(next, len(c.rt.SimpleTypes)) {
 		return xsderrors.InternalInvariant("dropped simple types start outside the user simple types")
 	}
+	keep := NoSimpleType
+	if c.missingSimple != NoSimpleType && c.missingSimple >= next {
+		keep = c.missingSimple
+	}
 	builder := c.ensureValueBuilder()
-	dropped := c.rt.SimpleTypes[next:]
-	for i := range dropped {
-		uses, ok := builder.ConstructorUses(next + SimpleTypeID(i))
+	removed := c.rt.SimpleTypes[next:]
+	for i := range removed {
+		id := next + SimpleTypeID(i)
+		if id == keep {
+			continue
+		}
+		uses, ok := builder.ConstructorUses(id)
 		if !ok {
 			return xsderrors.InternalInvariant("dropped simple type has no completed value definition")
 		}
 		c.rt.droppedSimpleTypes.constructorUses += uses.Len()
+		c.rt.droppedSimpleTypes.types++
 	}
-	if err := builder.Truncate(next); err != nil {
+	if err := builder.Truncate(next, keep); err != nil {
 		return xsderrors.InternalInvariant("dropping simple types from the value builder: " + err.Error())
 	}
-	c.rt.droppedSimpleTypes.types += len(dropped)
-	clear(dropped)
-	c.rt.SimpleTypes = c.rt.SimpleTypes[:next]
-	c.rt.simpleTypeUnavailable = c.rt.simpleTypeUnavailable[:next]
+	last := next
+	if keep != NoSimpleType {
+		c.rt.SimpleTypes[next] = c.rt.SimpleTypes[keep]
+		c.rt.simpleTypeUnavailable[next] = c.rt.simpleTypeUnavailable[keep]
+		c.missingSimple = next
+		last++
+	}
+	clear(c.rt.SimpleTypes[last:])
+	c.rt.SimpleTypes = c.rt.SimpleTypes[:last]
+	c.rt.simpleTypeUnavailable = c.rt.simpleTypeUnavailable[:last]
 	return nil
 }
 
