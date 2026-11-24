@@ -1416,7 +1416,17 @@ A particle with `minOccurs` and `maxOccurs` 0 maps to no component
 (§3.3.2), so it admits no element, and a named model group needs a model group
 (§3.7.2). Where a particle shared through two group references makes Unique
 Particle Attribution doubtful (`project/structures-group-two-ref-choice`), the
-processor tie-break settles it by Xerces-J, which agrees with the project.
+processor tie-break settles it by Xerces-J, which agrees with the project:
+each reference to a group holds the group's particles as particles of its
+own, as each reference to a global element declaration is a particle of its
+own. Two such particles that can validate the same item after the same items
+compete, however the content model nests and repeats them, while one particle
+reached under different repetition counts competes with none. Xerces-J
+rejects every one of these cases in which two particles compete; .NET and
+xmlschema accept each of them, and libxml2 rejects only the two `zz`
+particles before different `c` particles. All four accept one particle that a
+repeated sequence reaches in either of two repetitions
+(`project/content-models/upa-references/*`).
 Unique Particle Attribution compares the particles that can match the last
 element of a nested group with the particles that may follow it, and within a
 nested sequence only its last particle that is not emptiable and the particles
@@ -2938,7 +2948,8 @@ side of a required empty choice, both readings agree, so the text decides.
 
 For Unique Particle Attribution, a choice without branches is an element
 declaration that no item matches. It matches no sequence of items
-([I-042](#i-042--empty-choice)), and it overlaps no particle, but the
+([I-042](#i-042--empty-choice)), and it overlaps no particle, itself and the
+empty choice of another reference to the same group included, but the
 particles before and after it are adjacent to it as they would be to an
 element particle with the same occurrence range, so every other particle
 pair is compared as it would be with that element in its place.
@@ -2949,10 +2960,10 @@ no item ever reaches the two `c` particles, yet they overlap, and the first has
 `minOccurs` below `maxOccurs`. The schema is invalid, as it is with an element
 `d` in place of the choice. The library does not first remove the particles
 that no item reaches: the direct check compares sequence members whatever
-precedes them, and the content-model automaton gives a choice without
-branches a transition on a term no name or wildcard matches, so
-determinization and its row checks reach the states after it. Validation
-never takes that transition.
+precedes them, and the content-model automaton gives each position of a
+choice without branches a transition of its own on a term no name or
+wildcard matches, so determinization and its row checks reach the states
+after it. Validation never takes that transition.
 
 [Unique Particle Attribution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig)
 asks that "during ·validation· of an element information item sequence" the
@@ -2995,7 +3006,12 @@ rule. All four reject the overlap when it precedes the required empty choice,
 when an optional empty choice precedes it, and when it starts the sequence.
 All four accept a single element after a required empty choice. On the
 counted shape, Xerces-J and xmlschema reject the empty choice and .NET and
-libxml2 accept it; only Xerces-J rejects the element twin.
+libxml2 accept it, with local elements and with references to a global one;
+only Xerces-J rejects the element twin. Xerces-J, .NET and xmlschema reject
+two references to one group whose choice has no branches, each in a branch
+before an element `c`, as they reject the same branches with an inline empty
+choice, by their epsilon reading; libxml2 accepts both. All four accept the
+two references as branches of one choice before `c`.
 
 Rejected: removing the particles that no item reaches before checking. It
 follows the attempt reading, which no processor applies, and every direct and
@@ -3007,6 +3023,11 @@ the states after it in the source automaton but not in determinization. The
 counted shape then compiles while its element twin is rejected, so the rule
 would depend on how the automaton is built.
 
+Rejected: one transition for the empty choices of every reference to one
+group. It merges the states after them, so the `c` particles after two
+references compete, though no item reaches either, and the verdict would
+depend on whether the empty choice is written inline or in a named group.
+
 Cases, `project/content-models/upa-unreachable/*`:
 `required-empty-choice-before-overlap`, `nested-empty-choice-before-overlap`,
 `group-ref-empty-choice-before-overlap` and
@@ -3015,9 +3036,13 @@ each. So are `required-empty-choice-before-twice-repeated-choice-overlap`,
 `required-empty-choice-before-repeated-choice-overlap` and
 `required-empty-choice-before-counted-range-overlap`, whose overlap only the
 automaton compares, and libxml2 differs on each.
-`counted-empty-choice-before-optional-overlap` is invalid, and .NET and
-libxml2 differ; its element twin `counted-element-before-optional-overlap` is
-invalid, and .NET, xmlschema and libxml2 differ.
+`counted-empty-choice-before-optional-overlap` and
+`counted-empty-choice-before-optional-global-overlap` are invalid, and .NET
+and libxml2 differ; the element twin `counted-element-before-optional-overlap`
+is invalid, and .NET, xmlschema and libxml2 differ.
+`group-ref-empty-choice-in-two-branches-before-overlap` is valid, and
+Xerces-J, .NET and xmlschema differ; `group-ref-empty-choice-twice-in-choice`
+is valid.
 `required-empty-choice-between-overlap` is valid, and Xerces-J, .NET and
 xmlschema differ. The controls `required-empty-choice-after-overlap`,
 `optional-empty-choice-before-overlap`, `zero-occurrence-before-overlap`

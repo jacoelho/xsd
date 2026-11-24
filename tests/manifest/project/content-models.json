@@ -37317,6 +37317,304 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "Each reference to a group whose choice has no branches holds an empty choice of its own, and an empty choice overlaps no particle, itself included, so no item reaches both c particles.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-052"
+          },
+          "dotnet": {
+            "record": "I-052"
+          },
+          "xmlschema": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "The two references to a group whose choice has no branches are branches of one choice; an empty choice overlaps no particle, itself included.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "counted-empty-choice-before-optional-overlap with references to one global element: the two references are two particles, so the next d after six repetitions of the empty choice may be either.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-052"
+          },
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next d may be the choice's reference to d or the optional reference after it; two references to one global element are two particles.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/group-element-in-two-branches-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Each reference to group G holds a zz particle of its own, so a first zz may be either branch's, as may the c after it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/group-element-in-two-branches-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/group-element-in-two-branches-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/group-element-in-two-branches-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/group-wildcard-twice-in-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Each reference to group W holds a wildcard particle of its own, so an element of another namespace may be either branch's.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/group-wildcard-twice-in-choice"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/group-wildcard-twice-in-choice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/group-wildcard-twice-in-choice/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/one-particle-in-counted-sequence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "A second d may continue the first repetition of the inner sequence or start its second, but either way the one reference to d validates it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/one-particle-in-counted-sequence"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/one-particle-in-counted-sequence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/one-particle-in-counted-sequence/schema.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

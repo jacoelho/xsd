@@ -561,6 +561,7 @@ func (model *oracleModel) instanceWords(alphabet []oracleName, live map[string]b
 
 func (model *oracleModel) schema() string {
 	var groups, doc strings.Builder
+	defined := map[int]bool{}
 	var render func(*strings.Builder, *oracleParticle)
 	render = func(b *strings.Builder, p *oracleParticle) {
 		occurs := ""
@@ -592,7 +593,10 @@ func (model *oracleModel) schema() string {
 			}
 			if p.named {
 				name := fmt.Sprintf("g%d", p.group)
-				fmt.Fprintf(&groups, `<xs:group name="%s"><xs:%s>%s</xs:%s></xs:group>`, name, tag, body.String(), tag)
+				if !defined[p.group] {
+					defined[p.group] = true
+					fmt.Fprintf(&groups, `<xs:group name="%s"><xs:%s>%s</xs:%s></xs:group>`, name, tag, body.String(), tag)
+				}
 				fmt.Fprintf(b, `<xs:group ref="t:%s"%s/>`, name, occurs)
 				return
 			}
@@ -626,6 +630,7 @@ type oracleGenerator struct {
 	rng    *rand.Rand
 	leaves int
 	groups int
+	named  []*oracleParticle
 }
 
 var (
@@ -659,6 +664,9 @@ func (g *oracleGenerator) element() *oracleParticle {
 }
 
 func (g *oracleGenerator) modelGroup(depth int) *oracleParticle {
+	if len(g.named) != 0 && g.rng.IntN(4) == 0 {
+		return g.occurs(g.copyWithOwnLeaves(g.named[g.rng.IntN(len(g.named))]))
+	}
 	p := g.occurs(&oracleParticle{kind: []oracleTermKind{oracleSequence, oracleChoice}[g.rng.IntN(2)], named: g.rng.IntN(4) == 0, group: g.groups})
 	g.groups++
 	for range g.rng.IntN(4) {
@@ -671,7 +679,27 @@ func (g *oracleGenerator) modelGroup(depth int) *oracleParticle {
 	if p.emptyChoice() {
 		p.leaf = g.nextLeaf()
 	}
+	if p.named {
+		g.named = append(g.named, p)
+	}
 	return p
+}
+
+// copyWithOwnLeaves returns a copy of p with leaves of its own. Another
+// reference to a named group holds the group's particles again, and Unique
+// Particle Attribution compares them as particles distinct from those of
+// every other reference (I-028 of docs/spec/INTERPRETATIONS.md).
+func (g *oracleGenerator) copyWithOwnLeaves(p *oracleParticle) *oracleParticle {
+	c := *p
+	c.children = make([]*oracleParticle, 0, len(p.children))
+	for _, child := range p.children {
+		c.children = append(c.children, g.copyWithOwnLeaves(child))
+	}
+	switch {
+	case c.kind == oracleElement, c.kind == oracleHeadRef, c.kind == oracleWildcard, c.emptyChoice():
+		c.leaf = g.nextLeaf()
+	}
+	return &c
 }
 
 func (g *oracleGenerator) allGroup() *oracleParticle {

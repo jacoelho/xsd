@@ -62,8 +62,7 @@ type dfaNode struct {
 // dfaBuilder builds the counted source automaton of one content model and
 // determinizes it. positions holds the particle of each position: an element,
 // a wildcard, or, for a choice without branches, a model particle naming the
-// choice (emptyChoiceParticle); emptyChoices reports whether any position is
-// one.
+// choice (choiceNode); emptyChoices reports whether any position is one.
 type dfaBuilder struct {
 	c            *contentModelCompiler
 	states       map[string]uint32
@@ -90,8 +89,9 @@ type cachedID struct {
 // model, whose record the compiled table and the published table both hold,
 // and one per row, edge and xs:all term. The rows of a direct sequence share
 // one run of edges, so each of its edges counts once. A root model's rows and
-// edges are its published ones, so the charge also bounds the tables
-// publication keeps. A nested model that compileContentModels compiles on its
+// edges are its published ones, and the rows and edges withoutEmptyChoiceEdges
+// removes stay charged, so the charge also bounds the tables publication
+// keeps. A nested model that compileContentModels compiles on its
 // own keeps no table but is charged for its rows and edges all the same: its
 // Unique Particle Attribution check and determinization read them while it
 // compiles, so this over-count is intended. typeLabel names the complex type a
@@ -1186,9 +1186,10 @@ func (c *contentModelCompiler) checkCompiledRowsUPA(rows []compiledModelRow) err
 }
 
 func (c *contentModelCompiler) checkCompiledRowUPA(state uint32, row compiledModelRow) error {
-	for i, edge := range row.Edges {
-		for j := i + 1; j < len(row.Edges); j++ {
-			if err := c.checkCompiledEdgePairUPA(state, row, edge, row.Edges[j]); err != nil {
+	edges := withoutEmptyChoices(c, row.Edges, func(edge compiledModelEdge) contentParticle { return edge.Particle })
+	for i, edge := range edges {
+		for j := i + 1; j < len(edges); j++ {
+			if err := c.checkCompiledEdgePairUPA(state, row, edge, edges[j]); err != nil {
 				return err
 			}
 		}
@@ -1230,6 +1231,9 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 		particle := particleAt(i)
 		name, needsCheck := c.particleUPAName(particle)
 		if needsCheck {
+			if c.matchesNoItem(particle) {
+				continue
+			}
 			return true, nil
 		}
 		for j := i + 1; j < count; j++ {
@@ -1240,6 +1244,35 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 		}
 	}
 	return false, nil
+}
+
+// matchesNoItem reports whether p is a choice without branches, which matches
+// no item (I-042 of docs/spec/INTERPRETATIONS.md) and so overlaps no particle
+// (I-052): Unique Particle Attribution compares it with none.
+func (c *contentModelCompiler) matchesNoItem(p contentParticle) bool {
+	if p.Kind != particleModel {
+		return false
+	}
+	model, ok := contentModelByID(c.rt.Models, p.Model)
+	return ok && model.Kind == modelChoice && len(model.Particles) == 0
+}
+
+// withoutEmptyChoices returns the elements of s whose particles are not
+// choices without branches, so the pairwise checks compare none of those. It
+// returns s itself when s holds none, and otherwise a copy, which the charge
+// for s bounds.
+func withoutEmptyChoices[E any](c *contentModelCompiler, s []E, particle func(E) contentParticle) []E {
+	first := slices.IndexFunc(s, func(e E) bool { return c.matchesNoItem(particle(e)) })
+	if first < 0 {
+		return s
+	}
+	out := slices.Clone(s[:first])
+	for _, e := range s[first+1:] {
+		if !c.matchesNoItem(particle(e)) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func (c *contentModelCompiler) particleUPAName(particle contentParticle) (QName, bool) {
@@ -1255,7 +1288,7 @@ func (c *contentModelCompiler) particlePairNeedsUPACheck(name QName, next conten
 		return false, err
 	}
 	nextName, needsCheck := c.particleUPAName(next)
-	return needsCheck || nextName == name, nil
+	return needsCheck && !c.matchesNoItem(next) || nextName == name, nil
 }
 
 func singleParticle(p contentParticle) contentParticle {
@@ -1308,6 +1341,7 @@ func (c *contentModelCompiler) checkPairwiseUPA(particles []contentParticle) err
 	if !needsCheck {
 		return nil
 	}
+	particles = withoutEmptyChoices(c, particles, func(p contentParticle) contentParticle { return p })
 	for i, p := range particles {
 		if err := c.checkParticleAgainstFollowingUPA(p, particles[i+1:]); err != nil {
 			return err
@@ -1635,8 +1669,16 @@ func (b *dfaBuilder) choiceNode(id contentModelID, particles []contentParticle) 
 	if err := b.c.work.spend(2); err != nil {
 		return dfaNode{}, err
 	}
+	// A choice without branches matches no item (I-042 of
+	// docs/spec/INTERPRETATIONS.md), yet Unique Particle Attribution treats it
+	// as an element declaration no item matches (I-052): its position has an
+	// edge like an element's and a transition of its own (dfaTransitionKey),
+	// which overlaps no particle, so determinization and both row checks reach
+	// the states after it.
+	// compileDeterministicModel removes those edges before validation can
+	// take them.
 	b.emptyChoices = true
-	return b.leaf(emptyChoiceParticle(id)), nil
+	return b.leaf(modelParticle(id, occurrence{Min: 1, Max: 1})), nil
 }
 
 // dfaSetUnion accumulates the union of normalized position or entry sets,
@@ -1692,17 +1734,6 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 		return dfaNode{}, xsderrors.InternalInvariant("content model particle has unknown kind", nil)
 	}
 	return b.repeat(node, p.Occurs)
-}
-
-// emptyChoiceParticle is the position particle of the choice without
-// branches id. Such a choice matches no item (I-042 of
-// docs/spec/INTERPRETATIONS.md), yet Unique Particle Attribution treats it as
-// an element declaration no item matches (I-052): its position has an edge
-// like any element, which no name or wildcard overlaps, so determinization
-// and both row checks reach the states after it. compileDeterministicModel
-// removes those edges before validation can take them.
-func emptyChoiceParticle(id contentModelID) contentParticle {
-	return contentParticle{Kind: particleModel, Model: id, Occurs: occurrence{Min: 1, Max: 1}}
 }
 
 func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
@@ -1910,9 +1941,10 @@ func (b *dfaBuilder) checkUPA() error {
 }
 
 func (b *dfaBuilder) checkSourceRowUPA(row dfaSourceRow) error {
-	for i, edge := range row.Edges {
-		for j := i + 1; j < len(row.Edges); j++ {
-			if err := b.checkSourceEdgePairUPA(edge, row.Edges[j]); err != nil {
+	edges := withoutEmptyChoices(b.c, row.Edges, func(edge dfaSourceEdge) contentParticle { return edge.Particle })
+	for i, edge := range edges {
+		for j := i + 1; j < len(edges); j++ {
+			if err := b.checkSourceEdgePairUPA(edge, edges[j]); err != nil {
 				return err
 			}
 		}

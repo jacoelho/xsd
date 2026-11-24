@@ -167,6 +167,46 @@ func fanOutSchema(n, refs int) string {
 	return b.String()
 }
 
+func TestChoiceWithoutBranchesCostsNoMoreAnalysisThanADistinctElement(t *testing.T) {
+	t.Parallel()
+	wide := func(open, branch, closing string) string {
+		var b strings.Builder
+		b.WriteString(`<xs:schema ` + xsNS + `><xs:element name="root"><xs:complexType>` + open)
+		for i := range 300 {
+			fmt.Fprintf(&b, `<xs:element name="e%d"/>`, i)
+		}
+		b.WriteString(branch + closing + `</xs:complexType></xs:element></xs:schema>`)
+		return b.String()
+	}
+	for _, test := range []struct{ name, open, branch, closing string }{
+		{name: "direct choice", open: `<xs:choice>`, branch: `%s`, closing: `</xs:choice>`},
+		{name: "repeated choice", open: `<xs:choice maxOccurs="unbounded">`, branch: `<xs:sequence>%s<xs:element name="z"/></xs:sequence>`, closing: `</xs:choice>`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			compiles := func(schema string, limit int) bool {
+				_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: limit}, xsd.Bytes("wide.xsd", []byte(schema)))
+				return err == nil
+			}
+			element := wide(test.open, fmt.Sprintf(test.branch, `<xs:element name="y"/>`), test.closing)
+			limit := 1 << 30
+			if !compiles(element, limit) {
+				t.Fatalf("the schema with a distinct element does not compile")
+			}
+			for low := 1; low < limit; {
+				if mid := low + (limit-low)/2; compiles(element, mid) {
+					limit = mid
+				} else {
+					low = mid + 1
+				}
+			}
+			if empty := wide(test.open, fmt.Sprintf(test.branch, `<xs:choice/>`), test.closing); !compiles(empty, limit) {
+				t.Fatalf("a choice without branches in place of a distinct element exceeds MaxContentModelAnalysisSteps %d", limit)
+			}
+		})
+	}
+}
+
 func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 	const analysis = "MaxContentModelAnalysisSteps"
 	t.Run("doubling groups at default", func(t *testing.T) {
