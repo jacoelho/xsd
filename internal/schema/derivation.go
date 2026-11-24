@@ -749,9 +749,6 @@ func baseSubstitutionTypeBlock(rt *schemaBuild, base TypeID) (DerivationMask, er
 	return baseType.Block, nil
 }
 
-// substitutionTypeBlockStep is one step of a substitution blocking walk: the
-// block of the current type's complex base and that base, or done when the
-// current type derives directly from the walk's base or has no complex base.
 type substitutionTypeBlockStep struct {
 	parent ComplexTypeID
 	block  DerivationMask

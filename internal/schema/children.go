@@ -436,9 +436,8 @@ func (s *childOrderState) acceptFacet(n *schemaSyntaxNode) error {
 	return nil
 }
 
-// rejectMissingChild reports the first rule of order, in rule order, that
-// requires a child parent ended without, or returns nil when parent has every
-// child order requires.
+// rejectMissingChild reports the first missing required child in rule order, so
+// the diagnostic does not depend on which children parent has.
 func (s *childOrderState) rejectMissingChild(order *childOrder, parent *schemaNode) error {
 	for i := range order.Rules {
 		rule := &order.Rules[i]
@@ -463,8 +462,6 @@ func (r *childRule) supplied(parent *schemaNode) (bool, error) {
 	return r.Supplied(parent)
 }
 
-// rejectConflict reports n when the parent's attributes already supply what n
-// would.
 func (r *childRule) rejectConflict(n *schemaSyntaxNode, parent *schemaNode) error {
 	if r.ConflictMsg == "" {
 		return nil

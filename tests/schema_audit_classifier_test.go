@@ -41,13 +41,9 @@ var auditTypedCallees = map[string]bool{
 	"withSchemaCompileLocation": true,
 }
 
-// TestPublicationAuditTranslatesCalleeFailuresThroughAuditError parses the
-// publication audit and fails when a callee's failure leaves it untranslated:
-// the audit builds no internal invariant around a cause itself, and returns a
-// callee's error as it is only when the callee is another audit function or
-// returns only diagnostics. Everything else goes through auditError, which
-// alone decides that a schema.limit diagnostic passes and anything else is an
-// internal invariant.
+// auditError alone decides that a schema.limit diagnostic passes and anything
+// else is an internal invariant, so the audit must not build an invariant around
+// a cause or return a callee's error that auditError has not seen.
 func TestPublicationAuditTranslatesCalleeFailuresThroughAuditError(t *testing.T) {
 	fset := token.NewFileSet()
 	var audit []*ast.FuncDecl
@@ -133,8 +129,6 @@ func checkAuditFunction(t *testing.T, fset *token.FileSet, fn *ast.FuncDecl, tra
 	})
 }
 
-// recordErrorOrigin remembers which call last assigned each identifier, so a
-// later return of that identifier can be traced to its callee.
 func recordErrorOrigin(origins map[string]string, assign *ast.AssignStmt) {
 	if len(assign.Rhs) != 1 {
 		return

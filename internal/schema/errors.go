@@ -77,11 +77,9 @@ func compileRuleError(code xsderrors.Code, subject string, err error) error {
 	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
 }
 
-// untypedFailure makes an error that reached the compile or publication entry
-// with no diagnostic in its chain an internal invariant with the error as its
-// cause. Every failure compilation reports to a schema author or caller is a
-// diagnostic, so an untyped one is a defect of this package, whether a build
-// defect that only propagating callers carried up or a plain error.
+// untypedFailure guards the compile and publication entries. Every failure
+// compilation reports to a schema author or caller is a diagnostic, so an error
+// without one is a defect of this package.
 func untypedFailure(err error) error {
 	if err == nil {
 		return nil
