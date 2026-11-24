@@ -69,7 +69,7 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 				if err != nil {
 					b.Fatal(err)
 				}
-				warmupProgram, err := warmupBuilder.Seal()
+				warmupProgram, err := sealAll(warmupBuilder)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -92,7 +92,7 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 					if err != nil || id == valuepkg.NoType {
 						b.Fatalf("enumeration construction: id=%d err=%v", id, err)
 					}
-					program, err := builder.Seal()
+					program, err := sealAll(builder)
 					if err != nil || program == nil {
 						b.Fatalf("enumeration sealing: program=%p err=%v", program, err)
 					}
@@ -104,7 +104,7 @@ func BenchmarkAuditBase64EnumerationConstruction(b *testing.B) {
 
 func auditBase64BuiltinProgram(tb testing.TB) (*valuepkg.Program, valuepkg.TypeID) {
 	tb.Helper()
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		tb.Fatal(err)
 	}

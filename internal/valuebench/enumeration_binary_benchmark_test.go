@@ -72,7 +72,7 @@ func BenchmarkAuditBase64EnumerationValidation(b *testing.B) {
 }
 
 func BenchmarkAuditBase64NonEnumeration(b *testing.B) {
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func BenchmarkAuditStringEnumerationCompile(b *testing.B) {
 					}); err != nil {
 						b.Fatal(err)
 					}
-					if _, err := builder.Seal(); err != nil {
+					if _, err := sealAll(builder); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -166,7 +166,7 @@ func auditStringEnumerationProgram(tb testing.TB, size int, shape string) (*valu
 	if err != nil {
 		tb.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func auditBase64EnumerationProgram(tb testing.TB, payloadSize, groupSize int) (*
 	if err != nil {
 		tb.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		tb.Fatal(err)
 	}

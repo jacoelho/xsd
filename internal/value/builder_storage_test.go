@@ -65,8 +65,8 @@ func TestBuilderReserveCapacityChargesSlotAdmission(t *testing.T) {
 					if completeErr := builder.Complete(id, minimalBuilderTypeSpec()); completeErr != nil {
 						t.Fatalf("Complete() after rejected larger target = %v", completeErr)
 					}
-					if _, sealErr := builder.Seal(); sealErr != nil {
-						t.Fatalf("Seal() after rejected larger target = %v", sealErr)
+					if _, sealErr := sealAll(builder); sealErr != nil {
+						t.Fatalf("SealKeeping() after rejected larger target = %v", sealErr)
 					}
 				}
 				return
@@ -88,8 +88,8 @@ func TestBuilderReserveCapacityChargesSlotAdmission(t *testing.T) {
 				if _, reserveErr := builder.Reserve(); !errors.Is(reserveErr, ErrLimit) {
 					t.Fatalf("second Reserve() at storage boundary = %v, want ErrLimit", reserveErr)
 				}
-				if _, sealErr := builder.Seal(); sealErr != nil {
-					t.Fatalf("Seal() at storage boundary = %v", sealErr)
+				if _, sealErr := sealAll(builder); sealErr != nil {
+					t.Fatalf("SealKeeping() at storage boundary = %v", sealErr)
 				}
 			}
 		})
@@ -113,8 +113,8 @@ func TestBuilderReserveCapacityFailureCanBeRetried(t *testing.T) {
 	if err := builder.Complete(id, minimalBuilderTypeSpec()); err != nil {
 		t.Fatalf("Complete() after retry = %v", err)
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() after retry = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() after retry = %v", err)
 	}
 }
 
@@ -140,8 +140,8 @@ func TestBuilderReserveCapacityKeepsCompletionStateAfterReserve(t *testing.T) {
 	if err := builder.Complete(second, spec); err != nil {
 		t.Fatalf("Complete(second) error = %v", err)
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() error = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() error = %v", err)
 	}
 }
 
@@ -159,8 +159,8 @@ func TestBuilderReserveCompleteConsumesReservedSlotWithoutDoubleCharge(t *testin
 	if err := builder.Complete(reservedID, minimalBuilderTypeSpec()); err != nil {
 		t.Fatalf("Complete() error = %v", err)
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() error = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() error = %v", err)
 	}
 }
 
@@ -190,8 +190,8 @@ func TestBuilderReserveCompleteChargesMetadataOnce(t *testing.T) {
 		if _, err := builder.Reserve(); !errors.Is(err, ErrLimit) {
 			t.Fatalf("Reserve() after exact admission = %v, want ErrLimit", err)
 		}
-		if _, err := builder.Seal(); err != nil {
-			t.Fatalf("Seal() = %v", err)
+		if _, err := sealAll(builder); err != nil {
+			t.Fatalf("SealKeeping() = %v", err)
 		}
 	})
 }
@@ -217,8 +217,8 @@ func TestBuilderCompletedTypesWithPreallocationChargeMetadataOnce(t *testing.T) 
 			t.Fatalf("Complete(%d) = %v", i, err)
 		}
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() = %v", err)
 	}
 }
 
@@ -246,8 +246,8 @@ func TestBuilderCompleteFailureCanRetryWithoutExtraCharge(t *testing.T) {
 	if _, err := builder.Reserve(); !errors.Is(err, ErrLimit) {
 		t.Fatalf("Reserve() after retry at exact budget = %v, want ErrLimit", err)
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() after retry = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() after retry = %v", err)
 	}
 }
 
@@ -285,8 +285,8 @@ func TestBuilderReserveCapacityRepeatedAdmissionIsIncremental(t *testing.T) {
 	if err := builder.Complete(second, spec); err != nil {
 		t.Fatalf("Complete(second) after rejected larger target = %v", err)
 	}
-	if _, err := builder.Seal(); err != nil {
-		t.Fatalf("Seal() after rejected larger target = %v", err)
+	if _, err := sealAll(builder); err != nil {
+		t.Fatalf("SealKeeping() after rejected larger target = %v", err)
 	}
 }
 
@@ -338,11 +338,11 @@ func TestBuilderCompletionRequiresCompletedDependencies(t *testing.T) {
 	if _, err := builder.Validate(derived, "10", Resolver{}, 0, nil); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("Validate incomplete type = %v, want ErrMetadata", err)
 	}
-	if _, err := builder.Seal(); !errors.Is(err, ErrMetadata) {
-		t.Fatalf("Seal incomplete builder = %v, want ErrMetadata", err)
+	if _, err := sealAll(builder); !errors.Is(err, ErrMetadata) {
+		t.Fatalf("SealKeeping incomplete builder = %v, want ErrMetadata", err)
 	}
 	if got, err := builder.Validate(neighbor, "unchanged", Resolver{}, NeedCanonical, nil); err != nil || got.CanonicalText() != "unchanged" {
-		t.Fatalf("completed neighbor after failed Seal = %q, %v", got.CanonicalText(), err)
+		t.Fatalf("completed neighbor after failed SealKeeping = %q, %v", got.CanonicalText(), err)
 	}
 	baseSpec := TypeSpec{Variety: Atomic, Primitive: PrimitiveDecimal, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType, Facets: FacetSpec{MinInclusive: BoundFacet{Present: true, LiteralSpec: LiteralSpec{Lexical: "10", Type: NoType}}}}
 	if err := builder.Complete(base, baseSpec); err != nil {
@@ -351,7 +351,7 @@ func TestBuilderCompletionRequiresCompletedDependencies(t *testing.T) {
 	if err := builder.Complete(derived, derivedSpec); err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +394,7 @@ func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
 	if _, err := builder.Validate(id, "false", Resolver{}, 0, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("builder replacement value = %v, want ErrFacet", err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +476,7 @@ func TestProgramBoundLiteralTypeAdmissionAndRetry(t *testing.T) {
 			if completeErr != nil {
 				t.Fatal(completeErr)
 			}
-			p, sealErr := b.Seal()
+			p, sealErr := sealAll(b)
 			if sealErr != nil {
 				t.Fatal(sealErr)
 			}

@@ -20,7 +20,7 @@ func TestSealedInputRequirementsMatchTypeDefinitions(t *testing.T) {
 		Facets: FacetSpec{MaxLength: CardinalityFacet{Present: true, Value: 3}}})
 	refList := define(TypeSpec{Variety: List, Primitive: PrimitiveString, Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: AnySimpleTypeID, ListItem: builtinIDREF})
 	qnameUnion := define(TypeSpec{Variety: Union, Base: AnySimpleTypeID, ListItem: NoType, Union: []TypeID{builtinString, builtinQName}})
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

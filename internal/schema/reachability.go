@@ -536,12 +536,14 @@ func validatePublishedIdentityConstraints(elements *elementReadTable, identities
 }
 
 // validatePublishedSimpleTypes checks that every simple type a published read
-// names is one reached marks, so sealing the value program keeping only the
-// reached types leaves no read naming a type without a definition. reached
-// covers the simple types; the seal rejects it otherwise.
-func validatePublishedSimpleTypes(p *schemaProgram, reached []bool) error {
-	r := reachedSimpleTypes(reached)
+// names is one build.ReachableSimpleTypes marks, so sealing the value program
+// keeping only the reached types leaves no read naming a type without a
+// definition.
+func validatePublishedSimpleTypes(p *schemaProgram, build *schemaBuild) error {
+	r := reachedSimpleTypes(build.ReachableSimpleTypes)
 	switch {
+	case len(r) != len(build.SimpleTypes):
+		return xsderrors.InternalInvariant("reachable simple types do not cover the simple types")
 	case !r.keepElementTypes(p.Elements.meta):
 		return xsderrors.InternalInvariant("published element declaration names an unreached simple type")
 	case !r.keepTextTypes(p.ComplexTypes):

@@ -14,7 +14,7 @@ import (
 func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 	for _, refs := range []int{1, 10, 100, 1000} {
 		b.Run(fmt.Sprintf("refs_%d", refs), func(b *testing.B) {
-			program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+			program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 			if err != nil {
 				b.Fatal(err)
 			}

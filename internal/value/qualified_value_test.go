@@ -31,7 +31,7 @@ func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestValueQualifiedNamesFollowAcceptedMembers(t *testing.T) {
 }
 
 func TestProgramQualifiedPrimitiveIdentity(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 }
 
 func TestProgramQualifiedResolverAdmission(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -166,7 +166,7 @@ func constructionQNameSpec(resolve value.QNameResolver) value.TypeSpec {
 
 func requireConstructionEnumeration(t *testing.T, builder *value.Builder, id value.TypeID) {
 	t.Helper()
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,9 +182,9 @@ func requireConstructionEnumeration(t *testing.T, builder *value.Builder, id val
 
 func requireActiveCompletionSealFailure(t *testing.T, builder *value.Builder) {
 	t.Helper()
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if program != nil || !errors.Is(err, value.ErrMetadata) {
-		t.Fatalf("Seal during Complete = %v, %v; want nil, metadata error", program, err)
+		t.Fatalf("SealKeeping during Complete = %v, %v; want nil, metadata error", program, err)
 	}
 }
 
@@ -230,10 +230,10 @@ func TestBuilderCallbackGrowthPreservesEnumeration(t *testing.T) {
 		if reserveErr != nil {
 			t.Fatal(reserveErr)
 		}
-		program, sealErr := builder.Seal()
+		program, sealErr := sealAll(builder)
 		want := fmt.Sprintf("type %d: value program metadata is invalid", reserved)
 		if program != nil || !errors.Is(sealErr, value.ErrMetadata) || sealErr.Error() != want {
-			t.Fatalf("Seal with reserved child = %v, %v; want %q", program, sealErr, want)
+			t.Fatalf("SealKeeping with reserved child = %v, %v; want %q", program, sealErr, want)
 		}
 		if completionErr := builder.Complete(reserved, atomicFacetType(value.PrimitiveString, value.FacetSpec{})); completionErr != nil {
 			t.Fatal(completionErr)
@@ -412,7 +412,7 @@ func TestBuilderMetadataProvisionalFailureAndRetryContract(t *testing.T) {
 	if got, available := builder.TypeView(id); !available || !got.HasEnumeration {
 		t.Fatalf("retried TypeView() = %#v, %t, want enumeration", got, available)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

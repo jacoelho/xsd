@@ -212,7 +212,7 @@ func (p *Program) ValidateAdmitted(id TypeID, lexical string, resolver Resolver,
 }
 
 // Validate parses one value against the completed portion of an incremental
-// builder. It is intended for compiler literals and constraints before Seal;
+// builder. It is intended for compiler literals and constraints before SealKeeping;
 // published callers use Program.Validate. Every call charges the builder's
 // aggregate pattern account (BuilderOptions.MaxTotalPatternWork), as Complete
 // does; the builder has no uncharged evaluation.

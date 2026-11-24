@@ -37,7 +37,7 @@ func TestTimeFacetDerivationRejectsWideningAndCanRetry(t *testing.T) {
 			if err = builder.Complete(id, spec); err != nil {
 				t.Fatalf("Complete after removing invalid bound: %v", err)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -84,7 +84,7 @@ func TestTimeFacetDerivationAllowsContainedUnknownTimezoneBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := builder.Seal(); err != nil {
+	if _, err := sealAll(builder); err != nil {
 		t.Fatalf("contained unknown-timezone bound rejected: %v", err)
 	}
 }
@@ -120,7 +120,7 @@ func TestTimeBoundDiagnosticNamesTheBoundValue(t *testing.T) {
 			if err = builder.Complete(id, atomicFacetType(value.PrimitiveTime, orderedFacet(tc.facet, tc.bound, false))); err != nil {
 				t.Fatal(err)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				t.Fatal(err)
 			}

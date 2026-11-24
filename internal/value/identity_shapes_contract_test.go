@@ -90,7 +90,7 @@ func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
 		"union(union(int,IDREF),string)": unionOf(unionOf(integer, idref), str),
 		"union(string,ID)":               unionOf(str, id),
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

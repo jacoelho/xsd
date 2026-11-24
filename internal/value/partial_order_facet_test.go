@@ -40,7 +40,7 @@ func TestOrderedFacetsRejectIncomparableValues(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				program, err := builder.Seal()
+				program, err := sealAll(builder)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -85,7 +85,7 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 		}
 		ids[i] = id
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

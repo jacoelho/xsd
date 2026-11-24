@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -112,21 +113,34 @@ func TestSimpleTypesNamedThroughOneEdgeKeepTheirValueDefinition(t *testing.T) {
 	}
 }
 
+// zeroCountSimpleTypes returns the simple types under z1 to z4 in the schema
+// where they may occur, whose IDs the zero-count schema shares: z1's type,
+// z2's attribute type, z3's text type, and z4's type and its list item.
+func zeroCountSimpleTypes(t *testing.T) []SimpleTypeID {
+	t.Helper()
+	build := reachedSimpleTypesBuild(t, strings.ReplaceAll(unreachedSimpleTypes, ` minOccurs="0" maxOccurs="0"`, ""))
+	z4 := buildSimpleElementType(t, build, "z4")
+	ids := []SimpleTypeID{
+		buildSimpleElementType(t, build, "z1"),
+		buildFirstAttributeUseType(t, build, "z2"),
+		buildComplexElementType(t, build, "z3").TextType,
+		z4,
+		build.SimpleTypes[z4].ValueSpec.ListItem,
+	}
+	slices.Sort(ids)
+	return ids
+}
+
 func TestUnreachedSimpleTypesPublishNoValueDefinition(t *testing.T) {
 	t.Parallel()
 
-	reached := len(reachedSimpleTypesBuild(t, "").SimpleTypes)
-	build := reachedSimpleTypesBuild(t, unreachedSimpleTypes)
-	if added := len(build.SimpleTypes) - reached; added != 5 {
-		t.Fatalf("zero-count elements add %d simple types, want 5", added)
-	}
-	rt, err := publishSchema(build, unlimitedContentModelWork)
+	want := zeroCountSimpleTypes(t)
+	rt, err := publishSchema(reachedSimpleTypesBuild(t, unreachedSimpleTypes), unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("publishSchema() error = %v", err)
 	}
-	discarded := discardedSimpleTypes(t, rt)
-	if len(discarded) != 5 {
-		t.Fatalf("discarded simple types = %v, want the five types under zero-count elements", discarded)
+	if discarded := discardedSimpleTypes(t, rt); !slices.Equal(discarded, want) {
+		t.Fatalf("discarded simple types = %v, want %v, the types under zero-count elements", discarded, want)
 	}
 }
 
@@ -137,6 +151,7 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 		name    string
 		holder  func(*testing.T, *schemaBuild) SimpleTypeID
 		message string
+		global  bool
 	}{
 		{name: "element type", message: "published element declaration names an unreached simple type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
@@ -161,19 +176,19 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 			t.Fatal("no global attribute g")
 			return NoSimpleType
 		}},
-		{name: "global type", message: "global simple type is unreached", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
+		{name: "global type", message: "global simple type is unreached", global: true, holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
 			return buildGlobalSimpleType(t, build, "T")
 		}},
-		{name: "base of a reached type", message: "simple type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
+		{name: "base of a reached type", message: "sealing the value program: type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
 			return build.SimpleTypes[buildGlobalSimpleType(t, build, "T")].ValueSpec.Base
 		}},
-		{name: "list item of a reached type", message: "simple type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
+		{name: "list item of a reached type", message: "sealing the value program: type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
 			return build.SimpleTypes[buildGlobalSimpleType(t, build, "L")].ValueSpec.ListItem
 		}},
-		{name: "union member of a reached type", message: "simple type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
+		{name: "union member of a reached type", message: "sealing the value program: type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
 			return build.SimpleTypes[buildGlobalSimpleType(t, build, "U")].ValueSpec.Union[1]
 		}},
@@ -182,8 +197,8 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 			t.Parallel()
 			build := reachedSimpleTypesBuild(t, "")
 			id := test.holder(t, build)
-			if build.SimpleTypes[id].Scope == declarationScopeGlobal && test.name != "global type" {
-				t.Fatalf("holder names global type %d, want an anonymous type only it reaches", id)
+			if global := build.SimpleTypes[id].Scope == declarationScopeGlobal; global != test.global {
+				t.Fatalf("holder names type %d, global %v, want global %v", id, global, test.global)
 			}
 			build.ReachableSimpleTypes[id] = false
 			_, err := publishSchema(build, unlimitedContentModelWork)
@@ -196,5 +211,24 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 				t.Fatalf("publishSchema() after the rejected publication error = %v, want the build unchanged", err)
 			}
 		})
+	}
+}
+
+func TestPublicationRejectsReachableSimpleTypesThatDoNotCoverTheSimpleTypes(t *testing.T) {
+	t.Parallel()
+
+	build := reachedSimpleTypesBuild(t, "")
+	reached := build.ReachableSimpleTypes
+	for _, cover := range [][]bool{reached[:len(reached)-1], append(slices.Clone(reached), true), nil} {
+		build.ReachableSimpleTypes = cover
+		_, err := publishSchema(build, unlimitedContentModelWork)
+		if err == nil || !strings.Contains(err.Error(), "reachable simple types do not cover the simple types") {
+			t.Fatalf("publishSchema(%d reachable for %d simple types) error = %v, want a coverage invariant", len(cover), len(build.SimpleTypes), err)
+		}
+		expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	}
+	build.ReachableSimpleTypes = reached
+	if _, err := publishSchema(build, unlimitedContentModelWork); err != nil {
+		t.Fatalf("publishSchema() after the rejected publications error = %v, want the build unchanged", err)
 	}
 }

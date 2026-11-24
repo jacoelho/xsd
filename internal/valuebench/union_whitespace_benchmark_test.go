@@ -66,7 +66,7 @@ func BenchmarkProgramUnionWhitespace(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				b.Fatal(err)
 			}

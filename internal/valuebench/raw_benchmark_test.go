@@ -24,7 +24,7 @@ func BenchmarkPublishedRawStringEnumeration(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func BenchmarkPublishedRawNMTokensList(b *testing.B) {
 }
 
 func BenchmarkPublishedRawIntegerBounds(b *testing.B) {
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func BenchmarkPublishedRawIntegerBounds(b *testing.B) {
 
 func mustBuiltinProgram(tb testing.TB, name string) (*valuepkg.Program, bool) {
 	tb.Helper()
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func BenchmarkAdmittedNumericBounds(b *testing.B) {
 			if completeErr := builder.Complete(id, admittedNumericSpec(fixture)); completeErr != nil {
 				b.Fatal(completeErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -175,7 +175,7 @@ func buildAdmittedNumericPair(specs [2]valuepkg.TypeSpec) (*valuepkg.Program, [2
 			return nil, ids, completeErr
 		}
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	return program, ids, err
 }
 
@@ -276,7 +276,7 @@ func BenchmarkCanonicalMagnitude(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		program, err := builder.Seal()
+		program, err := sealAll(builder)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -344,7 +344,7 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 			}); completeErr != nil {
 				b.Fatal(completeErr)
 			}
-			program, err := builder.Seal()
+			program, err := sealAll(builder)
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -410,7 +410,7 @@ type probeOppExpected struct {
 }
 
 func BenchmarkUnprojectedProbeOpposing(b *testing.B) {
-	program, err := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		b.Fatal(err)
 	}

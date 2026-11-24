@@ -119,7 +119,7 @@ func BenchmarkEnumerationKindValidation(b *testing.B) {
 	}
 }
 
-// BenchmarkEnumerationKindCompile includes Seal, where typed literals are
+// BenchmarkEnumerationKindCompile includes SealKeeping, where typed literals are
 // parsed and indexed.
 func BenchmarkEnumerationKindCompile(b *testing.B) {
 	for _, kind := range enumerationKinds(b) {
@@ -136,7 +136,7 @@ func BenchmarkEnumerationKindCompile(b *testing.B) {
 					if err := builder.Complete(id, spec); err != nil {
 						b.Fatal(err)
 					}
-					if _, err := builder.Seal(); err != nil {
+					if _, err := sealAll(builder); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -156,7 +156,7 @@ func enumerationKindProgram(tb testing.TB, kind enumerationKind, size int) (*val
 	if err = builder.Complete(id, kind.spec(auditStringLiteralSpecs(values))); err != nil {
 		tb.Fatalf("%s n=%d: %v", kind.name, size, err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		tb.Fatalf("%s n=%d: %v", kind.name, size, err)
 	}

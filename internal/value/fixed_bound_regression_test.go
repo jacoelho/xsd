@@ -52,7 +52,7 @@ func TestFacetContractUsesNewestInheritedBoundForFixedFacet(t *testing.T) {
 			if err := builder.Complete(reservedID, leafSpec); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := builder.Seal(); err != nil {
+			if _, err := sealAll(builder); err != nil {
 				t.Fatalf("same value as the nearest fixed declaration was rejected: %v", err)
 			}
 		})

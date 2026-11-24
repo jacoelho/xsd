@@ -19,7 +19,7 @@ func identityValueForTest(tb testing.TB, typeName, lexical string, needs value.N
 	if !ok {
 		tb.Fatalf("BuiltinTypeID(%q) failed", typeName)
 	}
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		tb.Fatalf("value program construction failed: %v", err)
 	}

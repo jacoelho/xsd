@@ -11,7 +11,7 @@ import (
 // BenchmarkPaddedValue measures collapse-whitespace values that carry only
 // leading and trailing XML whitespace, as indented element content does.
 func BenchmarkPaddedValue(b *testing.B) {
-	program, err := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		b.Fatal(err)
 	}

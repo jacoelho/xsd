@@ -31,7 +31,7 @@ func TestProgramReservesBuiltinsAndEvaluatesDecimalFacets(t *testing.T) {
 	if id != BuiltinTypeCount {
 		t.Fatalf("first user type = %d, want %d", id, BuiltinTypeCount)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestProgramListEnumerationRetainsOnlyFacetComparisonState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestProgramListDoesNotTreatUnicodeBytesAsWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestProgramDoesNotMaterializeUnrequestedProjections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestProgramRejectsInvalidUTF8AndXMLCharacters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestProgramEqualRequiresExplicitIdentityProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := stringBuilder.Seal()
+	p, err := sealAll(stringBuilder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +345,7 @@ func TestListIdentityKeysAgreeWithEquality(t *testing.T) {
 	stringType := complete(TypeSpec{Variety: Atomic, Primitive: PrimitiveString, Base: NoType, ListItem: NoType})
 	stringList := complete(TypeSpec{Variety: List, Base: NoType, ListItem: stringType})
 	decimalList := complete(TypeSpec{Variety: List, Base: NoType, ListItem: BuiltinType(PrimitiveDecimal)})
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +410,7 @@ func TestProgramCompilesForwardBaseFacetsBeforeDerived(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +451,7 @@ func TestProgramDepthLimitIsExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +477,7 @@ func TestProgramEvaluationWorkLimitCountsUnionAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,8 +487,8 @@ func TestProgramEvaluationWorkLimitCountsUnionAttempts(t *testing.T) {
 }
 
 func TestProgramBoundsFacetDependencyDepthAndStorage(t *testing.T) {
-	if _, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxTypes: uint32(BuiltinTypeCount) - 1}).Seal(); !errors.Is(err, ErrLimit) {
-		t.Fatalf("Seal below builtin type budget = %v, want ErrLimit", err)
+	if _, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxTypes: uint32(BuiltinTypeCount) - 1})); !errors.Is(err, ErrLimit) {
+		t.Fatalf("SealKeeping below builtin type budget = %v, want ErrLimit", err)
 	}
 
 	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62, MaxDepth: 1})
@@ -577,7 +577,7 @@ func TestProgramRejectsMissingUnionMember(t *testing.T) {
 		Base:              NoType,
 		ListItem:          NoType,
 	}); !errors.Is(err, ErrMetadata) {
-		t.Fatalf("Seal missing union member = %v, want ErrMetadata", err)
+		t.Fatalf("SealKeeping missing union member = %v, want ErrMetadata", err)
 	}
 }
 
@@ -599,7 +599,7 @@ func TestProgramQNameLengthFacetIsAlwaysSatisfied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -652,7 +652,7 @@ func TestProgramAcceptsCompiledXSDRegexPattern(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -691,7 +691,7 @@ func TestProgramQNameAndNotationResolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -719,7 +719,7 @@ func TestProgramNotationOnlyResolverValidatesAndStoresExpandedName(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -803,7 +803,7 @@ func TestIncrementalBuilderValidatesCompletedTypesBeforeSeal(t *testing.T) {
 	if _, err = b.Validate(derived, "2", Resolver{}, 0, nil); err != nil {
 		t.Fatalf("Validate completed derived = %v", err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -830,7 +830,7 @@ func TestUnionPreservesEarlierUnsupportedMemberError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}

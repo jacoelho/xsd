@@ -37,13 +37,14 @@ type InputRequirements struct {
 }
 
 // InputRequirements returns the scalar value-admission requirements for a
-// sealed program type. The returned value contains no program-owned storage.
+// sealed program type, and false for a type the seal did not keep. The
+// returned value contains no program-owned storage.
 func (p *Program) InputRequirements(id TypeID) (InputRequirements, bool) {
 	if p == nil || !p.sealed {
 		return InputRequirements{}, false
 	}
 	t, ok := p.typeDef(id)
-	if !ok {
+	if !ok || t.variety == varietyDiscarded {
 		return InputRequirements{}, false
 	}
 	return t.inputs, true

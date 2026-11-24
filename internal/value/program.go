@@ -93,7 +93,7 @@ const (
 )
 
 // Builder completes dependency-ordered type definitions. It is single-owner and is discarded
-// after Seal; no source specs or resolver closures enter Program.
+// after SealKeeping; no source specs or resolver closures enter Program.
 type Builder struct {
 	program             *Program
 	maxStorage          uint64
@@ -341,20 +341,24 @@ func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	return storage, nil
 }
 
-// Seal closes the incremental builder and returns its immutable value program
-// with every type kept. It fails without consuming the builder while any slot
-// is reserved (reported first, naming the slot) or still being completed.
-func (b *Builder) Seal() (*Program, error) {
-	return b.SealKeeping(nil)
+// TypeCount returns the number of type IDs the builder has issued, builtins
+// included: the length of the keep SealKeeping takes.
+func (b *Builder) TypeCount() int {
+	if b == nil || b.program == nil {
+		return 0
+	}
+	return int(BuiltinTypeCount) + len(b.program.types)
 }
 
-// SealKeeping is Seal keeping only the user types keep marks, indexed by type
-// ID; a nil keep keeps every type. A type that is not kept keeps its ID but no
-// definition, and validating it returns ErrMetadata. Builtins are always
-// kept, and keep is not retained. SealKeeping fails without consuming the
-// builder when keep does not cover every type ID or a kept type's base, list
-// item or union member is not kept, since evaluation and diagnostics read
-// them.
+// SealKeeping closes the incremental builder and returns its immutable value
+// program, keeping the definitions of the user types keep marks. keep is
+// indexed by type ID and has TypeCount entries. A type that is not kept keeps
+// its ID but no definition, and validating it returns ErrMetadata. Builtins
+// are always kept, and keep is not retained. SealKeeping fails without
+// consuming the builder while any slot is reserved (reported first, naming
+// the slot) or still being completed, when keep does not have TypeCount
+// entries, and when a kept type's base, list item or union member is not
+// kept, since evaluation and diagnostics read them.
 func (b *Builder) SealKeeping(keep []bool) (*Program, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return nil, ErrMetadata
@@ -365,12 +369,10 @@ func (b *Builder) SealKeeping(keep []bool) (*Program, error) {
 	if err := b.verifyComplete(); err != nil {
 		return nil, err
 	}
-	if keep != nil {
-		if err := b.program.verifyKeptDependencies(keep); err != nil {
-			return nil, err
-		}
-		b.program.discardUnkept(keep)
+	if err := b.program.verifyKeptDependencies(keep); err != nil {
+		return nil, err
 	}
+	b.program.discardUnkept(keep)
 	b.program.complete = nil
 	b.program.sealed = true
 	return b.program, nil
@@ -406,8 +408,8 @@ func keepsDependencies(t *typeDef, keep []bool) bool {
 }
 
 // discardUnkept replaces each unkept definition with the discarded marker. It
-// drops only the record's references: a kept derived type may share the
-// arrays of its base's facets.
+// drops only the record's references, never clears the arrays they point to:
+// a discarded derived type may share the facet arrays of its kept base.
 func (p *Program) discardUnkept(keep []bool) {
 	for i := range p.types {
 		if !keep[int(BuiltinTypeCount)+i] {
@@ -464,7 +466,7 @@ func (b *Builder) recordDependencyDepth(id, ref TypeID, depth *uint16) error {
 	return nil
 }
 
-// completionState exists only during construction; Seal drops the table once
+// completionState exists only during construction; SealKeeping drops the table once
 // every slot is committed. Reserved slots are invisible to lookups. An
 // in-progress slot is visible to evaluation, InputRequirements and typeView
 // (provisional metadata), while queries documented as "completed" require a
@@ -506,7 +508,7 @@ func userTypeIndex(id TypeID, n int) (int, bool) {
 
 func typeSpecStorage(spec TypeSpec) (uint64, bool) {
 	// This is a conservative admission estimate for copied source metadata and
-	// the immutable facet records produced by Seal. It intentionally charges
+	// the immutable facet records produced by SealKeeping. It intentionally charges
 	// lexical and pattern bytes twice because both source and sealed records
 	// may retain them during construction.
 	estimate := storageEstimate{total: 512}

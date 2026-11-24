@@ -51,7 +51,7 @@ func benchmarkListProgram(b *testing.B, facets value.FacetSpec) (*value.Program,
 	if err != nil {
 		b.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func benchmarkNestedListEnumerationProgram(b *testing.B) (*value.Program, value.
 	if err != nil {
 		b.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		b.Fatal(err)
 	}

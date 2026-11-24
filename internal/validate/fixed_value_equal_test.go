@@ -9,7 +9,7 @@ import (
 func durationValueForTest(t *testing.T, lexical string, needs xsdValue.Needs) xsdValue.Value {
 	t.Helper()
 	b := xsdValue.NewBuilder(xsdValue.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	p, err := b.Seal()
+	p, err := sealAll(b)
 	if err != nil {
 		t.Fatal(err)
 	}

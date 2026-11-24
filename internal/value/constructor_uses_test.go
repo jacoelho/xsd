@@ -75,7 +75,7 @@ func TestConstructorUsesAvailabilityAndLifetime(t *testing.T) {
 	for range 256 {
 		completeConstructorType(t, builder, atomicFacetType(value.PrimitiveString, value.FacetSpec{}))
 	}
-	if _, err := builder.Seal(); err != nil {
+	if _, err := sealAll(builder); err != nil {
 		t.Fatal(err)
 	}
 	assertUses(list, anySimple)

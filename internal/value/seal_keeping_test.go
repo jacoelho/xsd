@@ -60,16 +60,23 @@ func newKeepingFixture(t *testing.T) keepingFixture {
 
 // keep marks every type kept except dropped.
 func (f keepingFixture) keep(dropped ...TypeID) []bool {
-	keep := make([]bool, int(BuiltinTypeCount)+len(f.builder.program.types))
+	keep := make([]bool, f.builder.TypeCount())
 	for i := range keep {
 		keep[i] = !slices.Contains(dropped, TypeID(i)) // #nosec G115 -- keep covers a test builder's types.
 	}
 	return keep
 }
 
-func discarded(p *Program, id TypeID) bool {
-	i, user := userTypeIndex(id, len(p.types))
-	return user && p.types[i].variety == varietyDiscarded
+// discarded reports whether p rejects id as metadata it does not hold. lexical
+// is valid for id when its definition is kept.
+func discarded(t *testing.T, p *Program, id TypeID, lexical string) bool {
+	t.Helper()
+	_, hasInputs := p.InputRequirements(id)
+	err := validateKeeping(p, id, lexical)
+	if hasInputs == errors.Is(err, ErrMetadata) {
+		t.Fatalf("type %d: InputRequirements ok %v, Validate(%q) error %v; want both to agree on whether it is kept", id, hasInputs, lexical, err)
+	}
+	return !hasInputs
 }
 
 func validateKeeping(p *Program, id TypeID, lexical string) error {
@@ -83,36 +90,40 @@ func TestSealKeepingDropsTheDefinitionOfAnUnkeptType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SealKeeping() error = %v", err)
 	}
-	dropped := p.types[f.pattern-BuiltinTypeCount]
-	if dropped.facets.patterns != nil || dropped.facets.enumGroups != nil || dropped.facets.present != 0 {
-		t.Fatalf("unkept type retains facets: patterns %d, enumeration groups %d, present %b", len(dropped.facets.patterns), len(dropped.facets.enumGroups), dropped.facets.present)
-	}
-	if !discarded(p, f.pattern) {
-		t.Fatal("discarded(unkept type) = false, want true")
-	}
-	if err := validateKeeping(p, f.pattern, "ab"); !errors.Is(err, ErrMetadata) {
-		t.Fatalf("Validate(unkept type, %q) error = %v, want ErrMetadata", "ab", err)
+	if !discarded(t, p, f.pattern, "ab") {
+		t.Fatal("unkept type is kept, want discarded")
 	}
 	if _, err := p.ValidateBytes(f.pattern, []byte("ab"), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("ValidateBytes(unkept type) error = %v, want ErrMetadata", err)
 	}
-	for _, id := range []TypeID{f.base, f.derived, f.item, f.list, f.member, f.union, BuiltinType(PrimitiveString)} {
-		if discarded(p, id) {
-			t.Fatalf("discarded(%d) = true, want false", id)
+	for _, kept := range []struct {
+		id      TypeID
+		lexical string
+	}{
+		{id: f.base, lexical: "ab"},
+		{id: f.derived, lexical: "ab"},
+		{id: f.item, lexical: "1"},
+		{id: f.list, lexical: "1 2"},
+		{id: f.member, lexical: "1"},
+		{id: f.union, lexical: "1"},
+		{id: BuiltinType(PrimitiveString), lexical: "ab"},
+	} {
+		if discarded(t, p, kept.id, kept.lexical) {
+			t.Fatalf("kept type %d is discarded", kept.id)
 		}
 	}
 }
 
-func TestSealKeepingLeavesKeptTypesValidatingAsSeal(t *testing.T) {
+func TestSealKeepingLeavesKeptTypesValidatingAsKeepingEveryType(t *testing.T) {
 	dropping := newKeepingFixture(t)
 	keeping, err := dropping.builder.SealKeeping(dropping.keep(dropping.pattern))
 	if err != nil {
 		t.Fatalf("SealKeeping() error = %v", err)
 	}
 	f := newKeepingFixture(t)
-	all, err := f.builder.Seal()
+	all, err := sealAll(f.builder)
 	if err != nil {
-		t.Fatalf("Seal() error = %v", err)
+		t.Fatalf("sealAll() error = %v", err)
 	}
 	for _, test := range []struct {
 		id      TypeID
@@ -129,7 +140,7 @@ func TestSealKeepingLeavesKeptTypesValidatingAsSeal(t *testing.T) {
 	} {
 		got, want := validateKeeping(keeping, test.id, test.lexical), validateKeeping(all, test.id, test.lexical)
 		if (want == nil) != test.valid {
-			t.Fatalf("Seal: Validate(%d, %q) error = %v, want valid %v", test.id, test.lexical, want, test.valid)
+			t.Fatalf("SealKeeping: Validate(%d, %q) error = %v, want valid %v", test.id, test.lexical, want, test.valid)
 		}
 		if (got == nil) != (want == nil) || got != nil && got.Error() != want.Error() {
 			t.Fatalf("SealKeeping: Validate(%d, %q) error = %v, want %v as with every type kept", test.id, test.lexical, got, want)
@@ -141,10 +152,11 @@ func TestSealKeepingRejectsAKeptTypeWhoseDependencyIsNotKept(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		dropped func(keepingFixture) TypeID
+		lexical string
 	}{
-		{name: "base", dropped: func(f keepingFixture) TypeID { return f.base }},
-		{name: "list item", dropped: func(f keepingFixture) TypeID { return f.item }},
-		{name: "union member", dropped: func(f keepingFixture) TypeID { return f.member }},
+		{name: "base", dropped: func(f keepingFixture) TypeID { return f.base }, lexical: "ab"},
+		{name: "list item", dropped: func(f keepingFixture) TypeID { return f.item }, lexical: "1"},
+		{name: "union member", dropped: func(f keepingFixture) TypeID { return f.member }, lexical: "1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			f := newKeepingFixture(t)
@@ -152,11 +164,11 @@ func TestSealKeepingRejectsAKeptTypeWhoseDependencyIsNotKept(t *testing.T) {
 			if _, err := f.builder.SealKeeping(f.keep(dropped)); !errors.Is(err, ErrMetadata) {
 				t.Fatalf("SealKeeping(without %s) error = %v, want ErrMetadata", test.name, err)
 			}
-			p, err := f.builder.Seal()
+			p, err := sealAll(f.builder)
 			if err != nil {
-				t.Fatalf("Seal() after rejected SealKeeping error = %v, want the builder unchanged", err)
+				t.Fatalf("sealAll() after rejected SealKeeping error = %v, want the builder unchanged", err)
 			}
-			if discarded(p, dropped) {
+			if discarded(t, p, dropped, test.lexical) {
 				t.Fatalf("discarded(%s) = true after rejected SealKeeping", test.name)
 			}
 		})
@@ -171,5 +183,11 @@ func TestSealKeepingRejectsAKeepThatDoesNotCoverEveryType(t *testing.T) {
 	}
 	if _, err := f.builder.SealKeeping(append(keep, true)); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("SealKeeping(long keep) error = %v, want ErrMetadata", err)
+	}
+	if _, err := f.builder.SealKeeping(nil); !errors.Is(err, ErrMetadata) {
+		t.Fatalf("SealKeeping(nil) error = %v, want ErrMetadata", err)
+	}
+	if _, err := sealAll(f.builder); err != nil {
+		t.Fatalf("sealAll() after rejected keeps error = %v, want the builder unchanged", err)
 	}
 }

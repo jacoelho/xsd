@@ -68,7 +68,7 @@ func testEnumerationChain(t *testing.T, specs ...TypeSpec) (*Program, []TypeID) 
 		}
 		ids[i] = id
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

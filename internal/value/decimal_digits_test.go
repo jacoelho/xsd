@@ -70,7 +70,7 @@ func decimalTotalDigitsProgram(t *testing.T, totalDigits uint32) (*Program, Type
 	if err != nil {
 		t.Fatal(err)
 	}
-	program, err := builder.Seal()
+	program, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}

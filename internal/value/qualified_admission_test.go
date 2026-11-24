@@ -45,7 +45,7 @@ func TestUnprojectedQualifiedValueAdmission(t *testing.T) {
 	}); completionErr != nil {
 		t.Fatal(completionErr)
 	}
-	p, err := builder.Seal()
+	p, err := sealAll(builder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestUnprojectedQualifiedValueAdmission(t *testing.T) {
 }
 
 func TestUnprojectedNotationWithoutQNameResolver(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestQualifiedValueExternalAdmissionPrecedesResolution(t *testing.T) {
 				if builderAPI {
 					_, err = builder.Validate(builtinQName, input.text, resolver, 0, nil)
 				} else {
-					p, sealErr := builder.Seal()
+					p, sealErr := sealAll(builder)
 					if sealErr != nil {
 						t.Fatal(sealErr)
 					}
@@ -212,7 +212,7 @@ func TestBuilderUnprojectedQualifiedValueBudget(t *testing.T) {
 }
 
 func TestUnprojectedQNameFailureKeepsOriginalSpelling(t *testing.T) {
-	p, err := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}).Seal()
+	p, err := sealAll(NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
 		t.Fatal(err)
 	}
