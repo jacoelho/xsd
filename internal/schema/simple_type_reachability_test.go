@@ -113,19 +113,24 @@ func TestSimpleTypesNamedThroughOneEdgeKeepTheirValueDefinition(t *testing.T) {
 	}
 }
 
-// zeroCountSimpleTypes returns the simple types under z1 to z4 in the schema
-// where they may occur, whose IDs the zero-count schema shares: z1's type,
-// z2's attribute type, z3's text type, and z4's type and its list item.
-func zeroCountSimpleTypes(t *testing.T) []SimpleTypeID {
+// zeroCountSimpleTypes returns the simple types of build declared under z1 to
+// z4, found by the facets only they declare: z1's type, z2's attribute type
+// and z3's text type by their enumerations, and z4's type and its list item
+// by the item's maxInclusive.
+func zeroCountSimpleTypes(t *testing.T, build *schemaBuild) []SimpleTypeID {
 	t.Helper()
-	build := reachedSimpleTypesBuild(t, strings.ReplaceAll(unreachedSimpleTypes, ` minOccurs="0" maxOccurs="0"`, ""))
-	z4 := buildSimpleElementType(t, build, "z4")
-	ids := []SimpleTypeID{
-		buildSimpleElementType(t, build, "z1"),
-		buildFirstAttributeUseType(t, build, "z2"),
-		buildComplexElementType(t, build, "z3").TextType,
-		z4,
-		build.SimpleTypes[z4].ValueSpec.ListItem,
+	var ids []SimpleTypeID
+	for i, typ := range build.SimpleTypes {
+		spec := typ.ValueSpec
+		if len(spec.Facets.Enumeration) > 0 && slices.Contains([]string{"12", "x", "y"}, spec.Facets.Enumeration[0].Lexical) {
+			ids = append(ids, SimpleTypeID(i)) // #nosec G115 -- i indexes the simple-type table.
+		}
+		if spec.Variety == value.List && build.SimpleTypes[spec.ListItem].ValueSpec.Facets.MaxInclusive.Present {
+			ids = append(ids, SimpleTypeID(i), spec.ListItem) // #nosec G115 -- i indexes the simple-type table.
+		}
+	}
+	if len(ids) != 5 {
+		t.Fatalf("zero-count simple types = %v, want z1's, z2's attribute, z3's text, z4's and its list item", ids)
 	}
 	slices.Sort(ids)
 	return ids
@@ -134,8 +139,9 @@ func zeroCountSimpleTypes(t *testing.T) []SimpleTypeID {
 func TestUnreachedSimpleTypesPublishNoValueDefinition(t *testing.T) {
 	t.Parallel()
 
-	want := zeroCountSimpleTypes(t)
-	rt, err := publishSchema(reachedSimpleTypesBuild(t, unreachedSimpleTypes), unlimitedContentModelWork)
+	build := reachedSimpleTypesBuild(t, unreachedSimpleTypes)
+	want := zeroCountSimpleTypes(t, build)
+	rt, err := publishSchema(build, unlimitedContentModelWork)
 	if err != nil {
 		t.Fatalf("publishSchema() error = %v", err)
 	}
@@ -200,13 +206,13 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 			if global := build.SimpleTypes[id].Scope == declarationScopeGlobal; global != test.global {
 				t.Fatalf("holder names type %d, global %v, want global %v", id, global, test.global)
 			}
-			build.ReachableSimpleTypes[id] = false
+			build.ReachableSimpleTypes[id-value.BuiltinTypeCount] = false
 			_, err := publishSchema(build, unlimitedContentModelWork)
 			if err == nil || !strings.Contains(err.Error(), test.message) {
 				t.Fatalf("publishSchema() error = %v, want %q", err, test.message)
 			}
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-			build.ReachableSimpleTypes[id] = true
+			build.ReachableSimpleTypes[id-value.BuiltinTypeCount] = true
 			if _, err := publishSchema(build, unlimitedContentModelWork); err != nil {
 				t.Fatalf("publishSchema() after the rejected publication error = %v, want the build unchanged", err)
 			}

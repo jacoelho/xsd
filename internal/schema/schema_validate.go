@@ -15,13 +15,18 @@ type schemaValidation struct {
 	contentAnalysis  *contentModelAnalysis
 	build            *schemaBuild
 	// restrictedAttributeUses holds the restrictions of a base set with no
-	// uses already shown valid. Such a check charges nothing and its result
-	// depends only on the two sets and the binding, so types that share a
-	// set, such as many plain types referencing one attribute group, check it
-	// once rather than once per type. A base with uses is checked every time,
-	// since each check charges its derivation work.
+	// uses already shown valid, for derived sets of at least
+	// memoizedRestrictionUses uses. Such a check charges nothing and its
+	// result depends only on the two sets and the binding, so types that
+	// share a large set, such as many plain types referencing one attribute
+	// group, check it once rather than once per type. A smaller derived set
+	// is checked every time, at a cost bounded per type by the constant. A
+	// base with uses is checked every time, since each check charges its
+	// derivation work.
 	restrictedAttributeUses map[attributeUseRestriction]struct{}
 }
+
+const memoizedRestrictionUses = 64
 
 type attributeUseRestriction struct {
 	base, derived attributeUseSetID
@@ -786,7 +791,7 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	key := attributeUseRestriction{base: baseID, derived: derivedID, binding: binding}
-	memoized := len(base.Uses) == 0
+	memoized := len(base.Uses) == 0 && len(derived.Uses) >= memoizedRestrictionUses
 	if _, checked := rt.restrictedAttributeUses[key]; memoized && checked {
 		return nil
 	}

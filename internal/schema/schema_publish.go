@@ -62,7 +62,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	valueProgram, err := build.valueBuilder.SealKeeping(build.ReachableSimpleTypes)
 	if err != nil {
-		return schemaProgram{}, schemaValueError(Limits{}, xsderrors.CodeSchemaFacet, "sealing the value program", err)
+		return schemaProgram{}, xsderrors.InternalInvariant("sealing the value program: " + err.Error())
 	}
 	if valueProgram == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program")
