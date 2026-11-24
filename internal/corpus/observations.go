@@ -126,8 +126,9 @@ func ParseRow(line string) (Row, error) {
 	return r, nil
 }
 
-// Validate reports whether r has an observation line: a case and a phase, a
-// known provider and verdict, and no field holding a tab or a line break. A
+// Validate returns an error if r has no observation line: if it lacks a case
+// or a phase, has an unknown provider or verdict, or holds a tab or a line
+// break in a field. A
 // message names files relative to the mounted root, so a file URI or a path
 // through tests/corpus, the root's parent in every machine's checkout, is
 // rejected as a leaked absolute path.
@@ -150,9 +151,10 @@ func (r *Row) Validate() error {
 	return nil
 }
 
-// FormatRows returns the observation file text for rows, sorted. It fails if
-// a row does not validate or repeats the case, phase and provider of another.
-func FormatRows(rows []Row) ([]byte, error) {
+// FormatRows returns the text of observation file name for rows, sorted. It
+// fails if a row does not validate, belongs in another file, or repeats the
+// case, phase and provider of another.
+func FormatRows(name string, rows []Row) ([]byte, error) {
 	sorted := slices.Clone(rows)
 	slices.SortFunc(sorted, func(a, b Row) int { return CompareRows(&a, &b) })
 	var buf bytes.Buffer
@@ -160,6 +162,9 @@ func FormatRows(rows []Row) ([]byte, error) {
 		r := &sorted[i]
 		if err := r.Validate(); err != nil {
 			return nil, fmt.Errorf("row of case %q phase %q provider %q: %w", r.CaseID, r.Phase, r.Provider, err)
+		}
+		if err := checkRowFile(name, r); err != nil {
+			return nil, err
 		}
 		if i > 0 && CompareRows(&sorted[i-1], r) == 0 {
 			return nil, fmt.Errorf("case %q phase %q has two rows for %s", r.CaseID, r.Phase, r.Provider)
@@ -235,7 +240,7 @@ func LoadObservations(fsys fs.FS, inv *Inventory) (Observations, error) {
 		return Observations{}, err
 	}
 	if err := validateProfile(obs.Profile); err != nil {
-		return Observations{}, err
+		return Observations{}, fmt.Errorf("%s: %w", ProfilePath, err)
 	}
 	for _, name := range inv.ObservationPaths() {
 		data, err := fs.ReadFile(fsys, name)
@@ -267,15 +272,15 @@ func FormatProfile(p Profile) ([]byte, error) {
 
 func validateProfile(p Profile) error {
 	if p.Date == "" || p.Image == "" {
-		return fmt.Errorf("%s needs a date and an image", ProfilePath)
+		return errors.New("profile needs a date and an image")
 	}
 	for _, provider := range Providers() {
 		if p.Providers[provider] == "" {
-			return fmt.Errorf("%s has no version for %s", ProfilePath, provider)
+			return fmt.Errorf("profile has no version for %s", provider)
 		}
 	}
 	if len(p.Providers) != len(Providers()) {
-		return fmt.Errorf("%s lists an unknown provider", ProfilePath)
+		return errors.New("profile lists an unknown provider")
 	}
 	return nil
 }
@@ -307,12 +312,19 @@ func parseShardRow(name, line string) (Row, error) {
 	if err != nil {
 		return Row{}, err
 	}
-	owner, err := ObservationPath(r.CaseID)
-	if err != nil {
-		return Row{}, fmt.Errorf("case %q has no observation file: %w", r.CaseID, err)
-	}
-	if owner != name {
-		return Row{}, fmt.Errorf("case %q belongs in %q", r.CaseID, owner)
+	if err := checkRowFile(name, &r); err != nil {
+		return Row{}, err
 	}
 	return r, nil
+}
+
+func checkRowFile(name string, r *Row) error {
+	owner, err := ObservationPath(r.CaseID)
+	if err != nil {
+		return fmt.Errorf("case %q has no observation file: %w", r.CaseID, err)
+	}
+	if owner != name {
+		return fmt.Errorf("case %q belongs in %q", r.CaseID, owner)
+	}
+	return nil
 }

@@ -89,11 +89,15 @@ func TestLoadInventoryRejectsUndeclaredKeys(t *testing.T) {
 		name, index, project, want string
 	}{
 		{name: "index key", index: `{"version":"2.0","specification":"XSD 1.0","shard":["project/top-level"],"shards":["project/top-level","w3c/msMeta/Regex_w3c"]}`, project: validProjectCase, want: `manifest/index.json: json: unknown field "shard"`},
-		{name: "case key", project: `{"id":"project/a","expectedSource":"project","titel":"t"}`, want: `unknown field "titel"`},
+		{name: "case key", project: `{"id":"project/a","expectedSource":"project","titel":"t"}`, want: `manifest/project/top-level.json case 0 "project/a": json: unknown field "titel"`},
 		{name: "schema key", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"invalid","errrorCode":"schema.reference","documents":[{"file":"a.xsd"}]}}`, want: `unknown field "errrorCode"`},
 		{name: "instance key", project: `{"id":"project/a","expectedSource":"project","instances":[{"testName":"i","file":"i.xml","expected":"valid","rules":{"specRef":"r"}}]}`, want: `unknown field "rules"`},
 		{name: "provenance key", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"invalid","documents":[{"file":"a.xsd"}],"oracle":{"project":{"expected":"valid","reason":"r","specification":"s"}}}}`, want: `unknown field "specification"`},
 		{name: "difference key", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"a.xsd"}],"differences":{"xerces":{"records":"I-001"}}}}`, want: `unknown field "records"`},
+		{name: "repeated key", project: `{"id":"project/a","expectedSource":"project","title":"a","title":"b"}`, want: `manifest/project/top-level.json: object repeats key "title" as "title" at byte`},
+		{name: "repeated key in another case", project: `{"id":"project/a","expectedSource":"project","Title":"a","title":"b"}`, want: `object repeats key "Title" as "title"`},
+		{name: "key in another case", project: `{"id":"project/a","expectedSource":"project","schema":{"expected":"invalid","errorcode":"schema.reference","documents":[{"file":"a.xsd"}]}}`, want: `case 0 "project/a": key "errorcode" differs in case from the field it sets`},
+		{name: "index key in another case", index: `{"Version":"2.0","specification":"XSD 1.0","shards":["project/top-level","w3c/msMeta/Regex_w3c"]}`, project: validProjectCase, want: `manifest/index.json: key "Version" differs in case`},
 		{name: "data after the index", index: testIndex + `{}`, project: validProjectCase, want: "manifest/index.json: data after the JSON value"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -214,7 +218,7 @@ func TestLoadObservations(t *testing.T) {
 		t.Fatalf("profile = %+v", obs.Profile)
 	}
 	shuffled := []Row{want[2], want[0], want[1]}
-	got, err := FormatRows(shuffled)
+	got, err := FormatRows("oracles/top-level.tsv", shuffled)
 	if err != nil || string(got) != data {
 		t.Fatalf("FormatRows() = %q, %v; want the sorted file %q", got, err, data)
 	}
@@ -235,10 +239,11 @@ func TestFormatRowsRejectsRowsThatDoNotLoad(t *testing.T) {
 		{name: "unknown provider", row: Row{CaseID: "project/a", Phase: "i", Provider: "saxon", Verdict: Invalid}, want: `unknown provider "saxon"`},
 		{name: "unknown verdict", row: Row{CaseID: "project/a", Phase: "i", Provider: Xerces, Verdict: "accepted"}, want: `unknown verdict "accepted"`},
 		{name: "absolute path", row: Row{CaseID: "project/a", Phase: "i", Provider: Xerces, Verdict: Invalid, Message: "file:///x.xml: bad"}, want: "an absolute path in its message"},
+		{name: "case of another file", row: Row{CaseID: "project/area/b", Phase: "i", Provider: Xerces, Verdict: Invalid}, want: `case "project/area/b" belongs in "oracles/area.tsv"`},
 		{name: "repeated provider", row: Row{CaseID: "project/a", Phase: SchemaPhase, Provider: Xerces, Verdict: SchemaInvalid}, want: `case "project/a" phase "schema" has two rows for xerces`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := FormatRows([]Row{valid, tt.row})
+			got, err := FormatRows("oracles/top-level.tsv", []Row{valid, tt.row})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("FormatRows() = %q, %v; want an error containing %q", got, err, tt.want)
 			}

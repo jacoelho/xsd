@@ -375,6 +375,7 @@ func (m *measurer) measureAll(ctx context.Context, slots []string, cases []*corp
 	enqueue(scheduling, queue, cases)
 	close(queue)
 	wg.Wait()
+	col.reportProgress()
 	if err := errors.Join(append(col.failures, ctx.Err())...); err != nil {
 		return nil, err
 	}
@@ -394,7 +395,6 @@ func (m *measurer) measureScheduled(ctx, scheduling context.Context, stopSchedul
 	col.add(c, res, err)
 }
 
-// enqueue sends cases to queue in order until scheduling stops.
 func enqueue(scheduling context.Context, queue chan<- *corpus.Case, cases []*corpus.Case) {
 	for _, c := range cases {
 		select {
@@ -410,6 +410,7 @@ type collector struct {
 	results  map[string]caseResult
 	failures []error
 	total    int
+	printed  int
 	mu       sync.Mutex
 }
 
@@ -421,9 +422,28 @@ func (col *collector) add(c *corpus.Case, res caseResult, err error) {
 	} else {
 		col.results[c.ID] = res
 	}
-	if done := len(col.results) + len(col.failures); done%100 == 0 || done == col.total {
-		fmt.Fprintf(os.Stderr, "measured %d/%d cases\n", done, col.total)
+	if done := col.done(); done%100 == 0 || done == col.total {
+		col.printProgress(done)
 	}
+}
+
+// reportProgress prints the count of measured cases unless the last progress
+// line already shows it, as it does not after a failure stops scheduling.
+func (col *collector) reportProgress() {
+	col.mu.Lock()
+	defer col.mu.Unlock()
+	if done := col.done(); done != col.printed {
+		col.printProgress(done)
+	}
+}
+
+func (col *collector) done() int {
+	return len(col.results) + len(col.failures)
+}
+
+func (col *collector) printProgress(done int) {
+	fmt.Fprintf(os.Stderr, "measured %d/%d cases\n", done, col.total)
+	col.printed = done
 }
 
 // retryErrors measures again, one at a time, every case with an error
@@ -613,8 +633,9 @@ func runOracles(ctx context.Context, slot string, args []string) ([]byte, error)
 	return out, nil
 }
 
-// parseRun converts run.sh output, a header and one row per provider, into
-// observation rows, and returns the version each provider reported.
+// parseRun converts run.sh output, a header and one row for each provider of
+// corpus.Providers, into observation rows, and returns the version each
+// provider reported.
 func parseRun(caseID, phase string, out []byte) ([]corpus.Row, map[corpus.Provider]string, error) {
 	lines := strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")
 	if len(lines) != 1+len(corpus.Providers()) || lines[0] != "oracle\tversion\tverdict\tmessage" {
@@ -623,20 +644,33 @@ func parseRun(caseID, phase string, out []byte) ([]corpus.Row, map[corpus.Provid
 	rows := make([]corpus.Row, 0, len(lines)-1)
 	versions := make(map[corpus.Provider]string)
 	for _, line := range lines[1:] {
-		fields := strings.Split(line, "\t")
-		if len(fields) != 4 {
-			return nil, nil, fmt.Errorf("run.sh row %q has %d fields, want 4", line, len(fields))
+		r, version, err := parseRunRow(caseID, phase, line)
+		if err != nil {
+			return nil, nil, err
 		}
-		r := corpus.Row{CaseID: caseID, Phase: phase, Provider: corpus.Provider(fields[0]), Verdict: corpus.Verdict(fields[2]), Message: fields[3]}
-		if err := r.Validate(); err != nil {
-			return nil, nil, fmt.Errorf("run.sh row %q: %w", line, err)
+		if slices.ContainsFunc(rows, func(prev corpus.Row) bool { return prev.Provider == r.Provider }) {
+			return nil, nil, fmt.Errorf("run.sh reported %s twice", r.Provider)
 		}
-		if fields[1] != "?" {
-			versions[r.Provider] = fields[1]
+		if version != "?" {
+			versions[r.Provider] = version
 		}
 		rows = append(rows, r)
 	}
 	return rows, versions, nil
+}
+
+// parseRunRow converts one provider row of run.sh output into an observation
+// row and the version the provider reported.
+func parseRunRow(caseID, phase, line string) (corpus.Row, string, error) {
+	fields := strings.Split(line, "\t")
+	if len(fields) != 4 {
+		return corpus.Row{}, "", fmt.Errorf("run.sh row %q has %d fields, want 4", line, len(fields))
+	}
+	r := corpus.Row{CaseID: caseID, Phase: phase, Provider: corpus.Provider(fields[0]), Verdict: corpus.Verdict(fields[2]), Message: fields[3]}
+	if err := r.Validate(); err != nil {
+		return corpus.Row{}, "", fmt.Errorf("run.sh row %q: %w", line, err)
+	}
+	return r, fields[1], nil
 }
 
 // providerVersions returns the one version each provider reported across
@@ -718,9 +752,10 @@ func recordedObservations(inv *corpus.Inventory) (fs.FS, error) {
 // write replaces every observation file with the rows of results and kept,
 // and the profile with profile unless it is nil. It renders every file before
 // writing any, so a row or profile that does not validate leaves the tree
-// unchanged and only a failed write can leave it partly replaced.
+// unchanged. It writes the profile last: after a failed write the earlier
+// profile remains, and its image digest refuses a partial run of a new image.
 func write(inv *corpus.Inventory, results map[string]caseResult, kept []corpus.Row, profile *corpus.Profile) error {
-	files, err := render(inv, results, kept, profile)
+	files, profileText, err := render(inv, results, kept, profile)
 	if err != nil {
 		return err
 	}
@@ -729,7 +764,10 @@ func write(inv *corpus.Inventory, results map[string]caseResult, kept []corpus.R
 			return err
 		}
 	}
-	return nil
+	if profileText == nil {
+		return nil
+	}
+	return writeFile(filepath.Join("tests", filepath.FromSlash(corpus.ProfilePath)), profileText)
 }
 
 // rowsByFile groups rows by observation file, with an entry for every
@@ -749,33 +787,29 @@ func rowsByFile(inv *corpus.Inventory, rows []corpus.Row) (map[string][]corpus.R
 	return byFile, nil
 }
 
-// render returns the text of every observation file and, unless profile is
-// nil, of the profile, keyed by path relative to the tests directory.
-func render(inv *corpus.Inventory, results map[string]caseResult, kept []corpus.Row, profile *corpus.Profile) (map[string][]byte, error) {
+// render returns the text of every observation file, keyed by path relative
+// to the tests directory, and of the profile unless profile is nil.
+func render(inv *corpus.Inventory, results map[string]caseResult, kept []corpus.Row, profile *corpus.Profile) (files map[string][]byte, profileText []byte, err error) {
 	rows := kept
 	for _, res := range results {
 		rows = append(rows, res.rows...)
 	}
 	byFile, err := rowsByFile(inv, rows)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	files := make(map[string][]byte, len(byFile)+1)
+	files = make(map[string][]byte, len(byFile))
 	for name, fileRows := range byFile {
-		data, err := corpus.FormatRows(fileRows)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+		if files[name], err = corpus.FormatRows(name, fileRows); err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", name, err)
 		}
-		files[name] = data
 	}
 	if profile != nil {
-		data, err := corpus.FormatProfile(*profile)
-		if err != nil {
-			return nil, err
+		if profileText, err = corpus.FormatProfile(*profile); err != nil {
+			return nil, nil, fmt.Errorf("measured profile: %w", err)
 		}
-		files[corpus.ProfilePath] = data
 	}
-	return files, nil
+	return files, profileText, nil
 }
 
 func writeFile(name string, data []byte) error {

@@ -477,6 +477,7 @@ func TestParseRunRejectsMalformedOutput(t *testing.T) {
 		{name: "tab in message", out: header + "xerces\tv\tinvalid\ta\tb\n" + rest, want: "has 5 fields, want 4"},
 		{name: "unknown provider", out: header + "saxon\tv\tvalid\t\n" + rest, want: `unknown provider "saxon"`},
 		{name: "unknown verdict", out: header + "xerces\tv\taccepted\t\n" + rest, want: `unknown verdict "accepted"`},
+		{name: "substituted provider", out: header + "xerces\tv\tvalid\t\nxerces\tv\tvalid\t\nlibxml2\tv\tvalid\t\nxmlschema\tv\tvalid\t\n", want: "run.sh reported xerces twice"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if _, _, err := parseRun("project/a", corpus.SchemaPhase, []byte(tt.out)); err == nil || !strings.Contains(err.Error(), tt.want) {
@@ -611,5 +612,37 @@ func TestMeasurePhaseFailsOnAnUnreadableCacheWithoutRunning(t *testing.T) {
 	}
 	if got := runCalls(t); got != nil {
 		t.Fatalf("run.sh calls = %q, want none", got)
+	}
+}
+
+func TestRecordAllWritesTheProfileOnlyAfterEveryObservationFile(t *testing.T) {
+	t.Chdir(t.TempDir())
+	writeTestTree(t, map[string]string{
+		corpus.IndexPath:                  `{"version":"2.0","specification":"XSD 1.0","shards":["project/top-level","project/zz"]}`,
+		"manifest/project/top-level.json": `{"cases":[{"id":"project/a","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"a.xsd"}]}}]}`,
+		"manifest/project/zz.json":        `{"cases":[{"id":"project/zz/b","expectedSource":"project","schema":{"expected":"valid","documents":[{"file":"b.xsd"}]}}]}`,
+		corpus.ProfilePath:                testProfile,
+		"oracles/top-level.tsv":           "",
+		"oracles/zz.tsv":                  "",
+	})
+	if err := os.Mkdir(filepath.Join("tests", "oracles", "zz.tsv.tmp"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := corpus.LoadInventory(os.DirFS("tests"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	versions := map[corpus.Provider]string{corpus.Xerces: "Xerces-J 2.12.3", corpus.DotNet: ".NET 10.0.15", corpus.XMLSchema: "xmlschema 4.3.3", corpus.LibXML2: "libxml2 2.9.14"}
+	results := map[string]caseResult{
+		"project/a":    {versions: versions, rows: []corpus.Row{{CaseID: "project/a", Phase: corpus.SchemaPhase, Provider: corpus.Xerces, Verdict: corpus.SchemaValid}}},
+		"project/zz/b": {versions: versions, rows: []corpus.Row{{CaseID: "project/zz/b", Phase: corpus.SchemaPhase, Provider: corpus.Xerces, Verdict: corpus.SchemaValid}}},
+	}
+
+	if err := record(&inv, results, true, "sha256:new", testDate); err == nil {
+		t.Fatal("record() error = nil, want the failed write of oracles/zz.tsv")
+	}
+
+	if got := readTestTree(t, corpus.ProfilePath); got != testProfile {
+		t.Fatalf("profile after a failed observation write = %q, want the earlier %q", got, testProfile)
 	}
 }

@@ -9,11 +9,9 @@
 package corpus
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"maps"
 	"path"
@@ -218,13 +216,16 @@ type index struct {
 	Shards        []string        `json:"shards"`
 }
 
+// shard is an inventory shard file; loadShard decodes each case on its own so
+// an error names the case.
 type shard struct {
-	Cases []Case `json:"cases"`
+	Cases []json.RawMessage `json:"cases"`
 }
 
 // LoadInventory reads the index and every shard it lists from fsys, rooted at
 // the tests directory, and validates the result. A key the grammar does not
-// declare is an error, so a misspelt optional key cannot load as an absent one.
+// declare, a key spelt in another case and a repeated key are errors, so a
+// misspelt optional key cannot load as an absent one.
 func LoadInventory(fsys fs.FS) (Inventory, error) {
 	var idx index
 	if err := readJSON(fsys, IndexPath, &idx); err != nil {
@@ -252,40 +253,31 @@ func LoadInventory(fsys fs.FS) (Inventory, error) {
 	return inv, nil
 }
 
-// readJSON decodes the one JSON value of file name into v, rejecting keys v
-// does not declare and data after the value.
-func readJSON(fsys fs.FS, name string, v any) error {
-	data, err := fs.ReadFile(fsys, name)
-	if err != nil {
-		return err
-	}
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(v); err != nil {
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("%s: data after the JSON value", name)
-	}
-	return nil
-}
-
 // loadShard reads one shard; every case in it must belong to it.
 func loadShard(fsys fs.FS, name string) ([]Case, error) {
 	var s shard
 	if err := readJSON(fsys, shardPath(name), &s); err != nil {
 		return nil, err
 	}
-	for i := range s.Cases {
-		want, err := ShardName(s.Cases[i].ID)
+	cases := make([]Case, len(s.Cases))
+	for i, raw := range s.Cases {
+		c := &cases[i]
+		if err := decodeJSON(raw, c); err != nil {
+			var id struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(raw, &id) //nolint:errcheck // The ID only labels the decoding error; an undecodable one stays empty.
+			return nil, fmt.Errorf("%s case %d %q: %w", shardPath(name), i, id.ID, err)
+		}
+		want, err := ShardName(c.ID)
 		if err != nil {
 			return nil, err
 		}
 		if want != name {
-			return nil, fmt.Errorf("case %q is in shard %q, want %q", s.Cases[i].ID, name, want)
+			return nil, fmt.Errorf("case %q is in shard %q, want %q", c.ID, name, want)
 		}
 	}
-	return s.Cases, nil
+	return cases, nil
 }
 
 // ValidateCases checks the case invariants the tests/README.md Corpus Contract
