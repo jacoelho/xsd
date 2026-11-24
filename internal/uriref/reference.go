@@ -66,7 +66,7 @@ func (r Reference) Escaped() string {
 				writeEscape(&out, encoded)
 			}
 			i += n
-		case mustEscapeASCII(b):
+		case escapedASCII.contains(b):
 			writeEscape(&out, b)
 			i++
 		default:

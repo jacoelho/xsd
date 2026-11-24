@@ -13,11 +13,11 @@ type byteText interface {
 // 2732, after logically applying XLink escaping. It returns the one
 // decomposition of text into components that validation and Parts share.
 func analyze[T byteText](text T) (scanned, layout, error) {
-	s, err := scan(text)
+	l := decompose(text)
+	s, err := scan(text, l.fragmentStart)
 	if err != nil {
 		return scanned{}, layout{}, err
 	}
-	l := decompose(text)
 	if !validLayout(text, l) {
 		return scanned{}, layout{}, ErrInvalid
 	}
@@ -28,27 +28,29 @@ func analyze[T byteText](text T) (scanned, layout, error) {
 type scanned struct {
 	characters int
 	escapedLen int
-	// escapedFragmentStart is the escaped length of the text before its
-	// '#', or escapedLen when it has none. A valid reference has at most one
-	// '#', since a fragment cannot contain another.
+	// escapedFragmentStart is the escaped length of the text before
+	// layout.fragmentStart.
 	escapedFragmentStart int
 }
 
-func scan[T byteText](text T) (scanned, error) {
-	s := scanned{escapedFragmentStart: -1}
+// scan measures text and records the escaped length before the byte offset
+// fragmentStart. The '#' at fragmentStart is a one-byte token and no escape or
+// UTF-8 sequence contains it, so a token always starts there.
+func scan[T byteText](text T, fragmentStart int) (scanned, error) {
+	var s scanned
 	for i := 0; i < len(text); {
+		if i == fragmentStart {
+			s.escapedFragmentStart = s.escapedLen
+		}
 		token, ok := scanToken(text, i)
 		if !ok || s.escapedLen > math.MaxInt-token.escapedLen {
 			return scanned{}, ErrInvalid
-		}
-		if text[i] == '#' {
-			s.escapedFragmentStart = s.escapedLen
 		}
 		s.characters += token.characters
 		s.escapedLen += token.escapedLen
 		i += token.width
 	}
-	if s.escapedFragmentStart < 0 {
+	if fragmentStart == len(text) {
 		s.escapedFragmentStart = s.escapedLen
 	}
 	return s, nil
@@ -70,7 +72,7 @@ func scanToken[T byteText](text T, i int) (scannedToken, bool) {
 		return scannedToken{width: 3, characters: 3, escapedLen: 3}, true
 	case b < 0x80:
 		growth := 1
-		if mustEscapeASCII(b) {
+		if escapedASCII.contains(b) {
 			growth = 3
 		}
 		return scannedToken{width: 1, characters: 1, escapedLen: growth}, true
@@ -357,7 +359,7 @@ func validComponent[T byteText](text T, start, end int, allowed *asciiSet) bool 
 		if !ok || token.width > end-i {
 			return false
 		}
-		if b := text[i]; token.width == 1 && !mustEscapeASCII(b) && !allowed.contains(b) {
+		if b := text[i]; token.width == 1 && !allowed.contains(b) && !escapedASCII.contains(b) {
 			return false
 		}
 		i += token.width
@@ -392,9 +394,10 @@ var (
 	regNameChars  = newASCIISet(unreservedChars + "$,;:@&=+")
 )
 
-func mustEscapeASCII(b byte) bool {
-	return b <= 0x20 || b == 0x7f || strings.ContainsRune("<>\"{}|\\^`", rune(b))
-}
+// escapedASCII holds the ASCII characters that XLink escaping encodes: the
+// controls, space and DEL, and the excluded characters of RFC 2396 section
+// 2.4.3 except '#', '%' and the brackets that RFC 2732 re-allows.
+var escapedASCII = newASCIISet("\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f \x7f<>\"{}|\\^`")
 
 func isAlpha(b byte) bool { return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' }
 func isDigit(b byte) bool { return b >= '0' && b <= '9' }

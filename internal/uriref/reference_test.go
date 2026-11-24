@@ -2,6 +2,7 @@ package uriref
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -146,6 +147,25 @@ func TestResolveRelativePathAgainstEmptyAuthorityPath(t *testing.T) {
 	}
 }
 
+func TestEscapedEncodesTheCharactersXLinkExcludes(t *testing.T) {
+	t.Parallel()
+	const excluded = "<>\"{}|\\^`"
+	for b := range byte(0x80) {
+		raw := "a" + string(rune(b))
+		ref, err := Parse(raw)
+		if err != nil {
+			continue
+		}
+		want := raw
+		if b <= 0x20 || b == 0x7f || strings.IndexByte(excluded, b) >= 0 {
+			want = fmt.Sprintf("a%%%02X", b)
+		}
+		if ref.Escaped() != want {
+			t.Errorf("Parse(%q).Escaped() = %q, want %q", raw, ref.Escaped(), want)
+		}
+	}
+}
+
 func TestWithoutFragmentReturnsTheReferenceParseGivesItsPrefix(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ raw, want string }{
@@ -175,7 +195,7 @@ func TestResolveSameDocumentAgainstEmptyAuthorityBase(t *testing.T) {
 	}
 }
 
-func TestResolveAgainstABaseWhoseOnlySlashLeadsThePath(t *testing.T) {
+func TestResolveMergesARelativePathAtTheBasesLastSlash(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ base, want string }{
 		{base: "/main.xsd", want: "/b.xsd"},
@@ -275,8 +295,11 @@ func FuzzReferenceOperationsReturnParsedReferences(f *testing.F) {
 			return
 		}
 		got, err := Resolve(base, ref)
-		if err != nil {
+		if errors.Is(err, ErrOpaqueBase) {
 			return
+		}
+		if err != nil {
+			t.Fatalf("Resolve(%q, %q) error = %v", rawBase, rawRef, err)
 		}
 		if reparsed, reparseErr := Parse(got.Raw()); reparseErr != nil || reparsed != got {
 			t.Fatalf("Resolve(%q, %q) = %#v; Parse of its Raw = %#v, %v", rawBase, rawRef, got, reparsed, reparseErr)
