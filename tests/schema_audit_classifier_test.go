@@ -113,7 +113,7 @@ func checkAuditFunction(t *testing.T, fset *token.FileSet, fn *ast.FuncDecl, tra
 				return true
 			}
 			last := n.Results[len(n.Results)-1]
-			callee := ""
+			var callee string
 			switch last := last.(type) {
 			case *ast.Ident:
 				callee = origins[last.Name]

@@ -244,39 +244,51 @@ func TestSchemaSemanticSourceResolvesQNameAttributes(t *testing.T) {
 		want    xml.Name
 	}{
 		{name: "simple restriction base", body: `<xs:simpleType name="value"><xs:restriction base=" xs:string "/></xs:simpleType>`, path: []string{"simpleType", "restriction"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaBaseDerivationSource](tb, &n.semantic).Base
 		}, lexical: "xs:string", want: xml.Name{Space: "http://www.w3.org/2001/XMLSchema", Local: "string"}},
 		{name: "complex content base", body: `<xs:complexType name="derived"><xs:complexContent><xs:extension base=" t:base "/></xs:complexContent></xs:complexType>`, path: []string{"complexType", "complexContent", "extension"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaBaseDerivationSource](tb, &n.semantic).Base
 		}, lexical: "t:base", want: xml.Name{Space: "urn:test", Local: "base"}},
 		{name: "simple content base", body: `<xs:complexType name="derived"><xs:simpleContent><xs:restriction base=" t:base "/></xs:simpleContent></xs:complexType>`, path: []string{"complexType", "simpleContent", "restriction"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaBaseDerivationSource](tb, &n.semantic).Base
 		}, lexical: "t:base", want: xml.Name{Space: "urn:test", Local: "base"}},
 		{name: "list itemType", body: `<xs:simpleType name="list"><xs:list itemType=" t:value "/></xs:simpleType>`, path: []string{"simpleType", "list"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaListDerivationSource](tb, &n.semantic).ItemType
 		}, lexical: "t:value", want: xml.Name{Space: "urn:test", Local: "value"}},
 		{name: "element type", body: `<xs:element name="head" type=" t:value "/>`, path: []string{"element"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaElementSource](tb, &n.semantic).Type
 		}, lexical: "t:value", want: xml.Name{Space: "urn:test", Local: "value"}},
 		{name: "attribute type", body: `<xs:attribute name="code" type=" t:value "/>`, path: []string{"attribute"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaAttributeSource](tb, &n.semantic).Type
 		}, lexical: "t:value", want: xml.Name{Space: "urn:test", Local: "value"}},
 		{name: "element ref", body: `<xs:complexType name="container"><xs:sequence><xs:element ref=" t:member "/></xs:sequence></xs:complexType>`, path: []string{"complexType", "sequence", "element"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaElementSource](tb, &n.semantic).Ref
 		}, lexical: "t:member", want: xml.Name{Space: "urn:test", Local: "member"}},
 		{name: "attribute ref", body: `<xs:complexType name="container"><xs:attribute ref=" t:code "/></xs:complexType>`, path: []string{"complexType", "attribute"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaAttributeSource](tb, &n.semantic).Ref
 		}, lexical: "t:code", want: xml.Name{Space: "urn:test", Local: "code"}},
 		{name: "group ref", body: `<xs:complexType name="container"><xs:sequence><xs:group ref=" t:members "/></xs:sequence></xs:complexType>`, path: []string{"complexType", "sequence", "group"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaGroupSource](tb, &n.semantic).Ref
 		}, lexical: "t:members", want: xml.Name{Space: "urn:test", Local: "members"}},
 		{name: "attributeGroup ref", body: `<xs:complexType name="container"><xs:attributeGroup ref=" t:codes "/></xs:complexType>`, path: []string{"complexType", "attributeGroup"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaAttributeGroupSource](tb, &n.semantic).Ref
 		}, lexical: "t:codes", want: xml.Name{Space: "urn:test", Local: "codes"}},
 		{name: "identity refer", body: `<xs:element name="root"><xs:keyref name="reference" refer=" t:key "><xs:selector xpath="."/><xs:field xpath="@id"/></xs:keyref></xs:element>`, path: []string{"element", "keyref"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaIdentitySource](tb, &n.semantic).Refer
 		}, lexical: "t:key", want: xml.Name{Space: "urn:test", Local: "key"}},
 		{name: "substitutionGroup", body: `<xs:element name="member" substitutionGroup=" t:head "/>`, path: []string{"element"}, read: func(tb testing.TB, n *schemaNode) schemaQNameAttribute {
+			tb.Helper()
 			return testSemanticSource[*schemaElementSource](tb, &n.semantic).SubstitutionGroup
 		}, lexical: "t:head", want: xml.Name{Space: "urn:test", Local: "head"}},
 	}
