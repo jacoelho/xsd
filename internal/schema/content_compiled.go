@@ -183,24 +183,22 @@ type compiledModelRead struct {
 	AllBitLen uint32
 	Kind      compiledModelKind
 	Empty     bool
+	// tablesDropped marks a root validation cannot enter whose rows or
+	// xs:all terms compilation dropped (withoutTables); publication rejects
+	// entering it.
+	tablesDropped bool
 }
 
-// hasTables reports whether m holds the rows or xs:all terms its kind
-// executes; empty and wildcard content hold none.
-func (m compiledModelRead) hasTables() bool {
-	switch m.Kind {
-	case compiledModelDFA:
-		return len(m.Rows) != 0
-	case compiledModelAll:
-		return len(m.All) != 0
-	case compiledModelEmpty, compiledModelAny:
-	}
-	return true
-}
-
-// withoutTables returns m without its rows, xs:all terms and name index.
+// withoutTables returns m without its rows, xs:all terms and name index,
+// marked as having dropped them when it had any.
 func (m compiledModelRead) withoutTables() compiledModelRead {
-	return compiledModelRead{Start: m.Start, AllBitLen: m.AllBitLen, Kind: m.Kind, Empty: m.Empty}
+	return compiledModelRead{
+		Start:         m.Start,
+		AllBitLen:     m.AllBitLen,
+		Kind:          m.Kind,
+		Empty:         m.Empty,
+		tablesDropped: len(m.Rows) != 0 || len(m.All) != 0,
+	}
 }
 
 // compiledModelRowRead has a per-architecture storage ceiling
@@ -391,7 +389,7 @@ func publishedContentModels(content *compiledContent, entered []int, count int) 
 }
 
 func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRead, count int) error {
-	if !model.hasTables() {
+	if model.tablesDropped {
 		return xsderrors.InternalInvariant("published content model has no tables")
 	}
 	if err := validatePublishedEdges(run, count); err != nil {

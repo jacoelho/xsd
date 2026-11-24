@@ -1,7 +1,9 @@
 package schema
 
 import (
+	"cmp"
 	"encoding/xml"
+	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -369,14 +371,13 @@ func (c *compiler) compileContentModels(reached []reachedModel) error {
 	if err != nil {
 		return err
 	}
-	roots, err := contentRootEntries(c.rt.ComplexTypes, len(c.rt.Models))
+	roots, err := contentRootEntries(c.rt.ComplexTypes, reached)
 	if err != nil {
 		return err
 	}
 	cc := newContentModelCompiler(&c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
 	projection := rootProjection{
 		entered: newDFARowIndexAnalysis(&c.rt, &elements, c.contentWork.spend, &c.dependencyWork),
-		roots:   roots,
 	}
 	projection.unentered = projection.entered
 	if !elements.identity() {
@@ -386,8 +387,8 @@ func (c *compiler) compileContentModels(reached []reachedModel) error {
 	sources := make([]contentModelID, 0, len(reached))
 	models := make([]compiledModelRead, 0, len(reached))
 	runs := make([][]compiledModelEdgeRead, 0, len(reached))
-	for _, r := range reached {
-		model, run, err := c.compileContentModel(&cc, projection, r)
+	for i, r := range reached {
+		model, run, err := c.compileContentModel(&cc, projection, roots[i], r)
 		if err != nil {
 			return err
 		}
@@ -413,19 +414,22 @@ const (
 	enteredRoot
 )
 
-// contentRootEntries returns the rootEntry of each of models content models.
-func contentRootEntries(types []complexTypeMetadata, models int) ([]rootEntry, error) {
-	entries := make([]rootEntry, models)
+// contentRootEntries returns the rootEntry of each reached model, parallel to
+// reached. Every complex type's root is reached.
+func contentRootEntries(types []complexTypeMetadata, reached []reachedModel) ([]rootEntry, error) {
+	entries := make([]rootEntry, len(reached))
 	for i := range types {
-		root := types[i].Content
-		if !validContentModelID(root, models) {
-			return nil, xsderrors.InternalInvariant("complex type references invalid content model")
+		position, ok := slices.BinarySearchFunc(reached, types[i].Content, func(r reachedModel, id contentModelID) int {
+			return cmp.Compare(r.id, id)
+		})
+		if !ok {
+			return nil, xsderrors.InternalInvariant("complex-type content model is not reached")
 		}
 		entry := unenteredRoot
 		if entersContent(&types[i]) {
 			entry = enteredRoot
 		}
-		entries[root] = max(entries[root], entry)
+		entries[position] = max(entries[position], entry)
 	}
 	return entries, nil
 }
@@ -435,7 +439,6 @@ func contentRootEntries(types []complexTypeMetadata, models int) ([]rootEntry, e
 type rootProjection struct {
 	entered   *dfaRowIndexAnalysis
 	unentered *dfaRowIndexAnalysis
-	roots     []rootEntry
 }
 
 // project returns the published form of an entered root, and the kind and the
@@ -458,7 +461,7 @@ func (p rootProjection) project(entry rootEntry, compiled compiledModel, work co
 	return model, run, nil
 }
 
-func (c *compiler) compileContentModel(cc *contentModelCompiler, projection rootProjection, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
+func (c *compiler) compileContentModel(cc *contentModelCompiler, projection rootProjection, entry rootEntry, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
 	id := reached.id
 	scope, err := c.enterContentModel(id)
 	if err != nil {
@@ -470,7 +473,6 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, projection root
 	if err != nil {
 		return compiledModelRead{}, nil, err
 	}
-	entry := projection.roots[id]
 	if entry == notRoot {
 		return compiledModelRead{Kind: compiled.Kind}, nil, nil
 	}

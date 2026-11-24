@@ -328,7 +328,7 @@ tables in that numbering. Only `newCompiledParticleRead` produces a
 `publishedElementID` (`tests/published_element_id_conversion_test.go`).
 `compiledContent` records the numbering its tables were built over, and
 publication rejects a build whose reachability no longer derives it, or an
-entered root without tables. The global element map and the
+entered root whose tables compilation dropped. The global element map and the
 substitution table, which compilation reads in build IDs, are copied over
 published IDs at publication; the substitution table is at most
 `MaxSubstitutionClosureEntries` entries.
