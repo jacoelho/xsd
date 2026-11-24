@@ -71,11 +71,10 @@ func compileRuleError(code xsderrors.Code, subject string, err error) error {
 	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
-	message := err.Error()
-	if subject != "" {
-		message = subject + ": " + message
+	if subject == "" {
+		return xsderrors.SchemaCompile(code, err.Error(), nil)
 	}
-	return xsderrors.SchemaCompile(code, message, nil)
+	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
 }
 
 func withSchemaCompileLocation(n schemaLocated, err error) error {
