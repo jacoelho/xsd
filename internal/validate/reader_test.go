@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -162,4 +163,23 @@ func requireDiagnostic(t *testing.T, err error, want xsderrors.Code) *xsderrors.
 		t.Fatalf("code = %s, want %s", xerr.Code(), want)
 	}
 	return xerr
+}
+
+func TestUnknownInstanceFeatureKeepsTheReaderError(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("reader error")
+	err := unsupportedInstanceFeature(xmlstream.UnsupportedFeature(255), cause)
+	if xerr := requireDiagnostic(t, err, xsderrors.CodeInternalInvariant); !errors.Is(xerr, cause) {
+		t.Fatalf("unsupportedInstanceFeature(unknown) = %v, want it to wrap the reader error", err)
+	}
+}
+
+func TestTerminalValueErrorKeepsValueMetadataFailure(t *testing.T) {
+	t.Parallel()
+
+	err := terminalValueError(startContext{}, value.ErrMetadata, testEval())
+	if xerr := requireDiagnostic(t, err, xsderrors.CodeInternalInvariant); !errors.Is(xerr, value.ErrMetadata) {
+		t.Fatalf("terminalValueError(ErrMetadata) = %v, want it to wrap value.ErrMetadata", err)
+	}
 }

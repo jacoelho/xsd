@@ -143,7 +143,7 @@ func unsupportedFormatFeature(feature xmlstream.UnsupportedFeature, err error) e
 	case xmlstream.UnsupportedEntityReference:
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "XML documents cannot reference undeclared entities", err)
 	}
-	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature", nil)
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature", err)
 }
 
 func formatBoundaryErr(err error, limits Options) error {
@@ -640,7 +640,7 @@ func (a *formatAnalysis) xmlSpacePreserve(attrs []xmlstream.Attr, inherited bool
 		}
 		value, err := a.reader.AttrValue(attr)
 		if err != nil {
-			return false, xsderrors.InternalInvariant("format reader skipped xml:space value", nil)
+			return false, xsderrors.InternalInvariant("format reader skipped xml:space value", err)
 		}
 		switch value {
 		case vocab.XMLValuePreserve:
@@ -697,7 +697,7 @@ func formatReaderLimitErr(limit xmlstream.Limit, line, col int, err error, opts 
 	case xmlstream.LimitDepth:
 		option, configured = "MaxDepth", int64(opts.MaxDepth)
 	case xmlstream.LimitAttrs:
-		return xsderrors.InternalInvariant("format reader has no attribute limit", nil)
+		return xsderrors.InternalInvariant("format reader has no attribute limit", err)
 	}
 	return formatLimitErr(line, col, fmt.Errorf("%s=%d exceeded: %w", option, configured, err))
 }

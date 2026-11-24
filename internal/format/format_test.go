@@ -1113,3 +1113,18 @@ func TestFormatXMLRejectsEmptyEntityReferenceWithoutOutput(t *testing.T) {
 		t.Fatalf("XML() wrote %q before rejecting malformed entity", out.String())
 	}
 }
+
+func TestFormatUnreachableReaderStatesKeepTheReaderError(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("reader error")
+	for name, err := range map[string]error{
+		"unknown unsupported feature": unsupportedFormatFeature(xmlstream.UnsupportedFeature(255), cause),
+		"attribute limit":             formatReaderLimitErr(xmlstream.LimitAttrs, 1, 1, cause, Options{}),
+	} {
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic.Code() != xsderrors.CodeInternalInvariant || !errors.Is(err, cause) {
+			t.Errorf("%s: error = %v, want an internal invariant wrapping the reader error", name, err)
+		}
+	}
+}

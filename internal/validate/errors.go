@@ -271,7 +271,7 @@ func attributeValidation(ctx startContext, msg string) error {
 // are rendered with an assessment-specific code and message.
 func terminalValueError(ctx startContext, err error, eval xsdValue.EvaluationLimits) error {
 	if errors.Is(err, xsdValue.ErrMetadata) {
-		return xsderrors.InternalInvariant("simple value metadata is invalid", nil)
+		return xsderrors.InternalInvariant("simple value metadata is invalid", err)
 	}
 	if errors.Is(err, xsdValue.ErrPatternTotalLimit) {
 		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": "+optionMaxInstanceTotalPatternWork+"="+strconv.FormatUint(eval.PatternTotal.Limit(), 10))

@@ -41,7 +41,7 @@ func (s *session) attributeDecl(id xsdSchema.AttributeID) (xsdSchema.AttributeDe
 func (s *session) attributeValue(attr *xmlstream.Attr) (string, error) {
 	value, err := s.reader.AttrValue(attr)
 	if err != nil {
-		return "", xsderrors.InternalInvariant("instance reader skipped attribute value", nil)
+		return "", xsderrors.InternalInvariant("instance reader skipped attribute value", err)
 	}
 	return value, nil
 }
