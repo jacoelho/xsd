@@ -8261,7 +8261,7 @@
             "w3c": {
               "expected": "valid",
               "reason": "Original accepted W3C expectation conflicts with published XSD 1.0 §3.2.2: use=prohibited contributes no attribute-use component even when fixed is present; this instance supplies the attribute and the complex type has no admitting wildcard.",
-              "specification": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+              "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
             }
           },
           "errorCode": "validation.attribute",
