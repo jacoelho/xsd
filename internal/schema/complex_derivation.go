@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -99,10 +97,7 @@ func checkSimpleContentRestrictionTextType(
 	work func(int) error,
 ) error {
 	if err := validateSimpleContentRestrictionTextType(rt, derived, base, work); err != nil {
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-			return err
-		}
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error(), nil)
+		return compileRuleError(xsderrors.CodeSchemaContentModel, "", err)
 	}
 	return nil
 }
@@ -115,7 +110,7 @@ func checkComplexContentMixedDerivationBase(base complexTypeMetadata, derivation
 		runtimeDerivation = derivationKindExtension
 	}
 	if err := validateComplexContentMixedDerivationBase(base, runtimeDerivation, content); err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error(), nil)
+		return compileRuleError(xsderrors.CodeSchemaContentModel, "", err)
 	}
 	return nil
 }

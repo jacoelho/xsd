@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -186,10 +184,7 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 		return err
 	}
 	if err := validateComplexExtensionAttributeAncestry(&c.rt, ct); err != nil {
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-			return withSchemaCompileLocation(n, err)
-		}
-		return withSchemaCompileLocation(n, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil))
+		return withSchemaCompileLocation(n, invalidAttributeError(err))
 	}
 	c.completeComplexType(id, ct)
 	c.complexDefinitions[id].state = complexTypeComplete
@@ -560,7 +555,7 @@ func (c *compiler) compileComplexContentRestriction(ctx *schemaSetDocument, owne
 	}
 	ct.Attrs = attrs
 	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {
-		return complexTypeMetadata{}, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil))
+		return complexTypeMetadata{}, withSchemaCompileLocation(child, invalidAttributeError(err))
 	}
 	return ct, nil
 }
@@ -605,7 +600,7 @@ func (c *compiler) finishSimpleContent(ctx *schemaSetDocument, owner complexType
 	ct.Derivation = derivation.kind
 	ct.ExplicitDerivation = true
 	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {
-		return complexTypeMetadata{}, withSchemaCompileLocation(source.child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil))
+		return complexTypeMetadata{}, withSchemaCompileLocation(source.child, invalidAttributeError(err))
 	}
 	return ct, nil
 }

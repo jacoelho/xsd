@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -32,6 +33,49 @@ func wrapUnlessLimit(err error, context string) error {
 func isSchemaLimit(err error) bool {
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	return ok && diagnostic.Code() == xsderrors.CodeSchemaLimit
+}
+
+// buildDefect reports a state that only a corrupt build reaches, such as an
+// out-of-range ID, from a check that compilation and the publication audit
+// share. A schema violation found by the same check is a plain error.
+type buildDefect struct {
+	message string
+}
+
+func (e *buildDefect) Error() string { return e.message }
+
+func newBuildDefect(message string) error {
+	return &buildDefect{message: message}
+}
+
+// isBuildDefect reports a build defect of this package or corrupt value
+// metadata, which value.ErrMetadata identifies.
+func isBuildDefect(err error) bool {
+	if _, ok := errors.AsType[*buildDefect](err); ok {
+		return true
+	}
+	return errors.Is(err, value.ErrMetadata)
+}
+
+// compileRuleError translates the failure of a shared rule check into a
+// compile diagnostic: a build defect becomes an internal invariant, an
+// existing diagnostic passes through, and any other failure is a violation of
+// the schema reported under code, after subject when subject is not empty.
+func compileRuleError(code xsderrors.Code, subject string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if isBuildDefect(err) {
+		return xsderrors.InternalInvariant(subject, err)
+	}
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+		return err
+	}
+	message := err.Error()
+	if subject != "" {
+		message = subject + ": " + message
+	}
+	return xsderrors.SchemaCompile(code, message, nil)
 }
 
 func withSchemaCompileLocation(n schemaLocated, err error) error {

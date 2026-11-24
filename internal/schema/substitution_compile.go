@@ -29,9 +29,6 @@ func substitutionMembershipDiagnostic(err error, labels substitutionMembershipLa
 	case errors.Is(err, errSubstitutionMemberTypeExcludedDerivation):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "substitution group member type uses excluded derivation", nil)
 	default:
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-			return err
-		}
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, err.Error(), nil)
+		return compileRuleError(xsderrors.CodeSchemaReference, "", err)
 	}
 }

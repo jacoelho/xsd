@@ -591,9 +591,12 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   `ErrLimit` failures keep their schema or instance diagnostic category at the
   calling boundary. `internal/schema` translates every value failure through
   one function, `schemaValueError`: `ErrMetadata` is an internal invariant,
-  then limits are `schema.limit`, then unsupported diagnostics and existing
-  structured diagnostics pass through, and any other failure keeps its value
-  reason under the caller's code. Whitespace loosening is rejected only by the
+  then limits are `schema.limit`, then `compileRuleError` decides the rest.
+  `compileRuleError` is also the one translation of a rule check that
+  compilation shares with the publication audit: a build defect
+  (`buildDefect` or `ErrMetadata`) is an internal invariant with the failure as
+  its cause, an existing diagnostic passes through, and any other failure keeps
+  its reason under the caller's code. Whitespace loosening is rejected only by the
   value Builder's derivation check.
 - **Pattern work.** Pattern matching draws on two accounts.
   `EvaluationLimits.PatternWork` is the per-value budget, supplied by

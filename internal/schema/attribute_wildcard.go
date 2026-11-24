@@ -195,10 +195,7 @@ func schemaAttributeWildcardDerivation(mode attributeMergeMode) (attributeWildca
 // wildcardOperationError reports an inexpressible union or intersection as a
 // schema error and returns a budget failure unchanged.
 func wildcardOperationError(err error) error {
-	if isSchemaLimit(err) {
-		return err
-	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error(), nil)
+	return compileRuleError(xsderrors.CodeSchemaContentModel, "", err)
 }
 
 func requiredAttributeWildcard(rt schemaAttributeWildcardRuntime, id WildcardID) (wildcardRuntime, error) {

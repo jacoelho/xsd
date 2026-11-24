@@ -2,7 +2,6 @@ package schema
 
 import (
 	"encoding/xml"
-	"errors"
 
 	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -417,10 +416,7 @@ func (b *attributeUseCompilation) validateInheritedUse(use attributeUse) error {
 
 func (b *attributeUseCompilation) validateRestrictedUse(base, use attributeUse) error {
 	if err := validateAttributeUseRestriction(&b.compiler.rt, base, use); err != nil {
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-			return err
-		}
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil)
+		return invalidAttributeError(err)
 	}
 	return nil
 }

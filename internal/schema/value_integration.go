@@ -90,13 +90,13 @@ func (c *compiler) ensureValueBuilder() *value.Builder {
 // schemaValueError is the single translation of value-owned evaluation
 // failures into compile diagnostics. Precedence follows the validate-side
 // model: metadata, then limits (aggregate pattern work, per-literal pattern
-// work, any other limit), then unsupported. Unclassified failures keep
+// work, any other limit), then compileRuleError. Unclassified failures keep
 // their reason under code, so no raw error escapes compilation.
 func schemaValueError(limits Limits, code xsderrors.Code, subject string, err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, value.ErrMetadata):
+	case isBuildDefect(err):
 		return xsderrors.InternalInvariant(subject, err)
 	case errors.Is(err, value.ErrPatternTotalLimit):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaTotalPatternWork="+strconv.FormatUint(limits.MaxSchemaTotalPatternWork, 10)+" exceeded", nil)
@@ -104,13 +104,8 @@ func schemaValueError(limits Limits, code xsderrors.Code, subject string, err er
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaPatternWork="+strconv.FormatUint(limits.MaxSchemaPatternWork, 10)+" exceeded", nil)
 	case errors.Is(err, value.ErrLimit):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": "+err.Error(), nil)
-	case xsderrors.IsUnsupported(err):
-		return err
 	}
-	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
-		return err
-	}
-	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
+	return compileRuleError(code, subject, err)
 }
 
 func (c *compiler) completeValueType(id SimpleTypeID, st simpleType) error {
