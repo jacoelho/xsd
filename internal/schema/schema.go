@@ -36,9 +36,12 @@ type schemaBuild struct {
 	// (detachUnreachableComponents). Only reached declarations are published
 	// (publishedElements).
 	ReachableElements []bool
-	// ReachableSimpleTypes is parallel to SimpleTypes and reports whether a
-	// published holder can name each type (detachUnreachableComponents).
-	// Publication seals the value program keeping only these.
+	// ReachableSimpleTypes is parallel to the user simple types, the
+	// SimpleTypes from value.BuiltinTypeCount, and reports whether validation
+	// can read each one's value definition: a published holder names it, or
+	// it is the base, list item or union member of such a type
+	// (detachUnreachableComponents). Publication seals the value program
+	// keeping only these; builtins are always kept.
 	ReachableSimpleTypes []bool
 	Names                nameTable
 	AnyType              ComplexTypeID

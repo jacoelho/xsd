@@ -1,7 +1,7 @@
 package value
 
 func sealAll(b *Builder) (*Program, error) {
-	keep := make([]bool, b.TypeCount())
+	keep := make([]bool, b.UserTypeCount())
 	for i := range keep {
 		keep[i] = true
 	}

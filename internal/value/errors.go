@@ -199,8 +199,13 @@ func describeValueFailure[T byteText](program *Program, id TypeID, lexical T, pa
 }
 
 // describeTypeValueFailure describes a failure of lexical as a value of id
-// whose facets were those of t.
+// whose facets were those of t. A type SealKeeping did not keep fails with
+// ErrMetadata whatever evaluation reached before its type lookup, such as the
+// work charge or XML character admission.
 func describeTypeValueFailure[T byteText](program *Program, id TypeID, t *typeDef, lexical T, parsed *parsedValue, cause error) error {
+	if t.variety == varietyDiscarded {
+		return ErrMetadata
+	}
 	if errors.Is(cause, ErrLimit) || errors.Is(cause, ErrMetadata) || isUnsupported(cause) {
 		return cause
 	}
