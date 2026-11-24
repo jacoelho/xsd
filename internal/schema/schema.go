@@ -27,6 +27,7 @@ type schemaBuild struct {
 	CompiledContent       compiledContent
 	SimpleTypes           []simpleType
 	simpleTypeUnavailable []bool
+	droppedSimpleTypes    droppedSimpleTypeCharges
 	Attributes            []attributeDecl
 	Elements              []elementDecl
 	Identities            []identityConstraintSpec
@@ -45,6 +46,16 @@ type schemaBuild struct {
 	ReachableSimpleTypes []bool
 	Names                nameTable
 	AnyType              ComplexTypeID
+}
+
+// droppedSimpleTypeCharges is what publication would have charged for the
+// simple types dropSimpleTypesFrom removed: one MaxContentModelAnalysisSteps
+// step per type, and one MaxSchemaDependencySteps step per list item or union
+// member the constructor-use audit reads (validateNotationConstructorUses).
+// Publication spends both, so removing a type changes no limit verdict.
+type droppedSimpleTypeCharges struct {
+	types           int
+	constructorUses int
 }
 
 // schemaProgram is the immutable validation representation produced by one

@@ -103,7 +103,10 @@ type Builder struct {
 	// patternTotal is the only compile-time pattern account; Validate and Complete charge every evaluation to it.
 	patternTotal PatternAccount
 	prepaidSlots int
-	maxTypes     uint32
+	// issued counts every user-type ID Reserve has issued, including IDs
+	// Truncate removed, so removal never raises the MaxTypes headroom.
+	issued   uint64
+	maxTypes uint32
 }
 
 // NewBuilder creates a value-program builder. All XSD simple builtins occupy
@@ -142,7 +145,7 @@ func (b *Builder) Reserve() (TypeID, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return NoType, ErrMetadata
 	}
-	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) {
+	if uint64(BuiltinTypeCount)+b.issued+1 > uint64(b.maxTypes) {
 		return NoType, ErrLimit
 	}
 	if b.prepaidSlots == 0 {
@@ -156,7 +159,34 @@ func (b *Builder) Reserve() (TypeID, error) {
 	id := userTypeID(len(b.program.types))
 	b.program.types = append(b.program.types, typeDef{})
 	b.program.complete = append(b.program.complete, completionReserved)
+	b.issued++
 	return id, nil
+}
+
+// Truncate removes every user type whose ID is next or above, so Reserve
+// issues next again. It refunds no charge: the slot, storage, construction
+// and pattern charges of the removed types stay spent, and they still count
+// against MaxTypes. Truncate fails with ErrMetadata on a sealed builder, when
+// next is a builtin ID or past the issued IDs, and when a removed slot is not
+// committed, since a reserved or in-progress slot has a caller still
+// completing it.
+func (b *Builder) Truncate(next TypeID) error {
+	if b == nil || b.program == nil || b.program.sealed {
+		return ErrMetadata
+	}
+	first, ok := userTypeIndex(next, len(b.program.types)+1)
+	if !ok {
+		return ErrMetadata
+	}
+	for _, state := range b.program.complete[first:] {
+		if state != completionCommitted {
+			return ErrMetadata
+		}
+	}
+	clear(b.program.types[first:])
+	b.program.types = b.program.types[:first]
+	b.program.complete = b.program.complete[:first]
+	return nil
 }
 
 // ReserveCapacity admits storage for user-type slots and grows the construction
@@ -341,8 +371,9 @@ func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	return storage, nil
 }
 
-// UserTypeCount returns the number of user type IDs the builder has issued:
-// the length of the keep SealKeeping takes.
+// UserTypeCount returns the number of user types the builder holds, the
+// issued IDs that Truncate has not removed: the length of the keep
+// SealKeeping takes.
 func (b *Builder) UserTypeCount() int {
 	if b == nil || b.program == nil {
 		return 0

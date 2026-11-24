@@ -171,7 +171,7 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes), len(build.ComplexTypes)} {
+	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes) + build.droppedSimpleTypes.types, len(build.ComplexTypes)} {
 		if workErr := spendContentModelWorkN(work, count); workErr != nil {
 			return schemaProgram{}, workErr
 		}

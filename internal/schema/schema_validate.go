@@ -284,7 +284,7 @@ func validateRuntimeSimpleComponents(rt *schemaValidation) error {
 			return err
 		}
 	}
-	return nil
+	return rt.build.spendTypeDerivationWork(rt.build.droppedSimpleTypes.constructorUses)
 }
 
 func validateRuntimeDeclarationComponents(rt *schemaValidation) error {

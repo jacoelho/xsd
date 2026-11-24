@@ -299,6 +299,34 @@ func (c *compiler) completeSimpleType(id SimpleTypeID, typ simpleType) error {
 	return c.completeValueType(id, typ)
 }
 
+// dropSimpleTypesFrom removes the simple types whose ID is next or above
+// from the build and the value builder, so the next added type takes ID next.
+// The caller guarantees that nothing outside the removed types names them.
+// The removed types still count in the publication charges per simple type
+// and per constructor use (droppedSimpleTypeCharges).
+func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
+	if next < value.BuiltinTypeCount || !validSimpleTypeID(next, len(c.rt.SimpleTypes)) {
+		return xsderrors.InternalInvariant("dropped simple types start outside the user simple types")
+	}
+	builder := c.ensureValueBuilder()
+	dropped := c.rt.SimpleTypes[next:]
+	for i := range dropped {
+		uses, ok := builder.ConstructorUses(next + SimpleTypeID(i))
+		if !ok {
+			return xsderrors.InternalInvariant("dropped simple type has no completed value definition")
+		}
+		c.rt.droppedSimpleTypes.constructorUses += uses.Len()
+	}
+	if err := builder.Truncate(next); err != nil {
+		return xsderrors.InternalInvariant("dropping simple types from the value builder: " + err.Error())
+	}
+	c.rt.droppedSimpleTypes.types += len(dropped)
+	clear(dropped)
+	c.rt.SimpleTypes = c.rt.SimpleTypes[:next]
+	c.rt.simpleTypeUnavailable = c.rt.simpleTypeUnavailable[:next]
+	return nil
+}
+
 func (c *compiler) simpleTypeHasMissingDependency(typ simpleType) bool {
 	if typ.Missing {
 		return true

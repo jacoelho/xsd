@@ -113,26 +113,21 @@ func TestSimpleTypesNamedThroughOneEdgeKeepTheirValueDefinition(t *testing.T) {
 	}
 }
 
-// zeroCountSimpleTypes returns the simple types of build declared under z1 to
-// z4, found by the facets only they declare: z1's type, z2's attribute type
-// and z3's text type by their enumerations, and z4's type and its list item
-// by the item's maxInclusive.
+// zeroCountSimpleTypes returns the simple types of build declared under z2
+// and z3, found by the enumerations only they declare: z2's attribute type
+// and z3's text type.
 func zeroCountSimpleTypes(t *testing.T, build *schemaBuild) []SimpleTypeID {
 	t.Helper()
 	var ids []SimpleTypeID
 	for i, typ := range build.SimpleTypes {
 		spec := typ.ValueSpec
-		if len(spec.Facets.Enumeration) > 0 && slices.Contains([]string{"12", "x", "y"}, spec.Facets.Enumeration[0].Lexical) {
+		if len(spec.Facets.Enumeration) > 0 && slices.Contains([]string{"x", "y"}, spec.Facets.Enumeration[0].Lexical) {
 			ids = append(ids, SimpleTypeID(i)) // #nosec G115 -- i indexes the simple-type table.
 		}
-		if spec.Variety == value.List && build.SimpleTypes[spec.ListItem].ValueSpec.Facets.MaxInclusive.Present {
-			ids = append(ids, SimpleTypeID(i), spec.ListItem) // #nosec G115 -- i indexes the simple-type table.
-		}
 	}
-	if len(ids) != 5 {
-		t.Fatalf("zero-count simple types = %v, want z1's, z2's attribute, z3's text, z4's and its list item", ids)
+	if len(ids) != 2 {
+		t.Fatalf("zero-count simple types = %v, want z2's attribute type and z3's text type", ids)
 	}
-	slices.Sort(ids)
 	return ids
 }
 
@@ -147,6 +142,54 @@ func TestUnreachedSimpleTypesPublishNoValueDefinition(t *testing.T) {
 	}
 	if discarded := discardedSimpleTypes(t, rt); !slices.Equal(discarded, want) {
 		t.Fatalf("discarded simple types = %v, want %v, the types under zero-count elements", discarded, want)
+	}
+}
+
+func TestZeroCountElementKeepsNoInlineSimpleType(t *testing.T) {
+	t.Parallel()
+
+	withInline := reachedSimpleTypesBuild(t, unreachedSimpleTypes)
+	withoutInline := reachedSimpleTypesBuild(t, strings.Join(slices.DeleteFunc(strings.Split(unreachedSimpleTypes, "\n"), func(line string) bool {
+		return strings.Contains(line, `name="z1"`) || strings.Contains(line, `name="z4"`)
+	}), "\n"))
+	if got, want := len(withInline.SimpleTypes), len(withoutInline.SimpleTypes); got != want {
+		t.Fatalf("simple types with z1 and z4 = %d, want %d as without them: their inline types and z4's list item are dropped", got, want)
+	}
+	if got, want := withInline.valueBuilder.UserTypeCount(), withoutInline.valueBuilder.UserTypeCount(); got != want {
+		t.Fatalf("value types with z1 and z4 = %d, want %d as without them", got, want)
+	}
+}
+
+// TestZeroCountInlineTypeCreatingTheMissingTypeIsKept compiles z's inline
+// list first, in global type W, so its item reference creates the missing-type
+// placeholder; the global attribute g compiles after it and names the same
+// placeholder.
+func TestZeroCountInlineTypeCreatingTheMissingTypeIsKept(t *testing.T) {
+	t.Parallel()
+
+	build := compiledTestBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:o="urn:o">
+  <xs:import namespace="urn:o"/>
+  <xs:complexType name="W"><xs:sequence>
+    <xs:element name="z" minOccurs="0" maxOccurs="0"><xs:simpleType><xs:list itemType="o:x"/></xs:simpleType></xs:element>
+  </xs:sequence></xs:complexType>
+  <xs:attribute name="g"><xs:simpleType><xs:list itemType="o:x"/></xs:simpleType></xs:attribute>
+</xs:schema>`)
+	g := build.Attributes[build.GlobalAttributes[mustBuildQName(t, build, "g")]].Type
+	item := build.SimpleTypes[g].ValueSpec.ListItem
+	if !validSimpleTypeID(item, len(build.SimpleTypes)) || !build.SimpleTypes[item].Missing {
+		t.Fatalf("g's list item = %d of %d simple types, want the missing-type placeholder", item, len(build.SimpleTypes))
+	}
+	lists := 0
+	for _, typ := range build.SimpleTypes[value.BuiltinTypeCount:] {
+		if typ.ValueSpec.Variety == value.List && typ.ValueSpec.ListItem == item {
+			lists++
+		}
+	}
+	if lists != 2 {
+		t.Fatalf("lists of the missing-type placeholder = %d, want 2: z's inline type is kept with the placeholder it created", lists)
+	}
+	if _, err := publishSchema(build, unlimitedContentModelWork); err != nil {
+		t.Fatalf("publishSchema() error = %v", err)
 	}
 }
 
