@@ -1,8 +1,9 @@
 // Command compilework compiles one schema document and reports the analysis
 // and dependency steps the compilation charges. It is built with coverage
-// counters by TestContentModelCompileWorkGrowsWithChargedSteps and
-// TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps, which read
-// the statements one default-options compilation executes.
+// counters by TestContentModelCompileWorkGrowsWithChargedSteps,
+// TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps and
+// TestTypesSharingAnAttributeGroupReadItsSetOnce, which read the statements
+// one default-options compilation executes.
 //
 // Usage:
 //
@@ -78,21 +79,45 @@ func run(path string) error {
 
 // leastLimit returns the least limit under which compile ends other than at
 // the limit. Spent steps are never refunded, so a compilation that ends at a
-// limit ends there at every lower one.
+// limit ends there at every lower one. Above that limit every compilation
+// ends as the one at searchCeiling does: compiled, or rejected with the same
+// diagnostic codes. Any other end is an error.
 func leastLimit(compile func(limit int) error) (int, error) {
-	if err := compile(searchCeiling); isLimit(err) {
-		return 0, err
+	reference := compile(searchCeiling)
+	if isLimit(reference) {
+		return 0, reference
 	}
+	want := diagnosticCodes(reference)
 	low, high := 1, searchCeiling
 	for low < high {
 		mid := low + (high-low)/2
-		if isLimit(compile(mid)) {
+		err := compile(mid)
+		switch {
+		case isLimit(err):
 			low = mid + 1
-		} else {
+		case !slices.Equal(diagnosticCodes(err), want):
+			return 0, fmt.Errorf("limit %d ends with codes %v, not %v as at limit %d: %w", mid, diagnosticCodes(err), want, searchCeiling, err)
+		default:
 			high = mid
 		}
 	}
 	return low, nil
+}
+
+// diagnosticCodes returns the sorted codes of err's diagnostics, an empty
+// code for each entry that is not a diagnostic, and none for nil.
+func diagnosticCodes(err error) []xsderrors.Code {
+	var codes []xsderrors.Code
+	for _, entry := range xsderrors.Flatten(err) {
+		var diagnostic *xsderrors.Error
+		if errors.As(entry, &diagnostic) {
+			codes = append(codes, diagnostic.Code())
+		} else {
+			codes = append(codes, "")
+		}
+	}
+	slices.Sort(codes)
+	return codes
 }
 
 func isLimit(err error) bool {
