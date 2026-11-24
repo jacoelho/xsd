@@ -12,9 +12,11 @@
 // It prints "<analysis steps> <dependency steps> <outcome>": for each budget,
 // the least limit under which compilation ends other than at that limit, and
 // "compiled" or "rejected" for how a final compilation under default options
-// ends. It clears the counters before that compilation, so the internal/schema
-// counters it leaves in GOCOVERDIR count that compilation only. A final
-// compilation that ends at a limit is an error.
+// ends. A rejection is followed by one "<code>\t<message>" line per
+// diagnostic. It clears the counters before that compilation, so the
+// internal/schema counters it leaves in GOCOVERDIR count that compilation
+// only. A final or reference compilation that ends at a limit, with an
+// internal invariant, or with an error that is not a diagnostic is an error.
 package main
 
 import (
@@ -67,14 +69,41 @@ func run(path string) error {
 	if err := coverage.ClearCounters(); err != nil {
 		return err
 	}
-	outcome := "compiled"
-	if err := compile(xsd.CompileOptions{}); isLimit(err) {
-		return err
-	} else if err != nil {
-		outcome = "rejected"
+	compileErr := compile(xsd.CompileOptions{})
+	if isLimit(compileErr) {
+		return compileErr
 	}
-	_, err := fmt.Println(analysis, dependency, outcome)
-	return err
+	diagnostics, err := rejection(compileErr)
+	if err != nil {
+		return err
+	}
+	if compileErr == nil {
+		_, err = fmt.Println(analysis, dependency, "compiled")
+		return err
+	}
+	if _, err = fmt.Println(analysis, dependency, "rejected"); err != nil {
+		return err
+	}
+	for _, diagnostic := range diagnostics {
+		if _, err = fmt.Printf("%s\t%s\n", diagnostic.Code(), diagnostic.Message()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rejection returns the diagnostics of a compilation error, or err itself
+// when it holds an internal invariant or an entry that is not a diagnostic.
+func rejection(err error) ([]*xsderrors.Error, error) {
+	var diagnostics []*xsderrors.Error
+	for _, entry := range xsderrors.Flatten(err) {
+		diagnostic, ok := errors.AsType[*xsderrors.Error](entry)
+		if !ok || diagnostic.Code() == xsderrors.CodeInternalInvariant {
+			return nil, err
+		}
+		diagnostics = append(diagnostics, diagnostic)
+	}
+	return diagnostics, nil
 }
 
 // leastLimit returns the least limit under which compile ends other than at
@@ -86,6 +115,9 @@ func leastLimit(compile func(limit int) error) (int, error) {
 	reference := compile(searchCeiling)
 	if isLimit(reference) {
 		return 0, reference
+	}
+	if _, err := rejection(reference); err != nil {
+		return 0, err
 	}
 	want := diagnosticCodes(reference)
 	low, high := 1, searchCeiling

@@ -50,15 +50,15 @@ type coverageBlock struct {
 // read content-model particle lists in proportion to size. schema returns a
 // document with the given number of components of the given size, each of
 // which compiles; a compiling family adds two components to one. A family
-// that rejects has one rejected component, since compilation stops at its
+// with a rejection has one rejected component, since compilation stops at its
 // first rejection, and its components count is 0 or 1: the rejected component
-// at its least size, which reaches the same rejection, or grown to size.
+// at its least size or grown to size, each ending with that rejection.
 type contentModelWorkFamily struct {
 	name         string
 	schema       func(components, size int) string
 	small, large int
 	growthLimit  float64
-	rejects      bool
+	rejection    compileEnd
 }
 
 const workSchemaOpen = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">`
@@ -295,13 +295,13 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 			b.WriteString(workSchemaOpen + `<xs:complexType name="B"><xs:all>`)
 			elementList(&b, size, ` minOccurs="0"`)
 			b.WriteString(`</xs:all></xs:complexType>`)
-			restrictionTypes(&b, 1, wrapped(`<xs:choice>`, `<xs:any namespace="##other"/></xs:choice>`, components*(size-1)))
+			restrictionTypes(&b, 1, wrapped(`<xs:choice>`, `<xs:any namespace="##other"/></xs:choice>`, 1+components*(size-1)))
 			return b.String() + `</xs:schema>`
 		},
 		small: 128, large: 2048,
-		// Measured growth 1.00, and 4.72 with an uncharged loop quadratic in the list modelContainsWildcard reads.
+		// Measured growth 1.00, and 3.15 with an uncharged loop quadratic in the list modelContainsWildcard reads.
 		growthLimit: 2.0,
-		rejects:     true,
+		rejection:   rejectedWith("schema.content_model", "wildcard restriction is not subset of base"),
 	},
 	{
 		name: "references to one repeated choice group",
@@ -316,9 +316,9 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 			return b.String() + `</xs:sequence></xs:complexType></xs:schema>`
 		},
 		small: 64, large: 1024,
-		// Measured growth 0.24, and 3.48 without the charge for the continuation candidates wildcardCandidatesOverlap reads.
+		// Measured growth 1.00, and 3.44 when the wildcard-overlap pass reads every continuation candidate, uncharged, instead of only the wildcards among them.
 		growthLimit: 1.5,
-		rejects:     true,
+		rejection:   rejectedWith("schema.content_model", "UPA violation in complex type"),
 	},
 }
 
@@ -380,9 +380,9 @@ func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 // added components and returns the blocks they execute at the large size.
 func measureFamily(t *testing.T, driver, dir string, family contentModelWorkFamily) []coverageBlock {
 	t.Helper()
-	fewer, more, outcome := 1, 3, compiled
-	if family.rejects {
-		fewer, more, outcome = 0, 1, rejected
+	fewer, more := 1, 3
+	if family.rejection != compiled {
+		fewer, more = 0, 1
 	}
 	sizes := [4][2]int{{fewer, family.small}, {more, family.small}, {fewer, family.large}, {more, family.large}}
 	var samples [4]compileWorkSample
@@ -391,7 +391,7 @@ func measureFamily(t *testing.T, driver, dir string, family contentModelWorkFami
 	for i, size := range sizes {
 		wg.Go(func() {
 			schema := family.schema(size[0], size[1])
-			samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%d-%d", size[0], size[1])), schema, outcome)
+			samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%d-%d", size[0], size[1])), schema, family.rejection)
 		})
 	}
 	wg.Wait()
@@ -482,18 +482,33 @@ func buildCompileWorkDriver(t *testing.T, dir string) string {
 	return out
 }
 
-// compileOutcome is how a compilework compilation under default options ends,
-// as the driver prints it.
-type compileOutcome string
+// compileEnd is how a compilework compilation under default options must
+// end: compiled when code is empty, otherwise rejected with a diagnostic of
+// code whose message contains message.
+type compileEnd struct {
+	code, message string
+}
 
-const (
-	compiled compileOutcome = "compiled"
-	rejected compileOutcome = "rejected"
-)
+var compiled compileEnd
+
+func rejectedWith(code, message string) compileEnd {
+	return compileEnd{code: code, message: message}
+}
+
+// ends reports whether the driver's outcome and diagnostic lines match e.
+func (e compileEnd) ends(outcome string, diagnostics []string) bool {
+	if e == compiled {
+		return outcome == "compiled"
+	}
+	return outcome == "rejected" && slices.ContainsFunc(diagnostics, func(line string) bool {
+		code, message, ok := strings.Cut(line, "\t")
+		return ok && code == e.code && strings.Contains(message, e.message)
+	})
+}
 
 // measureCompileWork measures one default-options compilation of schema,
-// which must end with want.
-func measureCompileWork(ctx context.Context, driver, dir, schema string, want compileOutcome) (compileWorkSample, error) {
+// which must end as want.
+func measureCompileWork(ctx context.Context, driver, dir, schema string, want compileEnd) (compileWorkSample, error) {
 	counters := filepath.Join(dir, "counters")
 	if err := os.MkdirAll(counters, 0o750); err != nil {
 		return compileWorkSample{}, err
@@ -511,13 +526,14 @@ func measureCompileWork(ctx context.Context, driver, dir, schema string, want co
 	if runErr != nil {
 		return compileWorkSample{}, fmt.Errorf("compilework %s: %w\n%s", schemaPath, runErr, stderr.String())
 	}
+	first, rest, _ := strings.Cut(string(out), "\n")
 	var analysis, dependency int
-	var outcome compileOutcome
-	if _, err := fmt.Sscan(string(out), &analysis, &dependency, &outcome); err != nil {
+	var outcome string
+	if _, err := fmt.Sscan(first, &analysis, &dependency, &outcome); err != nil {
 		return compileWorkSample{}, fmt.Errorf("compilework %s output %q: %w", schemaPath, out, err)
 	}
-	if outcome != want {
-		return compileWorkSample{}, fmt.Errorf("compilework %s: %s, want %s", schemaPath, outcome, want)
+	if !want.ends(outcome, strings.Split(strings.TrimSuffix(rest, "\n"), "\n")) {
+		return compileWorkSample{}, fmt.Errorf("compilework %s output %q, want %+v", schemaPath, out, want)
 	}
 	profile := filepath.Join(dir, "profile.txt")
 	//nolint:gosec // test-controlled go tool arguments only.
