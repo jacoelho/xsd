@@ -37226,6 +37226,97 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "Six repetitions of an empty choice may be one or two repetitions of the choice that holds it, so the next d may be that choice's element or the optional d after it; for Unique Particle Attribution the empty choice counts like an element declaration.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-052"
+          },
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-element-before-optional-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "The element twin of counted-empty-choice-before-optional-overlap: six c may be one or two repetitions of the choice that holds them, so the next d may be that choice's element or the optional d after it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-element-before-optional-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-element-before-optional-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-052"
+          },
+          "xmlschema": {
+            "record": "I-052"
+          },
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-element-before-optional-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

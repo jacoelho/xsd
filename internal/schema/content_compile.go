@@ -60,20 +60,22 @@ type dfaNode struct {
 }
 
 // dfaBuilder builds the counted source automaton of one content model and
-// determinizes it. positions holds the particle of each position: an element
-// or wildcard, or emptyChoicePosition for a required choice without
-// branches.
+// determinizes it. positions holds the particle of each position: an element,
+// a wildcard, or, for a choice without branches, a model particle naming the
+// choice (emptyChoiceParticle); emptyChoices reports whether any position is
+// one.
 type dfaBuilder struct {
-	c          *contentModelCompiler
-	states     map[string]uint32
-	positions  []contentParticle
-	rows       []dfaSourceRow
-	queue      []string
-	rowEntries []dfaStateEntry
-	key        []byte
-	follow     followTable
-	limit      int
-	counters   uint32
+	c            *contentModelCompiler
+	states       map[string]uint32
+	positions    []contentParticle
+	rows         []dfaSourceRow
+	queue        []string
+	rowEntries   []dfaStateEntry
+	key          []byte
+	follow       followTable
+	limit        int
+	counters     uint32
+	emptyChoices bool
 }
 
 // cachedID caches an ID assigned on first use. known distinguishes the
@@ -720,7 +722,7 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 			states: make(map[string]uint32),
 			limit:  c.maxContentModelStates,
 		}
-		return b.compile(model)
+		return b.compile(id, model)
 	default:
 		return compiledModel{}, xsderrors.InternalInvariant("content model has unknown kind", nil)
 	}
@@ -1343,11 +1345,12 @@ func (c *contentModelCompiler) upaError(overlap particleOverlap) error {
 	return upaViolation(c.rt, c.typeLabel, c.analysis.declaredNameOverlap(overlap))
 }
 
-func (b *dfaBuilder) compile(model contentModelNode) (compiledModel, error) {
+// compile builds the automaton of model, the execution model of id.
+func (b *dfaBuilder) compile(id contentModelID, model contentModelNode) (compiledModel, error) {
 	if err := b.c.work.spend(1); err != nil {
 		return compiledModel{}, err
 	}
-	root, err := b.groupNode(model)
+	root, err := b.groupNode(id, model)
 	if err != nil {
 		return compiledModel{}, err
 	}
@@ -1438,31 +1441,22 @@ func (b *dfaBuilder) row(entries []dfaStateEntry) (dfaSourceRow, error) {
 			row.Accept = append(row.Accept, dfaAccept{Guards: p.guards})
 			continue
 		}
-		if err := b.appendRowEdge(&row, e.Pos, p); err != nil {
+		if e.Pos < 0 || e.Pos >= len(b.positions) {
+			return dfaSourceRow{}, xsderrors.InternalInvariant("content model DFA references invalid position", nil)
+		}
+		to, err := b.followStateID(e.Pos)
+		if err != nil {
 			return dfaSourceRow{}, err
 		}
+		row.Edges = append(row.Edges, dfaSourceEdge{
+			Particle: b.positions[e.Pos],
+			Guards:   p.guards,
+			Actions:  p.actions,
+			To:       to,
+			Pos:      e.Pos,
+		})
 	}
 	return row, nil
-}
-
-// appendRowEdge discovers the follow state of pos and appends its edge to
-// row, unless pos is an empty choice, which no edge takes.
-func (b *dfaBuilder) appendRowEdge(row *dfaSourceRow, pos int, p followPrefix) error {
-	if pos < 0 || pos >= len(b.positions) {
-		return xsderrors.InternalInvariant("content model DFA references invalid position", nil)
-	}
-	to, err := b.followStateID(pos)
-	if err != nil || b.positions[pos] == emptyChoicePosition {
-		return err
-	}
-	row.Edges = append(row.Edges, dfaSourceEdge{
-		Particle: b.positions[pos],
-		Guards:   p.guards,
-		Actions:  p.actions,
-		To:       to,
-		Pos:      pos,
-	})
-	return nil
 }
 
 func newDFASourceRow(entries []dfaStateEntry) dfaSourceRow {
@@ -1549,10 +1543,10 @@ func (b *dfaBuilder) modelNode(id contentModelID) (dfaNode, error) {
 	if !ok {
 		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model", nil)
 	}
-	return b.groupNode(model)
+	return b.groupNode(id, model)
 }
 
-func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
+func (b *dfaBuilder) groupNode(id contentModelID, model contentModelNode) (dfaNode, error) {
 	var (
 		node dfaNode
 		err  error
@@ -1566,7 +1560,7 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 			return dfaNode{}, err
 		}
 	case modelChoice:
-		node, err = b.choiceNode(model.Particles)
+		node, err = b.choiceNode(id, model.Particles)
 		if err != nil {
 			return dfaNode{}, err
 		}
@@ -1618,7 +1612,7 @@ func concatNode(node, child dfaNode, first *dfaSetUnion[int], last *dfaSetUnion[
 	return node
 }
 
-func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
+func (b *dfaBuilder) choiceNode(id contentModelID, particles []contentParticle) (dfaNode, error) {
 	var node dfaNode
 	var first dfaSetUnion[int]
 	var last dfaSetUnion[dfaEntry]
@@ -1641,7 +1635,8 @@ func (b *dfaBuilder) choiceNode(particles []contentParticle) (dfaNode, error) {
 	if err := b.c.work.spend(2); err != nil {
 		return dfaNode{}, err
 	}
-	return b.leaf(emptyChoicePosition), nil
+	b.emptyChoices = true
+	return b.leaf(emptyChoiceParticle(id)), nil
 }
 
 // dfaSetUnion accumulates the union of normalized position or entry sets,
@@ -1699,13 +1694,16 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 	return b.repeat(node, p.Occurs)
 }
 
-// emptyChoicePosition is the particle of a required choice without
-// branches. Such a choice matches no item (I-042 of
-// docs/spec/INTERPRETATIONS.md), yet Unique Particle Attribution compares the
-// particles after it (I-052), so it takes a position: the source automaton
-// reaches the states after it, and their rows are checked, but no source row
-// has an edge for it, so determinization never takes it.
-var emptyChoicePosition = contentParticle{Kind: particleModel, Model: contentModelID(math.MaxUint32)}
+// emptyChoiceParticle is the position particle of the choice without
+// branches id. Such a choice matches no item (I-042 of
+// docs/spec/INTERPRETATIONS.md), yet Unique Particle Attribution treats it as
+// an element declaration no item matches (I-052): its position has an edge
+// like any element, which no name or wildcard overlaps, so determinization
+// and both row checks reach the states after it. compileDeterministicModel
+// removes those edges before validation can take them.
+func emptyChoiceParticle(id contentModelID) contentParticle {
+	return contentParticle{Kind: particleModel, Model: id, Occurs: occurrence{Min: 1, Max: 1}}
+}
 
 func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
 	pos := len(b.positions)

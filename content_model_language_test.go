@@ -55,10 +55,11 @@ var (
 	oracleUndeclared = oracleName{oracleTargetNamespace, "z"}
 	oracleOther      = oracleName{oracleOtherNamespace, "x"}
 	oracleAbsent     = oracleName{"", "x"}
-	// oracleEmptyChoice is the item an empty choice consumes in the
-	// reference model; no instance holds it.
-	oracleEmptyChoice = oracleName{"urn:empty-choice", "choice"}
 )
+
+// oracleEmptyChoiceNamespace is the namespace of the items empty choices
+// consume in the reference model; no instance holds one.
+const oracleEmptyChoiceNamespace = "urn:empty-choice"
 
 type oracleTermKind int
 
@@ -88,7 +89,7 @@ type oracleParticle struct {
 }
 
 func (p *oracleParticle) accepts(n oracleName) bool {
-	if n == oracleEmptyChoice {
+	if n.namespace == oracleEmptyChoiceNamespace {
 		return false
 	}
 	switch p.kind {
@@ -152,8 +153,9 @@ func oracleRepeatOf(p *oracleParticle) oracleFrame {
 // maxOccurs 0 corresponds to no component (XSD 1.0 §3.3.2, §3.7.2, §3.8.2),
 // so it is no branch of a choice. An empty choice matches no sequence of
 // instance items (I-042 of docs/spec/INTERPRETATIONS.md), yet Unique Particle
-// Attribution still compares the particles after it (I-052), so the
-// reference model gives it a leaf that consumes oracleEmptyChoice.
+// Attribution treats it as an element declaration no instance item matches
+// (I-052), so the reference model gives it a leaf that consumes an item of
+// its own, emptyChoiceItem.
 func (p *oracleParticle) emptyChoice() bool {
 	if p.kind != oracleChoice {
 		return false
@@ -265,7 +267,7 @@ func (p *oracleParticle) deriveTerm(n oracleName, then oracleResidual, emit func
 		}
 		append(r, then...).derive(n, emit)
 	case oracleChoice:
-		if p.emptyChoice() && n == oracleEmptyChoice {
+		if p.emptyChoice() && n == p.emptyChoiceItem() {
 			emit(p.leaf, then.withoutTermEnds())
 		}
 		for _, child := range p.children {
@@ -397,17 +399,36 @@ func (model *oracleModel) alphabet() []oracleName {
 	return alphabet
 }
 
+func (p *oracleParticle) emptyChoiceItem() oracleName {
+	return oracleName{oracleEmptyChoiceNamespace, strconv.Itoa(p.leaf)}
+}
+
+// emptyChoiceItems returns the item of each empty choice of the model.
+func (model *oracleModel) emptyChoiceItems() []oracleName {
+	var items []oracleName
+	var walk func(*oracleParticle)
+	walk = func(p *oracleParticle) {
+		if p.emptyChoice() {
+			items = append(items, p.emptyChoiceItem())
+		}
+		for _, child := range p.children {
+			walk(child)
+		}
+	}
+	walk(model.root)
+	return items
+}
+
 func oracleExtend(word []oracleName, n oracleName) []oracleName {
 	return append(append(make([]oracleName, 0, len(word)+1), word...), n)
 }
 
-// ambiguity searches the configurations the model reaches, each once and
-// shortest word first, for an instance item two leaves can consume, which
-// Unique Particle Attribution forbids, and returns the first word that ends
-// in one. Words hold oracleEmptyChoice besides the alphabet.
+// ambiguity searches the configurations words over items reach, each once
+// and shortest word first, for an item two leaves can consume, which Unique
+// Particle Attribution forbids, and returns the first word that ends in one.
 // complete reports whether the search visited every configuration within
 // limit of them.
-func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness []oracleName, complete bool) {
+func (model *oracleModel) ambiguity(items []oracleName, limit int) (witness []oracleName, complete bool) {
 	type visit struct {
 		configuration oracleConfiguration
 		word          []oracleName
@@ -415,14 +436,13 @@ func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness [
 	start := model.start()
 	seen := map[string]bool{start.key(): true}
 	queue := []visit{{configuration: start}}
-	items := append(slices.Clip(alphabet), oracleEmptyChoice)
 	for len(queue) != 0 {
 		v := queue[0]
 		queue = queue[1:]
 		for _, n := range items {
 			next, leaves := v.configuration.step(n)
 			word := oracleExtend(v.word, n)
-			if n != oracleEmptyChoice && bits.OnesCount64(leaves) > 1 {
+			if bits.OnesCount64(leaves) > 1 {
 				return word, true
 			}
 			if len(next) == 0 {
@@ -442,14 +462,67 @@ func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness [
 	return nil, true
 }
 
+// liveConfigurations returns the keys of the configurations words over
+// alphabet reach from the start that some word over alphabet continues to a
+// valid sequence. complete reports whether there are at most limit
+// configurations to visit.
+func (model *oracleModel) liveConfigurations(alphabet []oracleName, limit int) (live map[string]bool, complete bool) {
+	start := model.start()
+	successors := map[string][]string{}
+	live = map[string]bool{}
+	queue := []oracleConfiguration{start}
+	successors[start.key()] = nil
+	for len(queue) != 0 {
+		c := queue[0]
+		queue = queue[1:]
+		key := c.key()
+		live[key] = c.accepting()
+		for _, n := range alphabet {
+			next, _ := c.step(n)
+			if len(next) == 0 {
+				continue
+			}
+			nextKey := next.key()
+			successors[key] = append(successors[key], nextKey)
+			if _, seen := successors[nextKey]; seen {
+				continue
+			}
+			if len(successors) == limit {
+				return nil, false
+			}
+			successors[nextKey] = nil
+			queue = append(queue, next)
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for key, next := range successors {
+			if live[key] {
+				continue
+			}
+			for _, k := range next {
+				if live[k] {
+					live[key], changed = true, true
+					break
+				}
+			}
+		}
+	}
+	return live, true
+}
+
 // instanceWords returns about oracleShortWords words over alphabet: every
-// word, up to some length, whose proper prefixes start a word of the model,
-// followed by random walks along such prefixes, each step adding the walk's
-// word and one arbitrary extension of it.
-func (model *oracleModel) instanceWords(alphabet []oracleName, rng *rand.Rand) [][]oracleName {
+// word, up to some length, whose proper prefixes some word over alphabet
+// continues to a valid sequence (whose configurations live holds), followed
+// by random walks along such prefixes, each step adding the walk's word and
+// one arbitrary extension of it.
+func (model *oracleModel) instanceWords(alphabet []oracleName, live map[string]bool, rng *rand.Rand) [][]oracleName {
 	type prefix struct {
 		word          []oracleName
 		configuration oracleConfiguration
+	}
+	continues := func(c oracleConfiguration) bool {
+		return len(c) != 0 && live[c.key()]
 	}
 	words := [][]oracleName{{}}
 	for frontier := []prefix{{configuration: model.start()}}; len(frontier) != 0 && len(words) < oracleShortWords; {
@@ -458,7 +531,7 @@ func (model *oracleModel) instanceWords(alphabet []oracleName, rng *rand.Rand) [
 			for _, n := range alphabet {
 				word := oracleExtend(p.word, n)
 				words = append(words, word)
-				if c, _ := p.configuration.step(n); len(c) != 0 && len(word) < oracleInstanceWord {
+				if c, _ := p.configuration.step(n); continues(c) && len(word) < oracleInstanceWord {
 					next = append(next, prefix{word: word, configuration: c})
 				}
 			}
@@ -471,7 +544,7 @@ func (model *oracleModel) instanceWords(alphabet []oracleName, rng *rand.Rand) [
 		for len(walk) < oracleInstanceWord-1 {
 			var options []prefix
 			for _, n := range alphabet {
-				if next, _ := c.step(n); len(next) != 0 {
+				if next, _ := c.step(n); continues(next) {
 					options = append(options, prefix{word: oracleExtend(walk, n), configuration: next})
 				}
 			}
@@ -664,7 +737,7 @@ func checkContentModelLanguage(t *testing.T, model *oracleModel, rng *rand.Rand,
 	t.Helper()
 	schema := model.schema()
 	alphabet := model.alphabet()
-	witness, complete := model.ambiguity(alphabet, oracleConfigurations)
+	witness, complete := model.ambiguity(append(slices.Clip(alphabet), model.emptyChoiceItems()...), oracleConfigurations)
 	if !complete {
 		t.Fatalf("the reference model reaches more than %d configurations\nschema: %s", oracleConfigurations, schema)
 	}
@@ -687,7 +760,11 @@ func checkContentModelLanguage(t *testing.T, model *oracleModel, rng *rand.Rand,
 	if err != nil {
 		t.Fatal(err)
 	}
-	words := model.instanceWords(alphabet, rng)
+	live, complete := model.liveConfigurations(alphabet, oracleConfigurations)
+	if !complete {
+		t.Fatalf("words over the instance alphabet reach more than %d configurations\nschema: %s", oracleConfigurations, schema)
+	}
+	words := model.instanceWords(alphabet, live, rng)
 	tally.accepted.Add(1)
 	tally.instances.Add(int64(len(words)))
 	for _, word := range words {

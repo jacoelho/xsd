@@ -2936,15 +2936,23 @@ two readings, no adopted correction or accepted W3C test decides it, and the
 processors disagree, so Xerces-J's result applies. For particles on either
 side of a required empty choice, both readings agree, so the text decides.
 
-A required empty choice matches nothing ([I-042](#i-042--empty-choice)). In
+For Unique Particle Attribution, a choice without branches is an element
+declaration that no item matches. It matches no sequence of items
+([I-042](#i-042--empty-choice)), and it overlaps no particle, but the
+particles before and after it are adjacent to it as they would be to an
+element particle with the same occurrence range, so every other particle
+pair is compared as it would be with that element in its place.
+
+In
 `<xs:sequence><xs:choice/><xs:element name="c" minOccurs="0"/><xs:element name="c"/></xs:sequence>`
 no item ever reaches the two `c` particles, yet they overlap, and the first has
-`minOccurs` below `maxOccurs`. The schema is invalid. The library checks
-Unique Particle Attribution on the structure of the content model and does
-not first remove the particles that no item reaches: the direct check compares
-sequence members whatever precedes them, and the content-model automaton
-gives a required empty choice a position that no item takes, so the states
-after it are reached and checked.
+`minOccurs` below `maxOccurs`. The schema is invalid, as it is with an element
+`d` in place of the choice. The library does not first remove the particles
+that no item reaches: the direct check compares sequence members whatever
+precedes them, and the content-model automaton gives a choice without
+branches a transition on a term no name or wildcard matches, so
+determinization and its row checks reach the states after it. Validation
+never takes that transition.
 
 [Unique Particle Attribution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig)
 asks that "during ·validation· of an element information item sequence" the
@@ -2961,28 +2969,43 @@ sequence sits.
 
 Particles on either side of a required empty choice, as in
 `<xs:sequence><xs:element name="c" minOccurs="0"/><xs:choice/><xs:element name="c"/></xs:sequence>`,
-never compete. No item passes the choice, so no attempt meets both, and the
-choice transcribes to no transition, so no epsilon path joins them. The schema
-is valid under both readings.
+never compete, as they would not with a required element between them. No
+item passes the choice, so no attempt meets both, and the choice transcribes
+to no epsilon transition. The schema is valid under both readings.
+
+The rule holds for occurrence ranges too. In
+`<xs:sequence><xs:choice minOccurs="2" maxOccurs="2"><xs:choice minOccurs="3" maxOccurs="unbounded"/><xs:element name="d"/></xs:choice><xs:element name="d" minOccurs="0"/></xs:sequence>`
+six repetitions of the empty choice may be one or two repetitions of the
+outer choice, so after them `d` may be the outer choice's second branch or
+the optional `d`. The schema is invalid, as its element twin with
+`<xs:element name="c" minOccurs="3" maxOccurs="unbounded"/>` in place of the
+empty choice is.
 
 Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 reject every case
-below that has an overlap, including the one with the empty choice between
-the particles. These three accept empty content for a required empty choice
-(I-042), so they treat it as an epsilon transition, and their verdict on
-`required-empty-choice-between-overlap` follows from that reading, which I-042
-rejects. libxml2 2.9.13 accepts the cases in which the overlap follows a
-required empty choice. It also accepts `zero-occurrence-before-overlap`, where
-an element particle with `minOccurs` and `maxOccurs` 0 corresponds to no
-component and leaves the overlap at the start of the sequence, so its
-acceptance is no evidence of a reachability rule. All four reject the overlap
-when it precedes the required empty choice, when an optional empty choice
-precedes it, and when it starts the sequence. All four accept a single
-element after a required empty choice.
+below that has an overlap, except the counted shape and its twin, including
+the one with the empty choice between the particles. These three accept empty
+content for a required empty choice (I-042), so they treat it as an epsilon
+transition, and their verdict on `required-empty-choice-between-overlap`
+follows from that reading, which I-042 rejects. libxml2 2.9.13 accepts the
+cases in which the overlap follows a required empty choice. It also accepts
+`zero-occurrence-before-overlap`, where an element particle with `minOccurs`
+and `maxOccurs` 0 corresponds to no component and leaves the overlap at the
+start of the sequence, so its acceptance is no evidence of a reachability
+rule. All four reject the overlap when it precedes the required empty choice,
+when an optional empty choice precedes it, and when it starts the sequence.
+All four accept a single element after a required empty choice. On the
+counted shape, Xerces-J and xmlschema reject the empty choice and .NET and
+libxml2 accept it; only Xerces-J rejects the element twin.
 
 Rejected: removing the particles that no item reaches before checking. It
 follows the attempt reading, which no processor applies, and every direct and
 automaton check would need to know which particles of each nested group the
 content model reaches.
+
+Rejected: a position for the empty choice without a transition, which reaches
+the states after it in the source automaton but not in determinization. The
+counted shape then compiles while its element twin is rejected, so the rule
+would depend on how the automaton is built.
 
 Cases, `project/content-models/upa-unreachable/*`:
 `required-empty-choice-before-overlap`, `nested-empty-choice-before-overlap`,
@@ -2991,7 +3014,11 @@ Cases, `project/content-models/upa-unreachable/*`:
 each. So are `required-empty-choice-before-twice-repeated-choice-overlap`,
 `required-empty-choice-before-repeated-choice-overlap` and
 `required-empty-choice-before-counted-range-overlap`, whose overlap only the
-automaton compares, and libxml2 differs on each. `required-empty-choice-between-overlap` is valid, and Xerces-J, .NET and
+automaton compares, and libxml2 differs on each.
+`counted-empty-choice-before-optional-overlap` is invalid, and .NET and
+libxml2 differ; its element twin `counted-element-before-optional-overlap` is
+invalid, and .NET, xmlschema and libxml2 differ.
+`required-empty-choice-between-overlap` is valid, and Xerces-J, .NET and
 xmlschema differ. The controls `required-empty-choice-after-overlap`,
 `optional-empty-choice-before-overlap`, `zero-occurrence-before-overlap`
 (libxml2 differs) and `reachable-overlap` are invalid, and

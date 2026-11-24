@@ -105,10 +105,11 @@ type dfaTransitionSet struct {
 	Key      particleTermKey
 }
 
+// particleTermKey identifies the term of a transition: its kind and the ID
+// of the element declaration, wildcard or model the kind references.
 type particleTermKey struct {
-	Element  ElementID
-	Wildcard WildcardID
-	Kind     particleKind
+	ID   uint32
+	Kind particleKind
 }
 
 func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, error) {
@@ -131,12 +132,63 @@ func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, err
 	if err := b.c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, err
 	}
+	if b.emptyChoices {
+		rows, startID = withoutEmptyChoiceEdges(rows, startID)
+	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
 		Rows:  rows,
 		Start: startID,
 		Empty: rows[startID].Accept,
 	}, nil
+}
+
+// withoutEmptyChoiceEdges removes the edges of choices without branches
+// (emptyChoiceParticle), which no item takes, and the rows only those edges
+// reach, renumbering the rest in order, and returns the start's new number.
+// The rows and edges it removes stay charged to the retained budget.
+func withoutEmptyChoiceEdges(rows []compiledModelRow, start uint32) ([]compiledModelRow, uint32) {
+	reached := rowsReachedByItems(rows, start)
+	number := make([]uint32, len(rows))
+	kept := make([]compiledModelRow, 0, len(rows))
+	var next uint32
+	for state, row := range rows {
+		if reached[state] {
+			number[state] = next
+			next++
+			kept = append(kept, row)
+		}
+	}
+	for i := range kept {
+		edges := make([]compiledModelEdge, 0, len(kept[i].Edges))
+		for _, edge := range kept[i].Edges {
+			if edge.Particle.Kind != particleModel {
+				edge.To = number[edge.To]
+				edges = append(edges, edge)
+			}
+		}
+		kept[i].Edges = edges
+	}
+	return kept, number[start]
+}
+
+// rowsReachedByItems reports which rows edges other than those of choices
+// without branches reach from start.
+func rowsReachedByItems(rows []compiledModelRow, start uint32) []bool {
+	reached := make([]bool, len(rows))
+	reached[start] = true
+	queue := []uint32{start}
+	for len(queue) != 0 {
+		state := queue[0]
+		queue = queue[1:]
+		for _, edge := range rows[state].Edges {
+			if edge.Particle.Kind != particleModel && !reached[edge.To] {
+				reached[edge.To] = true
+				queue = append(queue, edge.To)
+			}
+		}
+	}
+	return reached
 }
 
 // deterministicModelCompilation determinizes one counted source automaton.
@@ -536,11 +588,11 @@ func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 func particleTermKeyOf(p contentParticle) (particleTermKey, error) {
 	switch p.Kind {
 	case particleElement:
-		return particleTermKey{Kind: p.Kind, Element: p.Element}, nil
+		return particleTermKey{Kind: p.Kind, ID: uint32(p.Element)}, nil
 	case particleWildcard:
-		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}, nil
+		return particleTermKey{Kind: p.Kind, ID: uint32(p.Wildcard)}, nil
 	case particleModel:
-		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}, nil
+		return particleTermKey{Kind: p.Kind, ID: uint32(p.Model)}, nil
 	default:
 		return particleTermKey{}, xsderrors.InternalInvariant("content model DFA edge particle has unknown kind", nil)
 	}
@@ -550,10 +602,7 @@ func compareParticleTermKey(a, b particleTermKey) int {
 	if n := cmp.Compare(a.Kind, b.Kind); n != 0 {
 		return n
 	}
-	if n := cmp.Compare(a.Element, b.Element); n != 0 {
-		return n
-	}
-	return cmp.Compare(a.Wildcard, b.Wildcard)
+	return cmp.Compare(a.ID, b.ID)
 }
 
 func countingException(a, b dfaSourceEdge) bool {
