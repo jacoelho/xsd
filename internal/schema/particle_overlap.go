@@ -22,6 +22,8 @@ type contentModelAnalysis struct {
 	continuations     map[contentModelID][]contentParticle
 	continuationPath  map[contentModelID]bool
 	continuationIndex map[contentParticle]struct{}
+
+	wildcards map[contentModelID]modelWildcards
 }
 
 func (a *contentModelAnalysis) contentModel(id contentModelID) (contentModelNode, bool) {

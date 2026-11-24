@@ -35610,6 +35610,811 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/complex-member-not-derived",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok"
+        ],
+        "description": "A member whose anonymous complex type is not derived from the head's named type is rejected; the diagnostic names the member's type as a local complex type.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/complex-member-not-derived/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-not-derived/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-not-derived/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/complex-member-derived",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok"
+        ],
+        "description": "Control: a member whose anonymous complex type extends the head's named type joins the substitution group, and the anonymous type governs the member's content.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+            "clause": "e-props-correct clause 4 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member-head-content",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/member-head-content.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-type",
+            "clause": "cvc-type in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/complex-member-derived/member-head-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/simple-member-not-derived",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok"
+        ],
+        "description": "A member whose anonymous simple type restricts xs:string is not derived from the head's xs:integer and is rejected; the diagnostic names the member's type as a local simple type.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/simple-member-not-derived/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-not-derived/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-not-derived/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/simple-member-derived",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok"
+        ],
+        "description": "Control: a member whose anonymous simple type restricts the head's xs:integer joins the substitution group, and the anonymous type's facet governs the member's value.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+            "clause": "e-props-correct clause 4 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member-out-of-range",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/member-out-of-range.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-type",
+            "clause": "cvc-type in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/simple-member-derived/member-out-of-range.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok"
+        ],
+        "description": "A head with an anonymous complex type admits no member with a type of its own, even one with identical content, since no other type can name the anonymous type as its base; the diagnostic names both types as local complex types.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Element_Declaration_details"
+        ],
+        "description": "Control: a member that declares no type takes the head's anonymous complex type and joins the substitution group.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+            "clause": "e-props-correct clause 4 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member-wrong-content",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/member-wrong-content.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-type",
+            "clause": "cvc-type in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member/member-wrong-content.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok"
+        ],
+        "description": "A member of type xs:integer is not derived from the head's anonymous restriction of xs:integer and is rejected; the diagnostic names the head's type as a local simple type.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#Element_Declaration_details"
+        ],
+        "description": "Control: a member that declares no type takes the head's anonymous simple type and its facet.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+            "clause": "e-props-correct clause 4 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member-out-of-range",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/member-out-of-range.xml",
+          "expected": "invalid",
+          "errorCode": "validation.facet",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-type",
+            "clause": "cvc-type in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/member.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member/member-out-of-range.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-final"
+        ],
+        "description": "A head with final=\"extension\" excludes a member whose anonymous complex type extends the head's type.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-final"
+        ],
+        "description": "Control: a head with final=\"restriction\" admits a member whose anonymous complex type extends the head's type.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+            "clause": "e-props-correct clause 4 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-final"
+        ],
+        "description": "A head with final=\"restriction\" excludes a member whose anonymous simple type restricts the head's type.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-ct-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-ok",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-final"
+        ],
+        "description": "Control: a head with final=\"extension\" admits a member whose anonymous simple type restricts the head's type.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+            "clause": "e-props-correct clause 4 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A head with block=\"extension\" keeps a member whose anonymous complex type extends the head's type out of the substitutions an instance may use, while the schema stays valid.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "head",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/head.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/member.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A head type with block=\"extension\" keeps a member whose anonymous complex type extends it out of the substitutions an instance may use, while the schema stays valid.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "head",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/head.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/member.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-027"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A head with block=\"restriction\" keeps a member whose anonymous simple type restricts the head's type out of the substitutions an instance may use, while the schema stays valid.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "head",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/head.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/member.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/head.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member/member.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "Control: a head with block=\"extension\" lets a member whose anonymous simple type restricts the head's type substitute for it.",
+        "package": "validate",
+        "sourceFile": "tests/corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#e-props-correct",
+          "clause": "e-props-correct clause 4 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "member",
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member/member.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-equiv-derived-ok-rec",
+            "clause": "cos-equiv-derived-ok-rec clause 2.3 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member/member.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }
