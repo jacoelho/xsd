@@ -9,17 +9,51 @@ type byteText interface {
 	~string | ~[]byte
 }
 
-func scan[T byteText](text T) (characters, escapedLen int, err error) {
+// analyze validates text as an RFC 2396 URI reference, as amended by RFC
+// 2732, after logically applying XLink escaping. It returns the one
+// decomposition of text into components that validation and Parts share.
+func analyze[T byteText](text T) (scanned, layout, error) {
+	l := decompose(text)
+	s, err := scan(text, l.fragmentStart)
+	if err != nil {
+		return scanned{}, layout{}, err
+	}
+	if !validLayout(text, l) {
+		return scanned{}, layout{}, ErrInvalid
+	}
+	return s, l, nil
+}
+
+// scanned holds the lengths that XLink escaping gives a text.
+type scanned struct {
+	characters int
+	escapedLen int
+	// escapedFragmentStart is the escaped length of the text before
+	// layout.fragmentStart.
+	escapedFragmentStart int
+}
+
+// scan measures text and records the escaped length before the byte offset
+// fragmentStart. The '#' at fragmentStart is a one-byte token and no escape or
+// UTF-8 sequence contains it, so a token always starts there.
+func scan[T byteText](text T, fragmentStart int) (scanned, error) {
+	var s scanned
 	for i := 0; i < len(text); {
-		token, ok := scanToken(text, i)
-		if !ok || escapedLen > math.MaxInt-token.escapedLen {
-			return 0, 0, ErrInvalid
+		if i == fragmentStart {
+			s.escapedFragmentStart = s.escapedLen
 		}
-		characters += token.characters
-		escapedLen += token.escapedLen
+		token, ok := scanToken(text, i)
+		if !ok || s.escapedLen > math.MaxInt-token.escapedLen {
+			return scanned{}, ErrInvalid
+		}
+		s.characters += token.characters
+		s.escapedLen += token.escapedLen
 		i += token.width
 	}
-	return characters, escapedLen, nil
+	if fragmentStart == len(text) {
+		s.escapedFragmentStart = s.escapedLen
+	}
+	return s, nil
 }
 
 type scannedToken struct {
@@ -38,7 +72,7 @@ func scanToken[T byteText](text T, i int) (scannedToken, bool) {
 		return scannedToken{width: 3, characters: 3, escapedLen: 3}, true
 	case b < 0x80:
 		growth := 1
-		if mustEscapeASCII(b) {
+		if escapedASCII.contains(b) {
 			growth = 3
 		}
 		return scannedToken{width: 1, characters: 1, escapedLen: growth}, true
@@ -48,99 +82,117 @@ func scanToken[T byteText](text T, i int) (scannedToken, bool) {
 	}
 }
 
-func validReference[T byteText](text T) bool {
-	suffixes := validReferenceSuffixes(text)
-	if !suffixes.valid {
-		return false
-	}
-	start, hasScheme, ok := validReferenceScheme(text, suffixes.mainEnd)
-	if !ok {
-		return false
-	}
-	if start+2 <= suffixes.mainEnd && text[start] == '/' && text[start+1] == '/' {
-		return validAuthorityReference(text, start+2, suffixes.mainEnd, suffixes.query, suffixes.fragment)
-	}
-	if hasScheme {
-		return validSchemeReference(text, start, suffixes.mainEnd, suffixes.query, suffixes.fragment)
-	}
-	return validRelativeReference(text, start, suffixes.mainEnd)
+// layout holds the component boundaries of a URI reference as byte offsets.
+// The zero value is the layout of the empty reference.
+type layout struct {
+	schemeEnd      int // offset of the ':' ending the scheme
+	authorityStart int // offset after "//"; the authority ends at pathStart
+	pathStart      int
+	pathEnd        int // offset of '?' or '#', or the text length
+	fragmentStart  int // offset of '#', or the text length
+	hasScheme      bool
+	hasAuthority   bool
+	hasQuery       bool
+	hasFragment    bool
 }
 
-type referenceSuffixes struct {
-	mainEnd  int
-	query    int
-	fragment int
-	valid    bool
-}
-
-func validReferenceSuffixes[T byteText](text T) referenceSuffixes {
-	fragment := len(text)
+func decompose[T byteText](text T) layout {
+	l := layout{fragmentStart: len(text)}
 	if i := indexByte(text, '#'); i >= 0 {
-		fragment = i
-		if !validURIC(text, i+1, len(text)) {
-			return referenceSuffixes{}
+		l.fragmentStart, l.hasFragment = i, true
+	}
+	l.pathEnd = l.fragmentStart
+	if i := indexByteRange(text, '?', 0, l.fragmentStart); i >= 0 {
+		l.pathEnd, l.hasQuery = i, true
+	}
+	if i := schemeSeparator(text, l.pathEnd); i >= 0 {
+		l.schemeEnd, l.hasScheme = i, true
+		l.pathStart = i + 1
+	}
+	if l.pathStart+2 <= l.pathEnd && text[l.pathStart] == '/' && text[l.pathStart+1] == '/' {
+		l.authorityStart, l.hasAuthority = l.pathStart+2, true
+		l.pathStart = l.pathEnd
+		if i := indexByteRange(text, '/', l.authorityStart, l.pathEnd); i >= 0 {
+			l.pathStart = i
 		}
 	}
-	query := fragment
-	if i := indexByteRange(text, '?', 0, fragment); i >= 0 {
-		query = i
-		if !validURIC(text, i+1, fragment) {
-			return referenceSuffixes{}
+	return l
+}
+
+func schemeSeparator[T byteText](text T, end int) int {
+	for i := range end {
+		switch text[i] {
+		case ':':
+			return i
+		case '/':
+			return -1
 		}
 	}
-	return referenceSuffixes{mainEnd: query, query: query, fragment: fragment, valid: true}
+	return -1
 }
 
-func validReferenceScheme[T byteText](text T, mainEnd int) (start int, hasScheme, ok bool) {
-	colon := indexByteRange(text, ':', 0, mainEnd)
-	slash := indexByteRange(text, '/', 0, mainEnd)
-	hasScheme = colon >= 0 && (slash < 0 || colon < slash)
-	if !hasScheme {
-		return 0, false, true
+func (l layout) parts(raw string) Parts {
+	c := Parts{
+		Path:         raw[l.pathStart:l.pathEnd],
+		HasScheme:    l.hasScheme,
+		HasAuthority: l.hasAuthority,
+		HasQuery:     l.hasQuery,
+		HasFragment:  l.hasFragment,
 	}
-	if !validScheme(text, 0, colon) {
-		return 0, false, false
+	if l.hasScheme {
+		c.Scheme = raw[:l.schemeEnd]
 	}
-	return colon + 1, true, true
+	if l.hasAuthority {
+		c.Authority = raw[l.authorityStart:l.pathStart]
+	}
+	if l.hasQuery {
+		c.Query = raw[l.pathEnd+1 : l.fragmentStart]
+	}
+	if l.hasFragment {
+		c.Fragment = raw[l.fragmentStart+1:]
+	}
+	return c
 }
 
-func validAuthorityReference[T byteText](text T, authorityStart, mainEnd, query, fragment int) bool {
-	authorityEnd := mainEnd
-	if i := indexByteRange(text, '/', authorityStart, mainEnd); i >= 0 {
-		authorityEnd = i
-	}
-	// The XSD 1.0 W3C oracle treats a bare empty authority ("//") as
-	// invalid. Empty authority remains valid when followed by a path,
-	// query, or fragment, including forms such as "///" and "//?q".
-	if authorityStart == authorityEnd && authorityEnd == mainEnd && query == fragment && fragment == len(text) {
+func validLayout[T byteText](text T, l layout) bool {
+	if l.hasFragment && !validComponent(text, l.fragmentStart+1, len(text), &uricChars) {
 		return false
 	}
-	return validAuthority(text, authorityStart, authorityEnd) && validPath(text, authorityEnd, mainEnd)
-}
-
-func validSchemeReference[T byteText](text T, pathStart, mainEnd, query, fragment int) bool {
+	if l.hasQuery && !validComponent(text, l.pathEnd+1, l.fragmentStart, &uricChars) {
+		return false
+	}
+	if l.hasScheme && !validScheme(text, 0, l.schemeEnd) {
+		return false
+	}
 	switch {
-	case pathStart == mainEnd:
-		return query < fragment
-	case text[pathStart] == '/':
-		return validPath(text, pathStart, mainEnd)
+	case l.hasAuthority:
+		return validAuthority(text, l.authorityStart, l.pathStart) && validComponent(text, l.pathStart, l.pathEnd, &pathChars)
+	case l.hasScheme:
+		return validSchemePath(text, l)
 	default:
-		return validOpaque(text, pathStart, mainEnd)
+		// A rel_segment also excludes ':', but a ':' before the first '/'
+		// makes decompose read a scheme, so every relative path is checked
+		// with the path characters.
+		return validComponent(text, l.pathStart, l.pathEnd, &pathChars)
 	}
 }
 
-func validRelativeReference[T byteText](text T, pathStart, mainEnd int) bool {
-	if pathStart == mainEnd {
-		return true
+func validSchemePath[T byteText](text T, l layout) bool {
+	switch {
+	case l.pathStart == l.pathEnd:
+		return l.hasQuery
+	case text[l.pathStart] == '/':
+		return validComponent(text, l.pathStart, l.pathEnd, &pathChars)
+	default:
+		return validOpaque(text, l.pathStart, l.pathEnd)
 	}
-	if text[pathStart] == '/' {
-		return validPath(text, pathStart, mainEnd)
-	}
-	firstEnd := mainEnd
-	if i := indexByteRange(text, '/', pathStart, mainEnd); i >= 0 {
-		firstEnd = i
-	}
-	return validRelativeSegment(text, pathStart, firstEnd) && validPath(text, firstEnd, mainEnd)
+}
+
+// validOpaque checks an opaque_part: RFC 2732 adds the brackets to reserved
+// but not to uric_no_slash, so they cannot start it.
+func validOpaque[T byteText](text T, start, end int) bool {
+	b := text[start]
+	return b != '[' && b != ']' && validComponent(text, start, end, &uricChars)
 }
 
 func validScheme[T byteText](text T, start, end int) bool {
@@ -156,32 +208,19 @@ func validScheme[T byteText](text T, start, end int) bool {
 	return true
 }
 
+// validAuthority checks a server or reg_name, where an IPv6reference is
+// "[userinfo@]" "[" IPv6address "]" [":" port]. Any other bracket fails the
+// reg_name, userinfo, IPv6 or port characters it lands in.
 func validAuthority[T byteText](text T, start, end int) bool {
 	left := indexByteRange(text, '[', start, end)
-	right := indexByteRange(text, ']', start, end)
-	if left >= 0 || right >= 0 {
-		return validIPLiteralAuthority(text, start, end, left, right)
+	if left < 0 {
+		return validComponent(text, start, end, &regNameChars)
 	}
-	return validPlainAuthority(text, start, end)
-}
-
-func validIPLiteralAuthority[T byteText](text T, start, end, left, right int) bool {
-	if !validBracketPair(text, end, left, right) {
-		return false
-	}
-	if !validIPLiteralPrefix(text, start, left) {
-		return false
-	}
-	if !validIPv6(text, left+1, right) {
-		return false
-	}
-	return validIPLiteralPort(text, right+1, end)
-}
-
-func validBracketPair[T byteText](text T, end, left, right int) bool {
-	return left >= 0 && right >= left &&
-		indexByteRange(text, '[', left+1, end) < 0 &&
-		indexByteRange(text, ']', right+1, end) < 0
+	right := indexByteRange(text, ']', left+1, end)
+	return right >= 0 &&
+		validIPLiteralPrefix(text, start, left) &&
+		validIPv6(text, left+1, right) &&
+		validIPLiteralPort(text, right+1, end)
 }
 
 func validIPLiteralPrefix[T byteText](text T, start, left int) bool {
@@ -189,7 +228,7 @@ func validIPLiteralPrefix[T byteText](text T, start, left int) bool {
 	if at < 0 {
 		return left == start
 	}
-	return at == left-1 && validUserInfo(text, start, at)
+	return at == left-1 && validComponent(text, start, at, &userInfoChars)
 }
 
 func validIPLiteralPort[T byteText](text T, start, end int) bool {
@@ -203,21 +242,6 @@ func validIPLiteralPort[T byteText](text T, start, end int) bool {
 		if !isDigit(text[i]) {
 			return false
 		}
-	}
-	return true
-}
-
-func validPlainAuthority[T byteText](text T, start, end int) bool {
-	for i := start; i < end; {
-		if next, ok := escapedToken(text, i); ok {
-			i = next
-			continue
-		}
-		b := text[i]
-		if !isUnreserved(b) && !strings.ContainsRune("$,;:@&=+", rune(b)) {
-			return false
-		}
-		i++
 	}
 	return true
 }
@@ -326,111 +350,54 @@ func scanIPv4Part[T byteText](text T, start, end int) (int, bool) {
 	return start + 1, true
 }
 
-func validUserInfo[T byteText](text T, start, end int) bool {
+// validComponent reports whether text[start:end] holds only escapes,
+// characters that XLink escaping encodes, and bytes in allowed. It scans each
+// token itself, so it needs no prior validation of text.
+func validComponent[T byteText](text T, start, end int, allowed *asciiSet) bool {
 	for i := start; i < end; {
-		if next, ok := escapedToken(text, i); ok {
-			i = next
-			continue
-		}
-		b := text[i]
-		if !isUnreserved(b) && !strings.ContainsRune(";:&=+$,", rune(b)) {
+		token, ok := scanToken(text, i)
+		if !ok || token.width > end-i {
 			return false
 		}
-		i++
+		if b := text[i]; token.width == 1 && !allowed.contains(b) && !escapedASCII.contains(b) {
+			return false
+		}
+		i += token.width
 	}
 	return true
 }
 
-func validRelativeSegment[T byteText](text T, start, end int) bool {
-	if start == end {
-		return false
+// asciiSet is a set of ASCII bytes.
+type asciiSet [2]uint64
+
+func newASCIISet(chars string) asciiSet {
+	var s asciiSet
+	for i := range len(chars) {
+		b := chars[i]
+		s[b>>6] |= 1 << (b & 63)
 	}
-	for i := start; i < end; {
-		if next, ok := escapedToken(text, i); ok {
-			i = next
-			continue
-		}
-		b := text[i]
-		if !isUnreserved(b) && !strings.ContainsRune(";@&=+$,", rune(b)) {
-			return false
-		}
-		i++
-	}
-	return true
+	return s
 }
 
-func validPath[T byteText](text T, start, end int) bool {
-	for i := start; i < end; {
-		if next, ok := escapedToken(text, i); ok {
-			i = next
-			continue
-		}
-		b := text[i]
-		if b != '/' && b != ';' && !isUnreserved(b) && !strings.ContainsRune(":@&=+$,", rune(b)) {
-			return false
-		}
-		i++
-	}
-	return true
+func (s *asciiSet) contains(b byte) bool {
+	return b < 0x80 && s[b>>6]&(1<<(b&63)) != 0
 }
 
-func validOpaque[T byteText](text T, start, end int) bool {
-	for i := start; i < end; {
-		if next, ok := escapedToken(text, i); ok {
-			i = next
-			continue
-		}
-		b := text[i]
-		if i == start && (b == '/' || b == '[' || b == ']') {
-			return false
-		}
-		if !isURIC(b) {
-			return false
-		}
-		i++
-	}
-	return true
-}
+// The component character sets of RFC 2396 Appendix A, with the brackets
+// that RFC 2732 adds to reserved.
+const unreservedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.!~*'()"
 
-func validURIC[T byteText](text T, start, end int) bool {
-	for i := start; i < end; {
-		if next, ok := escapedToken(text, i); ok {
-			i = next
-			continue
-		}
-		if !isURIC(text[i]) {
-			return false
-		}
-		i++
-	}
-	return true
-}
+var (
+	uricChars     = newASCIISet(unreservedChars + ";/?:@&=+$,[]")
+	pathChars     = newASCIISet(unreservedChars + "/;:@&=+$,")
+	userInfoChars = newASCIISet(unreservedChars + ";:&=+$,")
+	regNameChars  = newASCIISet(unreservedChars + "$,;:@&=+")
+)
 
-func escapedToken[T byteText](text T, i int) (int, bool) {
-	b := text[i]
-	switch {
-	case b == '%':
-		return i + 3, true
-	case b >= 0x80:
-		return i + utf8SequenceLen(text, i), true
-	case mustEscapeASCII(b):
-		return i + 1, true
-	default:
-		return i, false
-	}
-}
-
-func isURIC(b byte) bool {
-	return isUnreserved(b) || strings.ContainsRune(";/?:@&=+$,[]", rune(b))
-}
-
-func isUnreserved(b byte) bool {
-	return isAlpha(b) || isDigit(b) || strings.ContainsRune("-_.!~*'()", rune(b))
-}
-
-func mustEscapeASCII(b byte) bool {
-	return b <= 0x20 || b == 0x7f || strings.ContainsRune("<>\"{}|\\^`", rune(b))
-}
+// escapedASCII holds the ASCII characters that XLink escaping encodes: the
+// controls, space and DEL, and the excluded characters of RFC 2396 section
+// 2.4.3 except '#', '%' and the brackets that RFC 2732 re-allows.
+var escapedASCII = newASCIISet("\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f \x7f<>\"{}|\\^`")
 
 func isAlpha(b byte) bool { return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' }
 func isDigit(b byte) bool { return b >= '0' && b <= '9' }

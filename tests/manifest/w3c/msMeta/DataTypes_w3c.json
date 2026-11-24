@@ -12796,13 +12796,25 @@
       ],
       "schema": {
         "testName": "anyURI_b006_1356",
-        "expected": "invalid",
+        "expected": "valid",
         "status": "stable",
         "documents": [
           {
             "file": "corpus/w3c/msData/datatypes/Facets/anyURI/anyURI_b006.xsd"
           }
-        ]
+        ],
+        "oracle": {
+          "w3c": {
+            "expected": "invalid",
+            "reason": "Original accepted W3C expectation rests on the enumeration value \"//\", which the RFC 2396 grammar that XSD 1.0 anyURI cites derives as a net_path with an empty, optional server; every other value is a URI reference after XLink escaping. I-051 records the decision.",
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri"
+          }
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-051"
+          }
+        }
       },
       "files": [
         {

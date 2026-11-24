@@ -591,3 +591,33 @@ func TestSchemaSourceLimitDoesNotRejectReloadedOpenerDocument(t *testing.T) {
 	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaSources: 21}, g.openerRoot())
 	expectSourceCode(t, err, xsderrors.CodeSchemaLimit)
 }
+
+func TestBareEmptyAuthoritySchemaLocationIsAnUnavailableReference(t *testing.T) {
+	t.Parallel()
+
+	for _, reference := range []string{
+		`<xs:include schemaLocation="//"/>`,
+		`<xs:import namespace="urn:other" schemaLocation="//"/>`,
+	} {
+		schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + reference +
+			`<xs:element name="root" type="xs:string"/></xs:schema>`
+		rootPath := filepath.Join(t.TempDir(), "root.xsd")
+		if err := os.WriteFile(rootPath, []byte(schema), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := xsd.Compile(xsd.File(rootPath)); err != nil {
+			t.Errorf("Compile(%s) error = %v, want the reference skipped", reference, err)
+		}
+		var locations []string
+		resolver := xsd.ResolverFunc(func(_, location string) (xsd.SchemaSource, error) {
+			locations = append(locations, location)
+			return xsd.SchemaSource{}, xsderrors.ErrSchemaNotFound
+		})
+		if _, err := xsd.Compile(xsd.Bytes("root.xsd", []byte(schema)).WithResolver(resolver)); err != nil {
+			t.Errorf("Compile(%s) with a resolver error = %v", reference, err)
+		}
+		if len(locations) != 1 || locations[0] != "//" {
+			t.Errorf("Compile(%s) asked the resolver for %q, want [\"//\"]", reference, locations)
+		}
+	}
+}

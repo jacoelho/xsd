@@ -2871,3 +2871,59 @@ a zero-count sequence, in the content model. libxml2
 accepts `project/content-models/upa-scope/group-ambiguous-by-repetition-referenced-by-type`:
 it does not find the ambiguity between a repeated element and the same element
 after the repeated choice that holds it.
+
+## I-051 — a bare empty authority is an anyURI
+
+**Status:** decided by the user on 2026-11-24 by the specification text, the
+first rank of the [processor tie-break](#processor-tie-break). Accepted W3C
+`msMeta/DataTypes_w3c.xml/anyURI_b006_1356` ranks below it, and the corpus
+corrects its expectation.
+
+An anyURI literal may be only an empty authority, `//` or `scheme://`, as it
+may be an empty authority followed by a path, query or fragment (`///`,
+`//?q`, `//#f`). The
+[anyURI](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI)
+lexical space is the strings that become "legal URIs according to [RFC 2396],
+as amended by [RFC 2732]" after XLink escaping. The RFC 2396 grammar derives
+`//` as a `net_path` whose authority is an empty `server`
+(`net_path = "//" authority [ abs_path ]`, `authority = server | reg_name`,
+`server = [ [ userinfo "@" ] hostport ]`), and RFC 3986 admits the same empty
+authority. `uriref.Check` and `uriref.Parse` therefore accept the same
+references, and an `xml:base` of `//` or `//#f` under the base
+`http://example.test/schemas/` resolves to `http://`.
+
+anyURI_b006 lists `//` among the enumeration values of an anyURI restriction
+and expects the schema invalid for XSD 1.0. Every other value in it is a URI
+reference after XLink escaping, so that verdict rests on `//`.
+[Bug 4048](https://www.w3.org/Bugs/Public/show_bug.cgi?id=4048) queried the
+test, named `//` without a reason from the grammar, called the RFC
+terminology vague, and kept `invalid` in 2008. XSD 1.1 expects the same
+schema valid. A rule that rejects `//` while accepting `//#f`, `//?q` and
+`///` follows no production, since a query or fragment only extends a
+reference the grammar already derived. The corpus records the original
+expectation under `oracle.w3c` and expects the schema valid.
+
+Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13 accept `//`
+and `foo://`: each finds every instance of
+`project/datatypes/uri/empty-authority` valid and compiles
+`project/composition/xml-base-empty-authority/bare-under-uri-base`. On
+`w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356`, Xerces-J, xmlschema and
+libxml2 compile the schema; .NET rejects it for the enumeration value `\\\`,
+which XLink escaping makes a valid reference, as it rejects an anyURI with a
+space ([I-036](#i-036--builtin-lexical-and-value-spaces)).
+
+Cases: `project/datatypes/uri/empty-authority` (instances `bare-relative`,
+`bare-relative-with-whitespace`, `bare-absolute`, `relative-with-fragment`,
+`relative-with-empty-fragment`, `relative-with-query`,
+`relative-with-empty-query`, `relative-with-path`, `absolute-with-fragment`,
+`absolute-with-empty-query` and `absolute-with-path`, all valid),
+`project/composition/xml-base-empty-authority/*` (all valid, including a root
+`xml:base` of `//`) and `w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356`
+(schema valid). An include or import whose `schemaLocation` is `//` names a
+reference the built-in backend cannot load, so the schema compiles without
+it, and a custom resolver receives `//`
+(`TestBareEmptyAuthoritySchemaLocationIsAnUnavailableReference`). The corpus
+cannot express that case: resolved against a file base, `//` names
+`file:///`, outside every corpus root, so .NET and xmlschema report it
+blocked, Xerces-J skips it and validates, and libxml2 rejects the schema as
+including itself.

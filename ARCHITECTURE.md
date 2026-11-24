@@ -186,6 +186,14 @@ datatype value (`internal/value`) and custom-resolver spelling;
 source names and Unix paths never enter `Reference`; a scheme-bearing source
 name is parsed only as a URI base.
 
+`Check`, which admits anyURI literals for `internal/value` and
+`internal/schema`, accepts exactly the references `Parse` accepts, including
+a bare empty authority
+([I-051](docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri)).
+Every `Reference` that `WithoutFragment` or `Resolve` returns is one `Parse`
+accepts; `Resolve` fails only with `ErrOpaqueBase`, for a relative path against
+an opaque base.
+
 ### `internal/schema`
 
 `internal/schema` owns schema syntax and diagnostics, graph loading and

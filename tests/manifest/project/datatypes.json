@@ -93554,6 +93554,179 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/datatypes/uri/empty-authority",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/uri/empty-authority",
+        "description": "An anyURI literal may have an empty authority, alone or followed by a path, query or fragment.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/uri/empty-authority/schema.xsd",
+            "role": "principal"
+          }
+        ]
+      },
+      "instances": [
+        {
+          "testName": "bare-relative",
+          "file": "corpus/project/datatypes/uri/empty-authority/bare-relative.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "bare-absolute",
+          "file": "corpus/project/datatypes/uri/empty-authority/bare-absolute.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "relative-with-fragment",
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-fragment.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "relative-with-query",
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-query.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "relative-with-path",
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-path.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "absolute-with-fragment",
+          "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-fragment.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "absolute-with-path",
+          "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-path.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "bare-relative-with-whitespace",
+          "file": "corpus/project/datatypes/uri/empty-authority/bare-relative-with-whitespace.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "relative-with-empty-query",
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-empty-query.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "relative-with-empty-fragment",
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-empty-fragment.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        },
+        {
+          "testName": "absolute-with-empty-query",
+          "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-empty-query.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/bare-relative.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/bare-absolute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-fragment.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-query.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-path.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-fragment.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-path.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/bare-relative-with-whitespace.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-empty-query.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/relative-with-empty-fragment.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-empty-query.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }

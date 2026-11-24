@@ -2,6 +2,7 @@ package uriref
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -34,10 +35,52 @@ func TestParseAndEscape(t *testing.T) {
 		{name: "compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4:5:6:7:8::]/"},
 		{name: "empty authority with path", raw: "///", escaped: "///", valid: true, length: 3},
 		{name: "empty authority with query", raw: "//?q", escaped: "//?q", valid: true, length: 4},
+		{name: "bare empty authority", raw: "//", escaped: "//", valid: true, length: 2},
+		{name: "bare absolute empty authority", raw: "foo://", escaped: "foo://", valid: true, length: 6},
 		{name: "leading colon", raw: ":a"},
 		{name: "empty opaque part", raw: "a:"},
-		{name: "bare empty authority", raw: "//"},
-		{name: "bare absolute empty authority", raw: "foo://"},
+		{name: "scheme with plus, minus and dot", raw: "a+b-c.d:x", escaped: "a+b-c.d:x", valid: true, length: 9},
+		{name: "scheme starting with a digit", raw: "1a:b"},
+		{name: "query-only opaque part", raw: "a:?q", escaped: "a:?q", valid: true, length: 4},
+		{name: "empty opaque part before a fragment", raw: "a:#f"},
+		{name: "bracket inside an opaque part", raw: "urn:a[b", escaped: "urn:a[b", valid: true, length: 7},
+		{name: "opaque part starting with a left bracket", raw: "urn:[a"},
+		{name: "opaque part starting with a right bracket", raw: "urn:]a"},
+		{name: "bracket in a query", raw: "a?b[c", escaped: "a?b[c", valid: true, length: 5},
+		{name: "bad escape in a query", raw: "a?%zz"},
+		{name: "truncated escape in a fragment", raw: "a#%4"},
+		{name: "bracket in a relative first segment", raw: "a[b"},
+		{name: "right bracket in a relative first segment", raw: "a]b/c"},
+		{name: "bracket in a later relative segment", raw: "a/b[c"},
+		{name: "bracket in an absolute path", raw: "/a[b"},
+		{name: "bracket in a scheme absolute path", raw: "file:/a]b"},
+		{name: "bracket in a path after an authority", raw: "http://h/a[b"},
+		{name: "IP literal without a right bracket", raw: "http://[::1/"},
+		{name: "IP literal with reversed brackets", raw: "http://]::1[/"},
+		{name: "IP literal with two left brackets", raw: "http://[[::1]/"},
+		{name: "IP literal with two right brackets", raw: "http://[::1]]/"},
+		{name: "authority with only a right bracket", raw: "http://a]/"},
+		{name: "userinfo before an IP literal", raw: "http://user;x@[::1]/", escaped: "http://user;x@[::1]/", valid: true, length: 20},
+		{name: "host before an IP literal", raw: "http://x[::1]/"},
+		{name: "host between userinfo and an IP literal", raw: "http://user@x[::1]/"},
+		{name: "at sign inside userinfo before an IP literal", raw: "http://u@v@[::1]/"},
+		{name: "nondigit after an IP literal", raw: "http://[::1]x/"},
+		{name: "IPv6 group of five digits", raw: "http://[12345::1]/"},
+		{name: "IPv6 group with a nonhex digit", raw: "http://[g::1]/"},
+		{name: "IPv6 empty group after compression", raw: "http://[1:::2]/"},
+		{name: "IPv6 empty final group", raw: "http://[1:2:3:4:5:6:7:]/"},
+		{name: "embedded IPv4 maximum octets", raw: "http://[::255.255.255.255]/", escaped: "http://[::255.255.255.255]/", valid: true, length: 27},
+		{name: "embedded IPv4 with three parts", raw: "http://[::1.2.3]/"},
+		{name: "embedded IPv4 with five parts", raw: "http://[::1.2.3.4.5]/"},
+		{name: "embedded IPv4 octet above 255", raw: "http://[::256.1.1.1]/"},
+		{name: "embedded IPv4 octet of four digits", raw: "http://[::1234.1.1.1]/"},
+		{name: "embedded IPv4 octet of four digits with leading zeros", raw: "http://[::0001.1.1.1]/"},
+		{name: "embedded IPv4 trailing dot", raw: "http://[::1.2.3.]/"},
+		{name: "embedded IPv4 empty part", raw: "http://[::1..2.3]/"},
+		{name: "embedded IPv4 leading dot", raw: "http://[::.1.2.3]/"},
+		{name: "embedded IPv4 nondigit", raw: "http://[::1.2.3.a]/"},
+		{name: "embedded IPv4 before compression", raw: "http://[1.2.3.4::]/"},
+		{name: "embedded IPv4 before a final group", raw: "http://[::1.2.3.4:1]/"},
 		{name: "bad escape", raw: "%xz"},
 		{name: "duplicate fragment", raw: "a#b#c"},
 		{name: "invalid IPv6", raw: "http://[bad]/"},
@@ -70,9 +113,18 @@ func TestParseAndEscape(t *testing.T) {
 			}
 		})
 	}
-	invalidUTF8 := []byte{'a', 0xff}
-	if _, err := Check(invalidUTF8); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("Check(invalid UTF-8) error = %v, want ErrInvalid", err)
+	for _, invalidUTF8 := range [][]byte{
+		{'a', 0xff},
+		{'a', 0xe2, 0x98, 'A'},
+		{'a', 0xf0, 0x9f, 0x98, 'A'},
+		{'a', 0xe2, 0x98},
+	} {
+		if _, err := Check(invalidUTF8); !errors.Is(err, ErrInvalid) {
+			t.Errorf("Check(% x) error = %v, want ErrInvalid", invalidUTF8, err)
+		}
+		if _, err := Parse(string(invalidUTF8)); !errors.Is(err, ErrInvalid) {
+			t.Errorf("Parse(% x) error = %v, want ErrInvalid", invalidUTF8, err)
+		}
 	}
 }
 
@@ -95,19 +147,64 @@ func TestResolveRelativePathAgainstEmptyAuthorityPath(t *testing.T) {
 	}
 }
 
-func TestWithoutFragmentIsTotalForEmptyAuthorityPath(t *testing.T) {
+func TestEscapedEncodesTheCharactersXLinkExcludes(t *testing.T) {
 	t.Parallel()
-	for _, raw := range []string{"foo://#fragment", "//#fragment"} {
+	const excluded = "<>\"{}|\\^`"
+	for b := range byte(0x80) {
+		raw := "a" + string(rune(b))
 		ref, err := Parse(raw)
 		if err != nil {
-			t.Fatalf("Parse(%q): %v", raw, err)
+			continue
 		}
-		without := ref.WithoutFragment()
-		if without.HasFragment() {
-			t.Fatalf("WithoutFragment(%q) retained a fragment", raw)
+		want := raw
+		if b <= 0x20 || b == 0x7f || strings.IndexByte(excluded, b) >= 0 {
+			want = fmt.Sprintf("a%%%02X", b)
 		}
-		if got, want := without.Raw(), raw[:len(raw)-len("#fragment")]; got != want {
-			t.Fatalf("WithoutFragment(%q) = %q, want %q", raw, got, want)
+		if ref.Escaped() != want {
+			t.Errorf("Parse(%q).Escaped() = %q, want %q", raw, ref.Escaped(), want)
+		}
+	}
+}
+
+func TestWithoutFragmentReturnsTheReferenceParseGivesItsPrefix(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ raw, want string }{
+		{raw: "foo://#fragment", want: "foo://"},
+		{raw: "//#fragment", want: "//"},
+		{raw: "a?q#", want: "a?q"},
+		{raw: "http://[::1]:80/p#f", want: "http://[::1]:80/p"},
+		{raw: "#f", want: ""},
+	} {
+		got := mustParse(t, tc.raw).WithoutFragment()
+		if want := mustParse(t, tc.want); got != want {
+			t.Errorf("Parse(%q).WithoutFragment() = %#v, want Parse(%q) = %#v", tc.raw, got, tc.want, want)
+		}
+	}
+}
+
+func TestResolveSameDocumentAgainstEmptyAuthorityBase(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ base, want string }{
+		{base: "//#f", want: "//"},
+		{base: "foo://#f", want: "foo://"},
+	} {
+		got, err := Resolve(mustParse(t, tc.base), Reference{})
+		if want := mustParse(t, tc.want); err != nil || got != want {
+			t.Errorf("Resolve(%q, \"\") = %q, %v; want %q", tc.base, got.Raw(), err, tc.want)
+		}
+	}
+}
+
+func TestResolveMergesARelativePathAtTheBasesLastSlash(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ base, want string }{
+		{base: "/main.xsd", want: "/b.xsd"},
+		{base: "file:/main.xsd", want: "file:/b.xsd"},
+		{base: "main.xsd", want: "b.xsd"},
+	} {
+		got, err := Resolve(mustParse(t, tc.base), mustParse(t, "b.xsd"))
+		if err != nil || got.Raw() != tc.want {
+			t.Errorf("Resolve(%q, \"b.xsd\") = %q, %v; want %q", tc.base, got.Raw(), err, tc.want)
 		}
 	}
 }
@@ -175,6 +272,37 @@ func FuzzCheckAgreesWithParse(f *testing.F) {
 		_, parseErr := Parse(raw)
 		if (checkErr == nil) != (parseErr == nil) {
 			t.Fatalf("Check(%q) error = %v, Parse error = %v", raw, checkErr, parseErr)
+		}
+	})
+}
+
+func FuzzReferenceOperationsReturnParsedReferences(f *testing.F) {
+	f.Add("http://a/b/c/d;p?q", "../g#s")
+	f.Add("//#f", "")
+	f.Add("foo://#f", "#g")
+	f.Add("/main.xsd", "b.xsd")
+	f.Fuzz(func(t *testing.T, rawBase, rawRef string) {
+		base, err := Parse(rawBase)
+		if err != nil {
+			return
+		}
+		without := base.WithoutFragment()
+		if reparsed, reparseErr := Parse(without.Raw()); reparseErr != nil || reparsed != without || without.HasFragment() {
+			t.Fatalf("Parse(%q).WithoutFragment() = %#v; Parse of its Raw = %#v, %v", rawBase, without, reparsed, reparseErr)
+		}
+		ref, err := Parse(rawRef)
+		if err != nil {
+			return
+		}
+		got, err := Resolve(base, ref)
+		if errors.Is(err, ErrOpaqueBase) {
+			return
+		}
+		if err != nil {
+			t.Fatalf("Resolve(%q, %q) error = %v", rawBase, rawRef, err)
+		}
+		if reparsed, reparseErr := Parse(got.Raw()); reparseErr != nil || reparsed != got {
+			t.Fatalf("Resolve(%q, %q) = %#v; Parse of its Raw = %#v, %v", rawBase, rawRef, got, reparsed, reparseErr)
 		}
 	})
 }
