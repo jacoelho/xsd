@@ -185,6 +185,19 @@ type compiledModelRead struct {
 	Empty     bool
 }
 
+// hasTables reports whether m holds the rows or xs:all terms its kind
+// executes; empty and wildcard content hold none.
+func (m compiledModelRead) hasTables() bool {
+	switch m.Kind {
+	case compiledModelDFA:
+		return len(m.Rows) != 0
+	case compiledModelAll:
+		return len(m.All) != 0
+	case compiledModelEmpty, compiledModelAny:
+	}
+	return true
+}
+
 // withoutTables returns m without its rows, xs:all terms and name index.
 func (m compiledModelRead) withoutTables() compiledModelRead {
 	return compiledModelRead{Start: m.Start, AllBitLen: m.AllBitLen, Kind: m.Kind, Empty: m.Empty}
@@ -290,7 +303,7 @@ func enterContentModels(types []complexTypeMetadata, content *compiledContent) (
 	}
 	entered := make([]int, 0, len(roots))
 	for i, root := range roots {
-		if !types[i].Detached {
+		if entersContent(&types[i]) {
 			entered = append(entered, root)
 		}
 	}
@@ -303,11 +316,19 @@ func enterContentModels(types []complexTypeMetadata, content *compiledContent) (
 	published := make([]contentModelID, len(roots))
 	for i, root := range roots {
 		published[i] = noContentModel
-		if !types[i].Detached {
+		if entersContent(&types[i]) {
 			published[i] = position[root]
 		}
 	}
 	return enteredContent{Models: entered, Published: published}, nil
+}
+
+// entersContent reports whether validation can enter typ's content model. A
+// detached type is the type of no reachable element declaration. It decides
+// both which roots publication enters and which roots compilation keeps
+// tables for.
+func entersContent(typ *complexTypeMetadata) bool {
+	return !typ.Detached
 }
 
 func requireRootedAllModels(roots []int, models []compiledModelRead) error {
@@ -370,6 +391,9 @@ func publishedContentModels(content *compiledContent, entered []int, count int) 
 }
 
 func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRead, count int) error {
+	if !model.hasTables() {
+		return xsderrors.InternalInvariant("published content model has no tables")
+	}
 	if err := validatePublishedEdges(run, count); err != nil {
 		return err
 	}

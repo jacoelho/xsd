@@ -2,7 +2,6 @@ package schema
 
 import (
 	"encoding/xml"
-	"slices"
 
 	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/vocab"
@@ -359,40 +358,36 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 // source-ID order and in the scope of its owner. A nested model is compiled on
 // its own as well as in its ancestors' rows, so a violation or limit inside a
 // group stops compilation at the first model, in source order, holding it.
-// Only the root model of a complex type an instance can reach can be
-// published, so only such a root keeps its published form, built over the
-// published element numbering of instanceModels' walk; any other model keeps
-// its kind alone. A root no instance reaches, of detached types only, may name
-// unpublished declarations, so it is projected and indexed over build IDs and
-// then dropped to its kind, spending what a published root would.
-func (c *compiler) compileContentModels(reached []reachedModel, instanceModels []bool) error {
-	if len(instanceModels) != len(c.rt.Models) {
-		return xsderrors.InternalInvariant("instance reachability does not cover the content models")
-	}
+// Only a root model validation can enter (entersContent) can be published, so
+// only such a root keeps its published form, built over the published element
+// numbering; any other model keeps its kind alone. A root validation cannot
+// enter may name unpublished declarations, so it is projected and indexed over
+// build IDs, spending what an entered root would, and then keeps the kind and
+// the scalars of its form.
+func (c *compiler) compileContentModels(reached []reachedModel) error {
 	elements, err := newPublishedElements(c.rt.ReachableElements, len(c.rt.Elements))
+	if err != nil {
+		return err
+	}
+	roots, err := contentRootEntries(c.rt.ComplexTypes, len(c.rt.Models))
 	if err != nil {
 		return err
 	}
 	cc := newContentModelCompiler(&c.rt, c.limits.MaxContentModelStates, &c.contentWork, &c.dependencyWork, c.contentAnalysis)
 	projection := rootProjection{
-		published: newDFARowIndexAnalysis(&c.rt, &elements, c.contentWork.spend, &c.dependencyWork),
-		instance:  instanceModels,
+		entered: newDFARowIndexAnalysis(&c.rt, &elements, c.contentWork.spend, &c.dependencyWork),
+		roots:   roots,
 	}
-	projection.detached = projection.published
+	projection.unentered = projection.entered
 	if !elements.identity() {
 		identity := identityElements(len(c.rt.Elements))
-		projection.detached = projection.published.over(&identity)
+		projection.unentered = projection.entered.over(&identity)
 	}
-	roots := make([]contentModelID, len(c.rt.ComplexTypes))
-	for i := range c.rt.ComplexTypes {
-		roots[i] = c.rt.ComplexTypes[i].Content
-	}
-	slices.Sort(roots)
 	sources := make([]contentModelID, 0, len(reached))
 	models := make([]compiledModelRead, 0, len(reached))
 	runs := make([][]compiledModelEdgeRead, 0, len(reached))
 	for _, r := range reached {
-		model, run, err := c.compileContentModel(&cc, projection, roots, r)
+		model, run, err := c.compileContentModel(&cc, projection, r)
 		if err != nil {
 			return err
 		}
@@ -407,21 +402,48 @@ func (c *compiler) compileContentModels(reached []reachedModel, instanceModels [
 	return nil
 }
 
-// rootProjection projects and indexes the root models of complex types:
-// a root the instance walk reached over published element IDs, and any other
-// over build IDs.
-type rootProjection struct {
-	published *dfaRowIndexAnalysis
-	detached  *dfaRowIndexAnalysis
-	instance  []bool
+// rootEntry classifies a content model as the root of no complex type, the
+// root only of types validation cannot enter, or a root validation enters
+// (entersContent).
+type rootEntry uint8
+
+const (
+	notRoot rootEntry = iota
+	unenteredRoot
+	enteredRoot
+)
+
+// contentRootEntries returns the rootEntry of each of models content models.
+func contentRootEntries(types []complexTypeMetadata, models int) ([]rootEntry, error) {
+	entries := make([]rootEntry, models)
+	for i := range types {
+		root := types[i].Content
+		if !validContentModelID(root, models) {
+			return nil, xsderrors.InternalInvariant("complex type references invalid content model")
+		}
+		entry := unenteredRoot
+		if entersContent(&types[i]) {
+			entry = enteredRoot
+		}
+		entries[root] = max(entries[root], entry)
+	}
+	return entries, nil
 }
 
-// project returns the published form of root, or its kind and scalars alone
-// when no instance reaches it.
-func (p rootProjection) project(root contentModelID, compiled compiledModel, work contentModelWork) (compiledModelRead, []compiledModelEdgeRead, error) {
-	index := p.published
-	if !p.instance[root] {
-		index = p.detached
+// rootProjection projects and indexes the root models of complex types: an
+// entered root over published element IDs, and any other root over build IDs.
+type rootProjection struct {
+	entered   *dfaRowIndexAnalysis
+	unentered *dfaRowIndexAnalysis
+	roots     []rootEntry
+}
+
+// project returns the published form of an entered root, and the kind and the
+// scalars of the form of any other root.
+func (p rootProjection) project(entry rootEntry, compiled compiledModel, work contentModelWork) (compiledModelRead, []compiledModelEdgeRead, error) {
+	index := p.entered
+	if entry != enteredRoot {
+		index = p.unentered
 	}
 	model, run, err := newCompiledModelRead(compiled, work, *index.elements)
 	if err != nil {
@@ -430,13 +452,13 @@ func (p rootProjection) project(root contentModelID, compiled compiledModel, wor
 	if err := index.indexModel(&model, run); err != nil {
 		return compiledModelRead{}, nil, err
 	}
-	if !p.instance[root] {
+	if entry != enteredRoot {
 		return model.withoutTables(), nil, nil
 	}
 	return model, run, nil
 }
 
-func (c *compiler) compileContentModel(cc *contentModelCompiler, projection rootProjection, roots []contentModelID, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
+func (c *compiler) compileContentModel(cc *contentModelCompiler, projection rootProjection, reached reachedModel) (_ compiledModelRead, _ []compiledModelEdgeRead, err error) {
 	id := reached.id
 	scope, err := c.enterContentModel(id)
 	if err != nil {
@@ -448,10 +470,11 @@ func (c *compiler) compileContentModel(cc *contentModelCompiler, projection root
 	if err != nil {
 		return compiledModelRead{}, nil, err
 	}
-	if _, root := slices.BinarySearch(roots, id); !root {
+	entry := projection.roots[id]
+	if entry == notRoot {
 		return compiledModelRead{Kind: compiled.Kind}, nil, nil
 	}
-	return projection.project(id, compiled, c.contentWork.spend)
+	return projection.project(entry, compiled, c.contentWork.spend)
 }
 
 func (c *compiler) checkCompiledModelsUPA(reached []reachedModel) error {

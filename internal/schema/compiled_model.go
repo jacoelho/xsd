@@ -38,10 +38,11 @@ type compiledModel struct {
 }
 
 // compiledContent holds one record for each content model that
-// complexTypeReachableModels returns, and no other. A root model that an
-// instance can reach (detachUnreachableComponents) holds its published form
-// over the published element IDs of Elements, which publication takes as it
-// is; any other model holds only its kind and the scalars of its form.
+// complexTypeReachableModels returns, and no other. A root model validation
+// can enter (entersContent) holds its published form over the published
+// element IDs of Elements, which publication takes as it is; any other root
+// holds the kind and the scalars of its form, and any other model its kind
+// alone.
 type compiledContent struct {
 	// Elements is the element numbering the published tables were built
 	// over, or nil for the identity, which publication checks against

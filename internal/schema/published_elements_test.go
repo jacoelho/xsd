@@ -301,15 +301,6 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 			t.Helper()
 			build.ReachableElements = build.ReachableElements[:len(build.ReachableElements)-1]
 		}},
-		{name: "global element unreached", message: "global element declaration has no published ID", corrupt: func(t *testing.T, build *schemaBuild) {
-			t.Helper()
-			build.ReachableElements[build.GlobalElements[mustBuildQName(t, build, "other")]] = false
-			renumberCompiledContent(t, build)
-			for i := range build.CompiledContent.Models {
-				build.CompiledContent.Models[i] = build.CompiledContent.Models[i].withoutTables()
-				build.CompiledContent.Runs[i] = nil
-			}
-		}},
 		{name: "substitution member unreached", message: "substitution member has no published ID", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			build.Substitutions.entries[0].member = unreached(t, build)
@@ -346,6 +337,50 @@ func TestPublicationRejectsElementHoldersWithoutPublishedIDs(t *testing.T) {
 			_, err := publishSchema(build, unlimitedContentModelWork)
 			if err == nil || !strings.Contains(err.Error(), test.message) {
 				t.Fatalf("publishSchema() error = %v, want %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestPublishedElementMapsRejectAGlobalWithoutPublishedID(t *testing.T) {
+	t.Parallel()
+
+	build := &schemaBuild{
+		Elements:          make([]elementDecl, 2),
+		ReachableElements: []bool{false, true},
+		GlobalElements:    map[QName]ElementID{{Local: 1}: 0},
+	}
+	elements, err := newPublishedElements(build.ReachableElements, len(build.Elements))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := publishedElementMaps(build, elements); err == nil || !strings.Contains(err.Error(), "global element declaration has no published ID") {
+		t.Fatalf("publishedElementMaps() error = %v, want a global without a published ID rejected", err)
+	}
+}
+
+func TestPublicationRejectsEnteredRootWithoutTables(t *testing.T) {
+	t.Parallel()
+
+	for name, kind := range map[string]compiledModelKind{"xs:all": compiledModelAll, "automaton": compiledModelDFA} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			build := compiledTestBuild(t, fmt.Sprintf(publishedElementsSchema, unreachedGroup, unreachedLocals))
+			stripped := false
+			for _, root := range enteredContentForTest(t, build).Models {
+				if model := &build.CompiledContent.Models[root]; model.Kind == kind {
+					*model = model.withoutTables()
+					build.CompiledContent.Runs[root] = nil
+					stripped = true
+					break
+				}
+			}
+			if !stripped {
+				t.Fatalf("fixture enters no %s root", name)
+			}
+			_, err := publishSchema(build, unlimitedContentModelWork)
+			if err == nil || !strings.Contains(err.Error(), "published content model has no tables") {
+				t.Fatalf("publishSchema() error = %v, want an entered root without tables rejected", err)
 			}
 		})
 	}

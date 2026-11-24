@@ -47,7 +47,7 @@ func TestDetachingUnreachableComponentsSpendsNoBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	dependency, content := c.dependencyWork.remaining, c.contentWork.remaining
-	if _, err := c.detachUnreachableComponents(); err != nil {
+	if err := c.detachUnreachableComponents(); err != nil {
 		t.Fatalf("detachUnreachableComponents() error = %v", err)
 	}
 	if c.dependencyWork.remaining != dependency || c.contentWork.remaining != content {

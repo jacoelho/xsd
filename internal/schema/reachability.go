@@ -35,16 +35,15 @@ type componentReach struct {
 }
 
 // detachUnreachableComponents marks the components no instance element
-// reaches and returns the content models the walk reached, parallel to
-// schemaBuild.Models. It is the one writer of complexTypeMetadata.Detached,
+// reaches. It is the one writer of complexTypeMetadata.Detached,
 // identityConstraintSpec.Detached, schemaBuild.ReachableElements and
 // schemaBuild.ReachableSimpleTypes. A
 // constraint is detached when its declarer is unreached or it has none.
 // Element declarations keep their identity lists, which the restriction
 // checks compare; publication omits unreached declarations
-// (publishedElements). Every element particle of a reached model names a
-// reached declaration, so its compiled table can name declarations by their
-// published IDs.
+// (publishedElements). Every element particle of the content model of an
+// attached complex type names a reached declaration, so the model's compiled
+// table can name declarations by their published IDs.
 //
 // The walk charges no budget. It reads the particles of each model once, and
 // only models complexTypeReachableModels already read and charged under
@@ -55,10 +54,10 @@ type componentReach struct {
 // MaxSchemaDependencySteps, and visits each simple type once, reading its
 // base, list item and union members, which its definition charged when it
 // was compiled.
-func (c *compiler) detachUnreachableComponents() ([]bool, error) {
+func (c *compiler) detachUnreachableComponents() error {
 	r, err := c.reachFromGlobals()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for i := range c.rt.Identities {
 		declarer := c.rt.Identities[i].Declarer
@@ -66,7 +65,7 @@ func (c *compiler) detachUnreachableComponents() ([]bool, error) {
 	}
 	c.rt.ReachableElements = r.elements
 	c.rt.ReachableSimpleTypes = r.simpleTypes
-	return r.models, nil
+	return nil
 }
 
 func (c *compiler) reachFromGlobals() (componentReach, error) {
@@ -273,7 +272,7 @@ type publishedElements struct {
 
 // publishedElementID is the published ID of an element declaration
 // (publishedElements). A compiled content table names declarations only by
-// published IDs, which newCompiledParticleRead alone converts build IDs to
+// published IDs, which newCompiledParticleRead alone produces from build IDs
 // (tests/published_element_id_conversion_test.go).
 type publishedElementID ElementID
 
