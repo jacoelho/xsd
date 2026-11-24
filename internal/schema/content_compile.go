@@ -636,17 +636,25 @@ func (c *contentModelCompiler) sequenceHasWildcardEquivalentOverlap(model conten
 
 func (c *contentModelCompiler) wildcardContinuationOverlaps(sets continuationSets, following []contentParticle) (bool, error) {
 	for _, candidates := range sets {
-		if err := c.work.spend(len(candidates)); err != nil {
-			return false, err
+		overlap, err := c.wildcardCandidatesOverlap(candidates, following)
+		if err != nil || overlap {
+			return overlap, err
 		}
-		for _, candidate := range candidates {
-			if candidate.Kind != particleWildcard {
-				continue
-			}
-			overlap, err := c.wildcardCandidateOverlaps(following, candidate)
-			if err != nil || overlap {
-				return overlap, err
-			}
+	}
+	return false, nil
+}
+
+func (c *contentModelCompiler) wildcardCandidatesOverlap(candidates, following []contentParticle) (bool, error) {
+	if err := c.work.spend(len(candidates)); err != nil {
+		return false, err
+	}
+	for _, candidate := range candidates {
+		if candidate.Kind != particleWildcard {
+			continue
+		}
+		overlap, err := c.wildcardCandidateOverlaps(following, candidate)
+		if err != nil || overlap {
+			return overlap, err
 		}
 	}
 	return false, nil

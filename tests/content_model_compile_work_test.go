@@ -85,10 +85,10 @@ func restrictionTypes(b *strings.Builder, components int, body func(*strings.Bui
 	}
 }
 
-func wrapped(prefix, suffix string, size int, attrs string) func(*strings.Builder) {
+func wrapped(prefix, suffix string, size int) func(*strings.Builder) {
 	return func(b *strings.Builder) {
 		b.WriteString(prefix)
-		elementList(b, size, attrs)
+		elementList(b, size, "")
 		b.WriteString(suffix)
 	}
 }
@@ -101,7 +101,7 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 			b.WriteString(workSchemaOpen + `<xs:complexType name="B"><xs:all>`)
 			elementList(&b, size, ` minOccurs="0"`)
 			b.WriteString(`</xs:all></xs:complexType>`)
-			restrictionTypes(&b, components, wrapped(`<xs:sequence>`, `</xs:sequence>`, size, ""))
+			restrictionTypes(&b, components, wrapped(`<xs:sequence>`, `</xs:sequence>`, size))
 			return b.String() + `</xs:schema>`
 		},
 		small: 64, large: 1024,
@@ -127,7 +127,7 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 			b.WriteString(workSchemaOpen + `<xs:complexType name="B"><xs:choice maxOccurs="unbounded">`)
 			elementList(&b, size, "")
 			b.WriteString(`</xs:choice></xs:complexType>`)
-			restrictionTypes(&b, components, wrapped(`<xs:sequence>`, `</xs:sequence>`, size, ""))
+			restrictionTypes(&b, components, wrapped(`<xs:sequence>`, `</xs:sequence>`, size))
 			return b.String() + `</xs:schema>`
 		},
 		small: 32, large: 512,
@@ -139,7 +139,7 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 		schema: func(components, size int) string {
 			var b strings.Builder
 			b.WriteString(workSchemaOpen + `<xs:complexType name="B"><xs:sequence><xs:any processContents="lax" maxOccurs="unbounded"/></xs:sequence></xs:complexType>`)
-			restrictionTypes(&b, components, wrapped(`<xs:sequence>`, `</xs:sequence>`, size, ""))
+			restrictionTypes(&b, components, wrapped(`<xs:sequence>`, `</xs:sequence>`, size))
 			return b.String() + `</xs:schema>`
 		},
 		small: 128, large: 2048,
@@ -295,7 +295,7 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 			b.WriteString(workSchemaOpen + `<xs:complexType name="B"><xs:all>`)
 			elementList(&b, size, ` minOccurs="0"`)
 			b.WriteString(`</xs:all></xs:complexType>`)
-			restrictionTypes(&b, 1, wrapped(`<xs:choice>`, `<xs:any namespace="##other"/></xs:choice>`, components*(size-1), ""))
+			restrictionTypes(&b, 1, wrapped(`<xs:choice>`, `<xs:any namespace="##other"/></xs:choice>`, components*(size-1)))
 			return b.String() + `</xs:schema>`
 		},
 		small: 128, large: 2048,
@@ -316,7 +316,7 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 			return b.String() + `</xs:sequence></xs:complexType></xs:schema>`
 		},
 		small: 64, large: 1024,
-		// Measured growth 0.24, and 3.48 without the charge for the continuation candidates wildcardContinuationOverlaps reads.
+		// Measured growth 0.24, and 3.48 without the charge for the continuation candidates wildcardCandidatesOverlap reads.
 		growthLimit: 1.5,
 		rejects:     true,
 	},
@@ -380,9 +380,9 @@ func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 // added components and returns the blocks they execute at the large size.
 func measureFamily(t *testing.T, driver, dir string, family contentModelWorkFamily) []coverageBlock {
 	t.Helper()
-	fewer, more := 1, 3
+	fewer, more, outcome := 1, 3, compiled
 	if family.rejects {
-		fewer, more = 0, 1
+		fewer, more, outcome = 0, 1, rejected
 	}
 	sizes := [4][2]int{{fewer, family.small}, {more, family.small}, {fewer, family.large}, {more, family.large}}
 	var samples [4]compileWorkSample
@@ -391,7 +391,7 @@ func measureFamily(t *testing.T, driver, dir string, family contentModelWorkFami
 	for i, size := range sizes {
 		wg.Go(func() {
 			schema := family.schema(size[0], size[1])
-			samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%d-%d", size[0], size[1])), schema, family.rejects)
+			samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%d-%d", size[0], size[1])), schema, outcome)
 		})
 	}
 	wg.Wait()
@@ -482,9 +482,18 @@ func buildCompileWorkDriver(t *testing.T, dir string) string {
 	return out
 }
 
+// compileOutcome is how a compilework compilation under default options ends,
+// as the driver prints it.
+type compileOutcome string
+
+const (
+	compiled compileOutcome = "compiled"
+	rejected compileOutcome = "rejected"
+)
+
 // measureCompileWork measures one default-options compilation of schema,
-// which must be rejected if rejected is set and compile otherwise.
-func measureCompileWork(ctx context.Context, driver, dir, schema string, rejected bool) (compileWorkSample, error) {
+// which must end with want.
+func measureCompileWork(ctx context.Context, driver, dir, schema string, want compileOutcome) (compileWorkSample, error) {
 	counters := filepath.Join(dir, "counters")
 	if err := os.MkdirAll(counters, 0o750); err != nil {
 		return compileWorkSample{}, err
@@ -503,13 +512,9 @@ func measureCompileWork(ctx context.Context, driver, dir, schema string, rejecte
 		return compileWorkSample{}, fmt.Errorf("compilework %s: %w\n%s", schemaPath, runErr, stderr.String())
 	}
 	var analysis, dependency int
-	var outcome string
+	var outcome compileOutcome
 	if _, err := fmt.Sscan(string(out), &analysis, &dependency, &outcome); err != nil {
 		return compileWorkSample{}, fmt.Errorf("compilework %s output %q: %w", schemaPath, out, err)
-	}
-	want := "compiled"
-	if rejected {
-		want = "rejected"
 	}
 	if outcome != want {
 		return compileWorkSample{}, fmt.Errorf("compilework %s: %s, want %s", schemaPath, outcome, want)

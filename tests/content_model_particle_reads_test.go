@@ -95,7 +95,7 @@ var particleListReaders = map[string]string{
 	"orderedGroupRestrictionMatcher.validateRemainder":              "charges each base particle it reads through ParticleEmptiable",
 	"contentModelAnalysis.ModelContinuations":                       "returns the cached continuation set that continuationsOf charged, reading no particle",
 	"contentModelCompiler.checkCandidatesUPA":                       "charges each candidate it reads",
-	"contentModelCompiler.wildcardContinuationOverlaps":             "charges each candidate it reads",
+	"contentModelCompiler.wildcardCandidatesOverlap":                "charges each candidate it reads",
 	"contentModelAnalysis.nestedContinuations":                      "caller continuationsOf charges each of the same particles through ParticleContinuations",
 	"continuationMerge.copy":                                        "charges the whole set before copying it",
 }
