@@ -273,7 +273,8 @@ type publishedElements struct {
 
 // publishedElementID is the published ID of an element declaration
 // (publishedElements). A compiled content table names declarations only by
-// published IDs, which newCompiledParticleRead alone produces from build IDs.
+// published IDs, which newCompiledParticleRead alone converts build IDs to
+// (tests/published_element_id_conversion_test.go).
 type publishedElementID ElementID
 
 const noPublishedElement = publishedElementID(NoElement)
