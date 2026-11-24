@@ -207,10 +207,10 @@ each model record, row, edge and `xs:all` term before allocating it, and
 rows are windows of one edge run (`compiledModel.Run`) and share one index of
 the run (`publishedDFARun`), so its tables grow linearly with its particles.
 `compileContentModels` keeps only the published form (`compiledModelRead`) of
-the root model of each complex type an instance can reach, built over
-published element IDs and indexed in the model's scope, and the kind of
-every other reached model, whose rows are still charged because its Unique
-Particle Attribution check reads them; publication takes every table without
+each root model validation can enter, built over published element IDs and
+indexed in the model's scope, the kind and the scalars of the form of every
+other root, and the kind of every other reached model, whose rows are still
+charged because its Unique Particle Attribution check reads them; publication takes every table without
 copying it; `sealSchemaProgram` adds dense indexes,
 which rewrite rows the build shares, only after the last step that can reject
 the build. Spent work is never refunded. Retained derived records
@@ -320,17 +320,15 @@ drops its value definition (facets, patterns, enumerations), and validating
 it reports `value.ErrMetadata`. Unreached element declarations
 are not published, and validation sees only published element IDs, which
 `publishedElements` owns. Every published holder of element IDs names
-declarations only by published IDs. A compiled content table is built over
-them when it is projected: its particles hold `publishedElementID`, so storing
-a build ID needs an explicit conversion, and only `newCompiledParticleRead`
-converts one, through the numbering, which
-`tests/published_element_id_conversion_test.go` enforces. The name index maps each
-published ID back to its build ID to read names and substitution members. The
-root of a type no instance reaches may name unpublished declarations, so it
-is projected and indexed over build IDs, spending what a published root
-would, and then kept as its kind alone. `compiledContent` records the
-numbering its tables were built over, and publication rejects a build whose
-reachability no longer derives it. The global element map and the
+declarations only by published IDs. `compileContentModels` builds the content
+table of each root validation can enter (`entersContent`, the same fact
+`enterContentModels` enters by) over published IDs, and keeps the kind and
+the scalars of the form of any other root; `dfaRowIndexAnalysis` indexes the
+tables in that numbering. Only `newCompiledParticleRead` produces a
+`publishedElementID` (`tests/published_element_id_conversion_test.go`).
+`compiledContent` records the numbering its tables were built over, and
+publication rejects a build whose reachability no longer derives it, or an
+entered root without tables. The global element map and the
 substitution table, which compilation reads in build IDs, are copied over
 published IDs at publication; the substitution table is at most
 `MaxSubstitutionClosureEntries` entries.
@@ -1124,7 +1122,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
-| `tests/published_element_id_conversion_test.go` | Within `internal/schema`, only `newCompiledParticleRead` and the `noPublishedElement` constant convert a value to `publishedElementID`, so a compiled content table names declarations only by the IDs the published numbering assigns. It does not check that the translation itself is correct; `TestUnreachedElementDeclarationsDoNotChangeValidation` compares validation against the schema without unreached declarations |
+| `tests/published_element_id_conversion_test.go` | In the non-test files of `internal/schema`, only `newCompiledParticleRead` and the `noPublishedElement` constant produce a `publishedElementID` by conversion or by a constant expression of that type, each function and each constant or variable specification checked separately, so a compiled content table names declarations only by the IDs the published numbering assigns. Tests convert freely to build corrupt tables. It does not check that the translation itself is correct; `TestUnreachedElementDeclarationsDoNotChangeValidation` compares validation against the schema without unreached declarations |
 | `internal/schema/wildcard_work_external_test.go` with `internal/schema/wildcard_test.go` | The external test compiles interleaved namespace lists of 511 to 1,024 namespaces and requires at least 256 more steps of the owning budget when the lists are compared than when they are held apart, for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction. `TestWildcardSetOperationsChargeEveryNamespaceVisited` requires each set operation to charge at least its visit count on lists of unequal length: overlap and intersection the shorter in-range run, subset the subset list, union both lists, intersection with `##other` the finite list, equality the list. Neither covers a consumer that passes a budget that does not charge, attribute-wildcard union through compilation, or sequence wildcard equivalence |
 | `TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry` in `internal/schema/content_table_budget_external_test.go`, `TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms` in `internal/schema/content_compile_budget_test.go` and `TestRunIndexedRowsDispatchAsLinearScan` in `internal/schema/content_run_index_test.go` | A compiled model needs exactly two steps for its record plus one per row, edge and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, with and without repeated names, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edges, `xs:all` terms and name-index entries of the two tables, so a direct sequence's index grows with its names, not its rows. Every row that shares a run index dispatches every input as a linear scan of its edges does. `TestCompileRootContentModelChargesOnlyAutomatonTablesWhenDirectCompilationDoesNotApply` requires a sequence or choice holding a group that direct compilation cannot splice to need exactly the records of its automaton table, `TestCompileDirectModelDeclinesWithinThreeStepsPerParticleAndNoRetainedSteps` requires direct compilation to decline it within three analysis steps per particle and no `MaxSchemaDependencySteps`, and `TestDirectBuildRejectsWhatItsAdmissionDidNotCount` requires a direct build to fail with an internal invariant when its walk or rows exceed what admission counted |
 | `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the functions it lists, each with the owner that charges the particles it reads. The list is followed to a fixpoint from the `Particles` field into every holder: a parameter of a static in-package call, including a variadic parameter it is spread into with an ellipsis, and a variable, struct field or function result it is assigned, stored in a composite literal, or returned as; the result of `chargedParticles` holds none. A new function that reads a holder fails it, whether directly, through a package-level variable initializer, or through a list another function stored or returned, and so does a listed function that no longer exists or reads no particle list. A list passed to an interface method, a function value, or a variadic parameter without an ellipsis is read by the caller, and a list returned by a function that is exported, referenced other than as a callee, or a method named like an interface method is read by that function. It does not catch an uncharged loop added inside a listed function, a list stored as an element of an array, map or slice (the continuation sets and their cache) and read through it elsewhere, or a list whose particles are copied into another slice |
