@@ -214,7 +214,9 @@ instance element reaches is not published and retains nothing in the element
 table, though its local name stays in the name table, about 61 bytes plus
 its text for each distinct name. The inline simple type of a zero-count
 element or of a prohibited attribute, with the types nested in it, retains
-nothing. Any other simple type no instance element
+nothing but the names it interned, except that when it is the first
+reference to a missing type, the missing-type placeholder it created stays,
+about 250 bytes, for later references to reuse. Any other simple type no instance element
 reaches, such as an attribute type inside a detached complex type, keeps its
 ID, its derivation record and its value-program slot, about 250 bytes with
 slice growth, but no facets, patterns or enumerations, so it retains the

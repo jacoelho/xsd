@@ -1426,8 +1426,9 @@ graph preserves these ownership rules:
   declarations nested in them and the children of a zero-count compositor,
   unless a live type also reaches them, as it does a declaration in a named
   group that a live type references; it drops the value definitions of the
-  simple types among them and does not publish the element declarations (see
-  `internal/schema`). Treating the whole subtree as absent was rejected:
+  simple types inside detached complex types and does not publish the element
+  declarations (see `internal/schema`). The inline simple type of the
+  zero-count element itself is dropped once checked (`compileUnheldSimpleType`). Treating the whole subtree as absent was rejected:
   §3.11.2 maps every identity constraint regardless of its parent.
 - Renumbering simple types densely over the reached ones, as element
   declarations are, was rejected: the simple-type ID is the value-program ID,
