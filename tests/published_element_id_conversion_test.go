@@ -89,8 +89,6 @@ type declarationUnit struct {
 	node ast.Node
 }
 
-// declarationUnits returns each function and each constant or variable
-// specification of file.
 func declarationUnits(file *ast.File) []declarationUnit {
 	var units []declarationUnit
 	for _, decl := range file.Decls {
