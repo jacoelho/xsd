@@ -4,8 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"maps"
 	"math/bits"
 	"math/rand/v2"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -21,11 +23,11 @@ const (
 	oracleTargetNamespace = "urn:t"
 	oracleOtherNamespace  = "urn:u"
 	oracleUnbounded       = -1
-	oracleMaxWord         = 24
 	oracleInstanceWord    = 10
 	oracleShortWords      = 300
 	oracleWalks           = 30
-	oracleAmbiguityBudget = 20_000
+	oracleConfigurations  = 100_000
+	oracleUncheckedShare  = 10
 	oracleMaxLeaves       = 63
 )
 
@@ -68,8 +70,8 @@ const (
 )
 
 // oracleParticle is a content model kept in the shape of the XSD 1.0
-// component model. leaf names a leaf particle in the masks the matcher
-// reports; node indexes the matcher's memo.
+// component model. leaf names a leaf particle in the leaf masks of
+// oracleConfiguration.step; node names the particle in residual keys.
 type oracleParticle struct {
 	kind       oracleTermKind
 	local      string
@@ -110,36 +112,11 @@ func (p *oracleParticle) accepts(n oracleName) bool {
 	return false
 }
 
-// matchesNothing reports whether no sequence is valid against p, as for a
-// required choice with no members (I-042 of docs/spec/INTERPRETATIONS.md).
-func (p *oracleParticle) matchesNothing() bool {
-	if p.max == 0 || p.min == 0 {
-		return false
-	}
-	switch p.kind {
-	case oracleSequence:
-		for _, child := range p.children {
-			if child.matchesNothing() {
-				return true
-			}
-		}
-	case oracleChoice:
-		for _, child := range p.children {
-			if child.max != 0 && !child.matchesNothing() {
-				return false
-			}
-		}
-		return true
-	case oracleElement, oracleHeadRef, oracleWildcard, oracleAll:
-	}
-	return false
-}
-
 func (p *oracleParticle) holdsParticleMatchingNothing() bool {
 	if p.max == 0 {
 		return false
 	}
-	if p.matchesNothing() {
+	if p.min > 0 && !p.termMatchesSome() {
 		return true
 	}
 	for _, child := range p.children {
@@ -150,172 +127,247 @@ func (p *oracleParticle) holdsParticleMatchingNothing() bool {
 	return false
 }
 
-// oracleSpans maps each end position of a match to the leaves that consumed
-// the probe item on the way there; oracleProbeUnseen marks a match that did
-// not cover the probe.
-type oracleSpans [oracleMaxWord + 1]uint64
-
-const oracleProbeUnseen = uint64(1) << 63
-
-// oracleMatcher matches a content model against a word. A particle with
-// maxOccurs 0 corresponds to no component (XSD 1.0 §3.3.2, §3.7.2, §3.8.2), so
-// it is no branch of a choice and matches the empty sequence elsewhere. In
-// prefix mode a term that starts after the last item matches, standing for
-// the items still to come.
-type oracleMatcher struct {
-	model     *oracleModel
-	word      []oracleName
-	probe     int
-	prefix    bool
-	particles []oracleSpans
-	terms     []oracleSpans
-	done      []uint8
+// oracleFrame is one step of what a content model still has to match.
+type oracleFrame struct {
+	kind   oracleFrameKind
+	p      *oracleParticle
+	lo, hi int
+	used   uint64
 }
+
+type oracleFrameKind uint8
 
 const (
-	oracleParticleDone uint8 = 1 << iota
-	oracleTermDone
+	// oracleRepeat matches p between lo and hi more times.
+	oracleRepeat oracleFrameKind = iota
+	// oracleAllRest matches the children of the all group p outside used.
+	oracleAllRest
+	// oracleTermEnd closes one repetition of a term: reaching it consumed
+	// nothing, and the repetition must consume an item.
+	oracleTermEnd
 )
 
-func newOracleMatcher(model *oracleModel) *oracleMatcher {
-	size := model.nodes * (oracleMaxWord + 1)
-	return &oracleMatcher{
-		model:     model,
-		particles: make([]oracleSpans, size),
-		terms:     make([]oracleSpans, size),
-		done:      make([]uint8, size),
+// oracleResidual is the frames a valid sequence must still match, in order.
+type oracleResidual []oracleFrame
+
+func oracleRepeatOf(p *oracleParticle) oracleFrame {
+	f := oracleFrame{kind: oracleRepeat, p: p, lo: p.min, hi: p.max}
+	if p.termNullable() {
+		f.lo = 0
 	}
+	return f
 }
 
-// match returns the leaves that consume the probe item in matches of the
-// whole word, with oracleProbeUnseen set when the probe is past the word, or
-// zero when no match exists.
-func (m *oracleMatcher) match(word []oracleName, probe int, prefix bool) uint64 {
-	m.word, m.probe, m.prefix = word, probe, prefix
-	clear(m.done)
-	spans := m.particle(m.model.root, 0)
-	return spans[len(word)]
-}
-
-func (m *oracleMatcher) accepts(word []oracleName) bool {
-	return m.match(word, len(word), false) != 0
-}
-
-// prefixLeaves returns the leaves that can consume the last item of a word
-// that some valid sequence starts with, or zero when none starts with it.
-func (m *oracleMatcher) prefixLeaves(word []oracleName) uint64 {
-	return m.match(word, len(word)-1, true) &^ oracleProbeUnseen
-}
-
-func (m *oracleMatcher) particle(p *oracleParticle, start int) oracleSpans {
-	key := p.node*(oracleMaxWord+1) + start
-	if m.done[key]&oracleParticleDone != 0 {
-		return m.particles[key]
-	}
-	var out oracleSpans
-	if p.min == 0 || p.max == 0 {
-		out[start] = oracleProbeUnseen
-	}
-	limit := p.max
-	if limit == oracleUnbounded {
-		limit = p.min + len(m.word)
-	}
-	var from oracleSpans
-	from[start] = oracleProbeUnseen
-	for n := 1; n <= limit; n++ {
-		from = m.then(from, func(at int) oracleSpans { return m.term(p, at) })
-		if n >= p.min {
-			for end := range out {
-				out[end] |= from[end]
-			}
-		}
-	}
-	m.particles[key] = out
-	m.done[key] |= oracleParticleDone
-	return out
-}
-
-func (m *oracleMatcher) then(from oracleSpans, next func(int) oracleSpans) oracleSpans {
-	var out oracleSpans
-	for mid := range len(m.word) + 1 {
-		before := from[mid]
-		if before == 0 {
-			continue
-		}
-		after := next(mid)
-		for end := mid; end <= len(m.word); end++ {
-			switch {
-			case after[end] == 0:
-			case mid > m.probe:
-				out[end] |= before
-			default:
-				out[end] |= after[end]
-			}
-		}
-	}
-	return out
-}
-
-func (m *oracleMatcher) term(p *oracleParticle, start int) oracleSpans {
-	key := p.node*(oracleMaxWord+1) + start
-	if m.done[key]&oracleTermDone != 0 {
-		return m.terms[key]
-	}
-	var out oracleSpans
-	switch {
-	case m.prefix && start == len(m.word):
-		out[start] = oracleProbeUnseen
-	case p.kind == oracleSequence:
-		out[start] = oracleProbeUnseen
+// termNullable reports whether one repetition of p can match the empty
+// sequence. A particle with maxOccurs 0 corresponds to no component
+// (XSD 1.0 §3.3.2, §3.7.2, §3.8.2), so it is no branch of a choice, and a
+// choice without branches matches nothing (I-042 of
+// docs/spec/INTERPRETATIONS.md).
+func (p *oracleParticle) termNullable() bool {
+	switch p.kind {
+	case oracleSequence:
 		for _, child := range p.children {
-			out = m.then(out, func(at int) oracleSpans { return m.particle(child, at) })
+			if child.min > 0 && child.max != 0 && !child.termNullable() {
+				return false
+			}
 		}
-	case p.kind == oracleChoice:
+		return true
+	case oracleChoice:
 		for _, child := range p.children {
-			if child.max == 0 {
-				continue
-			}
-			spans := m.particle(child, start)
-			for end := start; end <= len(m.word); end++ {
-				out[end] |= spans[end]
+			if child.max != 0 && (child.min == 0 || child.termNullable()) {
+				return true
 			}
 		}
-	case p.kind == oracleAll:
-		m.all(p.children, 0, start, oracleProbeUnseen, &out)
-	case start < len(m.word) && p.accepts(m.word[start]):
-		out[start+1] = oracleProbeUnseen
-		if start == m.probe {
-			out[start+1] = 1 << p.leaf
+		return false
+	case oracleAll:
+		for _, child := range p.children {
+			if child.min > 0 && child.max != 0 {
+				return false
+			}
 		}
+		return true
+	case oracleElement, oracleHeadRef, oracleWildcard:
 	}
-	m.terms[key] = out
-	m.done[key] |= oracleTermDone
-	return out
+	return false
 }
 
-func (m *oracleMatcher) all(children []*oracleParticle, used uint64, at int, leaves uint64, out *oracleSpans) {
-	complete := true
-	for i, child := range children {
-		if used&(1<<i) == 0 && child.min > 0 && child.max > 0 {
-			complete = false
+// termMatchesSome reports whether some sequence matches one repetition of p.
+func (p *oracleParticle) termMatchesSome() bool {
+	switch p.kind {
+	case oracleSequence:
+		for _, child := range p.children {
+			if child.min > 0 && child.max != 0 && !child.termMatchesSome() {
+				return false
+			}
+		}
+		return true
+	case oracleChoice:
+		for _, child := range p.children {
+			if child.max != 0 && (child.min == 0 || child.termMatchesSome()) {
+				return true
+			}
+		}
+		return false
+	case oracleElement, oracleHeadRef, oracleWildcard, oracleAll:
+	}
+	return true
+}
+
+func (r oracleResidual) nullable() bool {
+	for _, f := range r {
+		if f.kind == oracleAllRest && !f.allComplete() || f.kind == oracleRepeat && f.lo > 0 {
+			return false
 		}
 	}
-	if complete || m.prefix && at == len(m.word) {
-		out[at] |= leaves
+	return true
+}
+
+func (r oracleResidual) matchesSome() bool {
+	for _, f := range r {
+		if f.kind == oracleRepeat && f.lo > 0 && !f.p.termMatchesSome() {
+			return false
+		}
 	}
-	if at == len(m.word) {
+	return true
+}
+
+func (f oracleFrame) allComplete() bool {
+	for i, child := range f.p.children {
+		if f.used&(1<<i) == 0 && child.min > 0 && child.max != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (r oracleResidual) key(b *strings.Builder) {
+	for _, f := range r {
+		fmt.Fprintf(b, "%d.%d.%d.%d.%d;", f.kind, f.p.node, f.lo, f.hi, f.used)
+	}
+}
+
+// derive calls emit with each leaf that can consume n first in r and the
+// residual that follows it.
+func (r oracleResidual) derive(n oracleName, emit func(leaf int, rest oracleResidual)) {
+	if len(r) == 0 {
 		return
 	}
-	for i, child := range children {
-		if used&(1<<i) != 0 || child.max == 0 || !child.accepts(m.word[at]) {
-			continue
+	f, rest := r[0], r[1:]
+	switch f.kind {
+	case oracleTermEnd:
+	case oracleRepeat:
+		if f.lo == 0 || f.hi == 0 {
+			rest.derive(n, emit)
 		}
-		next := leaves
-		if at == m.probe {
-			next = 1 << child.leaf
+		if f.hi == 0 {
+			return
 		}
-		m.all(children, used|1<<i, at+1, next, out)
+		next := f
+		next.lo = max(f.lo-1, 0)
+		if f.hi != oracleUnbounded {
+			next.hi = f.hi - 1
+		}
+		f.p.deriveTerm(n, append(oracleResidual{{kind: oracleTermEnd}, next}, rest...), emit)
+	case oracleAllRest:
+		for i, child := range f.p.children {
+			if f.used&(1<<i) == 0 && child.max != 0 && child.accepts(n) {
+				next := f
+				next.used |= 1 << i
+				emit(child.leaf, append(oracleResidual{next}, rest...).withoutTermEnds())
+			}
+		}
+		if f.allComplete() {
+			rest.derive(n, emit)
+		}
 	}
+}
+
+func (p *oracleParticle) deriveTerm(n oracleName, then oracleResidual, emit func(leaf int, rest oracleResidual)) {
+	switch p.kind {
+	case oracleSequence:
+		r := make(oracleResidual, 0, len(p.children)+len(then))
+		for _, child := range p.children {
+			r = append(r, oracleRepeatOf(child))
+		}
+		append(r, then...).derive(n, emit)
+	case oracleChoice:
+		for _, child := range p.children {
+			if child.max != 0 {
+				append(oracleResidual{oracleRepeatOf(child)}, then...).derive(n, emit)
+			}
+		}
+	case oracleAll:
+		append(oracleResidual{{kind: oracleAllRest, p: p}}, then...).derive(n, emit)
+	case oracleElement, oracleHeadRef, oracleWildcard:
+		if p.accepts(n) {
+			emit(p.leaf, then.withoutTermEnds())
+		}
+	}
+}
+
+func (r oracleResidual) withoutTermEnds() oracleResidual {
+	out := make(oracleResidual, 0, len(r))
+	for _, f := range r {
+		if f.kind != oracleTermEnd {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// oracleConfiguration is the residuals of every way a model can match a
+// word that some valid sequence starts with, keyed by their frames.
+type oracleConfiguration map[string]oracleResidual
+
+func (model *oracleModel) start() oracleConfiguration {
+	c := oracleConfiguration{}
+	c.add(oracleResidual{oracleRepeatOf(model.root)})
+	return c
+}
+
+func (c oracleConfiguration) add(r oracleResidual) {
+	if !r.matchesSome() {
+		return
+	}
+	var b strings.Builder
+	r.key(&b)
+	c[b.String()] = r
+}
+
+// step returns the configuration after n and the leaves that can consume n.
+// Both are empty when no valid sequence continues with n.
+func (c oracleConfiguration) step(n oracleName) (next oracleConfiguration, leaves uint64) {
+	next = oracleConfiguration{}
+	for _, r := range c {
+		r.derive(n, func(leaf int, rest oracleResidual) {
+			if rest.matchesSome() {
+				leaves |= 1 << leaf
+				next.add(rest)
+			}
+		})
+	}
+	return next, leaves
+}
+
+func (c oracleConfiguration) accepting() bool {
+	for _, r := range c {
+		if r.nullable() {
+			return true
+		}
+	}
+	return false
+}
+
+func (c oracleConfiguration) key() string {
+	return strings.Join(slices.Sorted(maps.Keys(c)), "|")
+}
+
+func (model *oracleModel) accepts(word []oracleName) bool {
+	c := model.start()
+	for _, n := range word {
+		c, _ = c.step(n)
+	}
+	return c.accepting()
 }
 
 // oracleModel is the content type of the root element: the particle of a
@@ -377,84 +429,87 @@ func oracleExtend(word []oracleName, n oracleName) []oracleName {
 	return append(append(make([]oracleName, 0, len(word)+1), word...), n)
 }
 
-// ambiguity searches the words that some valid sequence starts with, shortest
-// first, for one whose last item two leaves can consume, which Unique Particle
-// Attribution forbids, and returns the first it finds. complete reports
-// whether the search covered every such word, which it does only when none
-// is longer than oracleMaxWord items and there are at most budget of them.
-func (m *oracleMatcher) ambiguity(alphabet []oracleName, budget int) (witness []oracleName, complete bool) {
-	frontier := [][]oracleName{{}}
-	for len(frontier) != 0 {
-		var next [][]oracleName
-		for _, w := range frontier {
-			for _, n := range alphabet {
-				if budget == 0 {
-					return nil, false
-				}
-				budget--
-				word := oracleExtend(w, n)
-				leaves := m.prefixLeaves(word)
-				if bits.OnesCount64(leaves) > 1 {
-					return word, true
-				}
-				if leaves == 0 {
-					continue
-				}
-				if len(word) == oracleMaxWord {
-					return nil, false
-				}
-				next = append(next, word)
+// ambiguity searches the configurations the model reaches, each once and
+// shortest word first, for an item two leaves can consume, which Unique
+// Particle Attribution forbids, and returns the first word that ends in one.
+// complete reports whether the search visited every configuration within
+// limit of them.
+func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness []oracleName, complete bool) {
+	type visit struct {
+		configuration oracleConfiguration
+		word          []oracleName
+	}
+	start := model.start()
+	seen := map[string]bool{start.key(): true}
+	queue := []visit{{configuration: start}}
+	for len(queue) != 0 {
+		v := queue[0]
+		queue = queue[1:]
+		for _, n := range alphabet {
+			next, leaves := v.configuration.step(n)
+			word := oracleExtend(v.word, n)
+			if bits.OnesCount64(leaves) > 1 {
+				return word, true
 			}
+			if len(next) == 0 {
+				continue
+			}
+			key := next.key()
+			if seen[key] {
+				continue
+			}
+			if len(seen) == limit {
+				return nil, false
+			}
+			seen[key] = true
+			queue = append(queue, visit{configuration: next, word: word})
 		}
-		frontier = next
 	}
 	return nil, true
 }
 
-// instanceWords returns about oracleShortWords words, every word up to some
-// length, followed by random walks along words that some valid sequence starts
-// with, each step adding the walk's word and one arbitrary extension of it.
-// It also returns a word whose last item two leaves can consume, if it met
-// one.
-func (m *oracleMatcher) instanceWords(alphabet []oracleName, rng *rand.Rand) (words [][]oracleName, ambiguous []oracleName) {
-	viable := func(word []oracleName) bool {
-		leaves := m.prefixLeaves(word)
-		if bits.OnesCount64(leaves) > 1 && ambiguous == nil {
-			ambiguous = word
-		}
-		return leaves != 0
+// instanceWords returns about oracleShortWords words: every word, up to some
+// length, whose proper prefixes some valid sequence starts with, followed by
+// random walks along words that some valid sequence starts with, each step
+// adding the walk's word and one arbitrary extension of it.
+func (model *oracleModel) instanceWords(alphabet []oracleName, rng *rand.Rand) [][]oracleName {
+	type prefix struct {
+		word          []oracleName
+		configuration oracleConfiguration
 	}
-	words = [][]oracleName{{}}
-	for frontier := words; len(frontier) != 0 && len(words) < oracleShortWords; {
-		var next [][]oracleName
-		for _, w := range frontier {
+	words := [][]oracleName{{}}
+	for frontier := []prefix{{configuration: model.start()}}; len(frontier) != 0 && len(words) < oracleShortWords; {
+		var next []prefix
+		for _, p := range frontier {
 			for _, n := range alphabet {
-				word := oracleExtend(w, n)
+				word := oracleExtend(p.word, n)
 				words = append(words, word)
-				if viable(word) && len(word) < oracleInstanceWord {
-					next = append(next, word)
+				if c, _ := p.configuration.step(n); len(c) != 0 && len(word) < oracleInstanceWord {
+					next = append(next, prefix{word: word, configuration: c})
 				}
 			}
 		}
 		frontier = next
 	}
 	for range oracleWalks {
+		c := model.start()
 		var walk []oracleName
 		for len(walk) < oracleInstanceWord-1 {
-			var options []oracleName
+			var options []prefix
 			for _, n := range alphabet {
-				if viable(oracleExtend(walk, n)) {
-					options = append(options, n)
+				if next, _ := c.step(n); len(next) != 0 {
+					options = append(options, prefix{word: oracleExtend(walk, n), configuration: next})
 				}
 			}
 			if len(options) == 0 {
 				break
 			}
-			walk = oracleExtend(walk, options[rng.IntN(len(options))])
+			chosen := options[rng.IntN(len(options))]
+			walk, c = chosen.word, chosen.configuration
 			words = append(words, walk, oracleExtend(walk, alphabet[rng.IntN(len(alphabet))]))
 		}
 	}
-	return words, ambiguous
+	return words
 }
 
 func (model *oracleModel) schema() string {
@@ -585,7 +640,7 @@ func (g *oracleGenerator) allGroup() *oracleParticle {
 }
 
 // model returns a content model of at most oracleMaxLeaves leaves, so every
-// leaf has a bit of the masks oracleSpans holds.
+// leaf has a bit of the leaf masks oracleConfiguration.step returns.
 func (g *oracleGenerator) model() *oracleModel {
 	for {
 		*g = oracleGenerator{rng: g.rng}
@@ -611,8 +666,12 @@ func TestContentModelValidationMatchesReferenceLanguage(t *testing.T) {
 	t.Logf("seed %#x, %d models; model i uses rand.NewPCG(seed, i)", seed, *contentModelOracleModels)
 	var tally oracleTally
 	t.Cleanup(func() {
-		t.Logf("%d models validated %d instances; %d rejected for Unique Particle Attribution, of which %d unchecked because a particle matches nothing and %d without a competing pair in the words searched",
-			tally.accepted.Load(), tally.instances.Load(), tally.rejected.Load(), tally.unchecked.Load(), tally.unproven.Load())
+		rejected, unchecked := tally.rejected.Load(), tally.unchecked.Load()
+		t.Logf("%d models validated %d instances; %d rejected for Unique Particle Attribution, of which %d unchecked because no sequence reaches a competing pair past a particle that matches nothing",
+			tally.accepted.Load(), tally.instances.Load(), rejected, unchecked)
+		if unchecked*oracleUncheckedShare > rejected {
+			t.Errorf("%d of %d rejected models unchecked, want at most 1 in %d", unchecked, rejected, oracleUncheckedShare)
+		}
 	})
 	for i := range *contentModelOracleModels {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -625,28 +684,26 @@ func TestContentModelValidationMatchesReferenceLanguage(t *testing.T) {
 }
 
 type oracleTally struct {
-	accepted, instances, rejected, unchecked, unproven atomic.Int64
+	accepted, instances, rejected, unchecked atomic.Int64
 }
 
 func checkContentModelLanguage(t *testing.T, model *oracleModel, rng *rand.Rand, tally *oracleTally) {
 	t.Helper()
 	schema := model.schema()
 	alphabet := model.alphabet()
-	matcher := newOracleMatcher(model)
+	witness, complete := model.ambiguity(alphabet, oracleConfigurations)
+	if !complete {
+		t.Fatalf("the reference model reaches more than %d configurations\nschema: %s", oracleConfigurations, schema)
+	}
 	engine, err := xsd.Compile(xsd.Bytes("model.xsd", []byte(schema)))
 	if err != nil {
 		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-		if !ok || diagnostic.Code() != xsderrors.CodeSchemaContentModel {
-			t.Fatalf("Compile() error = %v, want nil or %s\nschema: %s", err, xsderrors.CodeSchemaContentModel, schema)
+		if !ok || diagnostic.Code() != xsderrors.CodeSchemaContentModel || !strings.Contains(diagnostic.Message(), "UPA violation") {
+			t.Fatalf("Compile() error = %v, want nil or a %s UPA violation\nschema: %s", err, xsderrors.CodeSchemaContentModel, schema)
 		}
 		tally.rejected.Add(1)
-		if model.root.holdsParticleMatchingNothing() {
+		if witness == nil && model.root.holdsParticleMatchingNothing() {
 			tally.unchecked.Add(1)
-			return
-		}
-		witness, complete := matcher.ambiguity(alphabet, oracleAmbiguityBudget)
-		if witness == nil && !complete {
-			tally.unproven.Add(1)
 			return
 		}
 		if witness == nil {
@@ -654,21 +711,28 @@ func checkContentModelLanguage(t *testing.T, model *oracleModel, rng *rand.Rand,
 		}
 		return
 	}
-	words, ambiguous := matcher.instanceWords(alphabet, rng)
-	if ambiguous != nil {
-		t.Fatalf("Compile() accepted a content model in which two particles can consume the last item of %v\nschema: %s", ambiguous, schema)
+	if witness != nil {
+		t.Fatalf("Compile() accepted a content model in which two particles can consume the last item of %v\nschema: %s", witness, schema)
 	}
 	session, err := engine.NewSession(xsd.ValidateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
+	words := model.instanceWords(alphabet, rng)
 	tally.accepted.Add(1)
 	tally.instances.Add(int64(len(words)))
 	for _, word := range words {
-		want := matcher.accepts(word)
+		want := model.accepts(word)
 		instance := oracleInstance(word)
-		if err := session.Validate(strings.NewReader(instance)); (err == nil) != want {
-			t.Fatalf("Validate() = %v, want valid = %v\nschema: %s\ninstance: %s", err, want, schema, instance)
+		err := session.Validate(strings.NewReader(instance))
+		if want {
+			if err != nil {
+				t.Fatalf("Validate() = %v, want valid\nschema: %s\ninstance: %s", err, schema, instance)
+			}
+			continue
+		}
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); !ok || diagnostic.Category() != xsderrors.CategoryValidation {
+			t.Fatalf("Validate() = %v, want a %s diagnostic\nschema: %s\ninstance: %s", err, xsderrors.CategoryValidation, schema, instance)
 		}
 	}
 }
