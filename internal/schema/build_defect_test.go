@@ -247,11 +247,6 @@ func buildDefectComplexType(t *testing.T, rt *schemaBuild, local string) Complex
 	return id
 }
 
-func isDiagnostic(err error) bool {
-	_, ok := errors.AsType[*xsderrors.Error](err)
-	return ok
-}
-
 func buildDefectGlobalElement(t *testing.T, rt *schemaBuild, local string) ElementID {
 	t.Helper()
 	name, ok := rt.Names.LookupQName("", local)
