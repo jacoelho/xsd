@@ -367,7 +367,6 @@ func validComponent[T byteText](text T, start, end int, allowed *asciiSet) bool 
 	return true
 }
 
-// asciiSet is a set of ASCII bytes.
 type asciiSet [2]uint64
 
 func newASCIISet(chars string) asciiSet {
