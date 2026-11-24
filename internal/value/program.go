@@ -103,7 +103,10 @@ type Builder struct {
 	// patternTotal is the only compile-time pattern account; Validate and Complete charge every evaluation to it.
 	patternTotal PatternAccount
 	prepaidSlots int
-	maxTypes     uint32
+	// issued counts every user-type ID Reserve has issued, including IDs
+	// Truncate removed, so removal never raises the MaxTypes headroom.
+	issued   uint64
+	maxTypes uint32
 }
 
 // NewBuilder creates a value-program builder. All XSD simple builtins occupy
@@ -136,13 +139,14 @@ func NewBuilder(options BuilderOptions) *Builder {
 	return b
 }
 
-// Reserve allocates one stable user-type ID. The slot remains incomplete until
-// Complete succeeds; builtins occupy the fixed prefix below this ID.
+// Reserve allocates one user-type ID, stable until a Truncate at or below it.
+// The slot remains incomplete until Complete succeeds; builtins occupy the
+// fixed prefix below this ID.
 func (b *Builder) Reserve() (TypeID, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return NoType, ErrMetadata
 	}
-	if uint64(BuiltinTypeCount)+uint64(len(b.program.types))+1 > uint64(b.maxTypes) {
+	if uint64(BuiltinTypeCount)+b.issued+1 > uint64(b.maxTypes) {
 		return NoType, ErrLimit
 	}
 	if b.prepaidSlots == 0 {
@@ -156,15 +160,72 @@ func (b *Builder) Reserve() (TypeID, error) {
 	id := userTypeID(len(b.program.types))
 	b.program.types = append(b.program.types, typeDef{})
 	b.program.complete = append(b.program.complete, completionReserved)
+	b.issued++
 	return id, nil
+}
+
+// Truncate removes every user type whose ID is next or above, except keep,
+// which moves to ID next; NoType keeps none. Reserve then issues the ID after
+// the last remaining type. Truncate refunds no charge: the slot, storage,
+// construction and pattern charges of the removed types stay spent, and they
+// still count against MaxTypes. The caller guarantees that nothing outside the
+// removed types names them or the old ID of keep. Truncate fails with
+// ErrMetadata on a sealed builder, when next is a builtin ID or past the user
+// types the builder holds, when a removed slot or keep is not committed, since
+// a reserved or in-progress slot has a caller still completing it, when keep
+// is below next or past the user types, and when keep's base, list item or a
+// union member is next or above, since that type would be removed.
+func (b *Builder) Truncate(next, keep TypeID) error {
+	if b == nil || b.program == nil || b.program.sealed {
+		return ErrMetadata
+	}
+	first, ok := userTypeIndex(next, len(b.program.types)+1)
+	if !ok {
+		return ErrMetadata
+	}
+	for _, state := range b.program.complete[first:] {
+		if state != completionCommitted {
+			return ErrMetadata
+		}
+	}
+	last := first
+	if keep != NoType {
+		kept, ok := userTypeIndex(keep, len(b.program.types))
+		if !ok || kept < first || !b.program.types[kept].referencesOnlyBelow(next) {
+			return ErrMetadata
+		}
+		b.program.types[first] = b.program.types[kept]
+		last++
+	}
+	clear(b.program.types[last:])
+	b.program.types = b.program.types[:last]
+	b.program.complete = b.program.complete[:last]
+	return nil
+}
+
+// referencesOnlyBelow reports whether t's base, list item and union members
+// are all builtins, NoType or user types below next.
+func (t *typeDef) referencesOnlyBelow(next TypeID) bool {
+	below := func(id TypeID) bool { return id == NoType || id < next }
+	if !below(t.base) || !below(t.listItem) {
+		return false
+	}
+	for _, member := range t.union {
+		if !below(member) {
+			return false
+		}
+	}
+	return true
 }
 
 // ReserveCapacity admits storage for user-type slots and grows the construction
 // slices before records are reserved. The charge is a bounded accounting unit
 // for each slot, not an exact Go allocator byte measurement; slices.Grow may
-// retain implementation-defined capacity slack.
+// retain implementation-defined capacity slack. It fails with ErrMetadata
+// after a Truncate that removed a type, since the slots it counts would no
+// longer match the IDs issued.
 func (b *Builder) ReserveCapacity(userTypes int) error {
-	if b == nil || b.program == nil || b.program.sealed || userTypes < 0 {
+	if b == nil || b.program == nil || b.program.sealed || userTypes < 0 || b.issued != uint64(len(b.program.types)) {
 		return ErrMetadata
 	}
 	if b.maxTypes < uint32(BuiltinTypeCount) || uint64(userTypes) > uint64(b.maxTypes)-uint64(BuiltinTypeCount) {
@@ -341,8 +402,9 @@ func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	return storage, nil
 }
 
-// UserTypeCount returns the number of user type IDs the builder has issued:
-// the length of the keep SealKeeping takes.
+// UserTypeCount returns the number of user types the builder holds, the
+// issued IDs that Truncate has not removed: the length of the keep
+// SealKeeping takes.
 func (b *Builder) UserTypeCount() int {
 	if b == nil || b.program == nil {
 		return 0

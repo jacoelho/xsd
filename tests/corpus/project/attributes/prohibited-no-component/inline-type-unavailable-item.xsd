@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t">
+<xs:complexType name="A"><xs:attribute name="p" use="prohibited"><xs:simpleType><xs:list itemType="t:missing"/></xs:simpleType></xs:attribute></xs:complexType>
+<xs:element name="r"><xs:complexType><xs:attribute name="a"><xs:simpleType><xs:list itemType="t:missing"/></xs:simpleType></xs:attribute></xs:complexType></xs:element>
+</xs:schema>
