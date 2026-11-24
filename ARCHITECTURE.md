@@ -889,9 +889,11 @@ Formatting flow:
    acquire or buffer a reader's complete contents.
 2. One `internal/xmlstream` reader validates the complete input and records
    bounded source spans and layout decisions; malformed input writes nothing.
-3. Rendering replays those spans from the caller's immutable string. Writer
-   failures may leave partial output; the WASM adapter discards its output
-   builder on any error.
+3. Rendering replays those spans from the caller's immutable string and never
+   reports malformed input: a writer error returns unchanged, the output limit
+   is `format.limit`, and a span analysis did not admit is an internal
+   invariant. Writer failures may leave partial output; the WASM adapter
+   discards its output builder on any error.
 4. Formatting does not belong in the root public `xsd` package.
 
 Diagnostics flow:

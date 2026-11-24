@@ -269,8 +269,8 @@ func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
 		code  xsderrors.Code
 		line  int
 	}{
-		{name: "declared latin1", input: `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, code: xsderrors.CodeUnsupportedNonUTF8},
-		{name: "utf16 bom", input: "\xFE\xFF<root/>", code: xsderrors.CodeUnsupportedNonUTF8},
+		{name: "declared latin1", input: `<?xml version="1.0" encoding="ISO-8859-1"?><root/>`, code: xsderrors.CodeUnsupportedNonUTF8, line: 1},
+		{name: "utf16 bom", input: "\xFE\xFF<root/>", code: xsderrors.CodeUnsupportedNonUTF8, line: 1},
 		{name: "doctype first", input: `<!DOCTYPE root><root/>`, code: xsderrors.CodeUnsupportedDTD, line: 1},
 		{name: "doctype after comment", input: "<!-- c -->\n<!DOCTYPE root><root/>", code: xsderrors.CodeUnsupportedDTD, line: 2},
 		{name: "text entity", input: "<root>\n&x;</root>", code: xsderrors.CodeUnsupportedExternal, line: 2},
@@ -291,6 +291,19 @@ func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
 				t.Fatalf("XML() error line = %d, want %d", diagnostic.Line(), tt.line)
 			}
 		})
+	}
+}
+
+func TestFormatXMLKeepsLineBreakOnlyLeafTextInline(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	if err := XML(&out, "<root><v>\n</v></root>"); err != nil {
+		t.Fatalf("XML() error = %v", err)
+	}
+	const want = "<root>\n  <v>&#xA;</v>\n</root>"
+	if out.String() != want {
+		t.Fatalf("XML() = %q, want %q", out.String(), want)
 	}
 }
 
@@ -748,6 +761,20 @@ func TestFormatXMLRejectsEmptyAndUnclosedDocuments(t *testing.T) {
 	}
 }
 
+func TestFormatXMLLocatesEmptyDocumentAtFirstLineAndColumn(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	err := XML(&out, "")
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
+		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeFormatXML)
+	}
+	if diagnostic.Line() != 1 || diagnostic.Column() != 1 {
+		t.Fatalf("XML() location = %d:%d, want 1:1", diagnostic.Line(), diagnostic.Column())
+	}
+}
+
 func TestFormatXMLRejectsTruncatedTrailingMarkup(t *testing.T) {
 	t.Parallel()
 	for _, suffix := range []string{`</`, `</root `, `<next `} {
@@ -881,6 +908,79 @@ func TestFormatXMLRejectsInvalidWriterCounts(t *testing.T) {
 			}
 			if errors.Is(err, writeErr) != test.wantCause {
 				t.Fatalf("XML() error = %v, write cause present = %t, want %t", err, errors.Is(err, writeErr), test.wantCause)
+			}
+		})
+	}
+}
+
+type failAtWriter struct {
+	failAt int
+	calls  int
+	err    error
+}
+
+func (w *failAtWriter) write(n int) (int, error) {
+	w.calls++
+	if w.calls == w.failAt {
+		return 0, w.err
+	}
+	return n, nil
+}
+
+func (w *failAtWriter) Write(p []byte) (int, error) {
+	return w.write(len(p))
+}
+
+type failAtStringWriter struct {
+	failAtWriter
+}
+
+func (w *failAtStringWriter) WriteString(s string) (int, error) {
+	return w.write(len(s))
+}
+
+func TestFormatXMLReturnsEveryWriterFailureUnchanged(t *testing.T) {
+	t.Parallel()
+
+	const input = "<?pi data?>\n<!-- head -->\n" +
+		"<root a=\"x &amp; y\" b='a&#x41;b'>\n" +
+		"  <item>text &lt; more &#x263A;</item>\n" +
+		"  <data><![CDATA[a\nb]]></data>\n" +
+		"  <empty/>\n" +
+		"  <!-- inner -->\n" +
+		"  <?inner pi?>\n" +
+		"</root>\n<!-- tail -->"
+	writeErr := errors.New("write failed")
+	shapes := []struct {
+		name   string
+		writer func(failAt int) (io.Writer, *failAtWriter)
+	}{
+		{name: "Write only", writer: func(failAt int) (io.Writer, *failAtWriter) {
+			w := &failAtWriter{failAt: failAt, err: writeErr}
+			return w, w
+		}},
+		{name: "WriteString", writer: func(failAt int) (io.Writer, *failAtWriter) {
+			w := &failAtStringWriter{failAtWriter{failAt: failAt, err: writeErr}}
+			return w, &w.failAtWriter
+		}},
+	}
+	for _, shape := range shapes {
+		t.Run(shape.name, func(t *testing.T) {
+			t.Parallel()
+
+			w, counter := shape.writer(0)
+			if err := XML(w, input); err != nil {
+				t.Fatalf("XML() error = %v", err)
+			}
+			for n := 1; n <= counter.calls; n++ {
+				w, _ := shape.writer(n)
+				err := XML(w, input)
+				if !errors.Is(err, writeErr) {
+					t.Fatalf("XML() failing write %d of %d: error = %v, want %v", n, counter.calls, err, writeErr)
+				}
+				if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok {
+					t.Fatalf("XML() failing write %d of %d: diagnostic %q, want the writer error", n, counter.calls, diagnostic.Code())
+				}
 			}
 		})
 	}
