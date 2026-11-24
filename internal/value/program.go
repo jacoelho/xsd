@@ -167,9 +167,9 @@ func (b *Builder) Reserve() (TypeID, error) {
 // issues next again. It refunds no charge: the slot, storage, construction
 // and pattern charges of the removed types stay spent, and they still count
 // against MaxTypes. Truncate fails with ErrMetadata on a sealed builder, when
-// next is a builtin ID or past the issued IDs, and when a removed slot is not
-// committed, since a reserved or in-progress slot has a caller still
-// completing it.
+// next is a builtin ID or past the user types the builder holds, and when a
+// removed slot is not committed, since a reserved or in-progress slot has a
+// caller still completing it.
 func (b *Builder) Truncate(next TypeID) error {
 	if b == nil || b.program == nil || b.program.sealed {
 		return ErrMetadata

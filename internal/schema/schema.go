@@ -27,7 +27,6 @@ type schemaBuild struct {
 	CompiledContent       compiledContent
 	SimpleTypes           []simpleType
 	simpleTypeUnavailable []bool
-	droppedSimpleTypes    droppedSimpleTypeCharges
 	Attributes            []attributeDecl
 	Elements              []elementDecl
 	Identities            []identityConstraintSpec
@@ -45,6 +44,7 @@ type schemaBuild struct {
 	// keeping only these; builtins are always kept.
 	ReachableSimpleTypes []bool
 	Names                nameTable
+	droppedSimpleTypes   droppedSimpleTypeCharges
 	AnyType              ComplexTypeID
 }
 

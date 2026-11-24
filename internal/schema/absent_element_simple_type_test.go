@@ -8,17 +8,13 @@ import (
 )
 
 // zeroCountInlineTypeOrderSchema holds a zero-count element whose inline union
-// names the missing type t:missing, and a live element whose inline list
-// names it too, in complex types named so that compileGlobalTypes, which
-// compiles complex types in name order, reaches the zero-count element first
-// when zeroCountFirst is set. Compiled first, the inline union creates the
-// missing-type placeholder and is kept; compiled second, it finds the
-// placeholder and is dropped. Both orders hold the same components.
-func zeroCountInlineTypeOrderSchema(zeroCountFirst bool) string {
-	zeroCount, live := "A", "B"
-	if !zeroCountFirst {
-		zeroCount, live = "B", "A"
-	}
+// names the missing type t:missing in complex type zeroCount, and a live
+// element whose inline list names it too in complex type live.
+// compileGlobalTypes compiles complex types in name order: when zeroCount
+// sorts first, the inline union creates the missing-type placeholder and is
+// kept; otherwise it finds the placeholder and is dropped. Both orders hold the
+// same components.
+func zeroCountInlineTypeOrderSchema(zeroCount, live string) string {
 	return fmt.Sprintf(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t">
   <xs:complexType name="%s"><xs:sequence>
     <xs:element name="z" minOccurs="0" maxOccurs="0"><xs:simpleType><xs:union memberTypes="t:missing xs:int xs:date"><xs:simpleType><xs:list itemType="xs:int"/></xs:simpleType></xs:union></xs:simpleType></xs:element>
@@ -57,7 +53,7 @@ func minimalPassingLimit(t *testing.T, text string, set func(*Options, int)) int
 func TestDroppingAZeroCountInlineTypeChangesNoLimitBoundary(t *testing.T) {
 	t.Parallel()
 
-	kept, dropped := zeroCountInlineTypeOrderSchema(true), zeroCountInlineTypeOrderSchema(false)
+	kept, dropped := zeroCountInlineTypeOrderSchema("A", "B"), zeroCountInlineTypeOrderSchema("B", "A")
 	if k, d := len(compiledTestBuild(t, kept).SimpleTypes), len(compiledTestBuild(t, dropped).SimpleTypes); k != d+2 {
 		t.Fatalf("simple types kept = %d, dropped = %d, want the dropped order to lack the inline union and its list member", k, d)
 	}
