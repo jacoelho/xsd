@@ -221,7 +221,7 @@ func TestASCIIXMLNamePredicatesAcrossByteRange(t *testing.T) {
 	}
 }
 
-func TestIsNMTOKENBytes(t *testing.T) {
+func TestIsNMTOKENBytesAcceptsOnlyXMLNameCharacters(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		in   string
@@ -235,7 +235,7 @@ func TestIsNMTOKENBytes(t *testing.T) {
 		{in: "a/", want: false},
 		{in: "é b", want: false},
 		{in: "é×", want: false},
-		{in: "a×", want: false},
+		{in: "a\u00d7", want: false},
 		{in: "é\xff", want: false},
 		{in: "a\xc3", want: false},
 	}
@@ -252,7 +252,7 @@ func TestIsNMTOKENBytes(t *testing.T) {
 var collapsedSink string
 
 func TestCollapseXMLWhitespaceDoesNotCopyCollapsedInput(t *testing.T) {
-	for _, in := range []string{"a b", "a b c", "a  b"} {
+	for _, in := range []string{"a b", "a b c", "a\u00a0 b"} {
 		allocs := testing.AllocsPerRun(10, func() {
 			collapsedSink = CollapseXMLWhitespace(in)
 		})

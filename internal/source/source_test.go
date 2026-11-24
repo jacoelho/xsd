@@ -1371,7 +1371,7 @@ func TestKeySeparatesURISchemesFromLocalPaths(t *testing.T) {
 	}
 }
 
-func TestSameResolutionContext(t *testing.T) {
+func TestSameResolutionContextRequiresSameResolverAndBackends(t *testing.T) {
 	t.Parallel()
 	resolver := Resolver(func(_, location string) (Source, error) {
 		return Bytes(location, nil), nil
