@@ -72,6 +72,47 @@ type Token struct {
 	Column   int
 	Kind     TokenKind
 	TextKind CharacterDataKind
+	// referenceStart is the Data index where the first decoded reference of a
+	// CharacterDataReference token begins; Data before it is literal source.
+	referenceStart int
+}
+
+// ContentPos reports the position of the token's first source byte that is
+// not XML whitespace, the character a diagnostic about unexpected character
+// content points at. It skips the literal whitespace that starts a
+// CharacterDataText or CharacterDataReference token; a reference and a CDATA
+// section are content from their first byte. A token of only literal
+// whitespace, and any token that is not character data, reports its own
+// position.
+func (t *Token) ContentPos() (line, column int) {
+	if t.Kind != KindCharData {
+		return t.Line, t.Column
+	}
+	var literal []byte
+	switch t.TextKind {
+	case CharacterDataText:
+		literal = t.Data
+	case CharacterDataReference:
+		literal = t.Data[:t.referenceStart]
+	case CharacterDataCDATA, CharacterDataInvalid:
+		return t.Line, t.Column
+	}
+	line, column = t.Line, t.Column
+	for _, b := range literal {
+		switch b {
+		case ' ', '\t':
+			column++
+		case '\n':
+			line++
+			column = 1
+		default:
+			return line, column
+		}
+	}
+	if t.TextKind == CharacterDataReference {
+		return line, column
+	}
+	return t.Line, t.Column
 }
 
 // begin retires only the previous active payload. t must be zero or a produced
@@ -86,6 +127,7 @@ func (t *Token) begin(kind TokenKind, line, column int) {
 	case KindCharData:
 		t.Data = nil
 		t.TextKind = CharacterDataInvalid
+		t.referenceStart = 0
 	case KindPI:
 		t.Data = nil
 		t.Directive = nil
@@ -283,12 +325,10 @@ func (p *parser) next(dst *Token) error {
 	p.attrs = p.attrs[:0]
 	if p.inCDATA {
 		p.retainedBytes = 0
+		// The pending ']' bytes that open this chunk are the bytes just
+		// before the next unread byte, all on its line.
 		line, col := p.br.nextBytePos()
-		if err := p.readCDATAChunk(dst, line, col); err != nil {
-			return err
-		}
-		p.withTokenSpan(dst, dst.StartOffset)
-		return nil
+		return p.readCDATAChunk(dst, line, col-p.cdataMatched)
 	}
 	if p.pendingEnd.Name.Local != "" {
 		end := p.pendingEnd
@@ -341,7 +381,9 @@ func (p *parser) next(dst *Token) error {
 			if skip {
 				continue
 			}
-			p.withTokenSpan(dst, tokenStart)
+			if dst.Kind != KindCharData {
+				p.withTokenSpan(dst, tokenStart)
+			}
 			return nil
 		case '?':
 			position := processingInstructionWithinDocument
@@ -396,6 +438,7 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
 	kind := CharacterDataText
+	referenceStart := 0
 	borrowFirst := isBorrowedASCIITextByte(first)
 	switch first {
 	case '&':
@@ -435,6 +478,7 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			dst.begin(KindCharData, line, col)
 			dst.TextKind = kind
 			dst.Data = p.textBuf
+			dst.referenceStart = referenceStart
 			return nil
 		}
 		if err != nil {
@@ -479,6 +523,7 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			dst.begin(KindCharData, line, col)
 			dst.TextKind = kind
 			dst.Data = p.textBuf
+			dst.referenceStart = referenceStart
 			return nil
 		}
 		b, err = p.br.readByte()
@@ -496,7 +541,10 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			continue
 		}
 		if b == '&' {
-			kind = CharacterDataReference
+			if kind != CharacterDataReference {
+				kind = CharacterDataReference
+				referenceStart = len(p.textBuf)
+			}
 			if err := p.readEntity(&p.textBuf); err != nil {
 				return err
 			}
@@ -739,24 +787,24 @@ func (p *parser) readCDATAChunk(dst *Token, line, col int) error {
 		if done {
 			p.inCDATA = false
 			p.cdataMatched = 0
-			p.cdataToken(dst, line, col, chunkOffset)
+			p.cdataToken(dst, line, col, chunkOffset, p.br.offset())
 			return nil
 		}
 		if len(p.textBuf) >= xmlInputBufferSize {
 			p.cdataMatched = matched
-			p.cdataChunkOffset = p.br.offset()
-			p.cdataToken(dst, line, col, chunkOffset)
+			p.cdataChunkOffset = p.br.offset() - matched
+			p.cdataToken(dst, line, col, chunkOffset, p.cdataChunkOffset)
 			return nil
 		}
 	}
 }
 
-func (p *parser) cdataToken(dst *Token, line, col, chunkOffset int) {
+func (p *parser) cdataToken(dst *Token, line, col, startOffset, endOffset int) {
 	dst.begin(KindCharData, line, col)
 	dst.Data = p.textBuf
 	dst.TextKind = CharacterDataCDATA
-	dst.StartOffset = chunkOffset
-	dst.EndOffset = p.br.offset()
+	dst.StartOffset = startOffset
+	dst.EndOffset = endOffset
 }
 
 func (p *parser) readCDATAByte(matched *int) (bool, error) {

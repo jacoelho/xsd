@@ -13,7 +13,8 @@ import (
 // FuzzReader exercises the public Reader lifecycle against arbitrary XML and
 // requires the token stream and final outcome to be independent of how the
 // input reader splits its bytes, and every token position to have line and
-// column at least 1. chunks cycles through read lengths; an empty
+// column at least 1, with comments and processing instructions both discarded
+// and emitted. chunks cycles through read lengths; an empty
 // chunks reads the whole input and is the reference.
 func FuzzReader(f *testing.F) {
 	for _, seed := range []string{
@@ -44,27 +45,29 @@ func FuzzReader(f *testing.F) {
 		for i, size := range chunks {
 			sizes[i] = int(size)
 		}
-		whole, wholeErr := recordReader(strings.NewReader(input), Config{}, 4096)
-		chunked, chunkedErr := recordReader(newChunkedReader(strings.NewReader(input), sizes...), Config{}, 4096)
-		// Config{} sets no token or input limit, and chunkedReader never makes
-		// enough empty reads to trip no-progress, so every outcome is compared.
-		for _, err := range []error{wholeErr, chunkedErr} {
-			if errors.Is(err, errRecordedTokenLimit) {
-				t.Fatalf("Reader.Next emitted more than 4096 tokens for %d input bytes", len(input))
+		for _, config := range []Config{{}, {CommentMode: CommentModeEmit, EmitPI: true}} {
+			whole, wholeErr := recordReader(strings.NewReader(input), config, 4096)
+			chunked, chunkedErr := recordReader(newChunkedReader(strings.NewReader(input), sizes...), config, 4096)
+			// Neither config sets a token or input limit, and chunkedReader never makes
+			// enough empty reads to trip no-progress, so every outcome is compared.
+			for _, err := range []error{wholeErr, chunkedErr} {
+				if errors.Is(err, errRecordedTokenLimit) {
+					t.Fatalf("Reader.Next emitted more than 4096 tokens for %d input bytes", len(input))
+				}
 			}
-		}
-		if got, want := readerOutcome(chunkedErr), readerOutcome(wholeErr); got != want {
-			t.Fatalf("chunked outcome = %s, whole outcome = %s", got, want)
-		}
-		if len(chunked) != len(whole) {
-			t.Fatalf("chunked tokens = %d, whole tokens = %d", len(chunked), len(whole))
-		}
-		for i := range whole {
-			if chunked[i] != whole[i] {
-				t.Fatalf("token %d chunked = %+v, whole = %+v", i, chunked[i], whole[i])
+			if got, want := readerOutcome(chunkedErr), readerOutcome(wholeErr); got != want {
+				t.Fatalf("chunked outcome = %s, whole outcome = %s", got, want)
 			}
-			if whole[i].line < 1 || whole[i].column < 1 {
-				t.Fatalf("token %d position = %d:%d, want line and column at least 1", i, whole[i].line, whole[i].column)
+			if len(chunked) != len(whole) {
+				t.Fatalf("chunked tokens = %d, whole tokens = %d", len(chunked), len(whole))
+			}
+			for i := range whole {
+				if chunked[i] != whole[i] {
+					t.Fatalf("token %d chunked = %+v, whole = %+v", i, chunked[i], whole[i])
+				}
+				if whole[i].line < 1 || whole[i].column < 1 || whole[i].contentLine < 1 || whole[i].contentCol < 1 {
+					t.Fatalf("token %d position = %d:%d, content position = %d:%d, want line and column at least 1", i, whole[i].line, whole[i].column, whole[i].contentLine, whole[i].contentCol)
+				}
 			}
 		}
 	})
@@ -81,6 +84,8 @@ type recordedToken struct {
 	endOffset   int
 	line        int
 	column      int
+	contentLine int
+	contentCol  int
 	kind        TokenKind
 	textKind    CharacterDataKind
 }
@@ -142,6 +147,7 @@ func recordToken(reader *Reader, tok *Token) recordedToken {
 		kind:        tok.Kind,
 		textKind:    tok.TextKind,
 	}
+	record.contentLine, record.contentCol = tok.ContentPos()
 	switch tok.Kind {
 	case KindStart:
 		record.name = tok.Start.Name

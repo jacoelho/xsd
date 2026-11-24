@@ -31,14 +31,25 @@ func TestTextDiagnosticLocatedAtFirstTextByte(t *testing.T) {
 	}
 }
 
-func TestElementOnlyTextDiagnosticLocatedAtFirstTextByte(t *testing.T) {
+func TestElementOnlyTextDiagnosticLocatedAtFirstNonWhitespaceByte(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="child" minOccurs="0"/></xs:sequence></xs:complexType></xs:element></xs:schema>`
 	engine, err := xsd.Compile(xsd.Bytes("element-only.xsd", []byte(schema)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, doc := range []string{"<root>\nx</root>", "<root>\rx</root>", "<root>\r\nx</root>"} {
-		assertStartDiagnostics(t, engine.Validate(strings.NewReader(doc)), []startDiagnostic{{xsderrors.CodeValidationText, "/root", 1, 7}})
+	for _, test := range []struct {
+		doc          string
+		line, column int
+	}{
+		{"<root>x</root>", 1, 7},
+		{"<root> x</root>", 1, 8},
+		{"<root>\nx</root>", 2, 1},
+		{"<root>\rx</root>", 2, 1},
+		{"<root>\r\nx</root>", 2, 1},
+		{"<root>\n\n\n   x</root>", 4, 4},
+		{"<root>\n &#32;x</root>", 2, 2},
+	} {
+		assertStartDiagnostics(t, engine.Validate(strings.NewReader(test.doc)), []startDiagnostic{{xsderrors.CodeValidationText, "/root", test.line, test.column}})
 	}
 }
 

@@ -1,6 +1,7 @@
 package xmlstream
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -129,5 +130,118 @@ func TestCDATAContinuationChunkPositionIsFirstBytePosition(t *testing.T) {
 		if continuation.kind != KindCharData || continuation.data != "\ny" || continuation.line != 2 || continuation.column != wantColumn {
 			t.Fatalf("%s: continuation = %q at %d:%d, want %q at 2:%d", rc.name, continuation.data, continuation.line, continuation.column, "\ny", wantColumn)
 		}
+	}
+}
+
+func TestCDATAContinuationChunkStartsAtPendingBrackets(t *testing.T) {
+	t.Parallel()
+
+	const prefix = "<r><![CDATA["
+	input := prefix + strings.Repeat("x", xmlInputBufferSize-1) + "]]]y]]></r>"
+	firstPending := len(prefix) + xmlInputBufferSize
+	for _, rc := range []readerCase{wholeInput, chunkedInput(4096)} {
+		tokens, err := recordReader(rc.open(input), Config{}, 0)
+		if err != nil {
+			t.Fatalf("%s: %v", rc.name, err)
+		}
+		if len(tokens) != 4 {
+			t.Fatalf("%s: %d tokens, want 4", rc.name, len(tokens))
+		}
+		first, continuation := tokens[1], tokens[2]
+		if continuation.data != "]]y" || continuation.line != 1 || continuation.column != firstPending+1 {
+			t.Fatalf("%s: continuation = %q at %d:%d, want %q at 1:%d", rc.name, continuation.data, continuation.line, continuation.column, "]]y", firstPending+1)
+		}
+		if continuation.startOffset != firstPending || first.endOffset != firstPending {
+			t.Fatalf("%s: first chunk ends at %d, continuation starts at %d, want both %d", rc.name, first.endOffset, continuation.startOffset, firstPending)
+		}
+	}
+}
+
+func TestContentPosSkipsLiteralLeadingWhitespace(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name, text   string
+		line, column int
+	}{
+		{"text", "x", 1, 4},
+		{"after spaces and tab", " \t x", 1, 7},
+		{"after lf", "\nx", 2, 1},
+		{"after cr", "\rx", 2, 1},
+		{"after crlf", "\r\nx", 2, 1},
+		{"after blank lines and spaces", "\n\n\n   x", 4, 4},
+		{"after mixed line breaks", "\r\n\n\r\t x", 4, 3},
+		{"reference after whitespace", "\r\n &#32;x", 2, 2},
+		{"reference first", "&#10;x", 1, 4},
+		{"text before reference", "\n y&amp;", 2, 2},
+		{"whitespace only", "\n  ", 1, 4},
+		{"cdata", "<![CDATA[\n x]]>", 1, 4},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			for _, rc := range []readerCase{wholeInput, oneByteInput, chunkedInput(2)} {
+				var reader Reader
+				if err := reader.Reset(rc.open("<r>"+test.text+"</r>"), Config{}); err != nil {
+					t.Fatal(err)
+				}
+				if tok := mustNextToken(t, &reader); tok.Kind != KindStart {
+					t.Fatalf("%s: first token kind = %v, want start", rc.name, tok.Kind)
+				}
+				if _, _, err := reader.Start(); err != nil {
+					t.Fatal(err)
+				}
+				tok := mustNextToken(t, &reader)
+				if line, column := tok.ContentPos(); tok.Kind != KindCharData || line != test.line || column != test.column {
+					t.Fatalf("%s: ContentPos() = %d:%d for kind %v, want %d:%d", rc.name, line, column, tok.Kind, test.line, test.column)
+				}
+			}
+		})
+	}
+}
+
+func TestOutsideRootFailureLocatedAtFirstContentByte(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name, trailer string
+		cause         error
+		line, column  int
+	}{
+		{"text", "x", ErrTextOutsideRoot, 1, 5},
+		{"text after lf", "\nx", ErrTextOutsideRoot, 2, 1},
+		{"text after blank lines and spaces", "\n\n\n   x", ErrTextOutsideRoot, 4, 4},
+		{"text after crlf and cr", "\r\n\r\tx", ErrTextOutsideRoot, 3, 2},
+		{"reference after whitespace", "\r\n  &#32;", ErrReferenceOutsideRoot, 2, 3},
+		{"cdata after lf", "\n<![CDATA[x]]>", ErrCDATOutsideRoot, 2, 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			for _, rc := range []readerCase{wholeInput, oneByteInput, chunkedInput(2)} {
+				var reader Reader
+				if err := reader.Reset(rc.open("<r/>"+test.trailer), Config{}); err != nil {
+					t.Fatal(err)
+				}
+				if tok := mustNextToken(t, &reader); tok.Kind != KindStart {
+					t.Fatalf("%s: first token kind = %v, want start", rc.name, tok.Kind)
+				}
+				root, _, err := reader.Start()
+				if err != nil {
+					t.Fatal(err)
+				}
+				_ = mustNextToken(t, &reader)
+				if err := reader.End(root); err != nil {
+					t.Fatal(err)
+				}
+				for err == nil {
+					_, err = reader.Next()
+				}
+				if !errors.Is(err, test.cause) {
+					t.Fatalf("%s: error = %v, want %v", rc.name, err, test.cause)
+				}
+				if line, column := reader.ErrorPos(err); line != test.line || column != test.column {
+					t.Fatalf("%s: ErrorPos() = %d:%d, want %d:%d", rc.name, line, column, test.line, test.column)
+				}
+			}
+		})
 	}
 }

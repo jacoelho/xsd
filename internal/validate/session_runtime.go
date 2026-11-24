@@ -195,7 +195,7 @@ func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) 
 }
 
 func (s *session) validateCharacterToken(tok *xmlstream.Token, mode tokenValidationMode) error {
-	err := s.chars(tok.Line, tok.Column, tok.Data)
+	err := s.chars(tok)
 	if err == nil || mode == tokenValidationSyntaxOnly {
 		return err
 	}
@@ -995,7 +995,7 @@ func (s *session) newSchemaFrame(
 	}, nil
 }
 
-func (s *session) chars(line, col int, data []byte) error {
+func (s *session) chars(tok *xmlstream.Token) error {
 	if s.doc.syntaxOnly && s.doc.Depth() != 0 {
 		return nil
 	}
@@ -1006,20 +1006,21 @@ func (s *session) chars(line, col int, data []byte) error {
 		// stream boundary error before this consumer sees a token.
 		return nil
 	}
-	if len(data) == 0 || f.Mode != elementAssessed {
+	if len(tok.Data) == 0 || f.Mode != elementAssessed {
 		return nil
 	}
 	if f.Nilled {
-		return validation(s.startContext(line, col), xsderrors.CodeValidationNil, msgNilledContent)
+		return validation(s.startContext(tok.Line, tok.Column), xsderrors.CodeValidationNil, msgNilledContent)
 	}
-	return s.validateAssessedCharacterData(f, data, line, col)
+	return s.validateAssessedCharacterData(f, tok)
 }
 
 // validateAssessedCharacterData applies the content type's character policy.
 // Empty content rejects any nonempty character data, including XML
 // whitespace; element-only content permits whitespace only. Comments, PIs and
 // zero-length CDATA never reach here, so they add no character content.
-func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col int) error {
+func (s *session) validateAssessedCharacterData(f *frame, tok *xmlstream.Token) error {
+	data, line, col := tok.Data, tok.Line, tok.Column
 	if f.SimpleContent != xsdSchema.NoSimpleType {
 		return s.appendText(data, line, col)
 	}
@@ -1035,8 +1036,7 @@ func (s *session) validateAssessedCharacterData(f *frame, data []byte, line, col
 		return s.captureMixedCharacterData(content, data, line, col)
 	}
 	if !whitespace {
-		ctx := s.startContext(line, col)
-		return validation(ctx, xsderrors.CodeValidationText, msgElementOnlyText)
+		return validation(s.startContext(tok.ContentPos()), xsderrors.CodeValidationText, msgElementOnlyText)
 	}
 	return nil
 }

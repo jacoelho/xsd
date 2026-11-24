@@ -249,7 +249,8 @@ func (r *Reader) acceptToken(tok *Token) error {
 	case KindCharData:
 		if r.ns.depth() == 0 {
 			if textErr := validateOutsideRoot(tok); textErr != nil {
-				return &Error{Kind: ErrorOutsideRoot, line: tok.Line, column: tok.Column, Cause: textErr}
+				line, column := tok.ContentPos()
+				return &Error{Kind: ErrorOutsideRoot, line: line, column: column, Cause: textErr}
 			}
 		}
 	}
