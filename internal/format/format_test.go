@@ -295,18 +295,19 @@ func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
 	}
 }
 
-func TestFormatXMLLocatesLineStartFailuresAtColumnOne(t *testing.T) {
+func TestFormatXMLLocatesFailuresAfterLineBreak(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input string
-		opts  Options
-		code  xsderrors.Code
+		name         string
+		input        string
+		opts         Options
+		code         xsderrors.Code
+		line, column int
 	}{
-		{name: "text outside root", input: "<r/>\nx", code: xsderrors.CodeFormatXML},
-		{name: "unclosed element", input: "<root>\n", code: xsderrors.CodeFormatXML},
-		{name: "input limit in prolog", input: "<!--a-->\n<r/>", opts: Options{MaxInputBytes: 9}, code: xsderrors.CodeFormatLimit},
+		{name: "text outside root starting with line break", input: "<r/>\nx", code: xsderrors.CodeFormatXML, line: 1, column: 5},
+		{name: "unclosed element", input: "<root>\n", code: xsderrors.CodeFormatXML, line: 2, column: 1},
+		{name: "input limit in prolog", input: "<!--a-->\n<r/>", opts: Options{MaxInputBytes: 9}, code: xsderrors.CodeFormatLimit, line: 2, column: 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -318,8 +319,8 @@ func TestFormatXMLLocatesLineStartFailuresAtColumnOne(t *testing.T) {
 			if !ok || diagnostic.Code() != tt.code {
 				t.Fatalf("XMLWithOptions() error = %v, want %q", err, tt.code)
 			}
-			if diagnostic.Line() != 2 || diagnostic.Column() != 1 {
-				t.Fatalf("XMLWithOptions() location = %d:%d, want 2:1", diagnostic.Line(), diagnostic.Column())
+			if diagnostic.Line() != tt.line || diagnostic.Column() != tt.column {
+				t.Fatalf("XMLWithOptions() location = %d:%d, want %d:%d", diagnostic.Line(), diagnostic.Column(), tt.line, tt.column)
 			}
 		})
 	}
