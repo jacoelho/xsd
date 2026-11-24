@@ -5,15 +5,7 @@ import (
 )
 
 func allReachable(n int) publishedElements {
-	reachable := make([]bool, n)
-	for i := range reachable {
-		reachable[i] = true
-	}
-	elements, err := newPublishedElements(&schemaBuild{Elements: make([]elementDecl, n), ReachableElements: reachable})
-	if err != nil {
-		panic(err)
-	}
-	return elements
+	return identityElements(n)
 }
 
 func TestElementReadTableOwnsCanonicalFacts(t *testing.T) {
