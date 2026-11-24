@@ -37103,6 +37103,129 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An optional element particle follows a required empty choice and overlaps the element in a choice repeated exactly twice, which only the content-model automaton compares; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An optional element particle follows a required empty choice and overlaps the element in a choice repeated at most twice, which only the content-model automaton compares; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An element particle with a counted range follows a required empty choice and overlaps the element in a following repeated choice, which only the content-model automaton compares; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

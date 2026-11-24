@@ -2941,7 +2941,10 @@ A required empty choice matches nothing ([I-042](#i-042--empty-choice)). In
 no item ever reaches the two `c` particles, yet they overlap, and the first has
 `minOccurs` below `maxOccurs`. The schema is invalid. The library checks
 Unique Particle Attribution on the structure of the content model and does
-not first remove the particles that no item reaches.
+not first remove the particles that no item reaches: the direct check compares
+sequence members whatever precedes them, and the content-model automaton
+gives a required empty choice a position that no item takes, so the states
+after it are reached and checked.
 
 [Unique Particle Attribution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig)
 asks that "during ·validation· of an element information item sequence" the
@@ -2985,7 +2988,10 @@ Cases, `project/content-models/upa-unreachable/*`:
 `required-empty-choice-before-overlap`, `nested-empty-choice-before-overlap`,
 `group-ref-empty-choice-before-overlap` and
 `repeated-empty-choice-before-overlap` are invalid, and libxml2 differs on
-each. `required-empty-choice-between-overlap` is valid, and Xerces-J, .NET and
+each. So are `required-empty-choice-before-twice-repeated-choice-overlap`,
+`required-empty-choice-before-repeated-choice-overlap` and
+`required-empty-choice-before-counted-range-overlap`, whose overlap only the
+automaton compares, and libxml2 differs on each. `required-empty-choice-between-overlap` is valid, and Xerces-J, .NET and
 xmlschema differ. The controls `required-empty-choice-after-overlap`,
 `optional-empty-choice-before-overlap`, `zero-occurrence-before-overlap`
 (libxml2 differs) and `reachable-overlap` are invalid, and

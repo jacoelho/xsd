@@ -27,7 +27,6 @@ const (
 	oracleShortWords      = 300
 	oracleWalks           = 30
 	oracleConfigurations  = 100_000
-	oracleUncheckedShare  = 10
 	oracleMaxLeaves       = 63
 )
 
@@ -56,6 +55,9 @@ var (
 	oracleUndeclared = oracleName{oracleTargetNamespace, "z"}
 	oracleOther      = oracleName{oracleOtherNamespace, "x"}
 	oracleAbsent     = oracleName{"", "x"}
+	// oracleEmptyChoice is the item an empty choice consumes in the
+	// reference model; no instance holds it.
+	oracleEmptyChoice = oracleName{"urn:empty-choice", "choice"}
 )
 
 type oracleTermKind int
@@ -86,6 +88,9 @@ type oracleParticle struct {
 }
 
 func (p *oracleParticle) accepts(n oracleName) bool {
+	if n == oracleEmptyChoice {
+		return false
+	}
 	switch p.kind {
 	case oracleElement:
 		return n == oracleName{p.namespace, p.local}
@@ -108,21 +113,6 @@ func (p *oracleParticle) accepts(n oracleName) bool {
 			}
 		}
 	case oracleSequence, oracleChoice, oracleAll:
-	}
-	return false
-}
-
-func (p *oracleParticle) holdsParticleMatchingNothing() bool {
-	if p.max == 0 {
-		return false
-	}
-	if p.min > 0 && !p.termMatchesSome() {
-		return true
-	}
-	for _, child := range p.children {
-		if child.holdsParticleMatchingNothing() {
-			return true
-		}
 	}
 	return false
 }
@@ -158,11 +148,26 @@ func oracleRepeatOf(p *oracleParticle) oracleFrame {
 	return f
 }
 
+// emptyChoice reports whether p is a choice without branches. A particle with
+// maxOccurs 0 corresponds to no component (XSD 1.0 §3.3.2, §3.7.2, §3.8.2),
+// so it is no branch of a choice. An empty choice matches no sequence of
+// instance items (I-042 of docs/spec/INTERPRETATIONS.md), yet Unique Particle
+// Attribution still compares the particles after it (I-052), so the
+// reference model gives it a leaf that consumes oracleEmptyChoice.
+func (p *oracleParticle) emptyChoice() bool {
+	if p.kind != oracleChoice {
+		return false
+	}
+	for _, child := range p.children {
+		if child.max != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // termNullable reports whether one repetition of p can match the empty
-// sequence. A particle with maxOccurs 0 corresponds to no component
-// (XSD 1.0 §3.3.2, §3.7.2, §3.8.2), so it is no branch of a choice, and a
-// choice without branches matches nothing (I-042 of
-// docs/spec/INTERPRETATIONS.md).
+// sequence.
 func (p *oracleParticle) termNullable() bool {
 	switch p.kind {
 	case oracleSequence:
@@ -191,40 +196,9 @@ func (p *oracleParticle) termNullable() bool {
 	return false
 }
 
-// termMatchesSome reports whether some sequence matches one repetition of p.
-func (p *oracleParticle) termMatchesSome() bool {
-	switch p.kind {
-	case oracleSequence:
-		for _, child := range p.children {
-			if child.min > 0 && child.max != 0 && !child.termMatchesSome() {
-				return false
-			}
-		}
-		return true
-	case oracleChoice:
-		for _, child := range p.children {
-			if child.max != 0 && (child.min == 0 || child.termMatchesSome()) {
-				return true
-			}
-		}
-		return false
-	case oracleElement, oracleHeadRef, oracleWildcard, oracleAll:
-	}
-	return true
-}
-
 func (r oracleResidual) nullable() bool {
 	for _, f := range r {
 		if f.kind == oracleAllRest && !f.allComplete() || f.kind == oracleRepeat && f.lo > 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func (r oracleResidual) matchesSome() bool {
-	for _, f := range r {
-		if f.kind == oracleRepeat && f.lo > 0 && !f.p.termMatchesSome() {
 			return false
 		}
 	}
@@ -291,6 +265,9 @@ func (p *oracleParticle) deriveTerm(n oracleName, then oracleResidual, emit func
 		}
 		append(r, then...).derive(n, emit)
 	case oracleChoice:
+		if p.emptyChoice() && n == oracleEmptyChoice {
+			emit(p.leaf, then.withoutTermEnds())
+		}
 		for _, child := range p.children {
 			if child.max != 0 {
 				append(oracleResidual{oracleRepeatOf(child)}, then...).derive(n, emit)
@@ -316,7 +293,7 @@ func (r oracleResidual) withoutTermEnds() oracleResidual {
 }
 
 // oracleConfiguration is the residuals of every way a model can match a
-// word that some valid sequence starts with, keyed by their frames.
+// word, keyed by their frames.
 type oracleConfiguration map[string]oracleResidual
 
 func (model *oracleModel) start() oracleConfiguration {
@@ -326,24 +303,19 @@ func (model *oracleModel) start() oracleConfiguration {
 }
 
 func (c oracleConfiguration) add(r oracleResidual) {
-	if !r.matchesSome() {
-		return
-	}
 	var b strings.Builder
 	r.key(&b)
 	c[b.String()] = r
 }
 
 // step returns the configuration after n and the leaves that can consume n.
-// Both are empty when no valid sequence continues with n.
+// Both are empty when no word of the model continues with n.
 func (c oracleConfiguration) step(n oracleName) (next oracleConfiguration, leaves uint64) {
 	next = oracleConfiguration{}
 	for _, r := range c {
 		r.derive(n, func(leaf int, rest oracleResidual) {
-			if rest.matchesSome() {
-				leaves |= 1 << leaf
-				next.add(rest)
-			}
+			leaves |= 1 << leaf
+			next.add(rest)
 		})
 	}
 	return next, leaves
@@ -430,8 +402,9 @@ func oracleExtend(word []oracleName, n oracleName) []oracleName {
 }
 
 // ambiguity searches the configurations the model reaches, each once and
-// shortest word first, for an item two leaves can consume, which Unique
-// Particle Attribution forbids, and returns the first word that ends in one.
+// shortest word first, for an instance item two leaves can consume, which
+// Unique Particle Attribution forbids, and returns the first word that ends
+// in one. Words hold oracleEmptyChoice besides the alphabet.
 // complete reports whether the search visited every configuration within
 // limit of them.
 func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness []oracleName, complete bool) {
@@ -442,13 +415,14 @@ func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness [
 	start := model.start()
 	seen := map[string]bool{start.key(): true}
 	queue := []visit{{configuration: start}}
+	items := append(slices.Clip(alphabet), oracleEmptyChoice)
 	for len(queue) != 0 {
 		v := queue[0]
 		queue = queue[1:]
-		for _, n := range alphabet {
+		for _, n := range items {
 			next, leaves := v.configuration.step(n)
 			word := oracleExtend(v.word, n)
-			if bits.OnesCount64(leaves) > 1 {
+			if n != oracleEmptyChoice && bits.OnesCount64(leaves) > 1 {
 				return word, true
 			}
 			if len(next) == 0 {
@@ -468,10 +442,10 @@ func (model *oracleModel) ambiguity(alphabet []oracleName, limit int) (witness [
 	return nil, true
 }
 
-// instanceWords returns about oracleShortWords words: every word, up to some
-// length, whose proper prefixes some valid sequence starts with, followed by
-// random walks along words that some valid sequence starts with, each step
-// adding the walk's word and one arbitrary extension of it.
+// instanceWords returns about oracleShortWords words over alphabet: every
+// word, up to some length, whose proper prefixes start a word of the model,
+// followed by random walks along such prefixes, each step adding the walk's
+// word and one arbitrary extension of it.
 func (model *oracleModel) instanceWords(alphabet []oracleName, rng *rand.Rand) [][]oracleName {
 	type prefix struct {
 		word          []oracleName
@@ -621,6 +595,9 @@ func (g *oracleGenerator) modelGroup(depth int) *oracleParticle {
 			p.children = append(p.children, g.element())
 		}
 	}
+	if p.emptyChoice() {
+		p.leaf = g.nextLeaf()
+	}
 	return p
 }
 
@@ -666,12 +643,8 @@ func TestContentModelValidationMatchesReferenceLanguage(t *testing.T) {
 	t.Logf("seed %#x, %d models; model i uses rand.NewPCG(seed, i)", seed, *contentModelOracleModels)
 	var tally oracleTally
 	t.Cleanup(func() {
-		rejected, unchecked := tally.rejected.Load(), tally.unchecked.Load()
-		t.Logf("%d models validated %d instances; %d rejected for Unique Particle Attribution, of which %d unchecked because no sequence reaches a competing pair past a particle that matches nothing",
-			tally.accepted.Load(), tally.instances.Load(), rejected, unchecked)
-		if unchecked*oracleUncheckedShare > rejected {
-			t.Errorf("%d of %d rejected models unchecked, want at most 1 in %d", unchecked, rejected, oracleUncheckedShare)
-		}
+		t.Logf("%d models validated %d instances; %d rejected for Unique Particle Attribution",
+			tally.accepted.Load(), tally.instances.Load(), tally.rejected.Load())
 	})
 	for i := range *contentModelOracleModels {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -684,7 +657,7 @@ func TestContentModelValidationMatchesReferenceLanguage(t *testing.T) {
 }
 
 type oracleTally struct {
-	accepted, instances, rejected, unchecked atomic.Int64
+	accepted, instances, rejected atomic.Int64
 }
 
 func checkContentModelLanguage(t *testing.T, model *oracleModel, rng *rand.Rand, tally *oracleTally) {
@@ -702,12 +675,8 @@ func checkContentModelLanguage(t *testing.T, model *oracleModel, rng *rand.Rand,
 			t.Fatalf("Compile() error = %v, want nil or a %s UPA violation\nschema: %s", err, xsderrors.CodeSchemaContentModel, schema)
 		}
 		tally.rejected.Add(1)
-		if witness == nil && model.root.holdsParticleMatchingNothing() {
-			tally.unchecked.Add(1)
-			return
-		}
 		if witness == nil {
-			t.Fatalf("Compile() rejected the content model, but no word that a valid sequence starts with ends in an item two particles can consume\nerror: %v\nschema: %s", err, schema)
+			t.Fatalf("Compile() rejected the content model, but no prefix of a word of the model ends in an item two particles can consume\nerror: %v\nschema: %s", err, schema)
 		}
 		return
 	}

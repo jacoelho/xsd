@@ -59,6 +59,10 @@ type dfaNode struct {
 	Nullable bool
 }
 
+// dfaBuilder builds the counted source automaton of one content model and
+// determinizes it. positions holds the particle of each position: an element
+// or wildcard, or emptyChoicePosition for a required choice without
+// branches.
 type dfaBuilder struct {
 	c          *contentModelCompiler
 	states     map[string]uint32
@@ -1441,6 +1445,9 @@ func (b *dfaBuilder) row(entries []dfaStateEntry) (dfaSourceRow, error) {
 		if err != nil {
 			return dfaSourceRow{}, err
 		}
+		if b.positions[e.Pos] == emptyChoicePosition {
+			continue
+		}
 		row.Edges = append(row.Edges, dfaSourceEdge{
 			Particle: b.positions[e.Pos],
 			Guards:   p.guards,
@@ -1556,6 +1563,12 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 		node, err = b.choiceNode(model.Particles)
 		if err != nil {
 			return dfaNode{}, err
+		}
+		if !node.Nullable && len(node.First) == 0 {
+			if err := b.c.work.spend(2); err != nil {
+				return dfaNode{}, err
+			}
+			node = b.leaf(emptyChoicePosition)
 		}
 	case modelAll:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models", nil)
@@ -1679,6 +1692,14 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 	}
 	return b.repeat(node, p.Occurs)
 }
+
+// emptyChoicePosition is the particle of a required choice without
+// branches. Such a choice matches no item (I-042 of
+// docs/spec/INTERPRETATIONS.md), yet Unique Particle Attribution compares the
+// particles after it (I-052), so it takes a position: the source automaton
+// reaches the states after it, and their rows are checked, but no source row
+// has an edge for it, so determinization never takes it.
+var emptyChoicePosition = contentParticle{Kind: particleModel, Model: contentModelID(math.MaxUint32)}
 
 func (b *dfaBuilder) leaf(p contentParticle) dfaNode {
 	pos := len(b.positions)
