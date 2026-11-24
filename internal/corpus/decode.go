@@ -88,8 +88,6 @@ type keyFrame struct {
 	expectKey bool
 }
 
-// objectKey returns tok as a key if it is one: a string where the innermost
-// open object expects a key.
 func objectKey(stack []keyFrame, tok json.Token) (string, bool) {
 	key, ok := tok.(string)
 	if !ok || len(stack) == 0 || !stack[len(stack)-1].expectKey {

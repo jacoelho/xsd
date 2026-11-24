@@ -380,8 +380,6 @@ func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 	return nil
 }
 
-// chargeDroppedSimpleTypes records in droppedSimpleTypeCharges the publication
-// charges of the simple types whose ID is next or above, except keep.
 func (c *compiler) chargeDroppedSimpleTypes(builder *value.Builder, next, keep SimpleTypeID) error {
 	for id := next; int(id) < len(c.rt.SimpleTypes); id++ {
 		if id == keep {
