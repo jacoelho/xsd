@@ -169,7 +169,7 @@ func readerOutcome(err error) string {
 		return "nil"
 	}
 	if xerr, ok := errors.AsType[*Error](err); ok {
-		return fmt.Sprintf("kind=%d at %d:%d: %v", xerr.Kind, xerr.Line, xerr.Column, err)
+		return fmt.Sprintf("kind=%d at %d:%d: %v", xerr.Kind, xerr.line, xerr.column, err)
 	}
 	return err.Error()
 }

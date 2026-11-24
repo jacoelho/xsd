@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"fmt"
 	"math"
 	"slices"
 
@@ -64,13 +65,23 @@ type typeDerivationIndex struct {
 	anyType           ComplexTypeID
 }
 
+var (
+	errDerivationAnyTypeInvalid       = newBuildDefect("type derivation projection stores invalid anyType")
+	errSimpleDerivationCycle          = newBuildDefect("simple type derivation graph contains a cycle")
+	errComplexDerivationCycle         = newBuildDefect("complex type derivation graph contains a cycle")
+	errSimpleDerivationBaseInvalid    = newBuildDefect("simple type derivation graph references invalid base")
+	errComplexDerivationBaseInvalid   = newBuildDefect("complex type derivation graph references invalid base")
+	errComplexDerivationSimpleInvalid = newBuildDefect("complex type derivation graph references invalid simple base")
+	errDerivationKindInvalid          = newBuildDefect("complex type derivation graph stores invalid derivation kind")
+)
+
 func newTypeDerivationReadForTypes(
 	anyType ComplexTypeID,
 	simpleTypes []simpleType,
 	complexTypes []complexTypeMetadata,
 ) (typeDerivationRead, error) {
 	if !validComplexTypeID(anyType, len(complexTypes)) {
-		return typeDerivationRead{}, newBuildDefect("type derivation projection stores invalid anyType")
+		return typeDerivationRead{}, errDerivationAnyTypeInvalid
 	}
 	index := &typeDerivationIndex{
 		simpleTypes: make([]simpleTypeDerivation, len(simpleTypes)),
@@ -92,7 +103,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	simpleForest, simpleOK := buildDerivationForest(simpleParents)
 	if !simpleOK {
-		return newBuildDefect("simple type derivation graph contains a cycle")
+		return errSimpleDerivationCycle
 	}
 	r.simpleIn = simpleForest.in
 	r.simpleOut = simpleForest.out
@@ -102,7 +113,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	complexForest, complexOK := buildDerivationForest(complexParents)
 	if !complexOK {
-		return newBuildDefect("complex type derivation graph contains a cycle")
+		return errComplexDerivationCycle
 	}
 	r.complexIn = complexForest.in
 	r.complexOut = complexForest.out
@@ -118,8 +129,8 @@ func simpleDerivationParents(types []simpleType) ([]int, error) {
 		if base == NoSimpleType {
 			continue
 		}
-		if !validSimpleTypeID(base, len(types)) || int(base) == i {
-			return nil, newBuildDefect("simple type derivation graph references invalid base")
+		if !validSimpleTypeID(base, len(types)) {
+			return nil, errSimpleDerivationBaseInvalid
 		}
 		parents[i] = int(base)
 	}
@@ -132,14 +143,14 @@ func complexDerivationParents(simpleTypes []simpleType, complexTypes []complexTy
 		parents[i] = -1
 		base, ok := complexTypes[i].Base.Complex()
 		if ok {
-			if !validComplexTypeID(base, len(complexTypes)) || int(base) == i {
-				return nil, newBuildDefect("complex type derivation graph references invalid base")
+			if !validComplexTypeID(base, len(complexTypes)) {
+				return nil, errComplexDerivationBaseInvalid
 			}
 			parents[i] = int(base)
 			continue
 		}
 		if base, ok := complexTypes[i].Base.Simple(); ok && !validSimpleTypeID(base, len(simpleTypes)) {
-			return nil, newBuildDefect("complex type derivation graph references invalid simple base")
+			return nil, errComplexDerivationSimpleInvalid
 		}
 	}
 	return parents, nil
@@ -171,7 +182,7 @@ func populateComplexDerivationIndex(
 			r.complexSimpleBase[i] = base
 		}
 		if err := applyComplexDerivationKind(r, i, ct.Derivation); err != nil {
-			return newBuildDefect("complex type derivation graph stores invalid derivation kind")
+			return err
 		}
 	}
 	return nil
@@ -187,7 +198,7 @@ func applyComplexDerivationKind(r *typeDerivationIndex, index int, kind derivati
 		r.complexSimpleMask[index] |= DerivationRestriction
 	case derivationKindNone:
 	default:
-		return newBuildDefect("invalid derivation kind")
+		return fmt.Errorf("complex type %d derivation kind %d: %w", index, kind, errDerivationKindInvalid)
 	}
 	return nil
 }
@@ -203,11 +214,11 @@ type derivationForest struct {
 	order []int
 }
 
+// buildDerivationForest reports false when parents contains a cycle. Each
+// entry of parents is -1 for a root or the index of its parent; the callers
+// that convert type IDs to parents own that bound.
 func buildDerivationForest(parents []int) (derivationForest, bool) {
-	firstChild, nextSibling, ok := derivationForestChildren(parents)
-	if !ok {
-		return derivationForest{}, false
-	}
+	firstChild, nextSibling := derivationForestChildren(parents)
 	audit := derivationForestAudit{
 		firstChild:  firstChild,
 		nextSibling: nextSibling,
@@ -228,7 +239,7 @@ func buildDerivationForest(parents []int) (derivationForest, bool) {
 	return derivationForest{in: audit.in, out: audit.out, order: audit.order}, true
 }
 
-func derivationForestChildren(parents []int) (firstChild, nextSibling []int, valid bool) {
+func derivationForestChildren(parents []int) (firstChild, nextSibling []int) {
 	firstChild = make([]int, len(parents))
 	nextSibling = make([]int, len(parents))
 	for i := range firstChild {
@@ -239,13 +250,10 @@ func derivationForestChildren(parents []int) (firstChild, nextSibling []int, val
 		if parent < 0 {
 			continue
 		}
-		if parent >= len(parents) {
-			return nil, nil, false
-		}
 		nextSibling[child] = firstChild[parent]
 		firstChild[parent] = child
 	}
-	return firstChild, nextSibling, true
+	return firstChild, nextSibling
 }
 
 type derivationForestAudit struct {

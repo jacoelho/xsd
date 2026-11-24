@@ -78,6 +78,13 @@ func TestWholeDocumentFailuresCarryOnlyThePath(t *testing.T) {
 			src:  xsd.Bytes("big.xsd", []byte(`<xs:schema `+xsNS+`/>`)),
 			code: xsderrors.CodeSchemaLimit,
 		},
+		{
+			name: "explicit source reaching MaxSchemaSourceBytes in the prolog",
+			opts: xsd.CompileOptions{MaxSchemaSourceBytes: 23},
+			path: "prolog.xsd",
+			src:  xsd.Bytes("prolog.xsd", []byte("<?xml version=\"1.0\"?>\n\n<xs:schema "+xsNS+"/>")),
+			code: xsderrors.CodeSchemaLimit,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -111,6 +118,61 @@ func TestIncompleteSchemaDocumentIsLocatedWhereReadingStopped(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSchemaReaderFailuresAreLocatedLikeInstanceReaderFailures(t *testing.T) {
+	t.Parallel()
+
+	instanceEngine, err := xsd.Compile(xsd.Bytes("instance.xsd", []byte(`<xs:schema `+xsNS+`><xs:element name="root"/></xs:schema>`)))
+	if err != nil {
+		t.Fatalf("Compile(instance.xsd) error = %v", err)
+	}
+	root := `<xs:schema ` + xsNS + `/>`
+	for _, test := range []struct {
+		name, text   string
+		code         xsderrors.Code
+		line, column int
+	}{
+		{"empty document", "", xsderrors.CodeSchemaRoot, 1, 1},
+		{"prolog ending at a line start", "<?pi?>\n", xsderrors.CodeSchemaRoot, 2, 1},
+		{"text outside root at a line start", root + "\nx", xsderrors.CodeSchemaXML, 2, 1},
+		{"unclosed root at end of input", "<xs:schema " + xsNS + ">\n", xsderrors.CodeSchemaXML, 2, 1},
+		{"unclosed child at end of input", "<xs:schema " + xsNS + ">\n<xs:annotation>\n", xsderrors.CodeSchemaXML, 3, 1},
+		{"declared ISO-8859-1 encoding", `<?xml version="1.0" encoding="ISO-8859-1"?>` + root, xsderrors.CodeUnsupportedNonUTF8, 1, 1},
+		{"UTF-16 big-endian byte order mark", "\xFE\xFF\x00<", xsderrors.CodeUnsupportedNonUTF8, 1, 1},
+		{"UTF-16 little-endian byte order mark", "\xFF\xFE<\x00", xsderrors.CodeUnsupportedNonUTF8, 1, 1},
+		{"XML version 1.1", `<?xml version="1.1"?>` + root, xsderrors.CodeUnsupportedXMLVersion, 1, 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, compileErr := xsd.Compile(xsd.Bytes("doc.xsd", []byte(test.text)))
+			schemaDiagnostic := singleDiagnostic(t, compileErr)
+			if schemaDiagnostic.Code() != test.code {
+				t.Fatalf("Compile() code = %s, want %s: %v", schemaDiagnostic.Code(), test.code, compileErr)
+			}
+			if schemaDiagnostic.Line() != test.line || schemaDiagnostic.Column() != test.column {
+				t.Fatalf("Compile() location = %d:%d, want %d:%d: %v", schemaDiagnostic.Line(), schemaDiagnostic.Column(), test.line, test.column, compileErr)
+			}
+			validateErr := instanceEngine.Validate(strings.NewReader(test.text))
+			instanceDiagnostic := singleDiagnostic(t, validateErr)
+			if instanceDiagnostic.Line() != test.line || instanceDiagnostic.Column() != test.column {
+				t.Fatalf("Validate() location = %d:%d, want %d:%d: %v", instanceDiagnostic.Line(), instanceDiagnostic.Column(), test.line, test.column, validateErr)
+			}
+		})
+	}
+}
+
+func singleDiagnostic(t *testing.T, err error) *xsderrors.Error {
+	t.Helper()
+	leaves := xsderrors.Flatten(err)
+	if len(leaves) != 1 {
+		t.Fatalf("diagnostics = %v, want one", leaves)
+	}
+	diagnostic, ok := errors.AsType[*xsderrors.Error](leaves[0])
+	if !ok {
+		t.Fatalf("diagnostic = %T, want *xsderrors.Error", leaves[0])
+	}
+	return diagnostic
 }
 
 // TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel pins the
