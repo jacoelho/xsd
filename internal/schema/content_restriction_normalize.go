@@ -68,7 +68,7 @@ func (n *restrictionNormalizer) particle(p contentParticle, depth int) (contentP
 	case particleWildcard:
 		return p, nil
 	default:
-		return contentParticle{}, contentRestrictionInvariant("content restriction references invalid particle kind")
+		return contentParticle{}, newBuildDefect("content restriction references invalid particle kind")
 	}
 }
 
@@ -108,7 +108,7 @@ func (n *restrictionNormalizer) appendActualMember(members *[]contentParticle, h
 		return err
 	}
 	if !validElementID(id, len(v.rt.Elements)) {
-		return contentRestrictionInvariant("substitution group references missing element")
+		return newBuildDefect("substitution group references missing element")
 	}
 	member, allowed := v.SubstitutionMemberByName(head, v.rt.Elements[id].Name)
 	if !allowed || member != id {
@@ -165,7 +165,7 @@ func (n *restrictionNormalizer) appendLiteralMember(members *[]contentParticle, 
 func (n *restrictionNormalizer) model(p contentParticle, depth int) (contentParticle, error) {
 	m, ok := n.models.model(p.Model)
 	if !ok {
-		return contentParticle{}, contentRestrictionInvariant("content restriction references missing content model")
+		return contentParticle{}, newBuildDefect("content restriction references missing content model")
 	}
 	if m.Kind == modelEmpty {
 		return p, nil
@@ -304,7 +304,7 @@ func (n *restrictionNormalizer) child(original contentParticle, parent modelKind
 	}
 	body, ok := n.models.model(p.Model)
 	if !ok {
-		return normalizedRestrictionChild{}, contentRestrictionInvariant("normalized content model is missing")
+		return normalizedRestrictionChild{}, newBuildDefect("normalized content model is missing")
 	}
 	if body.Kind == modelEmpty || n.models.ignorable(p.Model) {
 		child.disposition = childIgnored

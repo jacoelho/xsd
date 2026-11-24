@@ -26,10 +26,11 @@ func checkSimpleRestrictionBase(baseID, anySimpleType SimpleTypeID) error {
 // checkSimpleTypeFinalAllows maps runtime simple-type final-mask rejection into
 // the compile diagnostic for the schema role being derived.
 func checkSimpleTypeFinalAllows(final, derivation DerivationMask, role simpleTypeFinalRole) error {
-	if err := validateSimpleTypeFinalAllows(final, derivation); err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, simpleTypeFinalRoleMessage(role), nil)
+	err := validateSimpleTypeFinalAllows(final, derivation)
+	if err == nil || isBuildDefect(err) {
+		return compileRuleError(xsderrors.CodeSchemaReference, "", err)
 	}
-	return nil
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, simpleTypeFinalRoleMessage(role), nil)
 }
 
 func simpleListItemListReachError() error {

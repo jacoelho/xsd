@@ -357,7 +357,11 @@ func (b *dfaBuilder) collectDeterministicAccept(row *compiledModelRow, accepts [
 		if err := b.c.work.spend(len(accept.Guards)); err != nil {
 			return err
 		}
-		if dfaGuardsOK(counters, caps, accept.Guards) {
+		ok, err := dfaGuardsOK(counters, caps, accept.Guards)
+		if err != nil {
+			return err
+		}
+		if ok {
 			row.Accept = true
 			break
 		}
@@ -370,8 +374,9 @@ func (c *deterministicModelCompilation) collectEdge(edge dfaSourceEdge, counters
 	if err := work.spend(len(edge.Guards)); err != nil {
 		return err
 	}
-	if !dfaGuardsOK(counters, c.caps, edge.Guards) {
-		return nil
+	ok, err := dfaGuardsOK(counters, c.caps, edge.Guards)
+	if err != nil || !ok {
+		return err
 	}
 	if err := work.spend(len(counters) + len(edge.Actions) + 1); err != nil {
 		return err
@@ -445,13 +450,17 @@ func (b *dfaBuilder) addRowCounterCaps(caps []uint32, row dfaSourceRow) error {
 		if err := b.c.work.spend(len(edge.Guards) + 1); err != nil {
 			return err
 		}
-		addCounterCaps(caps, edge.Guards)
+		if err := addCounterCaps(caps, edge.Guards); err != nil {
+			return err
+		}
 	}
 	for _, accept := range row.Accept {
 		if err := b.c.work.spend(len(accept.Guards) + 1); err != nil {
 			return err
 		}
-		addCounterCaps(caps, accept.Guards)
+		if err := addCounterCaps(caps, accept.Guards); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -463,42 +472,45 @@ func (b *dfaBuilder) spendDFAConfigs(count int) error {
 	return b.c.work.spendProduct(count, int(b.counters))
 }
 
-func addCounterCaps(caps []uint32, guards []compiledGuard) {
+func addCounterCaps(caps []uint32, guards []compiledGuard) error {
 	for _, guard := range guards {
-		if !validUint32Index(guard.Slot, len(caps)) || guard.N == 0 {
-			continue
+		if !validUint32Index(guard.Slot, len(caps)) {
+			return xsderrors.InternalInvariant("content model DFA guard references invalid counter", nil)
 		}
-		caps[guard.Slot] = max(caps[guard.Slot], guard.N-1)
-	}
-}
-
-func dfaGuardsOK(counters, caps []uint32, guards []compiledGuard) bool {
-	for _, guard := range guards {
-		if !dfaGuardOK(counters, caps, guard) {
-			return false
+		if guard.N > 0 {
+			caps[guard.Slot] = max(caps[guard.Slot], guard.N-1)
 		}
 	}
-	return true
+	return nil
 }
 
-func dfaGuardOK(counters, caps []uint32, guard compiledGuard) bool {
+func dfaGuardsOK(counters, caps []uint32, guards []compiledGuard) (bool, error) {
+	for _, guard := range guards {
+		if ok, err := dfaGuardOK(counters, caps, guard); err != nil || !ok {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func dfaGuardOK(counters, caps []uint32, guard compiledGuard) (bool, error) {
 	if !validUint32Index(guard.Slot, len(counters)) || !validUint32Index(guard.Slot, len(caps)) {
-		return false
+		return false, xsderrors.InternalInvariant("content model DFA guard references invalid counter", nil)
 	}
 	count := counters[guard.Slot]
 	switch guard.Kind {
 	case compiledGuardExitMin:
-		return guard.N == 0 || count >= guard.N-1
+		return guard.N == 0 || count >= guard.N-1, nil
 	case compiledGuardLoopMax:
-		return guard.N > 0 && count < guard.N-1
+		return guard.N > 0 && count < guard.N-1, nil
 	default:
-		return false
+		return false, xsderrors.InternalInvariant("content model DFA guard kind out of range", nil)
 	}
 }
 
 func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 	for _, action := range actions {
-		if !validUint32Index(action.Slot, len(counters)) {
+		if !validUint32Index(action.Slot, len(counters)) || !validUint32Index(action.Slot, len(caps)) {
 			return xsderrors.InternalInvariant("content model DFA action references invalid counter", nil)
 		}
 		switch action.Kind {

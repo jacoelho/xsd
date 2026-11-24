@@ -77,6 +77,34 @@ func compileRuleError(code xsderrors.Code, subject string, err error) error {
 	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
 }
 
+// untranslatedBuildDefect makes a build defect that reached the compile or
+// publication entry without passing a classifier an internal invariant, so a
+// walk that returns a defect through callers that only propagate errors
+// cannot leave compilation as an untyped error.
+func untranslatedBuildDefect(err error) error {
+	if _, ok := errors.AsType[*xsderrors.Error](err); ok || !isBuildDefect(err) {
+		return err
+	}
+	return xsderrors.InternalInvariant("", err)
+}
+
+// auditError translates a failure of the publication audit. The audit
+// re-checks state that compilation already admitted, so only a schema.limit
+// diagnostic or an internal invariant passes through; any other failure,
+// including a schema diagnostic, is an internal invariant with the failure as
+// its cause, after subject when subject is not empty.
+func auditError(subject string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
+		if code := diagnostic.Code(); code == xsderrors.CodeSchemaLimit || code == xsderrors.CodeInternalInvariant {
+			return err
+		}
+	}
+	return xsderrors.InternalInvariant(subject, err)
+}
+
 func withSchemaCompileLocation(n schemaLocated, err error) error {
 	if n == nil || err == nil {
 		return err

@@ -211,7 +211,7 @@ func (n *nameTable) NameCount() int {
 // runtime namespace/name seeds.
 func validateRuntimeNameTable(n *nameTable) error {
 	if n == nil {
-		return errors.New("runtime name table is missing")
+		return newBuildDefect("runtime name table is missing")
 	}
 	return n.Validate(requiredRuntimeNamespaces, requiredRuntimeNames)
 }
@@ -273,7 +273,7 @@ func (n *nameTable) validateRequiredNamespaces(required []string) error {
 	for _, uri := range required {
 		id, ok := n.LookupNamespace(uri)
 		if !ok || n.Namespace(id) != uri {
-			return errors.New("name table is missing required namespace")
+			return newBuildDefect("name table is missing required namespace")
 		}
 	}
 	return nil
@@ -283,7 +283,7 @@ func (n *nameTable) validateRequiredNames(required []ExpandedName) error {
 	for _, name := range required {
 		q, ok := n.LookupQName(name.Namespace, name.Local)
 		if !ok || !n.ValidQName(q) {
-			return errors.New("name table is missing required name")
+			return newBuildDefect("name table is missing required name")
 		}
 	}
 	return nil

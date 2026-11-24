@@ -179,7 +179,11 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 	if err != nil {
 		return err
 	}
-	ct.Final, err = derivationMaskWithDefaultChecked(n, semanticSource[*schemaComplexTypeSource](&n.semantic).Final, definition.source.ctx.doc.defaults.FinalDefault, complexTypeFinalDerivation())
+	source, err := requiredSemanticSource[*schemaComplexTypeSource](n)
+	if err != nil {
+		return err
+	}
+	ct.Final, err = derivationMaskWithDefaultChecked(n, source.Final, definition.source.ctx.doc.defaults.FinalDefault, complexTypeFinalDerivation())
 	if err != nil {
 		return err
 	}
@@ -315,8 +319,8 @@ func (c *compiler) compileComplexType(ctx *schemaSetDocument, owner complexTypeO
 }
 
 func (c *compiler) newComplexType(ctx *schemaSetDocument, n *schemaNode, name QName) (complexTypeMetadata, error) {
-	source := semanticSource[*schemaComplexTypeSource](&n.semantic)
-	if source == nil {
+	source, ok := semanticSource[*schemaComplexTypeSource](&n.semantic)
+	if !ok {
 		return complexTypeMetadata{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("complexType node has no typed complexType source", nil))
 	}
 	contentKind, err := schemaComplexContentKind(n, source.Mixed, contentElementOnly)
@@ -409,10 +413,11 @@ func (c *compiler) complexContentBase(ctx *schemaSetDocument, child *schemaNode)
 }
 
 func (c *compiler) contentDerivationBaseQName(ctx *schemaSetDocument, child *schemaNode) (QName, error) {
-	baseSource, ok := child.semantic.derivationBase()
+	derivation, ok := semanticSource[*schemaBaseDerivationSource](&child.semantic)
 	if !ok {
 		return QName{}, withSchemaCompileLocation(child, xsderrors.InternalInvariant("derivation node has no typed derivation source", nil))
 	}
+	baseSource := derivation.Base
 	return c.referenceQName(ctx, child, baseSource.Name)
 }
 
@@ -622,10 +627,11 @@ func (c *compiler) resolveSimpleContentSource(ctx *schemaSetDocument, n *schemaN
 	if err != nil {
 		return simpleContentSource{}, err
 	}
-	baseSource, ok := syntax.node.semantic.derivationBase()
+	derivation, ok := semanticSource[*schemaBaseDerivationSource](&syntax.node.semantic)
 	if !ok {
 		return simpleContentSource{}, withSchemaCompileLocation(syntax.node, xsderrors.InternalInvariant("derivation node has no typed derivation source", nil))
 	}
+	baseSource := derivation.Base
 	base, err := c.referenceQName(ctx, syntax.node, baseSource.Name)
 	if err != nil {
 		return simpleContentSource{}, err

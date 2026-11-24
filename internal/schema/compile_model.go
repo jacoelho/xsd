@@ -40,8 +40,8 @@ type compiledModelGroup struct {
 // compileModel compiles n, the model group child of a complex type definition,
 // for use and returns its model and the occurrence of its particle.
 func (c *compiler) compileModel(ctx *schemaSetDocument, n *schemaNode, use modelUse, owner ComplexTypeID) (contentModelID, occurrence, error) {
-	source := semanticSource[*schemaGroupSource](&n.semantic)
-	if source == nil || !source.Ref.Lexical.Present {
+	source, isGroup := semanticSource[*schemaGroupSource](&n.semantic)
+	if !isGroup || !source.Ref.Lexical.Present {
 		return c.compileCompositor(ctx, n, use, owner)
 	}
 	id, occurs, err := c.compileModelGroupRef(ctx, n, source.Ref.Name, nil)
@@ -284,7 +284,7 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 // occurrence, and the particle's occurrence, so a group is one record however
 // its references repeat it. A compositor child's models belong to owner.
 func (c *compiler) compileNestedModelChild(ctx *schemaSetDocument, child *schemaNode, parent modelKind, owner ComplexTypeID) (contentModelID, occurrence, error) {
-	if source := semanticSource[*schemaGroupSource](&child.semantic); source != nil && source.Ref.Lexical.Present {
+	if source, isGroup := semanticSource[*schemaGroupSource](&child.semantic); isGroup && source.Ref.Lexical.Present {
 		return c.compileModelGroupRef(ctx, child, source.Ref.Name, &parent)
 	}
 	kind, err := modelKindForNode(child)

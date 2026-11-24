@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"errors"
-
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 )
@@ -153,7 +151,7 @@ func validateBuiltinDeclarationCounts(counts builtinDeclarationCounts) error {
 		counts.Wildcards == 0 ||
 		counts.AttributeUseSets == 0 ||
 		counts.Models == 0 {
-		return errors.New("runtime is missing builtin declarations")
+		return newBuildDefect("runtime is missing builtin declarations")
 	}
 	return nil
 }

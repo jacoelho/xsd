@@ -309,44 +309,28 @@ func (*schemaIdentityXPathSource) semanticKind()   {}
 func (*schemaWildcardSource) semanticKind()        {}
 func (*schemaGroupSource) semanticKind()           {}
 
-func semanticSource[T schemaSemanticKind](s *schemaSemanticSource) T {
-	if s != nil {
-		if source, ok := s.kind.(T); ok {
-			return source
-		}
+// semanticSource returns the typed source of s, and false when s holds another
+// kind or a nil source of kind T.
+func semanticSource[T schemaSemanticKind](s *schemaSemanticSource) (T, bool) {
+	var zero T
+	if s == nil {
+		return zero, false
 	}
-	var source T
-	return source
+	source, ok := s.kind.(T)
+	if !ok || any(source) == any(zero) {
+		return zero, false
+	}
+	return source, true
 }
 
-func (s *schemaSemanticSource) derivationBase() (schemaQNameAttribute, bool) {
-	if s == nil {
-		return schemaQNameAttribute{}, false
+// requiredSemanticSource returns the typed source of n, whose element name fixed
+// its kind when the schema reader built it, or an internal invariant located at n.
+func requiredSemanticSource[T schemaSemanticKind](n *schemaNode) (T, error) {
+	source, ok := semanticSource[T](&n.semantic)
+	if !ok {
+		return source, withSchemaCompileLocation(n, xsderrors.InternalInvariant(n.local+" node has no typed source", nil))
 	}
-	if v, ok := s.kind.(*schemaBaseDerivationSource); ok {
-		return v.Base, true
-	}
-	return schemaQNameAttribute{}, false
-}
-
-func (s *schemaSemanticSource) derivationItemType() schemaQNameAttribute {
-	if s == nil {
-		return schemaQNameAttribute{}
-	}
-	if v, ok := s.kind.(*schemaListDerivationSource); ok {
-		return v.ItemType
-	}
-	return schemaQNameAttribute{}
-}
-
-func (s *schemaSemanticSource) derivationMemberTypes() (schemaQNameListAttribute, bool) {
-	if s == nil {
-		return schemaQNameListAttribute{}, false
-	}
-	if v, ok := s.kind.(*schemaUnionDerivationSource); ok {
-		return v.MemberTypes, true
-	}
-	return schemaQNameListAttribute{}, false
+	return source, nil
 }
 
 func (s *schemaSemanticSource) particle() *schemaParticleSource {
@@ -371,8 +355,8 @@ func schemaModelKind(n *schemaNode) (modelKind, bool) {
 	if n == nil {
 		return 0, false
 	}
-	model := semanticSource[*schemaModelSource](&n.semantic)
-	if model == nil {
+	model, ok := semanticSource[*schemaModelSource](&n.semantic)
+	if !ok {
 		return 0, false
 	}
 	return model.Kind, true
@@ -389,20 +373,6 @@ func schemaSimpleTypeChildren(n *schemaNode) []*schemaNode {
 		}
 	}
 	return children
-}
-
-func schemaElementName(n *schemaNode) string {
-	if source := semanticSource[*schemaElementSource](&n.semantic); source != nil {
-		return source.Global.Name.Value
-	}
-	return ""
-}
-
-func schemaElementForm(n *schemaNode) (string, bool) {
-	if source := semanticSource[*schemaElementSource](&n.semantic); source != nil {
-		return source.Form.Value, source.Form.Present
-	}
-	return "", false
 }
 
 func schemaGlobalSourceFor(n *schemaSyntaxNode) schemaGlobalSource {

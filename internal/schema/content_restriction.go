@@ -2,42 +2,24 @@ package schema
 
 import (
 	"errors"
+	"fmt"
 )
 
-type contentRestrictionErrorKind uint8
-
-const (
-	contentRestrictionMismatchKind contentRestrictionErrorKind = iota
-	contentRestrictionInvariantKind
-)
-
-type contentRestrictionError struct {
+// contentRestrictionMismatchError reports a restriction relation that is valid
+// to evaluate but not a subset of its base.
+type contentRestrictionMismatchError struct {
 	message string
-	kind    contentRestrictionErrorKind
 }
 
-func (e *contentRestrictionError) Error() string { return e.message }
+func (e *contentRestrictionMismatchError) Error() string { return e.message }
 
 func contentRestrictionMismatch(message string) error {
-	return &contentRestrictionError{message: message, kind: contentRestrictionMismatchKind}
+	return &contentRestrictionMismatchError{message: message}
 }
 
-func contentRestrictionInvariant(message string) error {
-	return &contentRestrictionError{message: message, kind: contentRestrictionInvariantKind}
-}
-
-// isContentRestrictionMismatch reports a valid restriction relation that is
-// not a subset of its base.
 func isContentRestrictionMismatch(err error) bool {
-	issue, ok := errors.AsType[*contentRestrictionError](err)
-	return ok && issue.kind == contentRestrictionMismatchKind
-}
-
-// isContentRestrictionInvariant reports invalid runtime metadata encountered
-// while evaluating a restriction relation.
-func isContentRestrictionInvariant(err error) bool {
-	issue, ok := errors.AsType[*contentRestrictionError](err)
-	return ok && issue.kind == contentRestrictionInvariantKind
+	_, ok := errors.AsType[*contentRestrictionMismatchError](err)
+	return ok
 }
 
 type contentRestrictionValidator struct {
@@ -78,13 +60,13 @@ func validateContentRestriction(
 	analysis *contentModelAnalysis,
 ) error {
 	if rt == nil {
-		return contentRestrictionInvariant("content restriction requires runtime")
+		return newBuildDefect("content restriction requires runtime")
 	}
 	if err := requireContentModelWork(work); err != nil {
 		return err
 	}
 	if analysis == nil {
-		return contentRestrictionInvariant("content restriction requires content model analysis")
+		return newBuildDefect("content restriction requires content model analysis")
 	}
 	validator := newContentRestrictionValidator(rt, work, analysis)
 	err := validator.validateContentRestriction(baseID, derivedID)
@@ -208,7 +190,7 @@ func (v contentRestrictionValidator) validateContentModelGraphWithStates(id cont
 	)
 	switch states[id] {
 	case modelChecking:
-		return contentRestrictionInvariant("content restriction references cyclic content model")
+		return newBuildDefect("content restriction references cyclic content model")
 	case modelChecked:
 		return nil
 	}
@@ -217,7 +199,7 @@ func (v contentRestrictionValidator) validateContentModelGraphWithStates(id cont
 		return err
 	}
 	if shapeErr := validateContentModelShape(model); shapeErr != nil {
-		return contentRestrictionInvariant("content restriction references invalid content model: " + shapeErr.Error())
+		return fmt.Errorf("content restriction references invalid content model: %w", shapeErr)
 	}
 	states[id] = modelChecking
 	for _, particle := range model.Particles {
@@ -245,7 +227,7 @@ func (v contentRestrictionValidator) validateContentRestrictionGraphParticle(
 		_, err := v.requireWildcard(particle.Wildcard)
 		return err
 	default:
-		return contentRestrictionInvariant("content restriction references invalid particle kind")
+		return newBuildDefect("content restriction references invalid particle kind")
 	}
 }
 
@@ -258,7 +240,7 @@ func (v contentRestrictionValidator) validateContentRestrictionGraphElement(id E
 		return err
 	}
 	if declaration.Scope == declarationScopeInvalid {
-		return contentRestrictionInvariant("content restriction references element declaration with invalid scope")
+		return newBuildDefect("content restriction references element declaration with invalid scope")
 	}
 	return nil
 }
@@ -522,8 +504,8 @@ func (v contentRestrictionValidator) particleContainsWildcard(p contentParticle)
 	case particleElement:
 		return false, nil
 	default:
+		return false, newBuildDefect("content restriction references invalid particle kind")
 	}
-	return false, nil
 }
 
 func (v contentRestrictionValidator) modelIDContainsWildcard(id contentModelID) (bool, error) {
@@ -610,7 +592,7 @@ func (v contentRestrictionValidator) restrictedElementDeclarations(
 		return particleRestrictionElement{}, particleRestrictionElement{}, err
 	}
 	if baseDecl.Scope == declarationScopeInvalid || derivedDecl.Scope == declarationScopeInvalid {
-		return particleRestrictionElement{}, particleRestrictionElement{}, contentRestrictionInvariant("content restriction references element declaration with invalid scope")
+		return particleRestrictionElement{}, particleRestrictionElement{}, newBuildDefect("content restriction references element declaration with invalid scope")
 	}
 	return baseDecl, derivedDecl, nil
 }
@@ -665,7 +647,7 @@ func (v contentRestrictionValidator) validateParticleRestrictsModel(base, derive
 		}
 		restricted.Occurs = multiplyOccurrence(restricted.Occurs, derived.Occurs)
 	default:
-		return contentRestrictionInvariant("content restriction references invalid particle kind")
+		return newBuildDefect("content restriction references invalid particle kind")
 	}
 	var derivedOrder restrictionChoiceOrder
 	if derived.Kind == particleModel {
@@ -763,7 +745,7 @@ func (v contentRestrictionValidator) validateModelRestrictsWildcard(base, derive
 func (v contentRestrictionValidator) requireContentModel(id contentModelID) (contentModelNode, error) {
 	model, ok := v.ContentModel(id)
 	if !ok {
-		return contentModelNode{}, contentRestrictionInvariant("content restriction references missing content model")
+		return contentModelNode{}, newBuildDefect("content restriction references missing content model")
 	}
 	return model, nil
 }
@@ -802,7 +784,7 @@ func (v contentRestrictionValidator) requireElementName(id ElementID) (QName, er
 		if err := v.finish(nil); err != nil {
 			return QName{}, err
 		}
-		return QName{}, contentRestrictionInvariant("content restriction references missing element name")
+		return QName{}, newBuildDefect("content restriction references missing element name")
 	}
 	return name, nil
 }
@@ -813,7 +795,7 @@ func (v contentRestrictionValidator) elementRestriction(id ElementID) (particleR
 	}
 	decl, ok := v.rt.ElementRestriction(id)
 	if !ok {
-		return particleRestrictionElement{}, contentRestrictionInvariant("content restriction references missing element declaration")
+		return particleRestrictionElement{}, newBuildDefect("content restriction references missing element declaration")
 	}
 	return decl, nil
 }
@@ -821,7 +803,7 @@ func (v contentRestrictionValidator) elementRestriction(id ElementID) (particleR
 func (v contentRestrictionValidator) requireWildcard(id WildcardID) (wildcardRuntime, error) {
 	wildcard, ok := v.Wildcard(id)
 	if !ok {
-		return wildcardRuntime{}, contentRestrictionInvariant("content restriction references missing wildcard")
+		return wildcardRuntime{}, newBuildDefect("content restriction references missing wildcard")
 	}
 	return wildcard, nil
 }

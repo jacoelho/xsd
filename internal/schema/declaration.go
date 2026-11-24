@@ -75,16 +75,16 @@ type attributeDecl struct {
 // expressed in runtime vocabulary.
 func validateElementDeclRuntime(names *nameTable, decl elementDecl, limits declRefLimits) error {
 	if names == nil || !names.ValidQName(decl.Name) || !validTypeID(decl.Type, limits.SimpleTypeCount, limits.ComplexTypeCount) {
-		return errors.New("element declaration references invalid name or type")
+		return newBuildDefect("element declaration references invalid name or type")
 	}
 	if !validElementBlockMask(decl.Block) {
-		return errors.New("element declaration block mask contains invalid derivation")
+		return newBuildDefect("element declaration block mask contains invalid derivation")
 	}
 	if !validElementFinalMask(decl.Final) {
-		return errors.New("element declaration final mask contains invalid derivation")
+		return newBuildDefect("element declaration final mask contains invalid derivation")
 	}
 	if decl.SubstHead != NoElement && !validElementID(decl.SubstHead, limits.ElementCount) {
-		return errors.New("element declaration references invalid substitution head")
+		return newBuildDefect("element declaration references invalid substitution head")
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func validateElementDeclRuntime(names *nameTable, decl elementDecl, limits declR
 // be expressed in runtime vocabulary.
 func validateAttributeDeclRuntime(names *nameTable, decl attributeDecl, limits declRefLimits) error {
 	if names == nil || !names.ValidQName(decl.Name) || !validSimpleTypeID(decl.Type, limits.SimpleTypeCount) {
-		return errors.New("attribute declaration references invalid name or type")
+		return newBuildDefect("attribute declaration references invalid name or type")
 	}
 	if err := validateAttributeName(names, decl.Name); err != nil {
 		return err
@@ -124,7 +124,7 @@ func validateAttributeDeclName(names *nameTable, name QName) error {
 
 func validateAttributeName(names *nameTable, name QName) error {
 	if names == nil || !names.ValidQName(name) {
-		return errors.New("attribute declaration references invalid name")
+		return newBuildDefect("attribute declaration references invalid name")
 	}
 	return nil
 }

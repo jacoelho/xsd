@@ -391,11 +391,11 @@ func elementValueConstraintType(
 	}
 	id, ok := typ.Complex()
 	if !ok || rt == nil {
-		return NoSimpleType, errors.New("element value constraint references invalid type")
+		return NoSimpleType, newBuildDefect("element value constraint references invalid type")
 	}
 	ct, ok := rt.ValueConstraintComplexType(id)
 	if !ok {
-		return NoSimpleType, errors.New("element value constraint references invalid type")
+		return NoSimpleType, newBuildDefect("element value constraint references invalid type")
 	}
 	switch {
 	case ct.ContentKind.Simple():

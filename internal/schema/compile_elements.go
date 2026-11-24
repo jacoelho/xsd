@@ -61,8 +61,11 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 }
 
 func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *schemaNode) (ElementID, error) {
-	source := semanticSource[*schemaElementSource](&n.semantic)
-	if source == nil || !source.Ref.Lexical.Present {
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	if err != nil {
+		return NoElement, err
+	}
+	if !source.Ref.Lexical.Present {
 		return c.compileLocalElement(ctx, n)
 	}
 	q, err := c.referenceQName(ctx, n, source.Ref.Name)
@@ -144,16 +147,19 @@ func (c *compiler) compileLocalElement(ctx *schemaSetDocument, n *schemaNode) (r
 // localElementName returns the expanded name of the local element
 // declaration n, qualified as its form says.
 func localElementName(ctx *schemaSetDocument, n *schemaNode) (ExpandedName, error) {
-	form, hasForm := schemaElementForm(n)
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	if err != nil {
+		return ExpandedName{}, err
+	}
 	qualified, err := parseElementFormAttr(formAttr{
-		Value:            form,
-		HasValue:         hasForm,
+		Value:            source.Form.Value,
+		HasValue:         source.Form.Present,
 		DefaultQualified: ctx.doc.defaults.ElementQualified,
 	})
 	if err != nil {
 		return ExpandedName{}, withSchemaCompileLocation(n, admittedValueInvariant(err))
 	}
-	name := ExpandedName{Local: schemaElementName(n)}
+	name := ExpandedName{Local: source.Global.Name.Value}
 	if qualified {
 		name.Namespace = ctx.effectiveTargetNS
 	}
@@ -206,8 +212,8 @@ type compiledElementProperties struct {
 }
 
 func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode, q QName) (compiledElementProperties, error) {
-	source := semanticSource[*schemaElementSource](&n.semantic)
-	if source == nil {
+	source, ok := semanticSource[*schemaElementSource](&n.semantic)
+	if !ok {
 		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source", nil))
 	}
 	nillable, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrNillable, Value: source.Nillable.Value, HasValue: source.Nillable.Present})
@@ -231,7 +237,11 @@ func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNod
 }
 
 func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode, q QName) (TypeID, error) {
-	if source := semanticSource[*schemaElementSource](&n.semantic); source != nil && source.Type.Lexical.Present {
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	if err != nil {
+		return TypeID{}, err
+	}
+	if source.Type.Lexical.Present {
 		return c.compileElementTypeAttribute(ctx, n, source.Type.Name)
 	}
 	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
@@ -246,12 +256,16 @@ func (c *compiler) compileElementDeclType(ctx *schemaSetDocument, n *schemaNode,
 }
 
 func applyElementDerivationMasks(ctx *schemaSetDocument, n *schemaNode, decl *elementDecl) error {
-	block, err := derivationMaskWithDefaultChecked(n, semanticSource[*schemaElementSource](&n.semantic).Block, ctx.doc.defaults.BlockDefault, elementBlockDerivation())
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	if err != nil {
+		return err
+	}
+	block, err := derivationMaskWithDefaultChecked(n, source.Block, ctx.doc.defaults.BlockDefault, elementBlockDerivation())
 	if err != nil {
 		return err
 	}
 	decl.Block = block
-	final, err := derivationMaskWithDefaultChecked(n, semanticSource[*schemaElementSource](&n.semantic).Final, ctx.doc.defaults.FinalDefault, elementFinalDerivation())
+	final, err := derivationMaskWithDefaultChecked(n, source.Final, ctx.doc.defaults.FinalDefault, elementFinalDerivation())
 	if err != nil {
 		return err
 	}
@@ -260,8 +274,8 @@ func applyElementDerivationMasks(ctx *schemaSetDocument, n *schemaNode, decl *el
 }
 
 func compileElementConstraintSource(n *schemaNode) (*valueConstraint, error) {
-	source := semanticSource[*schemaElementSource](&n.semantic)
-	if source == nil {
+	source, ok := semanticSource[*schemaElementSource](&n.semantic)
+	if !ok {
 		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source", nil))
 	}
 	return sourceValueConstraint(n, source.Default, source.Fixed)

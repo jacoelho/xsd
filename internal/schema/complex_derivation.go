@@ -20,10 +20,11 @@ const (
 // checkComplexTypeFinalAllows maps runtime complex-type final-mask rejection
 // into the compile diagnostic for the schema role being derived.
 func checkComplexTypeFinalAllows(final, derivation DerivationMask, role complexTypeFinalRole) error {
-	if err := validateComplexTypeFinalAllows(final, derivation); err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, complexTypeFinalRoleMessage(role), nil)
+	err := validateComplexTypeFinalAllows(final, derivation)
+	if err == nil || isBuildDefect(err) {
+		return compileRuleError(xsderrors.CodeSchemaReference, "", err)
 	}
-	return nil
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, complexTypeFinalRoleMessage(role), nil)
 }
 
 // checkSimpleBaseComplexExtensionFinalAllows maps runtime final-mask rejection

@@ -38,7 +38,7 @@ func validateIdentityConstraintOwnership(elements []elementDecl, identities []id
 func markDeclaredIdentityConstraints(attached []bool, identities []identityConstraintSpec, ids []IdentityConstraintID, element ElementID) error {
 	for _, id := range ids {
 		if !validIdentityConstraintID(id, len(attached)) {
-			return errors.New("element declaration references invalid identity constraint")
+			return newBuildDefect("element declaration references invalid identity constraint")
 		}
 		if attached[id] {
 			return errors.New("identity constraint is attached more than once")
@@ -53,7 +53,7 @@ func markDeclaredIdentityConstraints(attached []bool, identities []identityConst
 
 func validateIdentityConstraint(names *nameTable, identities []identityConstraintSpec, ic identityConstraintSpec) error {
 	if !names.ValidQName(ic.Name) {
-		return errors.New("identity constraint references invalid name")
+		return newBuildDefect("identity constraint references invalid name")
 	}
 	if len(ic.Selector) == 0 {
 		return errors.New("identity constraint has no selector")
@@ -80,13 +80,13 @@ func validateIdentityConstraintKind(identities []identityConstraintSpec, ic iden
 	case IdentityKeyRef:
 		return validateIdentityKeyRef(identities, ic)
 	default:
-		return errors.New("identity constraint has invalid kind")
+		return newBuildDefect("identity constraint has invalid kind")
 	}
 }
 
 func validateIdentityKeyRef(identities []identityConstraintSpec, ic identityConstraintSpec) error {
 	if !validIdentityConstraintID(ic.Refer, len(identities)) {
-		return errors.New("keyref identity constraint references invalid key")
+		return newBuildDefect("keyref identity constraint references invalid key")
 	}
 	ref := identities[ic.Refer]
 	if ref.Kind == IdentityKeyRef {
@@ -101,7 +101,7 @@ func validateIdentityKeyRef(identities []identityConstraintSpec, ic identityCons
 func validateIdentitySelectorPaths(names *nameTable, paths []identityPath) error {
 	for _, path := range paths {
 		if !validIdentityPath(names, path) {
-			return errors.New("identity selector references invalid name")
+			return newBuildDefect("identity selector references invalid name")
 		}
 	}
 	return nil
@@ -122,7 +122,7 @@ func validateIdentityFieldPaths(names *nameTable, fields []identityField) error 
 func validateIdentityFieldPathSet(names *nameTable, paths []identityFieldPath) error {
 	for _, path := range paths {
 		if !validIdentityFieldPath(names, path) {
-			return errors.New("identity field path has invalid shape")
+			return newBuildDefect("identity field path has invalid shape")
 		}
 	}
 	return nil

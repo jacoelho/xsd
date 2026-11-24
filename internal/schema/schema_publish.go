@@ -25,7 +25,7 @@ func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	}
 	program, err := sealSchemaProgram(build, work)
 	if err != nil {
-		return nil, err
+		return nil, untranslatedBuildDefect(err)
 	}
 	*build = schemaBuild{}
 	return &Schema{program: program}, nil
@@ -52,7 +52,7 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 	}
 	program, err := newSchemaProgram(build, work)
 	if err != nil {
-		return schemaProgram{}, schemaBuildValidationError(err)
+		return schemaProgram{}, auditError("", err)
 	}
 	if build.valueBuilder == nil {
 		return schemaProgram{}, xsderrors.InternalInvariant("schema build has no value program builder", nil)

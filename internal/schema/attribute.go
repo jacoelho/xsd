@@ -458,7 +458,7 @@ func validateRestrictedAttributeWildcard(
 	case attributeWildcardBound:
 		return validateAttributeWildcardDerivation(base, derived, attributeWildcardRestriction)
 	default:
-		return errors.New("attribute wildcard binding is invalid")
+		return newBuildDefect("attribute wildcard binding is invalid")
 	}
 }
 
@@ -500,11 +500,11 @@ func validateAttributeUseRuntime(
 ) (carriesID bool, err error) {
 	carriesID, ok := rt.SimpleTypeCarriesID(use.Type)
 	if names == nil || !names.ValidQName(use.Name) || !ok {
-		return false, errors.New("attribute use references invalid name or type")
+		return false, newBuildDefect("attribute use references invalid name or type")
 	}
 	slot, ok := newUint32Index(i)
 	if !ok {
-		return false, errors.New("attribute use slot is invalid")
+		return false, newBuildDefect("attribute use slot is invalid")
 	}
 	if indexed, ok := index[use.Name]; !ok || indexed != slot {
 		return false, errors.New("attribute use index does not match use slice")
@@ -541,7 +541,7 @@ func validateAttributeWildcardProvenance(rt *schemaBuild, state attributeUseSet)
 		return err
 	}
 	if !validAttributeWildcardDerivation(state.WildcardDerive) {
-		return errors.New("attribute use set has invalid wildcard derivation")
+		return newBuildDefect("attribute use set has invalid wildcard derivation")
 	}
 	switch state.WildcardDerive {
 	case attributeWildcardNone:
@@ -568,11 +568,11 @@ func validateAttributeWildcardRestriction(rt *schemaBuild, state attributeUseSet
 	}
 	declared, ok := wildcardByID(rt.Wildcards, state.WildcardDeclared)
 	if !ok {
-		return errors.New("attribute use set references invalid declared wildcard")
+		return newBuildDefect("attribute use set references invalid declared wildcard")
 	}
 	base, ok := wildcardByID(rt.Wildcards, state.WildcardBase)
 	if !ok {
-		return errors.New("attribute use set references invalid base wildcard")
+		return newBuildDefect("attribute use set references invalid base wildcard")
 	}
 	subset, err := wildcardNamespaceSubset(declared, base, admittedWildcardWork)
 	if err != nil {
@@ -612,15 +612,15 @@ func validateAttributeWildcardExtensionWithoutDeclaration(state attributeUseSet)
 func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state attributeUseSet) error {
 	declared, ok := wildcardByID(rt.Wildcards, state.WildcardDeclared)
 	if !ok {
-		return errors.New("attribute use set references invalid declared wildcard")
+		return newBuildDefect("attribute use set references invalid declared wildcard")
 	}
 	base, ok := wildcardByID(rt.Wildcards, state.WildcardBase)
 	if !ok {
-		return errors.New("attribute use set references invalid base wildcard")
+		return newBuildDefect("attribute use set references invalid base wildcard")
 	}
 	actual, ok := wildcardByID(rt.Wildcards, state.Wildcard)
 	if !ok {
-		return errors.New("attribute use set references invalid wildcard")
+		return newBuildDefect("attribute use set references invalid wildcard")
 	}
 	union, err := unionWildcard(declared, base, declared.Process, admittedWildcardWork)
 	if err != nil {

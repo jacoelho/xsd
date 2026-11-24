@@ -461,7 +461,7 @@ func TestValidateContentRestrictionMissingModelIsInternalInvariant(t *testing.T)
 		},
 	}
 	err := validateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork))
-	if !isContentRestrictionInvariant(err) {
+	if !isBuildDefect(err) {
 		t.Fatalf("ValidateContentRestriction() error = %v, want invariant", err)
 	}
 }

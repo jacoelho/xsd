@@ -62,7 +62,7 @@ func checkAttributeUseDefault(mode attributeUseMode) error {
 	case attributeUseProhibited:
 		return errors.New("prohibited attribute cannot have default")
 	}
-	return errors.New("attribute use mode is invalid")
+	return newBuildDefect("attribute use mode is invalid")
 }
 
 // validateAttributeUseValueConstraintAdmission rejects the default of an

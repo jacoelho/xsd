@@ -158,7 +158,7 @@ func (a *contentModelAnalysis) cachedModelCountRange(id contentModelID) (countRa
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return countRange{}, errors.New("content model count analysis references missing content model")
+		return countRange{}, newBuildDefect("content model count analysis references missing content model")
 	}
 	a.rangePath[id] = true
 	defer delete(a.rangePath, id)
@@ -315,7 +315,7 @@ func (a *contentModelAnalysis) elementParticleOverlap(left, right contentParticl
 func (a *contentModelAnalysis) modelStartOverlap(id contentModelID, particle contentParticle) (particleOverlap, bool, error) {
 	model, ok := a.contentModel(id)
 	if !ok {
-		return particleOverlap{}, false, errors.New("content model overlap analysis references missing content model")
+		return particleOverlap{}, false, newBuildDefect("content model overlap analysis references missing content model")
 	}
 	switch model.Kind {
 	case modelAll, modelChoice, modelSequence:
@@ -484,7 +484,7 @@ func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, er
 	}
 	model, ok := a.contentModel(id)
 	if !ok {
-		return false, errors.New("content model emptiability analysis references missing content model")
+		return false, newBuildDefect("content model emptiability analysis references missing content model")
 	}
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
@@ -520,8 +520,8 @@ func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool
 	case modelEmpty:
 		return false, nil
 	default:
+		return false, newBuildDefect("content model emptiability analysis references invalid model kind")
 	}
-	return false, nil
 }
 
 func (a *contentModelAnalysis) allParticlesEmptiable(particles []contentParticle) (bool, error) {

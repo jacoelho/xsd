@@ -414,21 +414,21 @@ func validateSubstitutionParent(
 	}
 	memberID, ok := elementIndexID(index)
 	if !ok {
-		return NoElement, errors.New("substitution member element ID is invalid")
+		return NoElement, newBuildDefect("substitution member element ID is invalid")
 	}
 	if !names.ValidQName(member.Name) {
-		return NoElement, errors.New("substitution member name is invalid")
+		return NoElement, newBuildDefect("substitution member name is invalid")
 	}
 	globalMember, ok := globals[member.Name]
 	if !ok || globalMember != memberID {
 		return NoElement, errors.New("substitution member is not a global element")
 	}
 	if !validSubstitutionElementID(elements, member.SubstHead) {
-		return NoElement, errors.New("element declaration references invalid substitution head")
+		return NoElement, newBuildDefect("element declaration references invalid substitution head")
 	}
 	head := elements[member.SubstHead]
 	if !names.ValidQName(head.Name) {
-		return NoElement, errors.New("substitution head name is invalid")
+		return NoElement, newBuildDefect("substitution head name is invalid")
 	}
 	globalHead, ok := globals[head.Name]
 	if !ok || globalHead != member.SubstHead {

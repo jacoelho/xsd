@@ -524,7 +524,11 @@ func completeTypedNode(frame *typedSchemaParseFrame) error {
 	if frame.order == nil {
 		return nil
 	}
-	if rule := frame.orders.missingChild(frame.order, frame.node); rule != nil {
+	rule, err := frame.orders.missingChild(frame.order, frame.node)
+	if err != nil {
+		return err
+	}
+	if rule != nil {
 		return schemaCompileAt(frame.node, rule.MissingCode, rule.MissingMsg)
 	}
 	return nil

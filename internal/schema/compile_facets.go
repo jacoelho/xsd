@@ -81,8 +81,7 @@ func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base Sim
 // that the base type admits it. A facet the restriction repeats was rejected
 // at its start tag; see childOrderState.acceptFacet.
 func validateFacetChildSource(child *schemaNode, st *simpleType) (valuepkg.FacetMask, error) {
-	source := semanticSource[*schemaFacetSource](&child.semantic)
-	if source == nil {
+	if _, ok := semanticSource[*schemaFacetSource](&child.semantic); !ok {
 		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source", nil))
 	}
 	mask, err := validateFacetSource(facetSource{
@@ -142,8 +141,8 @@ type facetInput struct {
 }
 
 func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
-	source := semanticSource[*schemaFacetSource](&n.semantic)
-	if source == nil {
+	source, ok := semanticSource[*schemaFacetSource](&n.semantic)
+	if !ok {
 		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source", nil))
 	}
 	value := source.Value.Value

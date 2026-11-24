@@ -66,10 +66,7 @@ func TestUnionMemberSourceAdmission(t *testing.T) {
 				t.Fatalf("parseSchemaDocument() error = %v", err)
 			}
 			union := doc.root.firstXS("simpleType").firstXS("union")
-			members, ok := union.semantic.derivationMemberTypes()
-			if !ok {
-				t.Fatal("union has no admitted member source")
-			}
+			members := testSemanticSource[*schemaUnionDerivationSource](t, &union.semantic).MemberTypes
 			if members.Lexical.Present != tt.hasMemberTypes || members.Lexical.Value != tt.wantValue || !slices.Equal(members.Names, tt.wantNames) {
 				t.Fatalf("admitted members = %+v, want present %v value %q names %#v", members, tt.hasMemberTypes, tt.wantValue, tt.wantNames)
 			}

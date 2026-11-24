@@ -61,7 +61,7 @@ const (
 // the child would both supply it.
 type childRule struct {
 	Match        func(local string) bool
-	Supplied     func(parent *schemaNode) bool
+	Supplied     func(parent *schemaNode) (bool, error)
 	ForbiddenMsg string
 	OrderMsg     string
 	DupMsg       string
@@ -408,8 +408,14 @@ func (s *childOrderState) accept(n *schemaSyntaxNode, order *childOrder, parent 
 	if s.seen&bit != 0 && rule.MaxOne {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.DupMsg)
 	}
-	if rule.ConflictMsg != "" && rule.Supplied(parent) {
-		return schemaCompileAt(n, rule.ConflictCode, rule.ConflictMsg)
+	if rule.ConflictMsg != "" {
+		supplied, err := rule.Supplied(parent)
+		if err != nil {
+			return err
+		}
+		if supplied {
+			return schemaCompileAt(n, rule.ConflictCode, rule.ConflictMsg)
+		}
 	}
 	if err := s.acceptFacet(n); err != nil {
 		return err
@@ -439,18 +445,24 @@ func (s *childOrderState) acceptFacet(n *schemaSyntaxNode) error {
 // missingChild returns the first rule of order, in rule order, that requires
 // a child parent ended without, or nil when parent has every child order
 // requires.
-func (s *childOrderState) missingChild(order *childOrder, parent *schemaNode) *childRule {
+func (s *childOrderState) missingChild(order *childOrder, parent *schemaNode) (*childRule, error) {
 	for i := range order.Rules {
 		rule := &order.Rules[i]
 		if rule.MissingMsg == "" || s.seen&(uint64(1)<<i) != 0 {
 			continue
 		}
-		if rule.Supplied != nil && rule.Supplied(parent) {
-			continue
+		if rule.Supplied != nil {
+			supplied, err := rule.Supplied(parent)
+			if err != nil {
+				return nil, err
+			}
+			if supplied {
+				continue
+			}
 		}
-		return rule
+		return rule, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (s *childOrderState) seenBelow(level int, rules []childRule) bool {
@@ -475,7 +487,7 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 	var derivation string
 	var singleChild bool
 	var allowFacets bool
-	var supplied func(*schemaNode) bool
+	var supplied func(*schemaNode) (bool, error)
 	var missing, conflict string
 	switch kind {
 	case simpleDerivationRestriction:
@@ -528,34 +540,37 @@ func simpleDerivationOrder(kind simpleDerivationKind) childOrder {
 
 // elementTypeSupplied reports whether n, an element declaration, names its
 // type in type (src-element.3).
-func elementTypeSupplied(n *schemaNode) bool {
-	return semanticSource[*schemaElementSource](&n.semantic).Type.Lexical.Present
+func elementTypeSupplied(n *schemaNode) (bool, error) {
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	return err == nil && source.Type.Lexical.Present, err
 }
 
 // attributeTypeSupplied reports whether n, an attribute declaration, names
 // its type in type (src-attribute.4).
-func attributeTypeSupplied(n *schemaNode) bool {
-	return semanticSource[*schemaAttributeSource](&n.semantic).Type.Lexical.Present
+func attributeTypeSupplied(n *schemaNode) (bool, error) {
+	source, err := requiredSemanticSource[*schemaAttributeSource](n)
+	return err == nil && source.Type.Lexical.Present, err
 }
 
 // restrictionBaseSupplied reports whether n, a simple xs:restriction, names
 // its base type in base (src-simple-type.2).
-func restrictionBaseSupplied(n *schemaNode) bool {
-	base, _ := n.semantic.derivationBase()
-	return base.Lexical.Present
+func restrictionBaseSupplied(n *schemaNode) (bool, error) {
+	source, err := requiredSemanticSource[*schemaBaseDerivationSource](n)
+	return err == nil && source.Base.Lexical.Present, err
 }
 
 // listItemTypeSupplied reports whether n, an xs:list, names its item type in
 // itemType (src-simple-type.3).
-func listItemTypeSupplied(n *schemaNode) bool {
-	return n.semantic.derivationItemType().Lexical.Present
+func listItemTypeSupplied(n *schemaNode) (bool, error) {
+	source, err := requiredSemanticSource[*schemaListDerivationSource](n)
+	return err == nil && source.ItemType.Lexical.Present, err
 }
 
 // unionMemberTypesSupplied reports whether n, an xs:union, names at least one
 // member type in memberTypes (src-simple-type.4).
-func unionMemberTypesSupplied(n *schemaNode) bool {
-	members, _ := n.semantic.derivationMemberTypes()
-	return len(members.Names) != 0
+func unionMemberTypesSupplied(n *schemaNode) (bool, error) {
+	source, err := requiredSemanticSource[*schemaUnionDerivationSource](n)
+	return err == nil && len(source.MemberTypes.Names) != 0, err
 }
 
 func derivationContainerOrder(label string) childOrder {

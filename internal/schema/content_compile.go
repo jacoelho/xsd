@@ -360,8 +360,8 @@ func (c *elementDeclarationConsistencyChecker) collectParticle(declarations *ele
 	case particleWildcard:
 		return nil
 	default:
+		return xsderrors.InternalInvariant("content model particle has unknown kind", nil)
 	}
-	return nil
 }
 
 // collectElementParticle collects element and the members of its actual
@@ -544,8 +544,8 @@ func (c *contentModelCompiler) checkDirectUPA(model contentModelNode) error {
 	case modelEmpty:
 		return nil
 	default:
+		return xsderrors.InternalInvariant("content model has unknown kind", nil)
 	}
-	return nil
 }
 
 // checkSequenceUPA compares the continuations of each member with the members
@@ -1560,8 +1560,7 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 	case modelAll:
 		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models", nil)
 	default:
-		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model", nil)
-		return dfaNode{}, err
+		return dfaNode{}, xsderrors.InternalInvariant("content model has unknown kind", nil)
 	}
 	return b.repeat(node, model.Occurs)
 }
@@ -1676,7 +1675,7 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 		}
 		node = child
 	default:
-		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported particle", nil)
+		return dfaNode{}, xsderrors.InternalInvariant("content model particle has unknown kind", nil)
 	}
 	return b.repeat(node, p.Occurs)
 }

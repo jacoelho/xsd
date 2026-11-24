@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"errors"
 	"slices"
 
 	"github.com/jacoelho/xsd/xsderrors"
@@ -163,27 +162,27 @@ func validateContentModelKindShape(model contentModelNode) error {
 	case modelAll:
 		return validateAllContentModelShape(model)
 	default:
-		return errors.New("content model has invalid kind")
+		return newBuildDefect("content model has invalid kind")
 	}
 }
 
 func validateEmptyContentModelShape(model contentModelNode) error {
 	if len(model.Particles) != 0 || model.Occurs != (occurrence{}) {
-		return errors.New("empty content model stores inactive fields")
+		return newBuildDefect("empty content model stores inactive fields")
 	}
 	return nil
 }
 
 func validateCompositorContentModelShape(model contentModelNode) error {
 	if !validOccurrence(model.Occurs) {
-		return errors.New("content model occurrence is invalid")
+		return newBuildDefect("content model occurrence is invalid")
 	}
 	return nil
 }
 
 func validateAllContentModelShape(model contentModelNode) error {
 	if !validOccurrence(model.Occurs) || model.Occurs.Unbounded || model.Occurs.Max > 1 || model.Occurs.Min > 1 {
-		return errors.New("all content model occurrence is invalid")
+		return newBuildDefect("all content model occurrence is invalid")
 	}
 	return nil
 }
@@ -192,18 +191,18 @@ func validateParticleRuntimeReference(particle contentParticle, limits contentMo
 	switch particle.Kind {
 	case particleElement:
 		if !validElementID(particle.Element, limits.ElementCount) {
-			return errors.New("particle references invalid element")
+			return newBuildDefect("particle references invalid element")
 		}
 	case particleModel:
 		if !validContentModelID(particle.Model, modelCount) {
-			return errors.New("particle references invalid content model")
+			return newBuildDefect("particle references invalid content model")
 		}
 	case particleWildcard:
 		if !validWildcardID(particle.Wildcard, limits.WildcardCount) {
-			return errors.New("particle references invalid wildcard")
+			return newBuildDefect("particle references invalid wildcard")
 		}
 	default:
-		return errors.New("particle has invalid kind")
+		return newBuildDefect("particle has invalid kind")
 	}
 	return nil
 }
@@ -375,7 +374,7 @@ func spendContentModelWork(work contentModelWork) error {
 
 func requireContentModelWork(work contentModelWork) error {
 	if work == nil {
-		return errors.New("content-model work budget is required")
+		return newBuildDefect("content-model work budget is required")
 	}
 	return nil
 }
@@ -391,21 +390,21 @@ func validOccurrence(o occurrence) bool {
 // cross-table ID lookup.
 func validateParticleShape(p contentParticle) error {
 	if !validOccurrence(p.Occurs) {
-		return errors.New("particle occurrence is invalid")
+		return newBuildDefect("particle occurrence is invalid")
 	}
 	switch p.Kind {
 	case particleElement, particleModel, particleWildcard:
 	default:
-		return errors.New("particle has invalid kind")
+		return newBuildDefect("particle has invalid kind")
 	}
 	if p.Kind != particleElement && p.Element != NoElement {
-		return errors.New("particle stores element ID for non-element kind")
+		return newBuildDefect("particle stores element ID for non-element kind")
 	}
 	if p.Kind != particleModel && p.Model != noContentModel {
-		return errors.New("particle stores content model ID for non-model kind")
+		return newBuildDefect("particle stores content model ID for non-model kind")
 	}
 	if p.Kind != particleWildcard && p.Wildcard != NoWildcard {
-		return errors.New("particle stores wildcard ID for non-wildcard kind")
+		return newBuildDefect("particle stores wildcard ID for non-wildcard kind")
 	}
 	return nil
 }

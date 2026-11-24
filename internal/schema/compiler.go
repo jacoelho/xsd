@@ -72,7 +72,7 @@ func (c *compiler) compileMappedSources(owned []source.Source) (*Schema, error) 
 	}
 	rt, err := c.compileLoaded()
 	if err != nil {
-		return nil, c.locateSetWideLimit(err)
+		return nil, c.locateSetWideLimit(untranslatedBuildDefect(err))
 	}
 	return rt, nil
 }
@@ -472,7 +472,11 @@ func contentRestrictionCompileError(err error) error {
 }
 
 func complexBlockMaskWithDefault(n *schemaNode, def DerivationMask) (DerivationMask, error) {
-	return derivationMaskWithDefaultChecked(n, semanticSource[*schemaComplexTypeSource](&n.semantic).Block, def, complexTypeBlockDerivation())
+	source, err := requiredSemanticSource[*schemaComplexTypeSource](n)
+	if err != nil {
+		return 0, err
+	}
+	return derivationMaskWithDefaultChecked(n, source.Block, def, complexTypeBlockDerivation())
 }
 
 func simpleFinalMaskWithDefaultChecked(n *schemaNode, def DerivationMask) (DerivationMask, error) {
@@ -707,10 +711,11 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 	if len(children) > 1 {
 		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children", nil)
 	}
-	baseSource, ok := n.semantic.derivationBase()
+	derivation, ok := semanticSource[*schemaBaseDerivationSource](&n.semantic)
 	if !ok {
 		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction node has no typed derivation source", nil))
 	}
+	baseSource := derivation.Base
 	if baseSource.Lexical.Present {
 		q, err := c.referenceQName(ctx, n, baseSource.Name)
 		if err != nil {
@@ -728,7 +733,11 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
 	item := NoSimpleType
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
-	itemTypeSource := n.semantic.derivationItemType()
+	list, err := requiredSemanticSource[*schemaListDerivationSource](n)
+	if err != nil {
+		return simpleType{}, err
+	}
+	itemTypeSource := list.ItemType
 	switch {
 	case itemTypeSource.Lexical.Present:
 		id, err := c.compileListItemType(ctx, n, itemTypeSource.Name)
@@ -810,11 +819,11 @@ func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QNam
 		seen: make(map[SimpleTypeID]struct{}),
 	}
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
-	memberTypesSource, ok := n.semantic.derivationMemberTypes()
+	union, ok := semanticSource[*schemaUnionDerivationSource](&n.semantic)
 	if !ok {
 		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("union node has no typed derivation source", nil))
 	}
-	memberTypes := memberTypesSource.Names
+	memberTypes := union.MemberTypes.Names
 	for _, member := range memberTypes {
 		if err := compilation.addNamedQName(n, member); err != nil {
 			return simpleType{}, err
