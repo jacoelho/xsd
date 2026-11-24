@@ -109,8 +109,7 @@ func leastLimit(compile func(limit int) error) (int, error) {
 func diagnosticCodes(err error) []xsderrors.Code {
 	var codes []xsderrors.Code
 	for _, entry := range xsderrors.Flatten(err) {
-		var diagnostic *xsderrors.Error
-		if errors.As(entry, &diagnostic) {
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](entry); ok {
 			codes = append(codes, diagnostic.Code())
 		} else {
 			codes = append(codes, "")

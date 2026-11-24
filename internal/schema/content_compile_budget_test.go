@@ -322,7 +322,7 @@ func TestWildcardOverlapPassReadsAGroupsElementCandidatesOncePerModel(t *testing
 		for range references {
 			sequence = append(sequence, modelParticle(1, twice))
 		}
-		sequence = append(sequence, elementParticle(ElementID(width), one))
+		sequence = append(sequence, elementParticle(1_000, one))
 		steps, err := wildcardOverlapPassWithin(t, map[contentModelID]contentModelNode{
 			0: {Kind: modelSequence, Occurs: one, Particles: sequence},
 			1: {Kind: modelChoice, Occurs: twice, Particles: choice},
