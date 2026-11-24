@@ -135,7 +135,7 @@ func TestSchemaReaderFailuresAreLocatedLikeInstanceReaderFailures(t *testing.T) 
 	}{
 		{"empty document", "", xsderrors.CodeSchemaRoot, 1, 1},
 		{"prolog ending at a line start", "<?pi?>\n", xsderrors.CodeSchemaRoot, 2, 1},
-		{"text outside root at a line start", root + "\nx", xsderrors.CodeSchemaXML, 2, 1},
+		{"text outside root starting with a line break", root + "\nx", xsderrors.CodeSchemaXML, 1, len(root) + 1},
 		{"unclosed root at end of input", "<xs:schema " + xsNS + ">\n", xsderrors.CodeSchemaXML, 2, 1},
 		{"unclosed child at end of input", "<xs:schema " + xsNS + ">\n<xs:annotation>\n", xsderrors.CodeSchemaXML, 3, 1},
 		{"declared ISO-8859-1 encoding", `<?xml version="1.0" encoding="ISO-8859-1"?>` + root, xsderrors.CodeUnsupportedNonUTF8, 1, 1},
