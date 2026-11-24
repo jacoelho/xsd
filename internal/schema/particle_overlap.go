@@ -465,13 +465,17 @@ func (a *contentModelAnalysis) cachedParticleEmptiable(particle contentParticle)
 	if err := spendContentModelWork(a.work); err != nil {
 		return false, err
 	}
-	if particle.Occurs.Min == 0 {
-		return true, nil
+	switch particle.Kind {
+	case particleElement, particleWildcard:
+		return particle.Occurs.Min == 0, nil
+	case particleModel:
+		if particle.Occurs.Min == 0 {
+			return true, nil
+		}
+		return a.ModelEmptiable(particle.Model)
+	default:
+		return false, newBuildDefect("content model emptiability analysis references invalid particle kind")
 	}
-	if particle.Kind != particleModel {
-		return false, nil
-	}
-	return a.ModelEmptiable(particle.Model)
 }
 
 func (a *contentModelAnalysis) cachedModelEmptiable(id contentModelID) (bool, error) {
@@ -508,19 +512,20 @@ func (a *contentModelAnalysis) emptiableModel(id contentModelID, model contentMo
 }
 
 func (a *contentModelAnalysis) modelEmptiableValue(model contentModelNode) (bool, error) {
-	if model.Occurs.Min == 0 || model.Kind == modelEmpty {
-		return true, nil
-	}
 	switch model.Kind {
-	case modelSequence, modelAll:
-		return a.allParticlesEmptiable(model.Particles)
-	case modelChoice:
-		return a.anyParticleEmptiable(model.Particles)
 	case modelEmpty:
-		return false, nil
+		return true, nil
+	case modelSequence, modelAll, modelChoice:
 	default:
 		return false, newBuildDefect("content model emptiability analysis references invalid model kind")
 	}
+	if model.Occurs.Min == 0 {
+		return true, nil
+	}
+	if model.Kind == modelChoice {
+		return a.anyParticleEmptiable(model.Particles)
+	}
+	return a.allParticlesEmptiable(model.Particles)
 }
 
 func (a *contentModelAnalysis) allParticlesEmptiable(particles []contentParticle) (bool, error) {

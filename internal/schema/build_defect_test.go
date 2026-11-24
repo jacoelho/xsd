@@ -141,7 +141,7 @@ func TestDFAGuardsAndActionsReportCounterOutOfRangeAsInternalInvariant(t *testin
 	}
 }
 
-func TestContentModelStepsReportUnknownParticleKindAsInternalInvariant(t *testing.T) {
+func TestContentModelStepsReportUnknownKindsAsInternalInvariant(t *testing.T) {
 	t.Parallel()
 	unknown := contentParticle{Kind: particleKind(200), Occurs: occurrence{Min: 1, Max: 1}}
 	for name, err := range map[string]error{
@@ -154,10 +154,26 @@ func TestContentModelStepsReportUnknownParticleKindAsInternalInvariant(t *testin
 			_, err := particleTermKeyOf(unknown)
 			return err
 		}(),
+		"emptiability of an optional particle": func() error {
+			analysis, err := newContentModelAnalysis(&schemaBuild{}, func(int) error { return nil })
+			if err != nil {
+				return err
+			}
+			_, err = analysis.cachedParticleEmptiable(contentParticle{Kind: particleKind(200)})
+			return err
+		}(),
+		"emptiability of an optional model": func() error {
+			analysis, err := newContentModelAnalysis(&schemaBuild{}, func(int) error { return nil })
+			if err != nil {
+				return err
+			}
+			_, err = analysis.modelEmptiableValue(contentModelNode{Kind: modelKind(200)})
+			return err
+		}(),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			expectDiagnostic(t, compileRuleError(xsderrors.CodeSchemaContentModel, "", err), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
 }
