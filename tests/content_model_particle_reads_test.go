@@ -244,6 +244,7 @@ func elementOf(k holdKind) holdKind {
 		return holdsList
 	case holdsList:
 		return holdsLists
+	case holdsLists:
 	}
 	return 0
 }

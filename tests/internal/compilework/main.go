@@ -69,7 +69,12 @@ func run(path string) error {
 	if err := coverage.ClearCounters(); err != nil {
 		return err
 	}
-	compileErr := compile(xsd.CompileOptions{})
+	return report(analysis, dependency, compile(xsd.CompileOptions{}))
+}
+
+// report prints the steps and how the final compilation, which ended with
+// compileErr, ends.
+func report(analysis, dependency int, compileErr error) error {
 	if isLimit(compileErr) {
 		return compileErr
 	}
