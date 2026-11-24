@@ -168,6 +168,39 @@ func TestReferenceBaseUsesRFC2396ForResolverAndFallback(t *testing.T) {
 	}
 }
 
+func TestEmptyAuthorityIsAURIBase(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, base, xmlBase, want string
+	}{
+		{name: "source name", base: "foo://", want: "foo:///a.xsd"},
+		{name: "xml:base under a URI base", base: "http://example.test/schemas/", xmlBase: "//", want: "http:///a.xsd"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			base := NewReferenceBase(tc.base)
+			if tc.xmlBase != "" {
+				var err error
+				if base, err = base.WithXMLBase(mustURIReference(t, tc.xmlBase)); err != nil {
+					t.Fatalf("WithXMLBase(%q) error = %v", tc.xmlBase, err)
+				}
+			}
+			child, err := base.WithXMLBase(mustURIReference(t, "a.xsd"))
+			if err != nil {
+				t.Fatalf("WithXMLBase(a.xsd) error = %v", err)
+			}
+			if resolver, ok := child.ResolverValue(); !ok || resolver != tc.want || child.fallback != tc.want {
+				t.Fatalf("resolving a.xsd = resolver %q/%v fallback %q, want %q/true", resolver, ok, child.fallback, tc.want)
+			}
+			resolution, err := Bytes(tc.base, nil).ResolveFrom(base, mustURIReference(t, "a.xsd"))
+			if err != nil || resolution.Target() != tc.want {
+				t.Fatalf("ResolveFrom(a.xsd) target = %q, error %v; want %q", resolution.Target(), err, tc.want)
+			}
+		})
+	}
+}
+
 func TestReferenceBasePreservesFallbackBackendSemantics(t *testing.T) {
 	t.Parallel()
 

@@ -2869,9 +2869,10 @@ after the repeated choice that holds it.
 
 ## I-051 — a bare empty authority is an anyURI
 
-**Status:** decided by the user on 2026-11-24: the specification text
-outranks accepted W3C `msMeta/DataTypes_w3c.xml/anyURI_b006_1356`, whose
-expectation the corpus corrects.
+**Status:** decided by the user on 2026-11-24 by the specification text, the
+first rank of the [processor tie-break](#processor-tie-break). Accepted W3C
+`msMeta/DataTypes_w3c.xml/anyURI_b006_1356` ranks below it, and the corpus
+corrects its expectation.
 
 An anyURI literal may be only an empty authority, `//` or `scheme://`, as it
 may be an empty authority followed by a path, query or fragment (`///`,
@@ -2907,7 +2908,17 @@ which XLink escaping makes a valid reference, as it rejects an anyURI with a
 space ([I-036](#i-036--builtin-lexical-and-value-spaces)).
 
 Cases: `project/datatypes/uri/empty-authority` (instances `bare-relative`,
-`bare-absolute`, `relative-with-fragment`, `relative-with-query`,
-`relative-with-path`, `absolute-with-fragment` and `absolute-with-path`, all
-valid), `project/composition/xml-base-empty-authority/*` (all valid) and
-`w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356` (schema valid).
+`bare-relative-with-whitespace`, `bare-absolute`, `relative-with-fragment`,
+`relative-with-empty-fragment`, `relative-with-query`,
+`relative-with-empty-query`, `relative-with-path`, `absolute-with-fragment`,
+`absolute-with-empty-query` and `absolute-with-path`, all valid),
+`project/composition/xml-base-empty-authority/*` (all valid, including a root
+`xml:base` of `//`) and `w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356`
+(schema valid). An include or import whose `schemaLocation` is `//` names a
+reference the built-in backend cannot load, so the schema compiles without
+it, and a custom resolver receives `//`
+(`TestBareEmptyAuthoritySchemaLocationIsAnUnavailableReference`). The corpus
+cannot express that case: resolved against a file base, `//` names
+`file:///`, outside every corpus root, so .NET and xmlschema report it
+blocked, Xerces-J skips it and validates, and libxml2 rejects the schema as
+including itself.

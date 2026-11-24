@@ -186,16 +186,13 @@ datatype value (`internal/value`) and custom-resolver spelling;
 source names and Unix paths never enter `Reference`; a scheme-bearing source
 name is parsed only as a URI base.
 
-One decomposition of the text into component spans serves both validation and
-`Reference.Parts`. Every `Reference` equals what `Parse` returns for its
-spelling: `Resolve` composes through `Parse`, and `WithoutFragment` keeps the
-spans before the fragment, which a fuzz target checks against `Parse`. A
-`Reference` follows the RFC 2396 grammar as amended by RFC 2732, so removing a
-fragment or resolving a valid reference always yields one. `Check`, which
-admits anyURI literals, accepts exactly what `Parse` accepts, including a bare
-empty authority (`//`, `scheme://`), as
-[INTERPRETATIONS.md I-051](docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri)
-records.
+`Check`, which admits anyURI literals for `internal/value` and
+`internal/schema`, accepts exactly the references `Parse` accepts, including
+a bare empty authority
+([I-051](docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri)).
+Every `Reference` that `WithoutFragment` or `Resolve` returns is one `Parse`
+accepts; `Resolve` fails only with `ErrOpaqueBase`, for a relative path against
+an opaque base.
 
 ### `internal/schema`
 
