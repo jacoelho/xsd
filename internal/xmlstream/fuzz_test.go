@@ -13,9 +13,10 @@ import (
 // FuzzReader exercises the public Reader lifecycle against arbitrary XML and
 // requires the token stream and final outcome to be independent of how the
 // input reader splits its bytes, and every token position to have line and
-// column at least 1, with comments and processing instructions both discarded
-// and emitted. chunks cycles through read lengths; an empty
-// chunks reads the whole input and is the reference.
+// column at least 1 and match the source position of the token's first byte,
+// with comments and processing instructions both discarded and emitted.
+// chunks cycles through read lengths; an empty chunks reads the whole input and
+// is the reference.
 func FuzzReader(f *testing.F) {
 	for _, seed := range []string{
 		`<root/>`,
@@ -68,9 +69,38 @@ func FuzzReader(f *testing.F) {
 				if whole[i].line < 1 || whole[i].column < 1 || whole[i].contentLine < 1 || whole[i].contentCol < 1 {
 					t.Fatalf("token %d position = %d:%d, content position = %d:%d, want line and column at least 1", i, whole[i].line, whole[i].column, whole[i].contentLine, whole[i].contentCol)
 				}
+				if whole[i].kind == KindEnd && !strings.HasPrefix(input[whole[i].startOffset:], "</") {
+					continue
+				}
+				if line, column := sourcePosition(input, whole[i].startOffset); whole[i].line != line || whole[i].column != column {
+					t.Fatalf("token %d at offset %d position = %d:%d, want %d:%d", i, whole[i].startOffset, whole[i].line, whole[i].column, line, column)
+				}
 			}
 		}
 	})
+}
+
+// sourcePosition is the line and 1-based byte column of input[offset], with
+// CR, LF and CRLF each ending one line and a leading byte order mark not
+// counted as a column.
+func sourcePosition(input string, offset int) (line, column int) {
+	line, lineStart := 1, 0
+	if strings.HasPrefix(input, "\ufeff") {
+		lineStart = len("\ufeff")
+	}
+	for i := lineStart; i < offset; i++ {
+		switch input[i] {
+		case '\r':
+			line++
+			lineStart = i + 1
+		case '\n':
+			if i == 0 || input[i-1] != '\r' {
+				line++
+			}
+			lineStart = i + 1
+		}
+	}
+	return line, offset - lineStart + 1
 }
 
 // recordedToken is a comparable copy of one Reader.Next token. Borrowed bytes
