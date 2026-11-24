@@ -397,16 +397,17 @@ func TestTypeDerivationIndexReportsCorruptTypeTablesAsBuildDefects(t *testing.T)
 	tests := []struct {
 		name    string
 		corrupt func(*tables)
+		want    error
 	}{
-		{"anyType outside the complex type table", func(tb *tables) { tb.anyType = ComplexTypeID(outsideTable) }},
-		{"simple base outside the simple type table", func(tb *tables) { tb.simple[1].ValueSpec.Base = SimpleTypeID(outsideTable) }},
-		{"simple type is its own base", func(tb *tables) { tb.simple[1].ValueSpec.Base = 1 }},
-		{"simple derivation cycle", func(tb *tables) { tb.simple[0].ValueSpec.Base = 1 }},
-		{"complex base outside the complex type table", func(tb *tables) { tb.complex[1].Base = ComplexRef(ComplexTypeID(outsideTable)) }},
-		{"complex type is its own base", func(tb *tables) { tb.complex[1].Base = ComplexRef(1) }},
-		{"complex derivation cycle", func(tb *tables) { tb.complex[0].Base = ComplexRef(1) }},
-		{"complex simple base outside the simple type table", func(tb *tables) { tb.complex[2].Base = SimpleRef(SimpleTypeID(outsideTable)) }},
-		{"complex derivation kind out of range", func(tb *tables) { tb.complex[1].Derivation = derivationKind(200) }},
+		{"anyType is the first ID past the complex type table", func(tb *tables) { tb.anyType = 3 }, errDerivationAnyTypeInvalid},
+		{"simple base is the first ID past the simple type table", func(tb *tables) { tb.simple[1].ValueSpec.Base = 2 }, errSimpleDerivationBaseInvalid},
+		{"simple type is its own base", func(tb *tables) { tb.simple[1].ValueSpec.Base = 1 }, errSimpleDerivationCycle},
+		{"simple derivation cycle", func(tb *tables) { tb.simple[0].ValueSpec.Base = 1 }, errSimpleDerivationCycle},
+		{"complex base is the first ID past the complex type table", func(tb *tables) { tb.complex[1].Base = ComplexRef(3) }, errComplexDerivationBaseInvalid},
+		{"complex type is its own base", func(tb *tables) { tb.complex[1].Base = ComplexRef(1) }, errComplexDerivationCycle},
+		{"complex derivation cycle", func(tb *tables) { tb.complex[0].Base = ComplexRef(1) }, errComplexDerivationCycle},
+		{"complex simple base is the first ID past the simple type table", func(tb *tables) { tb.complex[2].Base = SimpleRef(2) }, errComplexDerivationSimpleInvalid},
+		{"complex derivation kind out of range", func(tb *tables) { tb.complex[1].Derivation = derivationKind(200) }, errDerivationKindInvalid},
 	}
 	base := intact()
 	if _, err := newTypeDerivationReadForTypes(base.anyType, base.simple, base.complex); err != nil {
@@ -417,8 +418,8 @@ func TestTypeDerivationIndexReportsCorruptTypeTablesAsBuildDefects(t *testing.T)
 			t.Parallel()
 			tb := intact()
 			tt.corrupt(&tb)
-			if _, err := newTypeDerivationReadForTypes(tb.anyType, tb.simple, tb.complex); !isBuildDefect(err) {
-				t.Fatalf("newTypeDerivationReadForTypes() error = %v, want a build defect", err)
+			if _, err := newTypeDerivationReadForTypes(tb.anyType, tb.simple, tb.complex); !errors.Is(err, tt.want) {
+				t.Fatalf("newTypeDerivationReadForTypes() error = %v, want %v", err, tt.want)
 			}
 		})
 	}
