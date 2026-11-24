@@ -93562,7 +93562,7 @@
         "kind": "project",
         "package": "value",
         "sourceFile": "tests/corpus/project/datatypes/uri/empty-authority",
-        "description": "An anyURI literal with an empty authority is valid unless the authority is the whole literal after the scheme: \"//\" or \"scheme://\".",
+        "description": "An anyURI literal may have an empty authority, alone or followed by a path, query or fragment.",
         "specification": [
           "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI"
         ]
@@ -93580,49 +93580,19 @@
         {
           "testName": "bare-relative",
           "file": "corpus/project/datatypes/uri/empty-authority/bare-relative.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
+          "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
-          },
-          "differences": {
-            "dotnet": {
-              "record": "I-051"
-            },
-            "libxml2": {
-              "record": "I-051"
-            },
-            "xerces": {
-              "record": "I-051"
-            },
-            "xmlschema": {
-              "record": "I-051"
-            }
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         },
         {
           "testName": "bare-absolute",
           "file": "corpus/project/datatypes/uri/empty-authority/bare-absolute.xml",
-          "expected": "invalid",
-          "errorCode": "validation.facet",
+          "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
-          },
-          "differences": {
-            "dotnet": {
-              "record": "I-051"
-            },
-            "libxml2": {
-              "record": "I-051"
-            },
-            "xerces": {
-              "record": "I-051"
-            },
-            "xmlschema": {
-              "record": "I-051"
-            }
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         },
         {
@@ -93630,8 +93600,8 @@
           "file": "corpus/project/datatypes/uri/empty-authority/relative-with-fragment.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         },
         {
@@ -93639,8 +93609,8 @@
           "file": "corpus/project/datatypes/uri/empty-authority/relative-with-query.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         },
         {
@@ -93648,8 +93618,8 @@
           "file": "corpus/project/datatypes/uri/empty-authority/relative-with-path.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         },
         {
@@ -93657,8 +93627,8 @@
           "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-fragment.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         },
         {
@@ -93666,8 +93636,8 @@
           "file": "corpus/project/datatypes/uri/empty-authority/absolute-with-path.xml",
           "expected": "valid",
           "rule": {
-            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
-            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
+            "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri",
+            "clause": "I-051 in docs/spec/INTERPRETATIONS.md (an empty authority, alone or followed by a path, query or fragment, is an RFC 2396 URI reference)"
           }
         }
       ],

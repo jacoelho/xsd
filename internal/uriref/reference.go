@@ -8,8 +8,7 @@ import (
 )
 
 // ErrInvalid is returned when applying the XLink escaping procedure would
-// not produce an RFC 2396 URI reference, as amended by RFC 2732, or when
-// [Check] excludes an anyURI literal.
+// not produce an RFC 2396 URI reference, as amended by RFC 2732.
 var ErrInvalid = errors.New("invalid anyURI")
 
 // Reference is a validated URI reference. Raw retains the normalized XML
@@ -27,17 +26,12 @@ type Reference struct {
 	escapedFragmentStart int
 }
 
-// Check validates an anyURI literal and returns its number of Unicode
-// characters. It does not allocate. Check accepts a subset of what [Parse]
-// accepts: it also rejects a bare empty authority ("//" or "scheme://"), the
-// anyURI literal rule that record I-051 of docs/spec/INTERPRETATIONS.md owns.
+// Check validates text as [Parse] does and returns its number of Unicode
+// characters. It does not allocate.
 func Check[T byteText](text T) (int, error) {
-	s, l, err := analyze(text)
+	s, _, err := analyze(text)
 	if err != nil {
 		return 0, err
-	}
-	if l.bareEmptyAuthority(len(text)) {
-		return 0, ErrInvalid
 	}
 	return s.characters, nil
 }

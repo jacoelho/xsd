@@ -192,10 +192,10 @@ spelling: `Resolve` composes through `Parse`, and `WithoutFragment` keeps the
 spans before the fragment, which a fuzz target checks against `Parse`. A
 `Reference` follows the RFC 2396 grammar as amended by RFC 2732, so removing a
 fragment or resolving a valid reference always yields one. `Check`, which
-admits anyURI literals, applies one rule more: it rejects a bare empty
-authority (`//`, `scheme://`), which
-[INTERPRETATIONS.md I-051](docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal)
-owns.
+admits anyURI literals, accepts exactly what `Parse` accepts, including a bare
+empty authority (`//`, `scheme://`), as
+[INTERPRETATIONS.md I-051](docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri)
+records.
 
 ### `internal/schema`
 
@@ -1183,12 +1183,6 @@ graph preserves these ownership rules:
 
 ## Rejected Alternatives
 
-- Making the bare-empty-authority rule of I-051 part of what a `Reference` is
-  was rejected: valid references such as `//#f` lose their fragment, and a
-  relative `//` resolves against `http://h/` to `http://`, so `WithoutFragment`
-  and `Resolve` either returned a `Reference` that `Parse` rejected or failed a
-  valid `xml:base` with `schema.reference`. The rule belongs to the anyURI
-  literal, which `Check` admits.
 - A hidden 16 Mi match-work default in `internal/xsdregex`, plus a state cap
   that also limited linear input length, was rejected: it rejected valid values
   below the documented text limits (a 100,001-rune value failed `[a-z]+`) and

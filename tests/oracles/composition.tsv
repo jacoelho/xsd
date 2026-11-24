@@ -214,6 +214,10 @@ project/composition/xml-base-empty-authority/bare-under-uri-base	schema	dotnet	s
 project/composition/xml-base-empty-authority/bare-under-uri-base	schema	libxml2	schema-valid	
 project/composition/xml-base-empty-authority/bare-under-uri-base	schema	xerces	schema-valid	
 project/composition/xml-base-empty-authority/bare-under-uri-base	schema	xmlschema	schema-valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	valid-root	dotnet	valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	valid-root	libxml2	valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	valid-root	xerces	valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	valid-root	xmlschema	valid	
 project/composition/xml-base-empty-authority/fragment-under-document-base	schema	dotnet	schema-valid	
 project/composition/xml-base-empty-authority/fragment-under-document-base	schema	libxml2	schema-valid	
 project/composition/xml-base-empty-authority/fragment-under-document-base	schema	xerces	schema-valid	

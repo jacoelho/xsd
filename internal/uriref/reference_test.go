@@ -34,6 +34,8 @@ func TestParseAndEscape(t *testing.T) {
 		{name: "compressed IPv6 cannot omit zero groups", raw: "http://[1:2:3:4:5:6:7:8::]/"},
 		{name: "empty authority with path", raw: "///", escaped: "///", valid: true, length: 3},
 		{name: "empty authority with query", raw: "//?q", escaped: "//?q", valid: true, length: 4},
+		{name: "bare empty authority", raw: "//", escaped: "//", valid: true, length: 2},
+		{name: "bare absolute empty authority", raw: "foo://", escaped: "foo://", valid: true, length: 6},
 		{name: "leading colon", raw: ":a"},
 		{name: "empty opaque part", raw: "a:"},
 		{name: "scheme with plus, minus and dot", raw: "a+b-c.d:x", escaped: "a+b-c.d:x", valid: true, length: 9},
@@ -121,27 +123,6 @@ func TestParseAndEscape(t *testing.T) {
 		}
 		if _, err := Parse(string(invalidUTF8)); !errors.Is(err, ErrInvalid) {
 			t.Errorf("Parse(% x) error = %v, want ErrInvalid", invalidUTF8, err)
-		}
-	}
-}
-
-func TestCheckRejectsABareEmptyAuthorityThatParseAccepts(t *testing.T) {
-	t.Parallel()
-	for _, raw := range []string{"//", "foo://"} {
-		if _, err := Check(raw); !errors.Is(err, ErrInvalid) {
-			t.Errorf("Check(%q) error = %v, want ErrInvalid", raw, err)
-		}
-		if _, err := Check([]byte(raw)); !errors.Is(err, ErrInvalid) {
-			t.Errorf("Check([]byte(%q)) error = %v, want ErrInvalid", raw, err)
-		}
-		ref, err := Parse(raw)
-		if err != nil || ref.Raw() != raw {
-			t.Errorf("Parse(%q) = %q, %v; want the reference", raw, ref.Raw(), err)
-		}
-	}
-	for _, raw := range []string{"//#f", "//?q", "///", "foo://#f", "foo:///", "//a"} {
-		if _, err := Check(raw); err != nil {
-			t.Errorf("Check(%q) error = %v, want nil", raw, err)
 		}
 	}
 }
@@ -268,11 +249,9 @@ func FuzzCheckAgreesWithParse(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, raw string) {
 		_, checkErr := Check(raw)
-		ref, parseErr := Parse(raw)
-		p := ref.Parts()
-		bare := parseErr == nil && p.HasAuthority && p.Authority == "" && p.Path == "" && !p.HasQuery && !p.HasFragment
-		if (checkErr == nil) != (parseErr == nil && !bare) {
-			t.Fatalf("Check(%q) error = %v, Parse error = %v, bare empty authority %v", raw, checkErr, parseErr, bare)
+		_, parseErr := Parse(raw)
+		if (checkErr == nil) != (parseErr == nil) {
+			t.Fatalf("Check(%q) error = %v, Parse error = %v", raw, checkErr, parseErr)
 		}
 	})
 }

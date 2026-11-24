@@ -2867,53 +2867,47 @@ accepts `project/content-models/upa-scope/group-ambiguous-by-repetition-referenc
 it does not find the ambiguity between a repeated element and the same element
 after the repeated choice that holds it.
 
-## I-051 — a bare empty authority is not an anyURI literal
+## I-051 — a bare empty authority is an anyURI
 
-**Status:** decided by the user, following accepted W3C
-`msMeta/DataTypes_w3c.xml/anyURI_b006_1356`, over a reading of the RFC 2396
-grammar that admits the literal.
+**Status:** decided by the user on 2026-11-24: the specification text
+outranks accepted W3C `msMeta/DataTypes_w3c.xml/anyURI_b006_1356`, whose
+expectation the corpus corrects.
 
-An anyURI literal that is only an empty authority, `//` or `scheme://`, is
-invalid. The rule covers the literal and nothing else: `//#f`, `//?q`, `///`,
-`//a`, `foo://#f` and `foo:///` stay valid, and the URI references that XML
-Base resolution and fragment removal compute follow the RFC 2396 grammar
-without it, so `xml:base="//#f"` under the base `http://example.test/schemas/`
-resolves to `http://`. [ARCHITECTURE.md](../../ARCHITECTURE.md#internaluriref)
-places the rule in `uriref.Check`, which admits anyURI literals, and not in
-`uriref.Reference`.
-
-The text does not exclude the literal. The
+An anyURI literal may be only an empty authority, `//` or `scheme://`, as it
+may be an empty authority followed by a path, query or fragment (`///`,
+`//?q`, `//#f`). The
 [anyURI](https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI)
 lexical space is the strings that become "legal URIs according to [RFC 2396],
-as amended by [RFC 2732]" after XLink escaping, and the RFC 2396 grammar
-derives `//` as a `net_path` whose authority is an empty `server`
-(`server = [ [ userinfo "@" ] hostport ]`); RFC 3986 agrees. A rule that
-rejects `//` and accepts `//#f`, `//?q` and `///` also follows no production,
-since a fragment or a query only extends a reference the grammar already
-derived. The W3C test pins the opposite verdict: anyURI_b006 lists `//` among
-the enumeration values of an anyURI restriction, and is expected invalid for
-XSD 1.0 (valid for 1.1, whose anyURI admits any string); it was queried in
-[bug 4048](https://www.w3.org/Bugs/Public/show_bug.cgi?id=4048), which named
-`//` without giving a reason, called the RFC terminology vague, and
-reaffirmed `invalid` in 2008. The other values of that schema are valid after
-XLink escaping, so the verdict rests on `//`. Admitting the literal on the
-grammar alone, which would correct the W3C expectation, was considered and
-rejected by the user.
+as amended by [RFC 2732]" after XLink escaping. The RFC 2396 grammar derives
+`//` as a `net_path` whose authority is an empty `server`
+(`net_path = "//" authority [ abs_path ]`, `authority = server | reg_name`,
+`server = [ [ userinfo "@" ] hostport ]`), and RFC 3986 admits the same empty
+authority. `uriref.Check` and `uriref.Parse` therefore accept the same
+references, and an `xml:base` of `//` or `//#f` under the base
+`http://example.test/schemas/` resolves to `http://`.
 
-Cases: `project/datatypes/uri/empty-authority` (instances `bare-relative` and
-`bare-absolute` invalid; `relative-with-fragment`, `relative-with-query`,
-`relative-with-path`, `absolute-with-fragment` and `absolute-with-path`
-valid) and `project/composition/xml-base-empty-authority/*`
-(`fragment-under-uri-base` and `fragment-under-document-base` valid,
-`bare-under-uri-base` invalid).
+anyURI_b006 lists `//` among the enumeration values of an anyURI restriction
+and expects the schema invalid for XSD 1.0. Every other value in it is a URI
+reference after XLink escaping, so that verdict rests on `//`.
+[Bug 4048](https://www.w3.org/Bugs/Public/show_bug.cgi?id=4048) queried the
+test, named `//` without a reason from the grammar, called the RFC
+terminology vague, and kept `invalid` in 2008. XSD 1.1 expects the same
+schema valid. A rule that rejects `//` while accepting `//#f`, `//?q` and
+`///` follows no production, since a query or fragment only extends a
+reference the grammar already derived. The corpus records the original
+expectation under `oracle.w3c` and expects the schema valid.
 
 Xerces-J 2.12.2, .NET 10.0.14, xmlschema 4.3.2 and libxml2 2.9.13 accept `//`
-and `foo://`: each finds `project/datatypes/uri/empty-authority` instances
-`bare-relative` and `bare-absolute` valid and compiles
-`project/composition/xml-base-empty-authority/bare-under-uri-base`, and each
-gives the project result on the other phases of these cases. The accepted W3C
-expectation ranks above measured processors in the
-[processor tie-break](#processor-tie-break), so their agreement does not
-decide the literal. On anyURI_b006 itself Xerces-J, xmlschema and libxml2
-compile the schema, and .NET rejects it for the enumeration value `\\\`, which
-XLink escaping makes valid, not for `//`.
+and `foo://`: each finds every instance of
+`project/datatypes/uri/empty-authority` valid and compiles
+`project/composition/xml-base-empty-authority/bare-under-uri-base`. On
+`w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356`, Xerces-J, xmlschema and
+libxml2 compile the schema; .NET rejects it for the enumeration value `\\\`,
+which XLink escaping makes a valid reference, as it rejects an anyURI with a
+space ([I-036](#i-036--builtin-lexical-and-value-spaces)).
+
+Cases: `project/datatypes/uri/empty-authority` (instances `bare-relative`,
+`bare-absolute`, `relative-with-fragment`, `relative-with-query`,
+`relative-with-path`, `absolute-with-fragment` and `absolute-with-path`, all
+valid), `project/composition/xml-base-empty-authority/*` (all valid) and
+`w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356` (schema valid).

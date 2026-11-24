@@ -152,12 +152,6 @@ func (l layout) parts(raw string) Parts {
 	return c
 }
 
-// bareEmptyAuthority reports whether the whole reference of the given length
-// is "//" or "scheme://": an empty authority with no path, query or fragment.
-func (l layout) bareEmptyAuthority(length int) bool {
-	return l.hasAuthority && l.authorityStart == length && !l.hasQuery && !l.hasFragment
-}
-
 func validLayout[T byteText](text T, l layout) bool {
 	if l.hasFragment && !validComponent(text, l.fragmentStart+1, len(text), &uricChars) {
 		return false

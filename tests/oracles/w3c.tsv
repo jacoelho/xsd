@@ -14,6 +14,10 @@ w3c/msMeta/Attribute_w3c.xml/attP031	schema	dotnet	schema-valid	warning: attP031
 w3c/msMeta/Attribute_w3c.xml/attP031	schema	libxml2	schema-valid	
 w3c/msMeta/Attribute_w3c.xml/attP031	schema	xerces	schema-valid	
 w3c/msMeta/Attribute_w3c.xml/attP031	schema	xmlschema	schema-valid	
+w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356	schema	dotnet	schema-invalid	anyURI_b006.xsd:23:5: The Enumeration constraining facet is invalid - The string '\\\' is not a valid Uri value.
+w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356	schema	libxml2	schema-valid	
+w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356	schema	xerces	schema-valid	
+w3c/msMeta/DataTypes_w3c.xml/anyURI_b006_1356	schema	xmlschema	schema-valid	
 w3c/msMeta/Group_w3c.xml/groupF009v	groupF009v.v	dotnet	valid	
 w3c/msMeta/Group_w3c.xml/groupF009v	groupF009v.v	xmlschema	valid	
 w3c/msMeta/Group_w3c.xml/groupF009v	schema	dotnet	schema-valid	
