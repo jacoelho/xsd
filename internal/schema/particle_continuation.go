@@ -52,6 +52,85 @@ func (a *contentModelAnalysis) groupContinuations(p contentParticle) (continuati
 	return sets, err
 }
 
+// ParticleWildcardContinuations returns the wildcards among the continuation
+// sets of particles[i]. A group's wildcards are filtered from its start
+// particles and from its continuation set once per model, so a caller reads
+// and charges only wildcard candidates.
+func (a *contentModelAnalysis) ParticleWildcardContinuations(particles []contentParticle, i int) (continuationSets, error) {
+	if err := spendContentModelWork(a.work); err != nil {
+		return continuationSets{}, err
+	}
+	p := particles[i]
+	switch {
+	case p.Occurs.IsAbsent():
+		return continuationSets{}, nil
+	case p.Kind == particleWildcard:
+		return a.leafContinuations(particles[i : i+1])
+	case p.Kind != particleModel:
+		return continuationSets{}, nil
+	}
+	var sets continuationSets
+	if countsRepeat(p.Occurs) {
+		start, err := a.startWildcards(p.Model)
+		if err != nil {
+			return continuationSets{}, err
+		}
+		sets[0] = start
+	}
+	continuations, err := a.continuationWildcards(p.Model)
+	sets[1] = continuations
+	return sets, err
+}
+
+func (a *contentModelAnalysis) startWildcards(id contentModelID) ([]contentParticle, error) {
+	if set, ok := a.startWildcardSets[id]; ok {
+		return set, nil
+	}
+	model, ok := a.contentModel(id)
+	if !ok {
+		return nil, errors.New("content model continuation analysis references missing content model")
+	}
+	start, err := a.startParticles(model)
+	if err != nil {
+		return nil, err
+	}
+	set, err := a.wildcardsOf(start)
+	if err != nil {
+		return nil, err
+	}
+	a.startWildcardSets[id] = set
+	return set, nil
+}
+
+func (a *contentModelAnalysis) continuationWildcards(id contentModelID) ([]contentParticle, error) {
+	if set, ok := a.continuationWildcardSets[id]; ok {
+		return set, nil
+	}
+	continuations, err := a.ModelContinuations(id)
+	if err != nil {
+		return nil, err
+	}
+	set, err := a.wildcardsOf(continuations)
+	if err != nil {
+		return nil, err
+	}
+	a.continuationWildcardSets[id] = set
+	return set, nil
+}
+
+func (a *contentModelAnalysis) wildcardsOf(set []contentParticle) ([]contentParticle, error) {
+	if err := a.work(len(set)); err != nil {
+		return nil, err
+	}
+	var wildcards []contentParticle
+	for _, p := range set {
+		if p.Kind == particleWildcard {
+			wildcards = append(wildcards, p)
+		}
+	}
+	return wildcards, nil
+}
+
 // ModelContinuations returns the continuation set of the model id: its start
 // particles when the model repeats, and the continuations of every particle
 // that can match its last element. The set is a fact of the model, computed

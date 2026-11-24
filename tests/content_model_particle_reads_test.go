@@ -48,7 +48,7 @@ var particleListReaders = map[string]string{
 	"contentModelCompiler.checkSequenceContinuationUPA":         "charges each following member it reads",
 	"contentModelCompiler.compileAllModel":                      "callee checkAllUPA charges every pair before the term loop reads the same particles",
 	"contentModelCompiler.modelNeedsRuntimeSplitSeen":           "callee particleNeedsRuntimeSplit charges each particle, once per model per root",
-	"contentModelCompiler.sequenceHasWildcardEquivalentOverlap": "ParticleContinuations charges each member but the last, and wildcardCandidateOverlaps each following member it reads for a wildcard candidate",
+	"contentModelCompiler.sequenceHasWildcardEquivalentOverlap": "ParticleWildcardContinuations charges each member but the last, and wildcardCandidateOverlaps each following member it reads for a wildcard candidate",
 	"contentModelCompiler.yieldExecutionParticles":              "callee yieldExecutionParticle charges each particle",
 	"dfaBuilder.groupNode":                                      "callees sequenceNode and choiceNode charge each particle through particleNode",
 
@@ -86,6 +86,8 @@ var particleListReaders = map[string]string{
 	"contentRestrictionValidator.findMappedGroupParticle":           "reads only unmapped base particles, each charged by compareParticleRestriction",
 	"contentRestrictionValidator.validateUnmappedGroupParticles":    "reads only unmapped base particles, each charged by ParticleEmptiable",
 	"contentModelAnalysis.ParticleContinuations":                    "charges the one particle it reads",
+	"contentModelAnalysis.ParticleWildcardContinuations":            "charges the one particle it reads; a group's sets come from wildcardsOf",
+	"contentModelAnalysis.wildcardsOf":                              "charges the whole set, once per model through its caches",
 	"contentModelAnalysis.sequenceStart":                            "charges each particle it reads",
 	"contentModelAnalysis.sequenceCountRange":                       "callee ParticleCountRange charges each particle",
 	"contentModelAnalysis.choiceCountRange":                         "callee ParticleCountRange charges each particle",
@@ -96,7 +98,7 @@ var particleListReaders = map[string]string{
 	"orderedGroupRestrictionMatcher.validateRemainder":              "charges each base particle it reads through ParticleEmptiable",
 	"contentModelAnalysis.ModelContinuations":                       "returns the cached continuation set that continuationsOf charged, reading no particle",
 	"contentModelCompiler.checkCandidatesUPA":                       "charges each candidate it reads",
-	"contentModelCompiler.wildcardCandidatesOverlap":                "charges each candidate it reads",
+	"contentModelCompiler.wildcardCandidatesOverlap":                "charges each wildcard candidate it reads",
 	"contentModelAnalysis.nestedContinuations":                      "caller continuationsOf charges each of the same particles through ParticleContinuations",
 	"continuationMerge.copy":                                        "charges the whole set before copying it",
 }
