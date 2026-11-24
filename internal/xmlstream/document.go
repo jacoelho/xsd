@@ -37,10 +37,11 @@ const (
 
 // Error is a positioned XML boundary failure. Cause retains the tokenizer or
 // namespace failure so errors.Is/errors.As continue to expose its details.
+// [Reader.ErrorPos] reports its position.
 type Error struct {
 	Cause  error
-	Line   int
-	Column int
+	line   int
+	column int
 	Kind   ErrorKind
 }
 
@@ -201,10 +202,10 @@ func (r *Reader) Next() (*Token, error) {
 		return nil, &Error{Kind: ErrorState, Cause: ErrReaderState}
 	}
 	if r.pending.kind == pendingStart {
-		return nil, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
+		return nil, &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingStart}
 	}
 	if r.pending.kind == pendingEnd {
-		return nil, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
+		return nil, &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingEnd}
 	}
 	// A start transaction is abortable only until the parser advances. Once
 	// the next token is requested the syntax frame remains authoritative for
@@ -237,7 +238,7 @@ func (r *Reader) acceptToken(tok *Token) error {
 	case KindEnd:
 		r.pending = pendingEvent{kind: pendingEnd}
 		if r.ns.depth() == 0 {
-			return &Error{Kind: ErrorSyntax, Line: tok.Line, Column: tok.Column, Cause: ErrUnexpectedEnd}
+			return &Error{Kind: ErrorSyntax, line: tok.Line, column: tok.Column, Cause: ErrUnexpectedEnd}
 		}
 	case KindDirective:
 		if IsDOCTYPEDeclaration(tok.Directive) {
@@ -248,7 +249,7 @@ func (r *Reader) acceptToken(tok *Token) error {
 	case KindCharData:
 		if r.ns.depth() == 0 {
 			if textErr := validateOutsideRoot(tok); textErr != nil {
-				return &Error{Kind: ErrorOutsideRoot, Line: tok.Line, Column: tok.Column, Cause: textErr}
+				return &Error{Kind: ErrorOutsideRoot, line: tok.Line, column: tok.Column, Cause: textErr}
 			}
 		}
 	}
@@ -273,7 +274,7 @@ func validateOutsideRoot(tok *Token) error {
 }
 
 func positionedParserError(err error, line, column int) error {
-	return &Error{Kind: parserErrorKind(err), Line: line, Column: column, Cause: err}
+	return &Error{Kind: parserErrorKind(err), line: line, column: column, Cause: err}
 }
 
 func parserErrorKind(err error) ErrorKind {
@@ -300,23 +301,23 @@ func parserErrorKind(err error) ErrorKind {
 // next call to Next the syntax frame remains committed for recovery.
 func (r *Reader) Start() (Handle, xml.Name, error) {
 	if !r.active {
-		return Handle{}, xml.Name{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrReaderState}
 	}
 	if r.pending.kind != pendingStart {
-		return Handle{}, xml.Name{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingStart}
 	}
 	if r.root == rootClosed && r.ns.depth() == 0 {
 		r.pending = pendingEvent{}
-		return Handle{}, xml.Name{}, &Error{Kind: ErrorRoot, Line: r.lastLine, Column: r.lastColumn, Cause: ErrMultipleRoots}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorRoot, line: r.lastLine, column: r.lastColumn, Cause: ErrMultipleRoots}
 	}
 	if r.limits.MaxDepth > 0 && r.ns.depth()+1 > r.limits.MaxDepth {
 		r.pending = pendingEvent{}
-		return Handle{}, xml.Name{}, &Error{Kind: ErrorLimit, Line: r.lastLine, Column: r.lastColumn, Cause: errXMLDepthLimit}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorLimit, line: r.lastLine, column: r.lastColumn, Cause: errXMLDepthLimit}
 	}
 	namespace, element, err := r.ns.StartStream(&r.token.Start, &r.values)
 	if err != nil {
 		r.pending = pendingEvent{}
-		return Handle{}, xml.Name{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
+		return Handle{}, xml.Name{}, &Error{Kind: ErrorNamespace, line: r.lastLine, column: r.lastColumn, Cause: err}
 	}
 	r.pending = pendingEvent{}
 	r.lastStartSerial = namespace.serial
@@ -342,11 +343,11 @@ func (r *Reader) StartLocation() (StartLocation, error) {
 		return StartLocation{}, &Error{Kind: ErrorState, Cause: ErrReaderState}
 	}
 	if r.lastStartSerial == 0 || r.token.Kind != KindStart {
-		return StartLocation{}, &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingStart}
+		return StartLocation{}, &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingStart}
 	}
 	element, err := r.ns.resolveElement(Lexical(r.token.Start.Name))
 	if err != nil {
-		return StartLocation{}, &Error{Kind: ErrorNamespace, Line: r.lastLine, Column: r.lastColumn, Cause: err}
+		return StartLocation{}, &Error{Kind: ErrorNamespace, line: r.lastLine, column: r.lastColumn, Cause: err}
 	}
 	return StartLocation{Name: element, Line: r.token.Line, Column: r.token.Column}, nil
 }
@@ -357,18 +358,18 @@ func (r *Reader) StartLocation() (StartLocation, error) {
 // this call.
 func (r *Reader) MatchEnd(opaque Handle) error {
 	if !r.active {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrReaderState}
 	}
 	if r.pending.kind != pendingEnd {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingEnd}
 	}
 	f := opaque.frame
 	current, err := r.ns.ownedTop(f)
 	if err != nil {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrInvalidFrame}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrInvalidFrame}
 	}
 	if err := r.ns.matchClosingName(current, Lexical(r.token.End.Name)); err != nil {
-		return &Error{Kind: ErrorSyntax, Line: r.lastLine, Column: r.lastColumn, Cause: err}
+		return &Error{Kind: ErrorSyntax, line: r.lastLine, column: r.lastColumn, Cause: err}
 	}
 	r.pending.matchedSerial = f.serial
 	return nil
@@ -379,7 +380,7 @@ func (r *Reader) MatchEnd(opaque Handle) error {
 // namespace stack.
 func (r *Reader) CommitEnd(opaque Handle) error {
 	if !r.active {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrReaderState}
 	}
 	f := opaque.frame
 	if r.pending.kind == pendingEnd && r.pending.matchedSerial != 0 &&
@@ -395,9 +396,9 @@ func (r *Reader) CommitEnd(opaque Handle) error {
 		return nil
 	}
 	if _, err := r.ns.ownedTop(f); err != nil {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrInvalidFrame}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrInvalidFrame}
 	}
-	return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
+	return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingEnd}
 }
 
 // AbortStart rolls back the most recently admitted start and its namespace
@@ -405,10 +406,10 @@ func (r *Reader) CommitEnd(opaque Handle) error {
 func (r *Reader) AbortStart(opaque Handle) error {
 	f := opaque.frame
 	if !r.active || r.lastStartSerial == 0 || r.lastStartSerial != f.serial || r.ns.store != f.store {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrInvalidFrame}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrInvalidFrame}
 	}
 	if err := r.ns.Abort(f); err != nil {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: err}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: err}
 	}
 	r.lastStartSerial = 0
 	if r.ns.depth() == 0 {
@@ -429,27 +430,27 @@ func (r *Reader) End(opaque Handle) error {
 // Depth reports the number of currently open elements.
 func (r *Reader) Depth() int { return r.ns.depth() }
 
-// Pos reports the tokenizer's current line and byte column.
-func (r *Reader) Pos() (line, column int) {
+func (r *Reader) position() (line, column int) {
 	if !r.active {
 		return r.lastLine, r.lastColumn
 	}
 	return r.parser.pos()
 }
 
-// DiagnosticPos reports Pos for a diagnostic. Pos is column 0 before the first
-// byte of a line and line 0 before Reset succeeds, while a diagnostic reads 0
-// as unknown, so both start at 1.
+// DiagnosticPos reports the tokenizer's current line and byte column for a
+// diagnostic. The tokenizer is at column 0 before the first byte of a line and
+// line 0 before Reset succeeds, while a diagnostic reads 0 as unknown, so both
+// start at 1.
 func (r *Reader) DiagnosticPos() (line, column int) {
-	line, column = r.Pos()
+	line, column = r.position()
 	return max(line, 1), max(column, 1)
 }
 
 // ErrorPos reports the diagnostic position of err from r: the position a
 // reader [Error] carries, otherwise DiagnosticPos. Both start at 1.
 func (r *Reader) ErrorPos(err error) (line, column int) {
-	if boundary, ok := errors.AsType[*Error](err); ok && boundary != nil && boundary.Line > 0 {
-		return boundary.Line, max(boundary.Column, 1)
+	if boundary, ok := errors.AsType[*Error](err); ok && boundary != nil && boundary.line > 0 {
+		return boundary.line, max(boundary.column, 1)
 	}
 	return r.DiagnosticPos()
 }
@@ -465,17 +466,17 @@ func (r *Reader) Lookup(prefix string) (string, bool) { return r.ns.Lookup(prefi
 // Complete validates document topology at token-boundary EOF.
 func (r *Reader) Complete() error {
 	if !r.active {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrReaderState}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrReaderState}
 	}
 	if r.pending.kind != pendingNone || r.lastStartSerial != 0 {
-		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
+		return &Error{Kind: ErrorState, line: r.lastLine, column: r.lastColumn, Cause: ErrPendingEnd}
 	}
-	line, column := r.Pos()
+	line, column := r.position()
 	switch r.root {
 	case rootNotSeen:
-		return &Error{Kind: ErrorRoot, Line: line, Column: column, Cause: ErrNoRoot}
+		return &Error{Kind: ErrorRoot, line: line, column: column, Cause: ErrNoRoot}
 	case rootOpen:
-		return &Error{Kind: ErrorIncomplete, Line: line, Column: column, Cause: ErrUnclosedElements}
+		return &Error{Kind: ErrorIncomplete, line: line, column: column, Cause: ErrUnclosedElements}
 	case rootClosed:
 		return nil
 	}

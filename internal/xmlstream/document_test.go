@@ -678,7 +678,7 @@ func TestReaderSkipOrdinaryAttributeValuesStillEnforcesTokenLimit(t *testing.T) 
 					}
 				} else {
 					boundary, ok := errors.AsType[*Error](err)
-					if token != nil || !ok || boundary.Kind != ErrorLimit || !isLimit(err, LimitTokenBytes) || boundary.Line != 1 || boundary.Column != 6 {
+					if token != nil || !ok || boundary.Kind != ErrorLimit || !isLimit(err, LimitTokenBytes) || boundary.line != 1 || boundary.column != 6 {
 						t.Fatalf("below admission = %v, %#v, want token limit at 1:6", token, boundary)
 					}
 				}
@@ -1041,7 +1041,7 @@ func TestReaderAttributeScannerTerminalFailures(t *testing.T) {
 				if test.wantSource {
 					wantKind = ErrorInput
 				}
-				if token != nil || !ok || boundary.Kind != wantKind || boundary.Line != 1 || boundary.Column != 9 {
+				if token != nil || !ok || boundary.Kind != wantKind || boundary.line != 1 || boundary.column != 9 {
 					t.Fatalf("Next() = %v, %#v, want kind %v at 1:9", token, boundary, wantKind)
 				}
 				if !test.wantSource && err.Error() != "unexpected EOF in attribute value" {
@@ -1131,7 +1131,7 @@ func TestReaderAttributeErrorsPreserveSyntaxAndSourceFailure(t *testing.T) {
 				if test.wantSource {
 					wantKind = ErrorInput
 				}
-				if token != nil || !ok || boundary.Kind != wantKind || boundary.Line != test.line || boundary.Column != test.column {
+				if token != nil || !ok || boundary.Kind != wantKind || boundary.line != test.line || boundary.column != test.column {
 					t.Fatalf("Next() = %v, %#v, want kind %v at %d:%d", token, boundary, wantKind, test.line, test.column)
 				}
 				if test.message != "" && err.Error() != test.message {
