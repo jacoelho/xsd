@@ -846,8 +846,9 @@ instance validation, and formatting share one `Reader` contract:
   element under `MaxSchemaTokenBytes`.
 - The reader owns diagnostic positions: `Reader.ErrorPos` locates a reader
   error and `Reader.DiagnosticPos` a failure without a token, both with line
-  and column at least 1. Validate and format consumers do not read `Pos` or
-  `Error.Line` for a diagnostic; `internal/schema` still does.
+  and column at least 1. The raw tokenizer position is unexported, and schema,
+  validate, and format consumers do not read `Error.Line` or `Error.Column` for
+  a diagnostic.
 - The reader owns the exclusive input-failure classification
   (`IsInputFailure`): a failure of the caller's `io.Reader` (read error, no
   progress, nil reader) rather than of the document. It is false whenever

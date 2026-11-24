@@ -429,19 +429,19 @@ func (r *Reader) End(opaque Handle) error {
 // Depth reports the number of currently open elements.
 func (r *Reader) Depth() int { return r.ns.depth() }
 
-// Pos reports the tokenizer's current line and byte column.
-func (r *Reader) Pos() (line, column int) {
+func (r *Reader) position() (line, column int) {
 	if !r.active {
 		return r.lastLine, r.lastColumn
 	}
 	return r.parser.pos()
 }
 
-// DiagnosticPos reports Pos for a diagnostic. Pos is column 0 before the first
-// byte of a line and line 0 before Reset succeeds, while a diagnostic reads 0
-// as unknown, so both start at 1.
+// DiagnosticPos reports the tokenizer's current line and byte column for a
+// diagnostic. The tokenizer is at column 0 before the first byte of a line and
+// line 0 before Reset succeeds, while a diagnostic reads 0 as unknown, so both
+// start at 1.
 func (r *Reader) DiagnosticPos() (line, column int) {
-	line, column = r.Pos()
+	line, column = r.position()
 	return max(line, 1), max(column, 1)
 }
 
@@ -470,7 +470,7 @@ func (r *Reader) Complete() error {
 	if r.pending.kind != pendingNone || r.lastStartSerial != 0 {
 		return &Error{Kind: ErrorState, Line: r.lastLine, Column: r.lastColumn, Cause: ErrPendingEnd}
 	}
-	line, column := r.Pos()
+	line, column := r.position()
 	switch r.root {
 	case rootNotSeen:
 		return &Error{Kind: ErrorRoot, Line: line, Column: column, Cause: ErrNoRoot}

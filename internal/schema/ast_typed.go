@@ -129,7 +129,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		CommentMode: xmlstream.CommentModeBoundedDiscard,
 		EmitPI:      true,
 	}); err != nil {
-		return nil, xsderrors.WithLocation(name, 0, 0, schemaReaderError(err, limits))
+		return nil, xsderrors.WithLocation(name, 0, 0, schemaStreamError(parser, err, limits))
 	}
 	defer parser.Detach()
 	state := typedSchemaParseState{parser: parser, doc: doc, limits: limits, patterns: patterns}
@@ -137,7 +137,7 @@ func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Li
 		return nil, xsderrors.WithLocation(name, 0, 0, err)
 	}
 	if state.root == nil {
-		line, col := parser.Pos()
+		line, col := parser.DiagnosticPos()
 		return nil, xsderrors.WithLocation(name, 0, 0,
 			schemaParseAt(line, col, xsderrors.CodeSchemaRoot, "empty schema document", nil))
 	}
@@ -153,15 +153,14 @@ func (s *typedSchemaParseState) parse() error {
 			break
 		}
 		if err != nil {
-			line, col := s.parser.Pos()
-			return schemaStreamError(line, col, err, s.limits)
+			return schemaStreamError(s.parser, err, s.limits)
 		}
 		if err := s.handleToken(tok); err != nil {
 			return err
 		}
 	}
 	if len(s.stack) != 0 {
-		line, col := s.parser.Pos()
+		line, col := s.parser.DiagnosticPos()
 		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "unclosed schema element", nil)
 	}
 	return nil
@@ -188,7 +187,7 @@ func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col in
 	}
 	namespaceFrame, element, err := s.parser.Start()
 	if err != nil {
-		return schemaStreamError(line, col, err, s.limits)
+		return schemaStreamError(s.parser, err, s.limits)
 	}
 	// start is a by-value view of the current token; only the copied element
 	// name is normalized and no borrowed token data is retained.
