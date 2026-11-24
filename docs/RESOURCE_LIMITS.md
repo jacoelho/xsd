@@ -132,9 +132,8 @@ applies before it builds a row, so a sequence or choice that automaton
 construction compiles is charged for the automaton's table alone. While a
 model compiles, the heap also holds that model's construction state, which
 `MaxContentModelAnalysisSteps` bounds as above, and its transient name indexes, so the peak is the retained tables
-plus one model's construction. Publication adds a copy of each table that
-names an element declaration renumbered because an earlier one is unreached
-(see `internal/schema`); a schema whose declarations are all reached adds none. Name indexing also keeps, for the whole
+plus one model's construction. The tables are built over published element
+IDs, so publication copies none of them. Name indexing also keeps, for the whole
 compilation, the member names of each substitution head an indexed edge
 names, at most the entries `MaxSubstitutionClosureEntries` caps. The dense
 dispatch indexes that publication adds to rows of at least 16 edges that own

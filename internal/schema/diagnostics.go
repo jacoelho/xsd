@@ -337,7 +337,7 @@ func compareFalseFirst(a, b bool) int {
 func (p *contentExpectationProjection) particle(particle compiledParticleRead) bool {
 	switch particle.Kind {
 	case particleElement:
-		return p.element(particle.Element)
+		return p.element(ElementID(particle.Element))
 	case particleWildcard:
 		if !validWildcardID(particle.Wildcard, len(p.schema.program.Wildcards)) || !validWildcardID(particle.Wildcard, len(p.schema.program.DiagnosticNames.wildcards)) {
 			return false

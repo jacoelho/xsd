@@ -123,7 +123,7 @@ func TestPublicationRejectsReachabilityCorruption(t *testing.T) {
 		{name: "content model naming an invalid element", message: "published content model references an invalid element declaration", corrupt: func(t *testing.T, build *schemaBuild) {
 			t.Helper()
 			_, edges := run(t, build)
-			edges[0].Particle.Element = NoElement - 1
+			edges[0].Particle.Element = noPublishedElement - 1
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
