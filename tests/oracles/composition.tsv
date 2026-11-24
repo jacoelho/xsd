@@ -210,3 +210,23 @@ project/composition/xml-base-acquisition/root-base	schema	xerces	blocked	acquisi
 project/composition/xml-base-acquisition/root-base	schema	xmlschema	blocked	acquisition blocked: child.xsd | warning: Include schema failed: can't access to resource 'child.xsd': acquisition blocked: child.xsd
 project/composition/xml-base-acquisition/root-base	selected-value	libxml2	valid	
 project/composition/xml-base-acquisition/root-base	wrong-value	libxml2	invalid	root-base-wrong-value.xml:1: element root: Schemas validity error : Element 'root': [facet 'enumeration'] The value 'other' is not an element of the set {'intended'}.
+project/composition/xml-base-empty-authority/bare-under-uri-base	schema	dotnet	schema-valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	schema	libxml2	schema-valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	schema	xerces	schema-valid	
+project/composition/xml-base-empty-authority/bare-under-uri-base	schema	xmlschema	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	schema	dotnet	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	schema	libxml2	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	schema	xerces	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	schema	xmlschema	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	valid-root	dotnet	valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	valid-root	libxml2	valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	valid-root	xerces	valid	
+project/composition/xml-base-empty-authority/fragment-under-document-base	valid-root	xmlschema	valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	schema	dotnet	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	schema	libxml2	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	schema	xerces	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	schema	xmlschema	schema-valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	valid-root	dotnet	valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	valid-root	libxml2	valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	valid-root	xerces	valid	
+project/composition/xml-base-empty-authority/fragment-under-uri-base	valid-root	xmlschema	valid	

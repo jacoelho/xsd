@@ -2111,6 +2111,151 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/composition/xml-base-empty-authority/fragment-under-uri-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-empty-authority/fragment-under-uri-base.xsd",
+        "description": "An xml:base of \"//#f\" under a URI base resolves to that scheme with an empty authority and does not fail the schema.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-uri-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "clause": "XML Base section 4.2 (resolution of relative URIs)"
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid-root",
+          "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-uri-base-valid-root.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "cvc-elt in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-uri-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-uri-base-valid-root.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-empty-authority/fragment-under-document-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-empty-authority/fragment-under-document-base.xsd",
+        "description": "An xml:base of \"//#f\" under the document's own location does not fail the schema.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-document-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "clause": "XML Base section 4.2 (resolution of relative URIs)"
+        }
+      },
+      "instances": [
+        {
+          "testName": "valid-root",
+          "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-document-base-valid-root.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "cvc-elt in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-document-base.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/xml-base-empty-authority/fragment-under-document-base-valid-root.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/xml-base-empty-authority/bare-under-uri-base",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/xml-base-empty-authority/bare-under-uri-base.xsd",
+        "description": "An xml:base of \"//\" is not an anyURI literal, so the schema is invalid.",
+        "specification": [
+          "https://www.w3.org/TR/2001/REC-xmlbase-20010627/",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#anyURI"
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.reference",
+        "documents": [
+          {
+            "file": "corpus/project/composition/xml-base-empty-authority/bare-under-uri-base.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-not-an-anyuri-literal",
+          "clause": "I-051 in docs/spec/INTERPRETATIONS.md (a bare empty authority is not an anyURI literal, as accepted W3C anyURI_b006_1356 expects)"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-051"
+          },
+          "libxml2": {
+            "record": "I-051"
+          },
+          "xerces": {
+            "record": "I-051"
+          },
+          "xmlschema": {
+            "record": "I-051"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/composition/xml-base-empty-authority/bare-under-uri-base.xsd",
+          "role": "principal"
+        }
+      ]
     }
   ]
 }

@@ -25,7 +25,7 @@ type Parts struct {
 
 // Parts returns a copy of the reference's parsed components.
 func (r Reference) Parts() Parts {
-	return r.parts
+	return r.layout.parts(r.raw)
 }
 
 // Resolve resolves ref against base using the validating RFC 2396 section 5.2
@@ -33,8 +33,8 @@ func (r Reference) Parts() Parts {
 // Appendix C, and does not normalize dot segments in absolute-path or
 // scheme-bearing references.
 func Resolve(base, ref Reference) (Reference, error) {
-	b := base.parts
-	r := ref.parts
+	b := base.Parts()
+	r := ref.Parts()
 	if isSameDocumentReference(r) {
 		return resolveSameDocumentReference(base, r)
 	}
@@ -78,7 +78,7 @@ func resolveSameDocumentReference(base Reference, ref Parts) (Reference, error) 
 	if !ref.HasFragment {
 		return without, nil
 	}
-	b := base.parts
+	b := base.Parts()
 	return compose(Parts{
 		Scheme: b.Scheme, Authority: b.Authority, Path: b.Path, Query: b.Query,
 		Fragment: ref.Fragment, HasScheme: b.HasScheme, HasAuthority: b.HasAuthority,
@@ -124,47 +124,6 @@ func spell(c Parts) string {
 		out.WriteString(c.Fragment)
 	}
 	return out.String()
-}
-
-func split(raw string) Parts {
-	var c Parts
-	rest := raw
-	if i := strings.IndexByte(rest, '#'); i >= 0 {
-		c.Fragment, c.HasFragment = rest[i+1:], true
-		rest = rest[:i]
-	}
-	if i := strings.IndexByte(rest, '?'); i >= 0 {
-		c.Query, c.HasQuery = rest[i+1:], true
-		rest = rest[:i]
-	}
-	if i := schemeSeparator(rest); i >= 0 {
-		c.Scheme, c.HasScheme = rest[:i], true
-		rest = rest[i+1:]
-	}
-	if strings.HasPrefix(rest, "//") {
-		c.HasAuthority = true
-		rest = rest[2:]
-		if i := strings.IndexByte(rest, '/'); i >= 0 {
-			c.Authority, c.Path = rest[:i], rest[i:]
-		} else {
-			c.Authority = rest
-		}
-	} else {
-		c.Path = rest
-	}
-	return c
-}
-
-func schemeSeparator(raw string) int {
-	for i := range len(raw) {
-		switch raw[i] {
-		case ':':
-			return i
-		case '/':
-			return -1
-		}
-	}
-	return -1
 }
 
 func opaque(c Parts) bool {
