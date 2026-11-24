@@ -9,16 +9,8 @@ import (
 )
 
 type keepingFixture struct {
-	builder *Builder
-	// pattern restricts xs:string by a pattern and two enumerations; no other
-	// type depends on it.
-	pattern TypeID
-	// base restricts xs:string by maxLength 3; derived restricts base by
-	// minLength 2.
-	base, derived TypeID
-	// item is a decimal type and list a list of item; member is a decimal
-	// type and union a union of member and xs:string.
-	item, list, member, union TypeID
+	builder                                           *Builder
+	pattern, base, derived, item, list, member, union TypeID
 }
 
 func newKeepingFixture(t *testing.T) keepingFixture {
@@ -114,6 +106,40 @@ func TestSealKeepingDropsTheDefinitionOfAnUnkeptType(t *testing.T) {
 	}
 }
 
+func TestUnkeptTypeFailsWithErrMetadataBeforeItsTypeLookupCanFail(t *testing.T) {
+	f := newKeepingFixture(t)
+	p, err := f.builder.SealKeeping(f.keep(f.pattern))
+	if err != nil {
+		t.Fatalf("SealKeeping() error = %v", err)
+	}
+	generous := EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}
+	exhausted := EvaluationLimits{Work: 1, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}
+	for _, test := range []struct {
+		name     string
+		validate func(TypeID) error
+	}{
+		{name: "invalid XML character", validate: func(id TypeID) error {
+			_, err := p.Validate(id, "a\x01b", Resolver{}, NeedCanonical, generous, nil)
+			return err
+		}},
+		{name: "exhausted work", validate: func(id TypeID) error {
+			_, err := p.Validate(id, "ab", Resolver{}, NeedCanonical, exhausted, nil)
+			return err
+		}},
+		{name: "exhausted work on bytes", validate: func(id TypeID) error {
+			_, err := p.ValidateBytes(id, []byte("ab"), Resolver{}, 0, exhausted, nil)
+			return err
+		}},
+	} {
+		if err := test.validate(f.base); err == nil || errors.Is(err, ErrMetadata) {
+			t.Fatalf("%s: Validate(kept type) error = %v, want a failure other than ErrMetadata", test.name, err)
+		}
+		if err := test.validate(f.pattern); !errors.Is(err, ErrMetadata) || errors.Is(err, ErrLimit) {
+			t.Fatalf("%s: Validate(unkept type) error = %v, want ErrMetadata alone", test.name, err)
+		}
+	}
+}
+
 func TestSealKeepingLeavesKeptTypesValidatingAsKeepingEveryType(t *testing.T) {
 	dropping := newKeepingFixture(t)
 	keeping, err := dropping.builder.SealKeeping(dropping.keep(dropping.pattern))
@@ -125,25 +151,29 @@ func TestSealKeepingLeavesKeptTypesValidatingAsKeepingEveryType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sealAll() error = %v", err)
 	}
+	derived := func(f keepingFixture) TypeID { return f.derived }
+	list := func(f keepingFixture) TypeID { return f.list }
+	union := func(f keepingFixture) TypeID { return f.union }
 	for _, test := range []struct {
-		id      TypeID
+		id      func(keepingFixture) TypeID
 		lexical string
 		valid   bool
 	}{
-		{id: f.derived, lexical: "ab", valid: true},
-		{id: f.derived, lexical: "a"},
-		{id: f.derived, lexical: "abcd"},
-		{id: f.list, lexical: "1 2.5", valid: true},
-		{id: f.list, lexical: "1 x"},
-		{id: f.union, lexical: "4.5", valid: true},
-		{id: f.union, lexical: "abcd", valid: true},
+		{id: derived, lexical: "ab", valid: true},
+		{id: derived, lexical: "a"},
+		{id: derived, lexical: "abcd"},
+		{id: list, lexical: "1 2.5", valid: true},
+		{id: list, lexical: "1 x"},
+		{id: union, lexical: "4.5", valid: true},
+		{id: union, lexical: "abcd", valid: true},
 	} {
-		got, want := validateKeeping(keeping, test.id, test.lexical), validateKeeping(all, test.id, test.lexical)
+		got := validateKeeping(keeping, test.id(dropping), test.lexical)
+		want := validateKeeping(all, test.id(f), test.lexical)
 		if (want == nil) != test.valid {
-			t.Fatalf("SealKeeping: Validate(%d, %q) error = %v, want valid %v", test.id, test.lexical, want, test.valid)
+			t.Fatalf("sealAll: Validate(%d, %q) error = %v, want valid %v", test.id(f), test.lexical, want, test.valid)
 		}
 		if (got == nil) != (want == nil) || got != nil && got.Error() != want.Error() {
-			t.Fatalf("SealKeeping: Validate(%d, %q) error = %v, want %v as with every type kept", test.id, test.lexical, got, want)
+			t.Fatalf("SealKeeping: Validate(%d, %q) error = %v, want %v as with every type kept", test.id(dropping), test.lexical, got, want)
 		}
 	}
 }
