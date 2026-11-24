@@ -309,8 +309,8 @@ func (*schemaIdentityXPathSource) semanticKind()   {}
 func (*schemaWildcardSource) semanticKind()        {}
 func (*schemaGroupSource) semanticKind()           {}
 
-// semanticSource returns the typed source of s, and false when s holds another
-// kind. buildSemanticKind stores only non-nil sources.
+// semanticSource returns the typed source of s. buildSemanticKind stores only
+// non-nil sources, so a source returned with true is never nil.
 func semanticSource[T schemaSemanticKind](s *schemaSemanticSource) (T, bool) {
 	if s == nil {
 		var zero T

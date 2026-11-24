@@ -93,10 +93,9 @@ func untypedFailure(err error) error {
 }
 
 // auditError translates a failure of the publication audit. The audit
-// re-checks state that compilation already admitted, so only a schema.limit
-// diagnostic or an internal invariant passes through; any other failure,
-// including a schema diagnostic, is an internal invariant with the failure as
-// its cause, after subject when subject is not empty.
+// re-checks state that compilation already admitted, so any failure other than
+// a schema.limit diagnostic or an internal invariant, including a schema
+// diagnostic, is a defect of this package.
 func auditError(subject string, err error) error {
 	if err == nil {
 		return nil
