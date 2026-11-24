@@ -14,15 +14,16 @@ import (
 // with every element particle in it and in its nested models, its text type
 // and the types of its attribute uses. A simple type reaches its base, list
 // item and union members, which its evaluation and diagnostics read. Each
-// model and simple type is visited once by ID, so a group shared by many
-// types is read once.
+// model, attribute-use set and simple type is visited once by ID, so a group
+// or attribute group shared by many types is read once.
 type componentReach struct {
-	elements     []bool
-	complexTypes []bool
-	models       []bool
-	simpleTypes  []bool
-	queue        []contentModelID
-	simpleQueue  []SimpleTypeID
+	elements      []bool
+	complexTypes  []bool
+	models        []bool
+	attributeSets []bool
+	simpleTypes   []bool
+	queue         []contentModelID
+	simpleQueue   []SimpleTypeID
 }
 
 // detachUnreachableComponents marks the components no instance element
@@ -38,9 +39,11 @@ type componentReach struct {
 // only models complexTypeReachableModels already read and charged under
 // MaxContentModelAnalysisSteps, and it visits each element declaration and
 // complex type once, from a global declaration or from such a particle, so
-// its work is bounded by steps already spent. It visits each simple type once
-// and reads its base, list item and union members, which its definition
-// charged when it was compiled.
+// its work is bounded by steps already spent. It reads the uses of each
+// attribute-use set once, uses its compilation charged under
+// MaxSchemaDependencySteps, and visits each simple type once, reading its
+// base, list item and union members, which its definition charged when it
+// was compiled.
 func (c *compiler) detachUnreachableComponents() error {
 	r, err := c.reachFromGlobals()
 	if err != nil {
@@ -60,11 +63,12 @@ func (c *compiler) detachUnreachableComponents() error {
 
 func (c *compiler) reachFromGlobals() (componentReach, error) {
 	r := componentReach{
-		elements:     make([]bool, len(c.rt.Elements)),
-		complexTypes: make([]bool, len(c.rt.ComplexTypes)),
-		models:       make([]bool, len(c.rt.Models)),
-		simpleTypes:  make([]bool, len(c.rt.SimpleTypes)),
-		simpleQueue:  make([]SimpleTypeID, 0, len(c.rt.SimpleTypes)),
+		elements:      make([]bool, len(c.rt.Elements)),
+		complexTypes:  make([]bool, len(c.rt.ComplexTypes)),
+		models:        make([]bool, len(c.rt.Models)),
+		attributeSets: make([]bool, len(c.rt.AttributeUseSets)),
+		simpleTypes:   make([]bool, len(c.rt.SimpleTypes)),
+		simpleQueue:   make([]SimpleTypeID, 0, len(c.rt.SimpleTypes)),
 	}
 	if err := c.reachGlobalSimpleTypes(&r); err != nil {
 		return componentReach{}, err
@@ -186,15 +190,26 @@ func (c *compiler) reachComplexType(r *componentReach, id ComplexTypeID) error {
 	if err := r.reachSimpleType(typ.TextType); err != nil {
 		return err
 	}
-	if !validAttributeUseSetID(typ.Attrs, len(c.rt.AttributeUseSets)) {
+	if err := c.reachAttributeUseSet(r, typ.Attrs); err != nil {
+		return err
+	}
+	return r.reachModel(typ.Content)
+}
+
+func (c *compiler) reachAttributeUseSet(r *componentReach, id attributeUseSetID) error {
+	if !validAttributeUseSetID(id, len(r.attributeSets)) {
 		return xsderrors.InternalInvariant("complex type references invalid attribute use set")
 	}
-	for _, use := range c.rt.AttributeUseSets[typ.Attrs].Uses {
+	if r.attributeSets[id] {
+		return nil
+	}
+	r.attributeSets[id] = true
+	for _, use := range c.rt.AttributeUseSets[id].Uses {
 		if err := r.reachSimpleType(use.Type); err != nil {
 			return err
 		}
 	}
-	return r.reachModel(typ.Content)
+	return nil
 }
 
 func (r *componentReach) reachModel(id contentModelID) error {

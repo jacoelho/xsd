@@ -309,7 +309,8 @@ that decision and charges no budget, because it reads only models
 simple types a published read can name: global types, global attribute
 types, a reached element's type, a reached complex type's text type and
 attribute-use types, and the base, list item and union members of a reached
-simple type. Publication keeps a detached type's ID and derivation record and a
+simple type. It reads each model, attribute-use set and simple type once, so
+an attribute group that many types share costs one read, not one per type. Publication keeps a detached type's ID and derivation record and a
 detached constraint's ID for keyref `refer` and diagnostics, but no content
 model, attribute uses or evaluation program. An unreached simple type keeps
 its ID, derivation record and value-program slot, but `Builder.SealKeeping`
