@@ -336,18 +336,8 @@ func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 		keep = c.missingSimple
 	}
 	builder := c.ensureValueBuilder()
-	removed := c.rt.SimpleTypes[next:]
-	for i := range removed {
-		id := next + SimpleTypeID(i)
-		if id == keep {
-			continue
-		}
-		uses, ok := builder.ConstructorUses(id)
-		if !ok {
-			return xsderrors.InternalInvariant("dropped simple type has no completed value definition")
-		}
-		c.rt.droppedSimpleTypes.constructorUses += uses.Len()
-		c.rt.droppedSimpleTypes.types++
+	if err := c.chargeDroppedSimpleTypes(builder, next, keep); err != nil {
+		return err
 	}
 	if err := builder.Truncate(next, keep); err != nil {
 		return xsderrors.InternalInvariant("dropping simple types from the value builder: " + err.Error())
@@ -362,6 +352,23 @@ func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 	clear(c.rt.SimpleTypes[last:])
 	c.rt.SimpleTypes = c.rt.SimpleTypes[:last]
 	c.rt.simpleTypeUnavailable = c.rt.simpleTypeUnavailable[:last]
+	return nil
+}
+
+// chargeDroppedSimpleTypes records in droppedSimpleTypeCharges the publication
+// charges of the simple types whose ID is next or above, except keep.
+func (c *compiler) chargeDroppedSimpleTypes(builder *value.Builder, next, keep SimpleTypeID) error {
+	for id := next; int(id) < len(c.rt.SimpleTypes); id++ {
+		if id == keep {
+			continue
+		}
+		uses, ok := builder.ConstructorUses(id)
+		if !ok {
+			return xsderrors.InternalInvariant("dropped simple type has no completed value definition")
+		}
+		c.rt.droppedSimpleTypes.constructorUses += uses.Len()
+		c.rt.droppedSimpleTypes.types++
+	}
 	return nil
 }
 
