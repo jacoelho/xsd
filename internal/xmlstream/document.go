@@ -249,7 +249,7 @@ func (r *Reader) acceptToken(tok *Token) error {
 	case KindCharData:
 		if r.ns.depth() == 0 {
 			if textErr := validateOutsideRoot(tok); textErr != nil {
-				line, column := tok.ContentPos()
+				line, column := tok.contentPos(r.parser.referenceStart)
 				return &Error{Kind: ErrorOutsideRoot, line: line, column: column, Cause: textErr}
 			}
 		}
@@ -426,6 +426,17 @@ func (r *Reader) End(opaque Handle) error {
 		return err
 	}
 	return r.CommitEnd(opaque)
+}
+
+// ContentPos reports the position of the current token's first source byte
+// that is not XML whitespace, the character a diagnostic about forbidden
+// character content points at. It skips the literal whitespace that starts a
+// CharacterDataText or CharacterDataReference token; a reference and a CDATA
+// section are content from their first byte. A token of only literal
+// whitespace, and any token that is not character data, reports its own
+// position. It must be called while the token is current.
+func (r *Reader) ContentPos() (line, column int) {
+	return r.token.contentPos(r.parser.referenceStart)
 }
 
 // Depth reports the number of currently open elements.

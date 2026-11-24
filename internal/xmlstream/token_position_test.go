@@ -191,7 +191,7 @@ func TestContentPosSkipsLiteralLeadingWhitespace(t *testing.T) {
 					t.Fatal(err)
 				}
 				tok := mustNextToken(t, &reader)
-				if line, column := tok.ContentPos(); tok.Kind != KindCharData || line != test.line || column != test.column {
+				if line, column := reader.ContentPos(); tok.Kind != KindCharData || line != test.line || column != test.column {
 					t.Fatalf("%s: ContentPos() = %d:%d for kind %v, want %d:%d", rc.name, line, column, tok.Kind, test.line, test.column)
 				}
 			}

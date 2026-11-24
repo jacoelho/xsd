@@ -1036,7 +1036,7 @@ func (s *session) validateAssessedCharacterData(f *frame, tok *xmlstream.Token) 
 		return s.captureMixedCharacterData(content, data, line, col)
 	}
 	if !whitespace {
-		return validation(s.startContext(tok.ContentPos()), xsderrors.CodeValidationText, msgElementOnlyText)
+		return validation(s.startContext(s.reader.ContentPos()), xsderrors.CodeValidationText, msgElementOnlyText)
 	}
 	return nil
 }

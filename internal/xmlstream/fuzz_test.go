@@ -147,7 +147,7 @@ func recordToken(reader *Reader, tok *Token) recordedToken {
 		kind:        tok.Kind,
 		textKind:    tok.TextKind,
 	}
-	record.contentLine, record.contentCol = tok.ContentPos()
+	record.contentLine, record.contentCol = reader.ContentPos()
 	switch tok.Kind {
 	case KindStart:
 		record.name = tok.Start.Name

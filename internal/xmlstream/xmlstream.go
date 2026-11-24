@@ -72,20 +72,12 @@ type Token struct {
 	Column   int
 	Kind     TokenKind
 	TextKind CharacterDataKind
-	// referenceStart is the Data index where the first decoded reference of a
-	// CharacterDataReference token begins; Data before it is literal source.
-	// Every CharacterDataReference token sets it, and no other token reads it.
-	referenceStart int
 }
 
-// ContentPos reports the position of the token's first source byte that is
-// not XML whitespace, the character a diagnostic about unexpected character
-// content points at. It skips the literal whitespace that starts a
-// CharacterDataText or CharacterDataReference token; a reference and a CDATA
-// section are content from their first byte. A token of only literal
-// whitespace, and any token that is not character data, reports its own
-// position.
-func (t *Token) ContentPos() (line, column int) {
+// contentPos implements Reader.ContentPos for t, whose first decoded
+// reference, if t is a CharacterDataReference token, starts at Data index
+// referenceStart.
+func (t *Token) contentPos(referenceStart int) (line, column int) {
 	if t.Kind != KindCharData {
 		return t.Line, t.Column
 	}
@@ -94,7 +86,7 @@ func (t *Token) ContentPos() (line, column int) {
 	case CharacterDataText:
 		literal = t.Data
 	case CharacterDataReference:
-		literal = t.Data[:t.referenceStart]
+		literal = t.Data[:referenceStart]
 	case CharacterDataCDATA, CharacterDataInvalid:
 		return t.Line, t.Column
 	}
@@ -164,22 +156,25 @@ type parser struct {
 	// expectedEnd is the open element's name, supplied by Reader before each
 	// token. It only lets an end tag that spells it skip interning; Reader
 	// still owns topology and the closing-name match.
-	expectedEnd            LexicalName
-	pendingEnd             EndElement
-	attrs                  []Attr
-	nameBuf                []byte
-	attrValueBuf           []byte
-	attrValueEnds          []int
-	attrValueRetained      []bool
-	entityBuf              []byte
-	textBuf                []byte
-	directive              []byte
-	br                     byteStream
-	cdataChunkOffset       int
-	maxAttrs               int
-	maxTokenBytes          int64
-	retainedBytes          int64
-	cdataMatched           int
+	expectedEnd       LexicalName
+	pendingEnd        EndElement
+	attrs             []Attr
+	nameBuf           []byte
+	attrValueBuf      []byte
+	attrValueEnds     []int
+	attrValueRetained []bool
+	entityBuf         []byte
+	textBuf           []byte
+	directive         []byte
+	br                byteStream
+	cdataChunkOffset  int
+	maxAttrs          int
+	maxTokenBytes     int64
+	retainedBytes     int64
+	cdataMatched      int
+	// referenceStart is the textBuf index where the current
+	// CharacterDataReference token's first decoded reference begins.
+	referenceStart         int
 	cdataOffset            int
 	pendingEndOffset       int
 	inCDATA                bool
@@ -443,7 +438,7 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 	case '&':
 		borrowFirst = false
 		var err error
-		if kind, err = p.readCharDataReference(dst, kind); err != nil {
+		if kind, err = p.readCharDataReference(kind); err != nil {
 			return err
 		}
 	case '\r':
@@ -538,7 +533,7 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 			continue
 		}
 		if b == '&' {
-			if kind, err = p.readCharDataReference(dst, kind); err != nil {
+			if kind, err = p.readCharDataReference(kind); err != nil {
 				return err
 			}
 			cdataEnd = 0
@@ -554,9 +549,9 @@ func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 	}
 }
 
-func (p *parser) readCharDataReference(dst *Token, kind CharacterDataKind) (CharacterDataKind, error) {
+func (p *parser) readCharDataReference(kind CharacterDataKind) (CharacterDataKind, error) {
 	if kind != CharacterDataReference {
-		dst.referenceStart = len(p.textBuf)
+		p.referenceStart = len(p.textBuf)
 	}
 	return CharacterDataReference, p.readEntity(&p.textBuf)
 }
