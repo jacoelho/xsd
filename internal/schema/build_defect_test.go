@@ -159,6 +159,24 @@ func TestContentModelStepsReportUnknownParticleKindAsInternalInvariant(t *testin
 	}
 }
 
+func TestContentRestrictionLookupsReturnTheWorkFailureWhenTheBudgetIsSpent(t *testing.T) {
+	t.Parallel()
+	limit := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model work exhausted", nil)
+	v := newContentRestrictionValidator(&schemaBuild{}, func(int) error { return limit }, nil)
+	for name, err := range map[string]error{
+		"content model": func() error { _, err := v.requireContentModel(0); return err }(),
+		"element name":  func() error { _, err := v.requireElementName(0); return err }(),
+		"wildcard":      func() error { _, err := v.requireWildcard(0); return err }(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if !errors.Is(err, limit) || isBuildDefect(err) {
+				t.Fatalf("error = %v, want the work failure", err)
+			}
+		})
+	}
+}
+
 func TestUntypedFailureBecomesInternalInvariantAndDiagnosticsPassThrough(t *testing.T) {
 	t.Parallel()
 	for _, untyped := range []error{

@@ -743,47 +743,22 @@ func (v contentRestrictionValidator) validateModelRestrictsWildcard(base, derive
 }
 
 func (v contentRestrictionValidator) requireContentModel(id contentModelID) (contentModelNode, error) {
-	model, ok := v.ContentModel(id)
+	if err := v.charge(); err != nil {
+		return contentModelNode{}, err
+	}
+	model, ok := v.analysis.contentModel(id)
 	if !ok {
 		return contentModelNode{}, newBuildDefect("content restriction references missing content model")
 	}
 	return model, nil
 }
 
-func (v contentRestrictionValidator) ContentModel(id contentModelID) (contentModelNode, bool) {
-	if v.charge() != nil {
-		return contentModelNode{}, false
-	}
-	return v.analysis.contentModel(id)
-}
-
-func (v contentRestrictionValidator) ElementName(id ElementID) (QName, bool) {
-	if v.charge() != nil {
-		return QName{}, false
-	}
-	return v.rt.ElementName(id)
-}
-
-func (v contentRestrictionValidator) Wildcard(id WildcardID) (wildcardRuntime, bool) {
-	if v.charge() != nil {
-		return wildcardRuntime{}, false
-	}
-	return wildcardByID(v.rt.Wildcards, id)
-}
-
-func (v contentRestrictionValidator) SubstitutionMemberByName(id ElementID, name QName) (ElementID, bool) {
-	if v.charge() != nil {
-		return NoElement, false
-	}
-	return v.rt.Substitutions.MemberByName(id, name)
-}
-
 func (v contentRestrictionValidator) requireElementName(id ElementID) (QName, error) {
-	name, ok := v.ElementName(id)
+	if err := v.charge(); err != nil {
+		return QName{}, err
+	}
+	name, ok := v.rt.ElementName(id)
 	if !ok {
-		if err := v.finish(nil); err != nil {
-			return QName{}, err
-		}
 		return QName{}, newBuildDefect("content restriction references missing element name")
 	}
 	return name, nil
@@ -801,7 +776,10 @@ func (v contentRestrictionValidator) elementRestriction(id ElementID) (particleR
 }
 
 func (v contentRestrictionValidator) requireWildcard(id WildcardID) (wildcardRuntime, error) {
-	wildcard, ok := v.Wildcard(id)
+	if err := v.charge(); err != nil {
+		return wildcardRuntime{}, err
+	}
+	wildcard, ok := wildcardByID(v.rt.Wildcards, id)
 	if !ok {
 		return wildcardRuntime{}, newBuildDefect("content restriction references missing wildcard")
 	}

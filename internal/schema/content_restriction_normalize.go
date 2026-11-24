@@ -110,9 +110,12 @@ func (n *restrictionNormalizer) appendActualMember(members *[]contentParticle, h
 	if !validElementID(id, len(v.rt.Elements)) {
 		return newBuildDefect("substitution group references missing element")
 	}
-	member, allowed := v.SubstitutionMemberByName(head, v.rt.Elements[id].Name)
+	if err := v.charge(); err != nil {
+		return err
+	}
+	member, allowed := v.rt.Substitutions.MemberByName(head, v.rt.Elements[id].Name)
 	if !allowed || member != id {
-		return v.finish(nil)
+		return nil
 	}
 
 	return n.appendLiteralMember(members, id)
