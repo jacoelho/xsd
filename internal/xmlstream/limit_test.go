@@ -48,8 +48,8 @@ func TestLimitClassification(t *testing.T) {
 			if !ok || boundary.Kind != ErrorLimit {
 				t.Fatalf("error = %#v, want *Error with ErrorLimit", err)
 			}
-			if boundary.Line < 1 || boundary.Column < 1 || boundary.Line > 1 || boundary.Column > len(tt.input)+1 {
-				t.Fatalf("position = %d:%d, want within the one-line document", boundary.Line, boundary.Column)
+			if boundary.line < 1 || boundary.column < 1 || boundary.line > 1 || boundary.column > len(tt.input)+1 {
+				t.Fatalf("position = %d:%d, want within the one-line document", boundary.line, boundary.column)
 			}
 		})
 	}

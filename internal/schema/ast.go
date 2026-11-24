@@ -179,14 +179,8 @@ func parseDocumentDefaultsNode(root *schemaNode) (schemaDefaults, error) {
 	return defaults, withSchemaCompileLocation(root, err)
 }
 
-func schemaReaderError(err error, limits Limits) error {
-	return schemaStreamError(0, 0, err, limits)
-}
-
-func schemaStreamError(line, col int, err error, limits Limits) error {
-	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Line > 0 {
-		line, col = boundary.Line, boundary.Column
-	}
+func schemaStreamError(reader *xmlstream.Reader, err error, limits Limits) error {
+	line, col := reader.ErrorPos(err)
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return xsderrors.WithLocation("", line, col, unsupportedSchemaFeature(feature, err))
 	}

@@ -50,8 +50,8 @@ func TestQualifiedNameErrorPosition(t *testing.T) {
 				if !ok || xerr.Kind != ErrorSyntax || !strings.Contains(err.Error(), "invalid XML qualified name") {
 					t.Fatalf("%s: error = %v, want qualified-name syntax error", rc.name, err)
 				}
-				if xerr.Line != test.line || xerr.Column != test.column {
-					t.Fatalf("%s: position = %d:%d, want %d:%d", rc.name, xerr.Line, xerr.Column, test.line, test.column)
+				if xerr.line != test.line || xerr.column != test.column {
+					t.Fatalf("%s: position = %d:%d, want %d:%d", rc.name, xerr.line, xerr.column, test.line, test.column)
 				}
 			}
 		})
