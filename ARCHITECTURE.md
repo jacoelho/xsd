@@ -1442,6 +1442,15 @@ graph preserves these ownership rules:
   of a zero-count element is freed, by truncation, because nothing outside it
   can hold its ID; a simple type nested in a detached complex type keeps its
   slot, since the complex type's attribute uses and text type hold it.
+- Removing from the name table the names that only unreached element
+  declarations use was rejected. A distinct name retains about 61 bytes plus
+  its text: 79,000 element declarations, each under its own zero-count
+  sequence, retain about 67 bytes each with distinct names of about six bytes,
+  about 99 bytes with names 32 bytes longer, and nothing with one repeated
+  name. But name IDs are held by declarations, identity-constraint paths,
+  resolved QName values, diagnostics and the published name indexes, and a
+  holder the removal missed would silently change a verdict instead of failing
+  a check.
 - Writing published element IDs while the compiled content tables are
   projected, before publication, was rejected: the name indexes built with
   them read build IDs against the declarations and the substitution table,

@@ -209,7 +209,8 @@ references. A detached complex type keeps its ID and derivation record but no
 content model or attribute uses, and a detached identity constraint keeps its
 name but no evaluation program or dispatch branch. An element declaration no
 instance element reaches is not published and retains nothing in the element
-table, though its local name stays in the name table. The inline simple type of a zero-count
+table, though its local name stays in the name table, about 61 bytes plus
+its text for each distinct name. The inline simple type of a zero-count
 element, with the anonymous types nested in it, is compiled and checked, then
 dropped, so it retains nothing. Any other simple type no instance element
 reaches, such as an attribute type inside a detached complex type, keeps its
