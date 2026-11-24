@@ -34,7 +34,7 @@ func TestPublishSchemaChargesContentModelAuditWork(t *testing.T) {
 
 	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="child"/></xs:sequence></xs:complexType></xs:element></xs:schema>`)
 	want := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:element name="child"/></xs:sequence></xs:complexType></xs:element></xs:schema>`)
-	budgetExceeded := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exceeded")
+	budgetExceeded := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exceeded", nil)
 	remaining := 1
 	published, err := xsdSchema.PublishSchema(build, func(steps int) error {
 		remaining -= steps
@@ -1946,7 +1946,7 @@ func TestPublishRejectsMemberTypedConstraintCacheAndRetries(t *testing.T) {
 			constraint.Value = member
 			published, err := publishSchema(build)
 			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
-			if published != nil || !ok || diagnostic.Category() != xsderrors.CategoryInternal || diagnostic.Code() != xsderrors.CodeInternalInvariant || diagnostic.Message() != tc.context+" value type does not match owner type" {
+			if published != nil || !ok || diagnostic.Category() != xsderrors.CategoryInternal || diagnostic.Code() != xsderrors.CodeInternalInvariant || diagnostic.Message() != tc.context || diagnostic.Cause() == nil || diagnostic.Cause().Error() != "value type does not match owner type" {
 				t.Fatalf("member-typed cache publication = %v,%v; want contextual owner invariant", published, err)
 			}
 			if constraint.Value.Type() != member.Type() || constraint.Lexical != "owner-value" || constraint.Canonical != "owner-value" {

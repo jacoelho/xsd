@@ -137,11 +137,11 @@ func validateValueConstraintIdentity(rt *schemaBuild, typ SimpleTypeID, vc *valu
 		return nil
 	}
 	if rt == nil {
-		return errors.New("declaration value constraint references invalid type")
+		return newBuildDefect("declaration value constraint references invalid type")
 	}
 	carriesID, ok := rt.SimpleTypeCarriesID(typ)
 	if !ok {
-		return errors.New("declaration value constraint references invalid type")
+		return newBuildDefect("declaration value constraint references invalid type")
 	}
 	if carriesID {
 		return errors.New("ID-typed " + owner.label() + " stores value constraint")

@@ -42,7 +42,7 @@ func modelKindForLocal(local string) (modelKind, error) {
 	case vocab.XSDElemAll:
 		return modelAll, nil
 	default:
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported model "+diagnostictext.Quote(local))
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported model "+diagnostictext.Quote(local), nil)
 	}
 }
 
@@ -55,10 +55,10 @@ func modelChildAdmissionForModelKind(kind modelKind) modelChildAdmission {
 // admission rules.
 func validateModelGroupChildAdmission(parent modelKind, child modelChildAdmission) error {
 	if parent == modelAll && child.Kind != modelChildElement {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all can contain only element particles")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all can contain only element particles", nil)
 	}
 	if child.Kind == modelChildModel && child.ModelKind == modelAll {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in model groups")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in model groups", nil)
 	}
 	return nil
 }
@@ -78,10 +78,10 @@ func appendModelParticles(work *workBudget, models []contentModelNode, model *co
 		}
 		named, ok := contentModelByID(models, p.Model)
 		if !ok {
-			return xsderrors.InternalInvariant("model particle names a missing content model")
+			return xsderrors.InternalInvariant("model particle names a missing content model", nil)
 		}
 		if !named.Occurs.IsExactlyOne() {
-			return xsderrors.InternalInvariant("model particle names a model with a non-unit occurrence")
+			return xsderrors.InternalInvariant("model particle names a model with a non-unit occurrence", nil)
 		}
 	}
 	if err := work.spend(len(particles)); err != nil {
@@ -138,7 +138,7 @@ func contentTypeParticle(rt *schemaBuild, add addContentModelFunc, id contentMod
 		return contentParticle{}, err
 	}
 	if !ok {
-		return contentParticle{}, xsderrors.InternalInvariant("content type particle has no occurrence")
+		return contentParticle{}, xsderrors.InternalInvariant("content type particle has no occurrence", nil)
 	}
 	return p, nil
 }
@@ -150,15 +150,15 @@ func contentTypeParticle(rt *schemaBuild, add addContentModelFunc, id contentMod
 // the synthetic empty sequence of clause 2.1.4.
 func validateExtensionSequenceTerms(rt *schemaBuild, base contentModelID, effective effectiveContent) error {
 	if effective.model != noContentModel && rt.Models[effective.model].Kind == modelAll {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot use xs:all")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot use xs:all", nil)
 	}
 	if rt.Models[base].Kind != modelAll {
 		return nil
 	}
 	if effective.model == noContentModel {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "mixed complexContent extension with empty content cannot extend an xs:all base: its content type is a sequence of the xs:all group and an empty sequence")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "mixed complexContent extension with empty content cannot extend an xs:all base: its content type is a sequence of the xs:all group and an empty sequence", nil)
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base")
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to xs:all base", nil)
 }
 
 // compileModelParticle lowers id, the root of a base type's {content type},
@@ -169,7 +169,7 @@ func validateExtensionSequenceTerms(rt *schemaBuild, base contentModelID, effect
 func compileModelParticle(rt *schemaBuild, add addContentModelFunc, id contentModelID) (contentParticle, bool, error) {
 	model, ok := contentModelByID(rt.Models, id)
 	if !ok {
-		return contentParticle{}, false, xsderrors.InternalInvariant("model particle references missing content model")
+		return contentParticle{}, false, xsderrors.InternalInvariant("model particle references missing content model", nil)
 	}
 	occurs := model.Occurs
 	if occurs.IsAbsent() {

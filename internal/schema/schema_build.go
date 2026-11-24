@@ -281,7 +281,7 @@ func (c *compiler) addSimpleType(typ simpleType) (SimpleTypeID, error) {
 			return NoSimpleType, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "simple type", reserveErr)
 		}
 		if reserved != id {
-			return NoSimpleType, xsderrors.InternalInvariant("schema and value type IDs diverged")
+			return NoSimpleType, xsderrors.InternalInvariant("schema and value type IDs diverged", nil)
 		}
 	}
 	typ.Scope = declarationScopeNonGlobal
@@ -314,7 +314,7 @@ func (c *compiler) compileUnheldSimpleType(ctx *schemaSetDocument, n *schemaNode
 		return err
 	}
 	if c.simpleTypeHolders() != holders {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unheld inline simple type compile added a record that can name it"))
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unheld inline simple type compile added a record that can name it", nil))
 	}
 	return withSchemaCompileLocation(n, c.dropSimpleTypesFrom(id))
 }
@@ -354,7 +354,7 @@ func (c *compiler) simpleTypeHolders() simpleTypeHolderCounts {
 // verdict.
 func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 	if next < value.BuiltinTypeCount || !validSimpleTypeID(next, len(c.rt.SimpleTypes)) {
-		return xsderrors.InternalInvariant("dropped simple types start outside the user simple types")
+		return xsderrors.InternalInvariant("dropped simple types start outside the user simple types", nil)
 	}
 	keep := NoSimpleType
 	if c.missingSimple != NoSimpleType && c.missingSimple >= next {
@@ -365,7 +365,7 @@ func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 		return err
 	}
 	if err := builder.Truncate(next, keep); err != nil {
-		return xsderrors.InternalInvariant("dropping simple types from the value builder: " + err.Error())
+		return xsderrors.InternalInvariant("dropping simple types from the value builder", err)
 	}
 	last := next
 	if keep != NoSimpleType {
@@ -456,7 +456,7 @@ func (c *compiler) addAttributeUseSet(set attributeUseSet) (attributeUseSetID, e
 // zero-count particle.
 func (c *compiler) addModel(model contentModelNode, source *schemaNode, definer ComplexTypeID) (contentModelID, error) {
 	if source == nil {
-		return noContentModel, xsderrors.InternalInvariant("content model has no source")
+		return noContentModel, xsderrors.InternalInvariant("content model has no source", nil)
 	}
 	return c.appendModel(model, source, definer)
 }
@@ -517,15 +517,15 @@ func (c *compiler) registerBuiltinAnyType(q QName, typ complexTypeMetadata) (Com
 
 func (c *compiler) publishSchema() (*Schema, error) {
 	if len(c.deferredModelChildren) != 0 {
-		return nil, xsderrors.InternalInvariant("omitted compositor descendants were not completed")
+		return nil, xsderrors.InternalInvariant("omitted compositor descendants were not completed", nil)
 	}
 	for _, definition := range c.complexDefinitions {
 		if definition.state != complexTypeComplete {
-			return nil, xsderrors.InternalInvariant("complex type definitions were not completed")
+			return nil, xsderrors.InternalInvariant("complex type definitions were not completed", nil)
 		}
 	}
 	if len(c.pendingElementConstraints) != 0 {
-		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
+		return nil, xsderrors.InternalInvariant("element value constraints were not finalized", nil)
 	}
 	published, err := publishSchema(&c.rt, c.contentWork.spend)
 	if err != nil {

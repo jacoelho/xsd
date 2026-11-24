@@ -202,11 +202,11 @@ func (d *xmlDocument[P]) ValidateEnd(reader *xmlstream.Reader, line, col int) er
 
 func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
 	if d.Depth() == 0 {
-		return xsderrors.InternalInvariant("cannot commit XML end element with no open element")
+		return xsderrors.InternalInvariant("cannot commit XML end element with no open element", nil)
 	}
 
 	if err := reader.CommitEnd(d.elements[len(d.elements)-1].handle); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 
 	i := len(d.elements) - 1

@@ -37,7 +37,7 @@ func TestAssessmentFailure(t *testing.T) {
 		{name: "option", err: validation(xsderrors.CodeValidationOption, nil)},
 		{name: "session", err: validation(xsderrors.CodeValidationSession, nil)},
 		{name: "facet caused by limit", err: validation(xsderrors.CodeValidationFacet, validation(xsderrors.CodeValidationLimit, nil))},
-		{name: "internal", err: xsderrors.InternalInvariant("broken state")},
+		{name: "internal", err: xsderrors.InternalInvariant("broken state", nil)},
 		{name: "plain", err: errors.New("plain error")},
 	}
 	for _, tt := range tests {

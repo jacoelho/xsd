@@ -55,7 +55,7 @@ func unsupportedInstanceFeature(feature xmlstream.UnsupportedFeature, err error)
 	case xmlstream.UnsupportedEntityReference:
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, msgExternalEntity, err)
 	}
-	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature", err)
 }
 
 func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {

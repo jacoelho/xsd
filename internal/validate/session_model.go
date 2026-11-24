@@ -33,7 +33,7 @@ func (s *session) acceptChild(parent *frame, rn xsdSchema.RuntimeName, flags xsi
 		HasXSIType: flags.Type,
 	}, &scratch)
 	if status == xsdSchema.ContentTransitionInvalid {
-		return xsderrors.InternalInvariant("content model state is invalid")
+		return xsderrors.InternalInvariant("content model state is invalid", nil)
 	}
 	if status == xsdSchema.ContentTransitionNoMatch {
 		return s.recoverableChildIssue(rn, line, col, s.unexpectedContentIssue(parent, rn), accepted)
@@ -55,15 +55,15 @@ func (s *session) acceptMatchedChild(transition xsdSchema.ContentTransition, rn 
 	case xsdSchema.ContentMatchDeclared:
 		decl, declared := s.rt.Element(element)
 		if !declared {
-			return xsderrors.InternalInvariant("content model matched invalid element declaration")
+			return xsderrors.InternalInvariant("content model matched invalid element declaration", nil)
 		}
 		*accepted = acceptedChild{start: declaredSchemaStart(element, decl), transition: transition}
 		return nil
 	case xsdSchema.ContentMatchInvalid:
-		return xsderrors.InternalInvariant("planned content transition has invalid match kind")
+		return xsderrors.InternalInvariant("planned content transition has invalid match kind", nil)
 	default:
 	}
-	return xsderrors.InternalInvariant("planned content transition has invalid match kind")
+	return xsderrors.InternalInvariant("planned content transition has invalid match kind", nil)
 }
 
 func (s *session) acceptStrictMissingChild(transition xsdSchema.ContentTransition, rn xsdSchema.RuntimeName, line, col int, accepted *acceptedChild) error {
@@ -97,7 +97,7 @@ func (s *session) end(line, col int) error {
 	}
 	f, ok := s.doc.Current()
 	if !ok {
-		return xsderrors.InternalInvariant("end element has no schema frame")
+		return xsderrors.InternalInvariant("end element has no schema frame", nil)
 	}
 	contentCaptured, stop := s.validateFrameEnd(f, line, col)
 	if errors.Is(stop, errSemanticStop) {
@@ -128,7 +128,7 @@ func (s *session) validateFrameEnd(f *frame, line, col int) (bool, error) {
 		return false, nil
 	case elementAssessed:
 	default:
-		return false, xsderrors.InternalInvariant("element assessment mode is invalid")
+		return false, xsderrors.InternalInvariant("element assessment mode is invalid", nil)
 	}
 	if !f.Nilled {
 		if err := s.completeFrame(f, line, col); err != nil {
@@ -155,7 +155,7 @@ func (s *session) completeFrame(f *frame, line, col int) error {
 	scratch := s.contentScratch(f)
 	status := s.rt.CompleteContent(f.Content, &scratch)
 	if status == xsdSchema.ContentCompletionInvalid {
-		return xsderrors.InternalInvariant("content model state is invalid")
+		return xsderrors.InternalInvariant("content model state is invalid", nil)
 	}
 	if status == xsdSchema.ContentCompletionComplete {
 		return nil

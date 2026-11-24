@@ -71,7 +71,7 @@ func (c *compiler) detachUnreachableComponents() error {
 func (c *compiler) reachFromGlobals() (componentReach, error) {
 	userSimpleTypes := len(c.rt.SimpleTypes) - int(value.BuiltinTypeCount)
 	if userSimpleTypes < 0 {
-		return componentReach{}, xsderrors.InternalInvariant("simple type table does not hold the builtins")
+		return componentReach{}, xsderrors.InternalInvariant("simple type table does not hold the builtins", nil)
 	}
 	for i := range c.rt.ComplexTypes {
 		c.rt.ComplexTypes[i].Detached = true
@@ -130,7 +130,7 @@ func (c *compiler) reachSimpleType(r *componentReach, id SimpleTypeID) error {
 		return nil
 	}
 	if uint64(id-value.BuiltinTypeCount) >= uint64(len(r.simpleTypes)) {
-		return xsderrors.InternalInvariant("simple type reference is invalid")
+		return xsderrors.InternalInvariant("simple type reference is invalid", nil)
 	}
 	user := int(id - value.BuiltinTypeCount)
 	if r.simpleTypes[user] {
@@ -189,7 +189,7 @@ func (c *compiler) reachElement(r *componentReach, id ElementID) error {
 
 func (c *compiler) reachComplexType(r *componentReach, id ComplexTypeID) error {
 	if !validComplexTypeID(id, len(c.rt.ComplexTypes)) {
-		return xsderrors.InternalInvariant("element declaration references invalid complex type")
+		return xsderrors.InternalInvariant("element declaration references invalid complex type", nil)
 	}
 	if !c.rt.ComplexTypes[id].Detached {
 		return nil
@@ -207,7 +207,7 @@ func (c *compiler) reachComplexType(r *componentReach, id ComplexTypeID) error {
 
 func (c *compiler) reachAttributeUseSet(r *componentReach, id attributeUseSetID) error {
 	if !validAttributeUseSetID(id, len(r.attributeSets)) {
-		return xsderrors.InternalInvariant("complex type references invalid attribute use set")
+		return xsderrors.InternalInvariant("complex type references invalid attribute use set", nil)
 	}
 	if r.attributeSets[id] {
 		return nil
@@ -223,7 +223,7 @@ func (c *compiler) reachAttributeUseSet(r *componentReach, id attributeUseSetID)
 
 func (r *componentReach) reachModel(id contentModelID) error {
 	if !validContentModelID(id, len(r.models)) {
-		return xsderrors.InternalInvariant("content model reference is invalid")
+		return xsderrors.InternalInvariant("content model reference is invalid", nil)
 	}
 	if !r.models[id] {
 		r.models[id] = true
@@ -241,7 +241,7 @@ func (c *compiler) reachParticleElements(r *componentReach, id contentModelID) e
 		switch particle.Kind { //nolint:exhaustive // a wildcard reaches only global declarations, which are roots.
 		case particleElement:
 			if !validElementID(particle.Element, len(r.elements)) {
-				return xsderrors.InternalInvariant("particle references invalid element")
+				return xsderrors.InternalInvariant("particle references invalid element", nil)
 			}
 			err = c.reachElement(r, particle.Element)
 		case particleModel:
@@ -284,7 +284,7 @@ const noPublishedElement = publishedElementID(NoElement)
 // declarations build IDs below declarations name.
 func newPublishedElements(reachable []bool, declarations int) (publishedElements, error) {
 	if len(reachable) != declarations {
-		return publishedElements{}, xsderrors.InternalInvariant("element reachability does not cover the element declarations")
+		return publishedElements{}, xsderrors.InternalInvariant("element reachability does not cover the element declarations", nil)
 	}
 	count := 0
 	for _, reached := range reachable {
@@ -368,14 +368,14 @@ func (p publishedElements) numbers(reachable []bool) bool {
 // the IDs the content tables use.
 func compiledNumbering(build *schemaBuild) (publishedElements, error) {
 	if len(build.ReachableElements) != len(build.Elements) {
-		return publishedElements{}, xsderrors.InternalInvariant("element reachability does not cover the element declarations")
+		return publishedElements{}, xsderrors.InternalInvariant("element reachability does not cover the element declarations", nil)
 	}
 	elements := identityElements(len(build.Elements))
 	if build.CompiledContent.Elements != nil {
 		elements = *build.CompiledContent.Elements
 	}
 	if !elements.numbers(build.ReachableElements) {
-		return publishedElements{}, xsderrors.InternalInvariant("compiled content tables number element declarations other than reachability does")
+		return publishedElements{}, xsderrors.InternalInvariant("compiled content tables number element declarations other than reachability does", nil)
 	}
 	return elements, nil
 }
@@ -388,7 +388,7 @@ func publishedElementMaps(build *schemaBuild, published publishedElements) (map[
 	for name, id := range build.GlobalElements {
 		publishedID, ok := published.id(id)
 		if !ok {
-			return nil, substitutionTable{}, xsderrors.InternalInvariant("global element declaration has no published ID")
+			return nil, substitutionTable{}, xsderrors.InternalInvariant("global element declaration has no published ID", nil)
 		}
 		globals[name] = publishedID
 	}
@@ -418,7 +418,7 @@ func validateReachableHolders(build *schemaBuild) error {
 func validateGlobalComplexTypesAttached(types []complexTypeMetadata) error {
 	for _, typ := range types {
 		if typ.Detached && typ.Scope == declarationScopeGlobal {
-			return xsderrors.InternalInvariant("global complex type is detached")
+			return xsderrors.InternalInvariant("global complex type is detached", nil)
 		}
 	}
 	return nil
@@ -427,7 +427,7 @@ func validateGlobalComplexTypesAttached(types []complexTypeMetadata) error {
 func validateReachableElementType(build *schemaBuild, id ElementID) error {
 	typ, ok := build.Elements[id].Type.Complex()
 	if build.ReachableElements[id] && ok && validComplexTypeID(typ, len(build.ComplexTypes)) && build.ComplexTypes[typ].Detached {
-		return xsderrors.InternalInvariant("reachable element declaration has a detached complex type")
+		return xsderrors.InternalInvariant("reachable element declaration has a detached complex type", nil)
 	}
 	return nil
 }
@@ -440,13 +440,13 @@ func validatePublishedIdentityConstraints(elements *elementReadTable, identities
 	named := make([]bool, len(identities))
 	for _, id := range elements.identities {
 		if !validIdentityConstraintID(id, len(identities)) || named[id] {
-			return xsderrors.InternalInvariant("published element reads name an identity constraint invalidly or twice")
+			return xsderrors.InternalInvariant("published element reads name an identity constraint invalidly or twice", nil)
 		}
 		named[id] = true
 	}
 	for id := range identities {
 		if identities[id].Detached == named[id] {
-			return xsderrors.InternalInvariant("published element reads disagree with identity constraint detachment")
+			return xsderrors.InternalInvariant("published element reads disagree with identity constraint detachment", nil)
 		}
 	}
 	return nil
@@ -461,19 +461,19 @@ func validatePublishedSimpleTypes(p *schemaProgram, build *schemaBuild) error {
 	r := reachedSimpleTypes(build.ReachableSimpleTypes)
 	switch {
 	case len(r) != len(build.SimpleTypes)-int(value.BuiltinTypeCount):
-		return xsderrors.InternalInvariant("reachable simple types do not cover the simple types")
+		return xsderrors.InternalInvariant("reachable simple types do not cover the simple types", nil)
 	case !slices.Contains(r, false):
 		return nil
 	case !r.keepElementTypes(p.Elements.meta):
-		return xsderrors.InternalInvariant("published element declaration names an unreached simple type")
+		return xsderrors.InternalInvariant("published element declaration names an unreached simple type", nil)
 	case !r.keepTextTypes(p.ComplexTypes):
-		return xsderrors.InternalInvariant("published complex type names an unreached text type")
+		return xsderrors.InternalInvariant("published complex type names an unreached text type", nil)
 	case !r.keepAttributeUseTypes(p.AttributeUseSets):
-		return xsderrors.InternalInvariant("published attribute use names an unreached simple type")
+		return xsderrors.InternalInvariant("published attribute use names an unreached simple type", nil)
 	case !r.keepAttributeDeclTypes(p.Attributes):
-		return xsderrors.InternalInvariant("published attribute declaration names an unreached simple type")
+		return xsderrors.InternalInvariant("published attribute declaration names an unreached simple type", nil)
 	case !r.keepGlobalTypes(p.GlobalTypes):
-		return xsderrors.InternalInvariant("global simple type is unreached")
+		return xsderrors.InternalInvariant("global simple type is unreached", nil)
 	}
 	return nil
 }

@@ -294,7 +294,7 @@ func validateComplexTypeDerivationRuntime(anyType, id ComplexTypeID, ct complexT
 func complexTypeDerivationBaseID(base TypeID, complexTypeCount int) (ComplexTypeID, error) {
 	baseID, ok := base.Complex()
 	if !ok || !validComplexTypeID(baseID, complexTypeCount) {
-		return noComplexType, errors.New("complex type derivation references non-complex base")
+		return noComplexType, newBuildDefect("complex type derivation references non-complex base")
 	}
 	return baseID, nil
 }
@@ -501,7 +501,7 @@ func validateComplexRestrictionAttributeWildcard(rt *schemaBuild, ct complexType
 		return errors.New("attribute wildcard restriction requires base wildcard")
 	}
 	if !validWildcardID(derivedID, len(rt.Wildcards)) {
-		return errors.New("attribute wildcard restriction references invalid wildcard")
+		return newBuildDefect("attribute wildcard restriction references invalid wildcard")
 	}
 	// Read only admitted scalars; the cloning lookup would copy namespaces.
 	if rt.Wildcards[derivedID].Process > rt.Wildcards[base.Wildcard].Process {

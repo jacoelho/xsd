@@ -208,7 +208,7 @@ type compiledElementProperties struct {
 func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode, q QName) (compiledElementProperties, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
-		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
+		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source", nil))
 	}
 	nillable, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrNillable, Value: source.Nillable.Value, HasValue: source.Nillable.Present})
 	if err != nil {
@@ -262,7 +262,7 @@ func applyElementDerivationMasks(ctx *schemaSetDocument, n *schemaNode, decl *el
 func compileElementConstraintSource(n *schemaNode) (*valueConstraint, error) {
 	source := semanticSource[*schemaElementSource](&n.semantic)
 	if source == nil {
-		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source"))
+		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source", nil))
 	}
 	return sourceValueConstraint(n, source.Default, source.Fixed)
 }
@@ -309,7 +309,7 @@ func (c *compiler) validateElementValueConstraints(decl *elementDecl, n *schemaN
 		return nil
 	}
 	if !validSimpleTypeID(simpleID, len(unavailable)) {
-		return xsderrors.InternalInvariant("element value constraint references invalid simple type")
+		return xsderrors.InternalInvariant("element value constraint references invalid simple type", nil)
 	}
 	if unavailable[simpleID] {
 		decl.ValueConstraint = nil

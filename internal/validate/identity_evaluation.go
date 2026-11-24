@@ -2,7 +2,6 @@ package validate
 
 import (
 	"encoding/xml"
-	"errors"
 	"slices"
 
 	"github.com/jacoelho/xsd/internal/lex"
@@ -144,13 +143,13 @@ func (e *identityEvaluation) ensureIdentityProgram(id xsdSchema.IdentityConstrai
 
 func (e *identityEvaluation) registerIdentityScope(scopeIndex int) error {
 	if scopeIndex < 0 || scopeIndex >= len(e.scopes) {
-		return xsderrors.InternalInvariant("identity scope index is invalid")
+		return xsderrors.InternalInvariant("identity scope index is invalid", nil)
 	}
 	scope := e.scopes[scopeIndex]
 	for order := range scope.constraints.Len() {
 		id, ok := scope.constraints.At(order)
 		if !ok {
-			return xsderrors.InternalInvariant("identity scope metadata is invalid")
+			return xsderrors.InternalInvariant("identity scope metadata is invalid", nil)
 		}
 		if _, err := e.ensureIdentityProgram(id); err != nil {
 			return err
@@ -268,7 +267,7 @@ func (e *identityEvaluation) appendScopeSelfSelectorHits(hits []identitySelector
 	for order := range constraints.Len() {
 		id, ok := constraints.At(order)
 		if !ok {
-			return hits, xsderrors.InternalInvariant("identity scope metadata is invalid")
+			return hits, xsderrors.InternalInvariant("identity scope metadata is invalid", nil)
 		}
 		program, ok := e.dispatch.index.Program(id)
 		if !ok {
@@ -317,7 +316,7 @@ func sortIdentitySelectorHits(hits []identitySelectorHit) {
 func (e *identityEvaluation) startIdentitySelectorHit(ctx startContext, hit identitySelectorHit, depth int) error {
 	program, ok := e.dispatch.index.Program(hit.constraint)
 	if !ok {
-		return xsderrors.InternalInvariant("identity field count metadata is invalid")
+		return xsderrors.InternalInvariant("identity field count metadata is invalid", nil)
 	}
 	return e.startSelection(ctx, hit.scope, depth, hit.constraint, program.FieldCount(), e.limits.Entries)
 }
@@ -538,10 +537,10 @@ func (e *identityEvaluation) active() bool {
 
 func (e *identityEvaluation) beginStart() error {
 	if e.startJournal.active {
-		return xsderrors.InternalInvariant("identity start transaction already active")
+		return xsderrors.InternalInvariant("identity start transaction already active", nil)
 	}
 	if e.targetPhase != identityTargetInactive {
-		return xsderrors.InternalInvariant("identity value target remains active at element start")
+		return xsderrors.InternalInvariant("identity value target remains active at element start", nil)
 	}
 	j := &e.startJournal
 	if !e.constraintsEnabled && !e.documentIdentityActive {
@@ -575,10 +574,10 @@ func (e *identityEvaluation) beginStart() error {
 
 func (e *identityEvaluation) validateStartCommit() error {
 	if !e.startJournal.active {
-		return xsderrors.InternalInvariant("identity start transaction is not active")
+		return xsderrors.InternalInvariant("identity start transaction is not active", nil)
 	}
 	if e.targetPhase != identityTargetInactive {
-		return xsderrors.InternalInvariant("identity value target remains active at start commit")
+		return xsderrors.InternalInvariant("identity value target remains active at start commit", nil)
 	}
 	return nil
 }
@@ -637,12 +636,12 @@ func (e *identityEvaluation) clearStartJournal() {
 
 func (e *identityEvaluation) startElement(in identityElementStart) error {
 	if e.targetPhase != identityTargetInactive {
-		return xsderrors.InternalInvariant("identity value target remains active at element start")
+		return xsderrors.InternalInvariant("identity value target remains active at element start", nil)
 	}
 	switch in.Mode {
 	case elementAssessed, elementWildcardSkipped:
 	default:
-		return xsderrors.InternalInvariant("element assessment mode is invalid")
+		return xsderrors.InternalInvariant("element assessment mode is invalid", nil)
 	}
 	if !e.constraintsEnabled && !e.documentIdentityActive {
 		// Document ID/IDREF state is dormant until a validated value requires
@@ -695,13 +694,13 @@ func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema
 
 func (e *identityEvaluation) prepareFieldValue(kind identityValueKind, name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
 	if e.targetPhase != identityTargetInactive {
-		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target already active")
+		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target already active", nil)
 	}
 	if depth <= 0 {
-		return identityValueTarget{}, xsderrors.InternalInvariant("identity value depth is invalid")
+		return identityValueTarget{}, xsderrors.InternalInvariant("identity value depth is invalid", nil)
 	}
 	if e.constraintsEnabled && len(e.elements) == 0 {
-		return identityValueTarget{}, xsderrors.InternalInvariant("identity value has no active element")
+		return identityValueTarget{}, xsderrors.InternalInvariant("identity value has no active element", nil)
 	}
 	target := identityValueTarget{depth: depth, kind: kind}
 	if !e.constraintsEnabled {
@@ -717,7 +716,7 @@ func (e *identityEvaluation) prepareFieldValue(kind identityValueKind, name xsdS
 	case identityAttributeValue:
 		matches, err = e.dispatchAttributeFieldMatches(name)
 	default:
-		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target kind is invalid")
+		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target kind is invalid", nil)
 	}
 	if err != nil {
 		return identityValueTarget{}, err
@@ -750,7 +749,7 @@ func (e *identityEvaluation) recordTargetValue(ctx startContext, target identity
 		return err
 	}
 	if target.matched && e.targetPhase != identityTargetPrepared {
-		return xsderrors.InternalInvariant("identity value target recorded more than once")
+		return xsderrors.InternalInvariant("identity value target recorded more than once", nil)
 	}
 	if err := e.recordDocumentIdentityValue(ctx, target, value); err != nil {
 		return err
@@ -761,7 +760,7 @@ func (e *identityEvaluation) recordTargetValue(ctx startContext, target identity
 	key, ok := simpleValueIdentityKey(value)
 	if !ok {
 		e.releaseTarget()
-		return xsderrors.InternalInvariant("identity field value references invalid simple type")
+		return xsderrors.InternalInvariant("identity field value references invalid simple type", nil)
 	}
 	e.targetKey = key
 	e.targetPhase = identityTargetRecorded
@@ -798,16 +797,16 @@ func (e *identityEvaluation) recordDocumentIdentityValue(ctx startContext, targe
 // while it is dormant.
 func (e *identityEvaluation) activateDocumentIdentity(depth int) error {
 	if depth <= 0 {
-		return xsderrors.InternalInvariant("identity activation depth is invalid")
+		return xsderrors.InternalInvariant("identity activation depth is invalid", nil)
 	}
 	if e.documentIdentityActive {
 		if len(e.elements) != depth {
-			return xsderrors.InternalInvariant("identity activation depth does not match element stack")
+			return xsderrors.InternalInvariant("identity activation depth does not match element stack", nil)
 		}
 		return nil
 	}
 	if len(e.elements) != 0 {
-		return xsderrors.InternalInvariant("identity activation found a non-empty dormant stack")
+		return xsderrors.InternalInvariant("identity activation found a non-empty dormant stack", nil)
 	}
 	if e.startJournal.active {
 		// The checkpoint stores the prior activation state. Keep activation
@@ -828,13 +827,13 @@ func (e *identityEvaluation) captureValue(ctx startContext, target identityValue
 		return nil
 	}
 	if e.targetPhase == identityTargetPrepared {
-		return xsderrors.InternalInvariant("identity value target captured before recording")
+		return xsderrors.InternalInvariant("identity value target captured before recording", nil)
 	}
 	if e.targetPhase == identityTargetCaptured {
-		return xsderrors.InternalInvariant("identity value target captured more than once")
+		return xsderrors.InternalInvariant("identity value target captured more than once", nil)
 	}
 	if e.targetPhase != identityTargetRecorded {
-		return xsderrors.InternalInvariant("identity value target is not ready for capture")
+		return xsderrors.InternalInvariant("identity value target is not ready for capture", nil)
 	}
 	if err := e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}); err != nil {
 		e.releaseTarget()
@@ -852,7 +851,7 @@ func (e *identityEvaluation) commitValue(target identityValueTarget) error {
 		return nil
 	}
 	if e.targetPhase != identityTargetCaptured {
-		return xsderrors.InternalInvariant("identity value target committed before capture")
+		return xsderrors.InternalInvariant("identity value target committed before capture", nil)
 	}
 	e.releaseTarget()
 	return nil
@@ -881,7 +880,7 @@ func (e *identityEvaluation) captureUnknownValue(ctx startContext, target identi
 		return nil
 	}
 	if e.targetPhase != identityTargetPrepared {
-		return xsderrors.InternalInvariant("unknown identity value target is not ready for capture")
+		return xsderrors.InternalInvariant("unknown identity value target is not ready for capture", nil)
 	}
 	defer e.releaseTarget()
 	return e.captureFields(ctx, e.rt, e.matches, identityFieldValue{state: identityFieldUnknown})
@@ -901,7 +900,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 		return nil
 	}
 	if e.targetPhase != identityTargetPrepared {
-		return xsderrors.InternalInvariant("xsi identity value target is not ready for capture")
+		return xsderrors.InternalInvariant("xsi identity value target is not ready for capture", nil)
 	}
 	defer e.releaseTarget()
 	identity, err := xsiAttributeIdentityKey(ctx, e.rt, name, lexical, resolve, eval)
@@ -909,12 +908,11 @@ func (e *identityEvaluation) captureXSIAttribute(
 		if invalidateErr := e.invalidateFields(e.matches); invalidateErr != nil {
 			return invalidateErr
 		}
-		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok &&
-			diagnostic != nil && diagnostic.Code() == xsderrors.CodeValidationLimit {
+		if !xsderrors.IsConclusiveValidation(err) {
 			return err
 		}
-		// Start assessment owns XSI diagnostics; this conversion only derives
-		// the identity-field key.
+		// Start assessment owns XSI validity diagnostics; this conversion only
+		// derives the identity-field key.
 		return nil
 	}
 	if !identity.present {
@@ -926,15 +924,15 @@ func (e *identityEvaluation) captureXSIAttribute(
 func (e *identityEvaluation) validateTarget(target identityValueTarget) error {
 	if !target.matched {
 		if e.targetPhase != identityTargetInactive {
-			return xsderrors.InternalInvariant("inactive identity value target overlaps an active target")
+			return xsderrors.InternalInvariant("inactive identity value target overlaps an active target", nil)
 		}
 		if target.kind != identityElementValue && target.kind != identityAttributeValue {
-			return xsderrors.InternalInvariant("identity value target kind is invalid")
+			return xsderrors.InternalInvariant("identity value target kind is invalid", nil)
 		}
 		return nil
 	}
 	if e.targetPhase == identityTargetInactive || target.generation == 0 || target.generation != e.generation || target.kind != e.targetKind {
-		return xsderrors.InternalInvariant("identity value target is stale")
+		return xsderrors.InternalInvariant("identity value target is stale", nil)
 	}
 	return nil
 }
@@ -1051,13 +1049,13 @@ func (e *identityEvaluation) commitIdentityFields(ctx startContext, pendingIDs, 
 func (e *identityEvaluation) endElement(in identityElementEnd, report func(error) error) (identityElementResult, error) {
 	result := identityElementResult{AssessmentInvalid: in.AssessmentInvalid}
 	if e.targetPhase != identityTargetInactive {
-		return result, xsderrors.InternalInvariant("identity value target remains active at element end")
+		return result, xsderrors.InternalInvariant("identity value target remains active at element end", nil)
 	}
 	if !e.constraintsEnabled && !e.documentIdentityActive {
 		return result, nil
 	}
 	if len(e.elements) == 0 {
-		return result, xsderrors.InternalInvariant("identity element stack is empty")
+		return result, xsderrors.InternalInvariant("identity element stack is empty", nil)
 	}
 	element := e.elements[len(e.elements)-1]
 	defer e.popElement()
@@ -1112,9 +1110,9 @@ func (e *identityEvaluation) finishAncestorIdentitySelections(in ancestorIdentit
 			return in.result, err
 		}
 	case identityElementAssessmentUnknown:
-		return in.result, xsderrors.InternalInvariant("identity element assessment is invalid")
+		return in.result, xsderrors.InternalInvariant("identity element assessment is invalid", nil)
 	default:
-		err := xsderrors.InternalInvariant("identity element assessment is invalid")
+		err := xsderrors.InternalInvariant("identity element assessment is invalid", nil)
 		return in.result, err
 	}
 	if err := e.finishSelections(in.end.Context, in.depth, identitySelectionsOwnedByAncestorScope, report); err != nil {
@@ -1130,10 +1128,10 @@ func (e *identityEvaluation) finishElementValue(
 ) error {
 	switch element.mode {
 	case elementWildcardSkipped:
-		return xsderrors.InternalInvariant("skipped element reached identity value assessment")
+		return xsderrors.InternalInvariant("skipped element reached identity value assessment", nil)
 	case elementAssessed:
 	default:
-		return xsderrors.InternalInvariant("element assessment mode is invalid")
+		return xsderrors.InternalInvariant("element assessment mode is invalid", nil)
 	}
 	action := endIdentityCapture(element, in)
 	switch action {
@@ -1144,7 +1142,7 @@ func (e *identityEvaluation) finishElementValue(
 	case endIdentityCaptureComplexElement:
 		return reportIdentityError(e.rejectFieldsWithoutSimpleValue(in.Context, e.rt, e.dispatchElementFieldMatches()), report)
 	default:
-		return xsderrors.InternalInvariant("unknown end identity capture action")
+		return xsderrors.InternalInvariant("unknown end identity capture action", nil)
 	}
 }
 
@@ -1154,7 +1152,7 @@ func (e *identityEvaluation) finishNillableKeyFields(element identityElementStat
 	}
 	decl, ok := e.rt.Element(element.element)
 	if !ok {
-		return xsderrors.InternalInvariant("element declaration metadata is invalid")
+		return xsderrors.InternalInvariant("element declaration metadata is invalid", nil)
 	}
 	if !decl.Nillable {
 		return nil
@@ -1166,10 +1164,10 @@ func (e *identityEvaluation) finishNillableKeyFields(element identityElementStat
 	case identityElementAssessmentInvalid:
 		return e.invalidateFields(matches)
 	case identityElementAssessmentUnknown:
-		return xsderrors.InternalInvariant("identity element assessment is invalid")
+		return xsderrors.InternalInvariant("identity element assessment is invalid", nil)
 	default:
 	}
-	return xsderrors.InternalInvariant("identity element assessment is invalid")
+	return xsderrors.InternalInvariant("identity element assessment is invalid", nil)
 }
 
 type identitySelectionOwnership uint8
@@ -1229,7 +1227,7 @@ func (e *identityEvaluation) finishSelectionCandidate(ctx startContext, sel iden
 	}
 	program, ok := e.dispatch.index.Program(sel.constraint)
 	if !ok {
-		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, xsderrors.InternalInvariant("identity constraint metadata is invalid"), report)
+		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, xsderrors.InternalInvariant("identity constraint metadata is invalid", nil), report)
 	}
 	if err := e.finishSelectionWithConstraint(ctx, e.rt, program.Kind(), program.Refer(), sel, e.limits); err != nil {
 		return identitySelectionFinishResult{consumed: true}, e.finishSelectionError(sel, err, report)

@@ -13,7 +13,7 @@ import (
 func (c *compiler) contentModel(id contentModelID, msg string) (contentModelNode, error) {
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
-		return contentModelNode{}, xsderrors.InternalInvariant(msg)
+		return contentModelNode{}, xsderrors.InternalInvariant(msg, nil)
 	}
 	return model, nil
 }
@@ -114,7 +114,7 @@ func (c *compiler) existingModel(ctx *schemaSetDocument, n *schemaNode, use mode
 		return noContentModel, false, nil
 	}
 	if done.use != use {
-		return noContentModel, true, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group compiled for another use"))
+		return noContentModel, true, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model group compiled for another use", nil))
 	}
 	if !c.compilingModel[nodeKey(ctx, n)] {
 		return done.id, true, nil
@@ -243,7 +243,7 @@ func modelKindForNode(n *schemaNode) (modelKind, error) {
 	if kind, ok := schemaModelKind(n); ok {
 		return kind, nil
 	}
-	return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model node has no typed model kind"))
+	return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("model node has no typed model kind", nil))
 }
 
 func (c *compiler) compileModelChildren(ctx *schemaSetDocument, n *schemaNode, m *contentModelNode, owner ComplexTypeID) error {
@@ -275,7 +275,7 @@ func (c *compiler) appendModelChild(ctx *schemaSetDocument, m *contentModelNode,
 	case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 		return c.appendNestedModelChild(ctx, m, child, owner)
 	}
-	return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model child has no supported typed schema kind"))
+	return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model child has no supported typed schema kind", nil))
 }
 
 // compileNestedModelChild compiles child, a model group or group reference
@@ -327,7 +327,7 @@ func (c *compiler) compileDeferredModelChildren(source schemaComponent) error {
 		case vocab.XSDElemSequence, vocab.XSDElemChoice, vocab.XSDElemAll, vocab.XSDElemGroup:
 			_, _, err = c.compileNestedModelChild(source.ctx, child, kind, noComplexType)
 		default:
-			return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model group child order admitted xs:"+diagnostictext.Quote(child.local)))
+			return withSchemaCompileLocation(child, xsderrors.InternalInvariant("model group child order admitted xs:"+diagnostictext.Quote(child.local), nil))
 		}
 		if err != nil {
 			return err
@@ -345,7 +345,7 @@ func validateModelGroupChildAtNode(n *schemaNode, parent modelKind, child modelC
 func particleOccurrence(n *schemaNode) (occurrence, error) {
 	source := n.semantic.particle()
 	if source == nil {
-		return occurrence{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("particle node has no typed particle source"))
+		return occurrence{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("particle node has no typed particle source", nil))
 	}
 	return source.Occurs, nil
 }
@@ -423,7 +423,7 @@ func contentRootEntries(types []complexTypeMetadata, reached []reachedModel) ([]
 			return cmp.Compare(r.id, id)
 		})
 		if !ok {
-			return nil, xsderrors.InternalInvariant("complex-type content model is not reached")
+			return nil, xsderrors.InternalInvariant("complex-type content model is not reached", nil)
 		}
 		entry := unenteredRoot
 		if entersContent(&types[i]) {
@@ -570,7 +570,7 @@ func (r *modelReach) ids() []reachedModel {
 // definition created, against reachedFrom.
 func (r *modelReach) reach(id contentModelID, reachedFrom ComplexTypeID) error {
 	if !validContentModelID(id, len(r.reached)) {
-		return xsderrors.InternalInvariant("content model reachability references missing content model")
+		return xsderrors.InternalInvariant("content model reachability references missing content model", nil)
 	}
 	if !r.reached[id] {
 		r.reached[id] = true

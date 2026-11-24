@@ -132,7 +132,7 @@ func newComplexTypeReads(types []complexTypeMetadata, publishedModels []contentM
 		}
 		set := types[i].Attrs
 		if !validAttributeUseSetID(set, len(sets)) {
-			return nil, nil, xsderrors.InternalInvariant("complex type references invalid attribute use set")
+			return nil, nil, xsderrors.InternalInvariant("complex type references invalid attribute use set", nil)
 		}
 		if position[set] == noAttributeUseSet {
 			position[set] = attributeUseSetID(kept) // #nosec G115 -- at most one set per complex type, and complex-type IDs are uint32.
@@ -261,7 +261,7 @@ func (rt *schemaBuild) ElementRestriction(id ElementID) (particleRestrictionElem
 // unavailable, and any other type, which has no name, by its kind.
 func (rt *schemaBuild) elementTypeLabel(t TypeID) (string, error) {
 	if !validTypeID(t, len(rt.SimpleTypes), len(rt.ComplexTypes)) {
-		return "", xsderrors.InternalInvariant("element type label references an invalid type")
+		return "", xsderrors.InternalInvariant("element type label references an invalid type", nil)
 	}
 	if id, simple := t.Simple(); simple {
 		typ := rt.SimpleTypes[id]

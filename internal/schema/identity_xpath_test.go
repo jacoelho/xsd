@@ -299,7 +299,7 @@ func newIdentityXPathFixture(t *testing.T, prefixes map[string]string) *identity
 func (f *identityXPathFixture) ResolveIdentityPrefix(prefix string) (string, error) {
 	ns, ok := f.prefixes[prefix]
 	if !ok {
-		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix))
+		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unbound QName prefix "+diagnostictext.Quote(prefix), nil)
 	}
 	return ns, nil
 }

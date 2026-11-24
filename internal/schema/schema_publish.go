@@ -55,17 +55,17 @@ func sealSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram
 		return schemaProgram{}, schemaBuildValidationError(err)
 	}
 	if build.valueBuilder == nil {
-		return schemaProgram{}, xsderrors.InternalInvariant("schema build has no value program builder")
+		return schemaProgram{}, xsderrors.InternalInvariant("schema build has no value program builder", nil)
 	}
 	if err = validatePublishedSimpleTypes(&program, build); err != nil {
 		return schemaProgram{}, err
 	}
 	valueProgram, err := build.valueBuilder.SealKeeping(build.ReachableSimpleTypes)
 	if err != nil {
-		return schemaProgram{}, xsderrors.InternalInvariant("sealing the value program: " + err.Error())
+		return schemaProgram{}, xsderrors.InternalInvariant("sealing the value program", err)
 	}
 	if valueProgram == nil {
-		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program")
+		return schemaProgram{}, xsderrors.InternalInvariant("value builder returned nil program", nil)
 	}
 	program.Value = valueProgram
 	// Dense conversion rewrites rows that build still shares, so it follows
@@ -94,14 +94,14 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 	}
 	for _, table := range tables {
 		if !validRuntimeIDTableLength(table.length) {
-			return xsderrors.InternalInvariant("schema " + table.name + " table exceeds runtime ID domain")
+			return xsderrors.InternalInvariant("schema "+table.name+" table exceeds runtime ID domain", nil)
 		}
 	}
 	if err := validateCompiledContent(build); err != nil {
 		return err
 	}
 	if !build.Substitutions.validNameOrder() {
-		return xsderrors.InternalInvariant("schema substitution table has no expanded-name order")
+		return xsderrors.InternalInvariant("schema substitution table has no expanded-name order", nil)
 	}
 	return nil
 }
@@ -111,11 +111,11 @@ func validateSchemaBuildIDDomain(build *schemaBuild) error {
 func validateCompiledContent(build *schemaBuild) error {
 	content := &build.CompiledContent
 	if len(content.Sources) != len(content.Models) || len(content.Runs) != len(content.Models) {
-		return xsderrors.InternalInvariant("schema compiled content-model table does not match its sources")
+		return xsderrors.InternalInvariant("schema compiled content-model table does not match its sources", nil)
 	}
 	for i, id := range content.Sources {
 		if !validContentModelID(id, len(build.Models)) || (i > 0 && content.Sources[i-1] >= id) {
-			return xsderrors.InternalInvariant("schema compiled content-model sources are not ascending source models")
+			return xsderrors.InternalInvariant("schema compiled content-model sources are not ascending source models", nil)
 		}
 	}
 	return nil

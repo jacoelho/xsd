@@ -31,7 +31,7 @@ func parseBooleanAttr(attr booleanAttr) (bool, error) {
 	}
 	parsed, err := valuepkg.ParseBooleanValue(lex.TrimXMLWhitespaceString(attr.Value))
 	if err != nil {
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid boolean attribute "+diagnostictext.Quote(attr.Name))
+		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid boolean attribute "+diagnostictext.Quote(attr.Name), nil)
 	}
 	return parsed, nil
 }
@@ -119,6 +119,6 @@ func parseFormAttr(attr formAttr, invalidPrefix string) (bool, error) {
 	case vocab.XSDValueUnqualified:
 		return false, nil
 	default:
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, invalidPrefix+diagnostictext.Quote(attr.Value))
+		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, invalidPrefix+diagnostictext.Quote(attr.Value), nil)
 	}
 }

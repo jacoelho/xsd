@@ -21,7 +21,7 @@ func upaViolation(rt *schemaBuild, typ complexTypeLabel, overlap particleOverlap
 		return err
 	}
 	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, fmt.Sprintf("UPA violation in %s: %s overlap%s",
-		typ.label(&rt.Names), upaPairText(rt, overlap), upaOverlapSuffix(rt, overlap)))
+		typ.label(&rt.Names), upaPairText(rt, overlap), upaOverlapSuffix(rt, overlap)), nil)
 }
 
 // upaPairText renders each particle once and lists the pair in diagnostic
@@ -39,20 +39,20 @@ func upaPairText(rt *schemaBuild, overlap particleOverlap) string {
 // the renderers below read only resolvable facts.
 func checkUPAViolation(rt *schemaBuild, typ complexTypeLabel, overlap particleOverlap) error {
 	if !typ.valid() {
-		return xsderrors.InternalInvariant("UPA violation names no complex type")
+		return xsderrors.InternalInvariant("UPA violation names no complex type", nil)
 	}
 	for _, particle := range [2]contentParticle{overlap.left, overlap.right} {
 		switch particle.Kind {
 		case particleElement:
 			if _, ok := rt.ElementName(particle.Element); !ok {
-				return xsderrors.InternalInvariant("UPA violation references missing element declaration")
+				return xsderrors.InternalInvariant("UPA violation references missing element declaration", nil)
 			}
 		case particleWildcard:
 			if _, ok := wildcardByID(rt.Wildcards, particle.Wildcard); !ok {
-				return xsderrors.InternalInvariant("UPA violation references missing wildcard")
+				return xsderrors.InternalInvariant("UPA violation references missing wildcard", nil)
 			}
 		case particleModel:
-			return xsderrors.InternalInvariant("UPA violation names a model group particle")
+			return xsderrors.InternalInvariant("UPA violation names a model group particle", nil)
 		}
 	}
 	return nil

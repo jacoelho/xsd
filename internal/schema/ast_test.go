@@ -438,3 +438,18 @@ func TestSchemaQNameAdmissionRejectsInvalidReferences(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaUnreachableReaderStatesKeepTheReaderError(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("reader error")
+	for name, err := range map[string]error{
+		"unknown unsupported feature": unsupportedSchemaFeature(xmlstream.UnsupportedFeature(255), cause),
+		"input limit":                 schemaReaderLimitError(xmlstream.LimitInputBytes, 1, 1, cause, Limits{}),
+	} {
+		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+		if !ok || diagnostic.Code() != xsderrors.CodeInternalInvariant || !errors.Is(err, cause) {
+			t.Errorf("%s: error = %v, want an internal invariant wrapping the reader error", name, err)
+		}
+	}
+}

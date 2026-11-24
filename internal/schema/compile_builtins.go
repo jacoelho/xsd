@@ -31,7 +31,7 @@ func (c *compiler) addBuiltinXSIAttributes() error {
 		return err
 	}
 	if id != builtinSchemaLocationTypeID {
-		return xsderrors.InternalInvariant("intrinsic schemaLocation type ID diverged")
+		return xsderrors.InternalInvariant("intrinsic schemaLocation type ID diverged", nil)
 	}
 	if err := c.completeSimpleType(id, list); err != nil {
 		return err
@@ -61,7 +61,7 @@ func (c *compiler) addBuiltinSimpleTypes() error {
 func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID) error {
 	name, ok := value.BuiltinTypeName(id)
 	if !ok {
-		return xsderrors.InternalInvariant("canonical builtin type has no schema declaration")
+		return xsderrors.InternalInvariant("canonical builtin type has no schema declaration", nil)
 	}
 	q, err := c.rt.internQName(vocab.XSDNamespaceURI, name)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	}
 	view, ok := builder.TypeView(id)
 	if !ok {
-		return xsderrors.InternalInvariant("canonical builtin type has no value metadata: " + name)
+		return xsderrors.InternalInvariant("canonical builtin type has no value metadata: "+name, nil)
 	}
 	st := simpleType{
 		ValueSpec: value.TypeSpec{
@@ -90,7 +90,7 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 		return err
 	}
 	if got != id {
-		return xsderrors.InternalInvariant("schema and canonical builtin type IDs diverged")
+		return xsderrors.InternalInvariant("schema and canonical builtin type IDs diverged", nil)
 	}
 	// addSimpleType starts declarations as non-global; builtins have global
 	// names fixed by the value program.

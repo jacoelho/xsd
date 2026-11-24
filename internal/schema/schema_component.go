@@ -63,7 +63,7 @@ func (k schemaComponentKind) missingLabel() string {
 // addSchemaComponent inserts one named schema component and rejects duplicates.
 func addSchemaComponent[T any](components map[QName]T, name QName, component T, label string) error {
 	if _, exists := components[name]; exists {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate schema component "+label)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate schema component "+label, nil)
 	}
 	components[name] = component
 	return nil
@@ -72,7 +72,7 @@ func addSchemaComponent[T any](components map[QName]T, name QName, component T, 
 // schemaComponentCycleError reports recursive compilation of the type
 // definition component, a diagnostic label such as `simple type "T"`.
 func schemaComponentCycleError(component string) error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+component)
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic "+component, nil)
 }
 
 // schemaComponentRecursionError reports a recursive reference to one named
@@ -80,27 +80,27 @@ func schemaComponentCycleError(component string) error {
 func schemaComponentRecursionError(kind schemaComponentKind, label string) error {
 	msg := "recursive " + kind.missingLabel()
 	if label == "" {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg, nil)
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg+" "+label)
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, msg+" "+label, nil)
 }
 
 // schemaComponentMissingError reports an unknown named schema component.
 func schemaComponentMissingError(kind schemaComponentKind, label string) error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown "+kind.missingLabel()+" "+label)
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown "+kind.missingLabel()+" "+label, nil)
 }
 
 // schemaTypeNameConflictError reports a name already present in the shared
 // simple/complex type symbol space.
 func schemaTypeNameConflictError(label string) error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate type "+label)
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate type "+label, nil)
 }
 
 // addNotation inserts one top-level notation declaration and rejects
 // duplicate notation names.
 func addNotation(notations map[QName]bool, name QName, label string) error {
 	if notations[name] {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate notation "+label)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate notation "+label, nil)
 	}
 	notations[name] = true
 	return nil

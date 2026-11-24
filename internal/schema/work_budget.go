@@ -36,7 +36,7 @@ func newWorkBudget(kind workBudgetKind, limit int) workBudget {
 
 func (b *workBudget) spend(steps int) error {
 	if steps < 0 {
-		return xsderrors.InternalInvariant("negative compiler work charge")
+		return xsderrors.InternalInvariant("negative compiler work charge", nil)
 	}
 	if steps > b.remaining {
 		return b.exceeded()
@@ -47,7 +47,7 @@ func (b *workBudget) spend(steps int) error {
 
 func (b *workBudget) spendProduct(left, right int) error {
 	if left < 0 || right < 0 {
-		return xsderrors.InternalInvariant("negative compiler work charge")
+		return xsderrors.InternalInvariant("negative compiler work charge", nil)
 	}
 	if left != 0 && right > b.remaining/left {
 		return b.exceeded()
@@ -63,5 +63,6 @@ func (b *workBudget) exceeded() error {
 	return xsderrors.SchemaCompile(
 		xsderrors.CodeSchemaLimit,
 		"compiler work exceeds "+option+" (limit "+strconv.Itoa(b.limit)+")",
+		nil,
 	)
 }

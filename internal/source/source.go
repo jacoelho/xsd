@@ -415,7 +415,7 @@ func (s Source) ContentFixedByName() bool { return s.kind == sourceFile }
 func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 	if maxBytes < 0 {
 		return nil, ReadResult{
-			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative"),
+			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema reader byte limit cannot be negative", nil),
 		}
 	}
 	switch s.kind {
@@ -427,18 +427,18 @@ func (s Source) OpenInput(maxBytes int64) (*Input, ReadResult) {
 	case sourceOpener, sourceFile:
 		if s.open == nil {
 			return nil, ReadResult{
-				Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil"),
+				Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source opener is nil", nil),
 			}
 		}
 		return s.openSourceInput(maxBytes)
 	case sourceInvalid:
 		return nil, ReadResult{
-			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
+			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid", nil),
 		}
 	default:
 	}
 	return nil, ReadResult{
-		Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid"),
+		Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source is invalid", nil),
 	}
 }
 
@@ -451,7 +451,7 @@ func (s Source) openSourceInput(maxBytes int64) (*Input, ReadResult) {
 	}
 	if r == nil {
 		return nil, ReadResult{
-			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema opener returned a nil reader"),
+			Err: xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema opener returned a nil reader", nil),
 		}
 	}
 	return newInput(s.name, r, maxBytes), ReadResult{}
@@ -466,7 +466,7 @@ func schemaSourceLimitError(name string) error {
 	if name != "" {
 		msg = "schema source " + name + " exceeds MaxSchemaSourceBytes"
 	}
-	return xsderrors.WithLocation(name, 0, 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg))
+	return xsderrors.WithLocation(name, 0, 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg, nil))
 }
 
 // Key canonicalizes a schema source name for loaded-document identity (see

@@ -9,7 +9,7 @@ import (
 )
 
 func TestExpectedFailureRejectsInternalErrors(t *testing.T) {
-	invariant := xsderrors.InternalInvariant("corrupted content model")
+	invariant := xsderrors.InternalInvariant("corrupted content model", nil)
 	deep := invariant
 	for range 300 {
 		deep = fmt.Errorf("context: %w", deep)
@@ -23,7 +23,7 @@ func TestExpectedFailureRejectsInternalErrors(t *testing.T) {
 	}{
 		{
 			name:      "compile",
-			semantic:  xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "invalid model"),
+			semantic:  xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "invalid model", nil),
 			code:      xsderrors.CodeSchemaContentModel,
 			withCause: xsderrors.SchemaParse(xsderrors.CodeSchemaXML, "schema error", invariant),
 			causeCode: xsderrors.CodeSchemaXML,
@@ -69,11 +69,11 @@ func TestExpectedFailurePreservesCorpusOutcomes(t *testing.T) {
 		err  error
 		code xsderrors.Code
 	}{
-		{"invalid schema", xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "invalid model"), xsderrors.CodeSchemaContentModel},
+		{"invalid schema", xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "invalid model", nil), xsderrors.CodeSchemaContentModel},
 		{"invalid instance", xsderrors.Validation(xsderrors.CodeValidationContent, "invalid content", nil), xsderrors.CodeValidationContent},
 		{"malformed schema", xsderrors.SchemaParse(xsderrors.CodeSchemaXML, "malformed schema", errors.New("unexpected end")), xsderrors.CodeSchemaXML},
 		{"malformed XML", xsderrors.Validation(xsderrors.CodeValidationXML, "malformed XML", errors.New("unexpected end")), xsderrors.CodeValidationXML},
-		{"schema limit", xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema limit"), xsderrors.CodeSchemaLimit},
+		{"schema limit", xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema limit", nil), xsderrors.CodeSchemaLimit},
 		{"validation limit", xsderrors.Validation(xsderrors.CodeValidationLimit, "validation limit", nil), xsderrors.CodeValidationLimit},
 		{"unsupported", xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported pattern", nil), xsderrors.CodeUnsupportedRegex},
 	} {
@@ -95,7 +95,7 @@ func TestExpectedFailurePreservesCorpusOutcomes(t *testing.T) {
 
 func TestDiagnosticLocationsRejectUnlocatedDiagnostics(t *testing.T) {
 	located := func(err error) error { return xsderrors.WithLocation("a.xsd", 3, 7, err) }
-	compileDiagnostic := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "UPA violation")
+	compileDiagnostic := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "UPA violation", nil)
 	parseDiagnostic := xsderrors.SchemaParse(xsderrors.CodeSchemaXML, "invalid schema XML", nil)
 	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedDTD, "", nil)
 	validation := xsderrors.Validation(xsderrors.CodeValidationContent, "invalid content", nil)
@@ -116,7 +116,7 @@ func TestDiagnosticLocationsRejectUnlocatedDiagnostics(t *testing.T) {
 		{"line without path", xsderrors.WithLocation("", 3, 7, compileDiagnostic), compileLocatedCategories, true},
 		{"unlocated branch of an aggregate", xsderrors.NewErrors(located(compileDiagnostic), compileDiagnostic), compileLocatedCategories, true},
 		{"unlocated wrapped", fmt.Errorf("context: %w", compileDiagnostic), compileLocatedCategories, true},
-		{"internal is not a document diagnostic", xsderrors.InternalInvariant("corrupted"), compileLocatedCategories, false},
+		{"internal is not a document diagnostic", xsderrors.InternalInvariant("corrupted", nil), compileLocatedCategories, false},
 		{"located validation", located(validation), instanceLocatedCategories, false},
 		{"unlocated validation", validation, instanceLocatedCategories, true},
 		{"unlocated unsupported at validation", unsupported, instanceLocatedCategories, true},

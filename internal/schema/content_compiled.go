@@ -266,7 +266,7 @@ func newCompiledParticleRead(p contentParticle, elements publishedElements) (com
 	}
 	id, ok := elements.id(p.Element)
 	if !ok {
-		return compiledParticleRead{}, xsderrors.InternalInvariant("compiled content model names an element declaration with no published ID")
+		return compiledParticleRead{}, xsderrors.InternalInvariant("compiled content model names an element declaration with no published ID", nil)
 	}
 	read.Element = publishedElementID(id)
 	return read, nil
@@ -336,7 +336,7 @@ func requireRootedAllModels(roots []int, models []compiledModelRead) error {
 	}
 	for i := range models {
 		if models[i].Kind == compiledModelAll && !rooted[i] {
-			return xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type")
+			return xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type", nil)
 		}
 	}
 	return nil
@@ -349,7 +349,7 @@ func contentRoots(types []complexTypeMetadata, content *compiledContent) ([]int,
 	for i := range types {
 		root, ok := slices.BinarySearch(content.Sources, types[i].Content)
 		if !ok {
-			return nil, xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root")
+			return nil, xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root", nil)
 		}
 		roots[i] = root
 	}
@@ -390,7 +390,7 @@ func publishedContentModels(content *compiledContent, entered []int, count int) 
 
 func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRead, count int) error {
 	if model.tablesDropped {
-		return xsderrors.InternalInvariant("published content model has no tables")
+		return xsderrors.InternalInvariant("published content model has no tables", nil)
 	}
 	if err := validatePublishedEdges(run, count); err != nil {
 		return err
@@ -410,7 +410,7 @@ func validatePublishedModel(model *compiledModelRead, run []compiledModelEdgeRea
 
 func validatePublishedRow(row *compiledModelRowRead, run []compiledModelEdgeRead, count int) error {
 	if run != nil && !isRunWindow(row.Edges, run) {
-		return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run")
+		return xsderrors.InternalInvariant("published content-model row edges are not a window of the model's edge run", nil)
 	}
 	if run == nil {
 		if err := validatePublishedEdges(row.Edges, count); err != nil {
@@ -434,7 +434,7 @@ func validatePublishedEdges(edges []compiledModelEdgeRead, count int) error {
 
 func validatePublishedParticle(particle compiledParticleRead, count int) error {
 	if particle.Kind == particleElement && !validElementID(ElementID(particle.Element), count) {
-		return xsderrors.InternalInvariant("published content model references an invalid element declaration")
+		return xsderrors.InternalInvariant("published content model references an invalid element declaration", nil)
 	}
 	return nil
 }
@@ -521,7 +521,7 @@ func readRows(source []compiledModelRow, elements publishedElements) ([]compiled
 func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead, elements publishedElements) ([]compiledModelRowRead, error) {
 	for k, edge := range run {
 		if uint64(edge.To) != uint64(k)+1 {
-			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows")
+			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows", nil)
 		}
 	}
 	rows := make([]compiledModelRowRead, len(source))
@@ -545,7 +545,7 @@ func runWindow(row []compiledModelEdge, run []compiledModelEdgeRead) ([]compiled
 	start := uint64(row[0].To) - 1
 	end := start + uint64(len(row))
 	if row[0].To == 0 || end > uint64(len(run)) || uint64(row[len(row)-1].To) != end {
-		return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run")
+		return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run", nil)
 	}
 	return run[start:end:end], nil
 }

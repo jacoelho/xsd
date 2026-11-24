@@ -8,7 +8,7 @@ import (
 func checkedUint32Index(n int, msg string) (uint32, error) {
 	id, ok := newUint32Index(n)
 	if !ok {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg, nil)
 	}
 	return id, nil
 }
@@ -18,7 +18,7 @@ func nextSimpleTypeID(n int) (SimpleTypeID, error) {
 	raw, ok := newRuntimeID(n)
 	id := SimpleTypeID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple type limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple type limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -28,7 +28,7 @@ func nextComplexTypeID(n int) (ComplexTypeID, error) {
 	raw, ok := newRuntimeID(n)
 	id := ComplexTypeID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "complex type limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "complex type limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -38,7 +38,7 @@ func nextElementID(n int) (ElementID, error) {
 	raw, ok := newRuntimeID(n)
 	id := ElementID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "element declaration limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "element declaration limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -48,7 +48,7 @@ func nextAttributeID(n int) (AttributeID, error) {
 	raw, ok := newRuntimeID(n)
 	id := AttributeID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute declaration limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute declaration limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -58,7 +58,7 @@ func nextContentModelID(n int) (contentModelID, error) {
 	raw, ok := newRuntimeID(n)
 	id := contentModelID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -68,7 +68,7 @@ func nextAttributeUseSetID(n int) (attributeUseSetID, error) {
 	raw, ok := newRuntimeID(n)
 	id := attributeUseSetID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute use set limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute use set limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -78,7 +78,7 @@ func nextWildcardID(n int) (WildcardID, error) {
 	raw, ok := newRuntimeID(n)
 	id := WildcardID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "wildcard limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "wildcard limit exceeded", nil)
 	}
 	return id, nil
 }
@@ -88,7 +88,7 @@ func nextIdentityConstraintID(n int) (IdentityConstraintID, error) {
 	raw, ok := newRuntimeID(n)
 	id := IdentityConstraintID(raw)
 	if !ok {
-		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "identity constraint limit exceeded")
+		return id, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "identity constraint limit exceeded", nil)
 	}
 	return id, nil
 }

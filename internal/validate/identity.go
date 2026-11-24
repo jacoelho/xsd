@@ -336,7 +336,7 @@ func (s *identityState) startElementScope(ctx startContext, rt *xsdSchema.Schema
 	}
 	constraints, ok := rt.ElementIdentityConstraints(elem)
 	if !ok {
-		return xsderrors.InternalInvariant("element identity constraint metadata is invalid")
+		return xsderrors.InternalInvariant("element identity constraint metadata is invalid", nil)
 	}
 	return s.startScope(ctx, constraints, depth, maxScopes)
 }
@@ -349,7 +349,7 @@ func (s *identityState) startSelection(ctx startContext, scope, depth int, const
 		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity pending selection or field entry", "MaxIdentityEntries", max(int64(len(s.selections))+1, int64(len(s.fieldValues))+int64(fieldCount)), int64(maxEntries)))
 	}
 	if len(s.selections) != 0 && s.selections[len(s.selections)-1].depth > depth {
-		return xsderrors.InternalInvariant("identity selections are not ordered by depth")
+		return xsderrors.InternalInvariant("identity selections are not ordered by depth", nil)
 	}
 	fieldStart := len(s.fieldValues)
 	// Every truncation clears the slots it releases, so the reserved slots
@@ -438,7 +438,7 @@ func (s *identityState) captureField(fieldIndex int, captured identityFieldValue
 	case identityFieldInvalid:
 		return false, nil
 	default:
-		return false, xsderrors.InternalInvariant("identity field state is invalid")
+		return false, xsderrors.InternalInvariant("identity field state is invalid", nil)
 	}
 }
 
@@ -450,7 +450,7 @@ func (s *identityState) markNillableKeyFields(rt *xsdSchema.Schema, matches []id
 		return nil
 	}
 	if rt == nil {
-		return xsderrors.InternalInvariant("identity runtime is missing")
+		return xsderrors.InternalInvariant("identity runtime is missing", nil)
 	}
 	if err := s.validateFieldMatches(matches); err != nil {
 		return err
@@ -459,7 +459,7 @@ func (s *identityState) markNillableKeyFields(rt *xsdSchema.Schema, matches []id
 		sel := &s.selections[match.Selection]
 		constraint, ok := rt.IdentityDispatch().Program(sel.constraint)
 		if !ok {
-			return xsderrors.InternalInvariant("identity constraint metadata is invalid")
+			return xsderrors.InternalInvariant("identity constraint metadata is invalid", nil)
 		}
 		if constraint.Kind() != xsdSchema.IdentityKey {
 			continue
@@ -506,14 +506,14 @@ func (s *identityState) invalidateFields(matches []identityFieldMatch) error {
 func (s *identityState) validateFieldMatches(matches []identityFieldMatch) error {
 	for _, match := range matches {
 		if match.Selection < 0 || match.Selection >= len(s.selections) {
-			return xsderrors.InternalInvariant("identity field match references invalid selection")
+			return xsderrors.InternalInvariant("identity field match references invalid selection", nil)
 		}
 		sel := &s.selections[match.Selection]
 		if sel.scope < 0 || sel.scope >= len(s.scopes) {
-			return xsderrors.InternalInvariant("identity selection references invalid scope")
+			return xsderrors.InternalInvariant("identity selection references invalid scope", nil)
 		}
 		if match.Field < 0 || match.Field >= sel.fieldLen {
-			return xsderrors.InternalInvariant("identity field match references invalid field")
+			return xsderrors.InternalInvariant("identity field match references invalid field", nil)
 		}
 	}
 	return nil
@@ -521,14 +521,14 @@ func (s *identityState) validateFieldMatches(matches []identityFieldMatch) error
 
 func (s *identityState) selectionOwnedAtDepth(sel identitySelection, depth int) (bool, error) {
 	if sel.scope < 0 || sel.scope >= len(s.scopes) {
-		return false, xsderrors.InternalInvariant("identity selection references invalid scope")
+		return false, xsderrors.InternalInvariant("identity selection references invalid scope", nil)
 	}
 	return s.scopes[sel.scope].depth == depth, nil
 }
 
 func (s *identityState) invalidateSelectionScope(sel identitySelection) error {
 	if sel.scope < 0 || sel.scope >= len(s.scopes) {
-		return xsderrors.InternalInvariant("identity selection references invalid scope")
+		return xsderrors.InternalInvariant("identity selection references invalid scope", nil)
 	}
 	s.scopes[sel.scope].invalid = true
 	return nil
@@ -553,7 +553,7 @@ func (s *identityState) finishSelectionWithConstraint(
 		return s.finishUnknownSelection(ctx, rt, kind, refer, sel, limits)
 	case identityFieldsComplete, identityFieldsAbsent:
 	default:
-		return xsderrors.InternalInvariant("identity fields disposition is invalid")
+		return xsderrors.InternalInvariant("identity fields disposition is invalid", nil)
 	}
 	if disposition == identityFieldsAbsent {
 		if kind == xsdSchema.IdentityKey {
@@ -610,7 +610,7 @@ func classifyIdentityFields(fields []identityFieldValue) (identityFieldsDisposit
 		case identityFieldInvalid:
 			disposition = identityFieldsInvalid
 		default:
-			return identityFieldsInvalid, xsderrors.InternalInvariant("identity field state is invalid")
+			return identityFieldsInvalid, xsderrors.InternalInvariant("identity field state is invalid", nil)
 		}
 	}
 	return disposition, nil
@@ -654,7 +654,7 @@ func validateIdentityKeyFields(ctx startContext, rt *xsdSchema.Schema, kind xsdS
 
 func (s *identityState) selectionScope(sel identitySelection) (*identityScope, error) {
 	if sel.scope < 0 || sel.scope >= len(s.scopes) {
-		return nil, xsderrors.InternalInvariant("identity selection references invalid scope")
+		return nil, xsderrors.InternalInvariant("identity selection references invalid scope", nil)
 	}
 	return &s.scopes[sel.scope], nil
 }

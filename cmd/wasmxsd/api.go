@@ -205,9 +205,8 @@ func xsdErrorMessage(err *xsderrors.Error) string {
 }
 
 func errorMessage(err error) string {
-	var formatErr *xsderrors.Error
-	if errors.As(err, &formatErr) && formatErr.Cause() != nil {
-		return formatErr.Cause().Error()
+	if xerr, ok := errors.AsType[*xsderrors.Error](err); ok {
+		return xsdErrorMessage(xerr)
 	}
 	return err.Error()
 }

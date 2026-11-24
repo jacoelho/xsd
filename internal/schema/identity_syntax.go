@@ -24,7 +24,7 @@ func identityConstraintChildren(n *schemaNode) (identityConstraintSyntax, error)
 		}
 	}
 	if syntax.selector == nil || len(syntax.fields) == 0 {
-		return identityConstraintSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity constraint child order admitted no selector or field"))
+		return identityConstraintSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity constraint child order admitted no selector or field", nil))
 	}
 	return syntax, nil
 }

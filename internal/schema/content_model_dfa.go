@@ -190,7 +190,7 @@ func (c *deterministicModelCompilation) stateID(configs []dfaConfig) (uint32, er
 
 func (c *deterministicModelCompilation) stateIDNormalized(configs []dfaConfig) (uint32, error) {
 	if len(configs) > c.builder.limit {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded", nil)
 	}
 	c.key = c.key[:0]
 	for _, config := range configs {
@@ -201,7 +201,7 @@ func (c *deterministicModelCompilation) stateIDNormalized(configs []dfaConfig) (
 		return id, nil
 	}
 	if len(c.states) >= c.builder.limit {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded", nil)
 	}
 	id, err := checkedSchemaUint32(len(c.states), "content model DFA state limit exceeded")
 	if err != nil {
@@ -334,7 +334,7 @@ func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, st
 func (c *deterministicModelCompilation) collectConfig(row *compiledModelRow, config dfaConfig) error {
 	b := c.builder
 	if !validUint32Index(config.State, len(b.rows)) {
-		return xsderrors.InternalInvariant("content model DFA state out of range")
+		return xsderrors.InternalInvariant("content model DFA state out of range", nil)
 	}
 	source := b.rows[config.State]
 	if err := b.c.work.spend(len(source.Accept) + len(source.Edges)); err != nil {
@@ -417,7 +417,7 @@ func (c *deterministicModelCompilation) appendTransition(row *compiledModelRow, 
 	}
 	group.Configs = c.normalize(group.Configs)
 	if len(group.Configs) > c.builder.limit {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded", nil)
 	}
 	to, err := stateID(group.Configs)
 	if err != nil {
@@ -499,7 +499,7 @@ func dfaGuardOK(counters, caps []uint32, guard compiledGuard) bool {
 func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 	for _, action := range actions {
 		if !validUint32Index(action.Slot, len(counters)) {
-			return xsderrors.InternalInvariant("content model DFA action references invalid counter")
+			return xsderrors.InternalInvariant("content model DFA action references invalid counter", nil)
 		}
 		switch action.Kind {
 		case compiledActionInc:
@@ -509,7 +509,7 @@ func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 		case compiledActionReset:
 			counters[action.Slot] = 0
 		default:
-			return xsderrors.InternalInvariant("content model DFA action kind out of range")
+			return xsderrors.InternalInvariant("content model DFA action kind out of range", nil)
 		}
 	}
 	return nil

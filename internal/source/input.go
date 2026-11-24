@@ -298,5 +298,5 @@ func (in *Input) digestSum() [sha256.Size]byte {
 }
 
 func invalidInputError() error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema input is invalid")
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema input is invalid", nil)
 }

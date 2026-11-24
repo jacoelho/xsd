@@ -13,7 +13,7 @@ import (
 // invalidSpan reports a tape span that analysis should have rejected. Rendering
 // replays input the reader already accepted, so it never reports malformed XML.
 func invalidSpan(msg string) error {
-	return xsderrors.InternalInvariant("format: " + msg)
+	return xsderrors.InternalInvariant("format: "+msg, nil)
 }
 
 func sourceNameSpan(input string, start, end int) (nameStart, nameEnd int) {

@@ -33,7 +33,7 @@ func newSchemaPatterns(limits Limits) schemaPatterns {
 // remaining MaxSchemaPatternRetainedBytes is a schema.limit violation.
 func (p *schemaPatterns) admit(text string) (*xsdregex.Pattern, error) {
 	if p == nil {
-		return nil, xsderrors.InternalInvariant("pattern admission has no schema pattern set")
+		return nil, xsderrors.InternalInvariant("pattern admission has no schema pattern set", nil)
 	}
 	if pattern, ok := p.byText[text]; ok {
 		return pattern, nil
@@ -47,7 +47,8 @@ func (p *schemaPatterns) admit(text string) (*xsdregex.Pattern, error) {
 	remaining := uint64(p.limit - p.retained) //nolint:gosec // Normalization rejects negative limits and charges stay within them.
 	if n > remaining {
 		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit,
-			fmt.Sprintf("MaxSchemaPatternRetainedBytes=%d exceeded", p.limit))
+			fmt.Sprintf("MaxSchemaPatternRetainedBytes=%d exceeded", p.limit),
+			nil)
 	}
 	p.retained += int64(n) //nolint:gosec // n <= remaining <= MaxInt64.
 	if p.byText == nil {

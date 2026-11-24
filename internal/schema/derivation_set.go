@@ -41,10 +41,10 @@ func (p *derivationSetParser) add(token string) error {
 	}
 	bit, ok := compileDerivationToken(token)
 	if !ok {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid "+p.label+" value "+diagnostictext.Quote(token))
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid "+p.label+" value "+diagnostictext.Quote(token), nil)
 	}
 	if p.allowed&bit == 0 {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, p.label+" cannot contain "+diagnostictext.Quote(token))
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, p.label+" cannot contain "+diagnostictext.Quote(token), nil)
 	}
 	p.mask |= bit
 	return nil
@@ -59,7 +59,7 @@ func (p *derivationSetParser) addAll() error {
 }
 
 func (p *derivationSetParser) combinationError() error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, p.label+" cannot combine #all with other values")
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, p.label+" cannot combine #all with other values", nil)
 }
 
 func compileDerivationToken(token string) (DerivationMask, bool) {

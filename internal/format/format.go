@@ -152,7 +152,7 @@ func unsupportedFormatFeature(feature xmlstream.UnsupportedFeature, err error) e
 	case xmlstream.UnsupportedEntityReference:
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "XML documents cannot reference undeclared entities", err)
 	}
-	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature", err)
 }
 
 func normalizeFormatOptions(opts Options) (Options, error) {
@@ -507,7 +507,7 @@ func (f *xmlFormatter) renderEvent(event formatEvent) error {
 	case xmlstream.KindComment, xmlstream.KindPI:
 		return f.renderMisc(event)
 	default:
-		return xsderrors.InternalInvariant("format tape holds an unknown XML token")
+		return xsderrors.InternalInvariant("format tape holds an unknown XML token", nil)
 	}
 }
 
@@ -556,7 +556,7 @@ func (f *xmlFormatter) renderChars(event formatEvent) error {
 	}
 	if !f.stack[len(f.stack)-1].inline {
 		if !event.layout {
-			return xsderrors.InternalInvariant("format tape holds content character data in a block element")
+			return xsderrors.InternalInvariant("format tape holds content character data in a block element", nil)
 		}
 		return nil
 	}
@@ -612,7 +612,7 @@ func (a *formatAnalysis) xmlSpacePreserve(attrs []xmlstream.Attr, inherited bool
 		}
 		value, err := a.reader.AttrValue(attr)
 		if err != nil {
-			return false, xsderrors.InternalInvariant("format reader skipped xml:space value")
+			return false, xsderrors.InternalInvariant("format reader skipped xml:space value", err)
 		}
 		switch value {
 		case vocab.XMLValuePreserve:
@@ -666,7 +666,7 @@ func formatReaderLimitErr(limit xmlstream.Limit, line, col int, err error, opts 
 	case xmlstream.LimitDepth:
 		option, configured = "MaxDepth", int64(opts.MaxDepth)
 	case xmlstream.LimitAttrs:
-		return xsderrors.InternalInvariant("format reader has no attribute limit")
+		return xsderrors.InternalInvariant("format reader has no attribute limit", err)
 	}
 	return formatLimitErr(line, col, fmt.Errorf("%s=%d exceeded: %w", option, configured, err))
 }
@@ -684,7 +684,7 @@ func formatLimitErr(line, col int, err error) error {
 }
 
 func formatErr(code xsderrors.Code, line, col int, err error) error {
-	return xsderrors.WithLocation("", line, col, xsderrors.Format(code, err))
+	return xsderrors.WithLocation("", line, col, xsderrors.Format(code, "", err))
 }
 
 func writeXMLIndent(w io.Writer, depth int) error {

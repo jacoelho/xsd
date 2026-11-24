@@ -27,13 +27,13 @@ func parseSizeFacetValue(name, value string) (uint32, error) {
 	value = lex.CollapseXMLWhitespace(value)
 	size, err := parseSchemaNonNegativeInteger(value)
 	if err != nil {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+facetLabel(name)+" facet "+diagnostictext.Quote(value))
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid "+facetLabel(name)+" facet "+diagnostictext.Quote(value), nil)
 	}
 	if name == facetTotalDigits && size == 0 {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "totalDigits must be positive")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "totalDigits must be positive", nil)
 	}
 	if size > maxUint32Value {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, facetLabel(name)+" facet exceeds uint32 limit")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, facetLabel(name)+" facet exceeds uint32 limit", nil)
 	}
 	return uint32(size), nil
 }

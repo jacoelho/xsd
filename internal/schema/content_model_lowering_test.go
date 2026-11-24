@@ -249,7 +249,7 @@ func cloneContentModels(models []contentModelNode) []contentModelNode {
 func (s *contentModelLoweringFixture) addModel(model contentModelNode) (contentModelID, error) {
 	id, err := nextContentModelID(len(s.models))
 	if err != nil {
-		return noContentModel, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded")
+		return noContentModel, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model limit exceeded", nil)
 	}
 	s.models = append(s.models, cloneContentModel(model))
 	return id, nil

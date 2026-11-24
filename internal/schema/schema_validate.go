@@ -67,7 +67,7 @@ func validateSchemaBuildOwnership(build *schemaBuild) error {
 		return err
 	}
 	if err := validateIdentityConstraintOwnership(build.Elements, build.Identities); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return nil
 }
@@ -76,7 +76,7 @@ func validateAttributeBuildOwnership(build *schemaBuild) error {
 	for i, decl := range build.Attributes {
 		id, ok := build.GlobalAttributes[decl.Name]
 		if !ok || id != AttributeID(i) {
-			return xsderrors.InternalInvariant("global attribute declaration is missing its exact name binding")
+			return xsderrors.InternalInvariant("global attribute declaration is missing its exact name binding", nil)
 		}
 	}
 	return nil
@@ -89,14 +89,14 @@ func validateElementBuildOwnership(build *schemaBuild) error {
 		switch decl.Scope { //nolint:exhaustive // default rejects invalid and future scope values.
 		case declarationScopeGlobal:
 			if !exact {
-				return xsderrors.InternalInvariant("global element declaration is missing its exact name binding")
+				return xsderrors.InternalInvariant("global element declaration is missing its exact name binding", nil)
 			}
 		case declarationScopeNonGlobal:
 			if exact {
-				return xsderrors.InternalInvariant("non-global element declaration has a global name binding")
+				return xsderrors.InternalInvariant("non-global element declaration has a global name binding", nil)
 			}
 		default:
-			return xsderrors.InternalInvariant("element declaration scope is invalid")
+			return xsderrors.InternalInvariant("element declaration scope is invalid", nil)
 		}
 	}
 	return nil
@@ -143,17 +143,17 @@ func (o typeOwnership) validate() error {
 	switch o.scope { //nolint:exhaustive // default rejects invalid and future scope values.
 	case declarationScopeGlobal:
 		if !o.exact {
-			return xsderrors.InternalInvariant("global " + kind + " is missing its exact name binding")
+			return xsderrors.InternalInvariant("global "+kind+" is missing its exact name binding", nil)
 		}
 	case declarationScopeNonGlobal:
 		if o.exact {
-			return xsderrors.InternalInvariant("non-global " + kind + " has a global name binding")
+			return xsderrors.InternalInvariant("non-global "+kind+" has a global name binding", nil)
 		}
 		if !o.unnamed {
-			return xsderrors.InternalInvariant("non-global " + kind + " has a name")
+			return xsderrors.InternalInvariant("non-global "+kind+" has a name", nil)
 		}
 	default:
-		return xsderrors.InternalInvariant(kind + " declaration scope is invalid")
+		return xsderrors.InternalInvariant(kind+" declaration scope is invalid", nil)
 	}
 	return nil
 }
@@ -170,7 +170,7 @@ func validateIdentityBuildOwnership(build *schemaBuild) error {
 	for i, identity := range build.Identities {
 		id, ok := build.GlobalIdentities[identity.Name]
 		if !ok || id != IdentityConstraintID(i) {
-			return xsderrors.InternalInvariant("identity constraint is missing its exact name binding")
+			return xsderrors.InternalInvariant("identity constraint is missing its exact name binding", nil)
 		}
 	}
 	return nil
@@ -178,14 +178,14 @@ func validateIdentityBuildOwnership(build *schemaBuild) error {
 
 func validateNameTable(rt *schemaValidation) error {
 	if err := validateRuntimeNameTable(&rt.build.Names); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return nil
 }
 
 func validateRuntimeGlobals(rt *schemaValidation) error {
 	if rt == nil {
-		return xsderrors.InternalInvariant("runtime globals require schema")
+		return xsderrors.InternalInvariant("runtime globals require schema", nil)
 	}
 	if err := validateGlobalAttributes(rt); err != nil {
 		return err
@@ -205,10 +205,10 @@ func validateRuntimeGlobals(rt *schemaValidation) error {
 func validateGlobalAttributes(rt *schemaValidation) error {
 	for q, id := range rt.build.GlobalAttributes {
 		if !rt.build.Names.ValidQName(q) || !validAttributeID(id, len(rt.build.Attributes)) {
-			return xsderrors.InternalInvariant("global attribute references invalid declaration")
+			return xsderrors.InternalInvariant("global attribute references invalid declaration", nil)
 		}
 		if rt.build.Attributes[id].Name != q {
-			return xsderrors.InternalInvariant("global attribute name does not match declaration")
+			return xsderrors.InternalInvariant("global attribute name does not match declaration", nil)
 		}
 	}
 	return nil
@@ -217,10 +217,10 @@ func validateGlobalAttributes(rt *schemaValidation) error {
 func validateGlobalElements(rt *schemaValidation) error {
 	for q, id := range rt.build.GlobalElements {
 		if !rt.build.Names.ValidQName(q) || !validElementID(id, len(rt.build.Elements)) {
-			return xsderrors.InternalInvariant("global element references invalid declaration")
+			return xsderrors.InternalInvariant("global element references invalid declaration", nil)
 		}
 		if rt.build.Elements[id].Name != q {
-			return xsderrors.InternalInvariant("global element name does not match declaration")
+			return xsderrors.InternalInvariant("global element name does not match declaration", nil)
 		}
 	}
 	return nil
@@ -230,10 +230,10 @@ func validateGlobalTypes(rt *schemaValidation) error {
 	for q, typ := range rt.build.GlobalTypes {
 		name, ok := typeNameByID(rt.build.SimpleTypes, rt.build.ComplexTypes, typ)
 		if !rt.build.Names.ValidQName(q) || !ok {
-			return xsderrors.InternalInvariant("global type references invalid declaration")
+			return xsderrors.InternalInvariant("global type references invalid declaration", nil)
 		}
 		if name != q {
-			return xsderrors.InternalInvariant("global type name does not match declaration")
+			return xsderrors.InternalInvariant("global type name does not match declaration", nil)
 		}
 	}
 	return nil
@@ -242,10 +242,10 @@ func validateGlobalTypes(rt *schemaValidation) error {
 func validateGlobalIdentities(rt *schemaValidation) error {
 	for q, id := range rt.build.GlobalIdentities {
 		if !rt.build.Names.ValidQName(q) || !validIdentityConstraintID(id, len(rt.build.Identities)) {
-			return xsderrors.InternalInvariant("global identity references invalid declaration")
+			return xsderrors.InternalInvariant("global identity references invalid declaration", nil)
 		}
 		if rt.build.Identities[id].Name != q {
-			return xsderrors.InternalInvariant("global identity name does not match declaration")
+			return xsderrors.InternalInvariant("global identity name does not match declaration", nil)
 		}
 	}
 	return nil
@@ -254,7 +254,7 @@ func validateGlobalIdentities(rt *schemaValidation) error {
 func validateGlobalNotations(rt *schemaValidation) error {
 	for q := range rt.build.Notations {
 		if !rt.build.Names.ValidQName(q) {
-			return xsderrors.InternalInvariant("notation references invalid name")
+			return xsderrors.InternalInvariant("notation references invalid name", nil)
 		}
 	}
 	return nil
@@ -277,7 +277,7 @@ func validateRuntimeSimpleComponents(rt *schemaValidation) error {
 	// Instance validation reads availability from simpleTypeUnavailable alone,
 	// so every entry must belong to a simple type with a value definition.
 	if len(rt.build.simpleTypeUnavailable) != len(rt.build.SimpleTypes) {
-		return xsderrors.InternalInvariant("simple type availability does not match simple types")
+		return xsderrors.InternalInvariant("simple type availability does not match simple types", nil)
 	}
 	for i := range rt.build.SimpleTypes {
 		if err := validateSimpleType(rt, SimpleTypeID(i), rt.build.SimpleTypes[i]); err != nil {
@@ -321,7 +321,7 @@ func validateRuntimeElementAndAttributeRecords(rt *schemaValidation) error {
 func validateRuntimeWildcards(rt *schemaValidation) error {
 	for i := range rt.build.Wildcards {
 		if err := validateWildcard(&rt.build.Names, rt.build.Wildcards[i]); err != nil {
-			return xsderrors.InternalInvariant(err.Error())
+			return xsderrors.InternalInvariant("", err)
 		}
 	}
 	return nil
@@ -361,7 +361,7 @@ func validateRuntimeComplexComponents(rt *schemaValidation) error {
 		return err
 	}
 	if err := validateIdentityConstraints(&rt.build.Names, rt.build.Identities); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return validateRuntimeElementValueConstraints(rt)
 }
@@ -373,7 +373,7 @@ func validateRuntimeComplexTypeRecords(rt *schemaValidation) error {
 		}
 	}
 	if err := validateComplexTypeGraph(rt.build.ComplexTypes); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return nil
 }
@@ -418,7 +418,7 @@ func missingSimpleTypeID(rt *schemaValidation) (SimpleTypeID, error) {
 		expected := missingSimpleType(missingName, value.AnySimpleTypeID)
 		expected.Scope = declarationScopeNonGlobal
 		if missingID != NoSimpleType || !hasMissingName || st.Name != missingName || !intrinsicSimpleTypeEqual(st, expected) {
-			return NoSimpleType, xsderrors.InternalInvariant("missing simple type sentinel is invalid")
+			return NoSimpleType, xsderrors.InternalInvariant("missing simple type sentinel is invalid", nil)
 		}
 		missingID = SimpleTypeID(i)
 	}
@@ -462,7 +462,7 @@ func boundFacetEmpty(b value.BoundFacet) bool {
 func validateMissingSimpleTypeReferences(rt *schemaValidation, missingID SimpleTypeID) error {
 	for _, st := range rt.build.SimpleTypes {
 		if !st.Missing && st.ValueSpec.Base == missingID {
-			return xsderrors.InternalInvariant("missing simple type sentinel has invalid type reference")
+			return xsderrors.InternalInvariant("missing simple type sentinel has invalid type reference", nil)
 		}
 	}
 	return validateMissingSimpleTypeComplexReferences(rt, missingID)
@@ -472,7 +472,7 @@ func validateMissingSimpleTypeComplexReferences(rt *schemaValidation, missingID 
 	for _, ct := range rt.build.ComplexTypes {
 		base, simpleBase := ct.Base.Simple()
 		if ct.TextType == missingID || (simpleBase && base == missingID) {
-			return xsderrors.InternalInvariant("missing simple type sentinel has invalid complex type reference")
+			return xsderrors.InternalInvariant("missing simple type sentinel has invalid complex type reference", nil)
 		}
 	}
 	return nil
@@ -481,7 +481,7 @@ func validateMissingSimpleTypeComplexReferences(rt *schemaValidation, missingID 
 func validateMissingSimpleTypeGlobals(rt *schemaValidation, missingID SimpleTypeID) error {
 	for _, typ := range rt.build.GlobalTypes {
 		if simple, ok := typ.Simple(); ok && simple == missingID {
-			return xsderrors.InternalInvariant("missing simple type sentinel is globally registered")
+			return xsderrors.InternalInvariant("missing simple type sentinel is globally registered", nil)
 		}
 	}
 	return nil
@@ -506,15 +506,15 @@ func validateBuiltinXSIAttributes(rt *schemaValidation) error {
 	for _, attribute := range builtinXSIAttributes {
 		q, ok := rt.build.Names.LookupQName(vocab.XSINamespaceURI, attribute.local)
 		if !ok {
-			return xsderrors.InternalInvariant("intrinsic XSI attribute name is missing")
+			return xsderrors.InternalInvariant("intrinsic XSI attribute name is missing", nil)
 		}
 		id, ok := rt.build.GlobalAttributes[q]
 		if !ok || !validAttributeID(id, len(rt.build.Attributes)) {
-			return xsderrors.InternalInvariant("intrinsic XSI attribute binding is missing")
+			return xsderrors.InternalInvariant("intrinsic XSI attribute binding is missing", nil)
 		}
 		decl := rt.build.Attributes[id]
 		if decl.Name != q || decl.Type != attribute.typ || decl.ValueConstraint != nil {
-			return xsderrors.InternalInvariant("intrinsic XSI attribute declaration differs from its definition")
+			return xsderrors.InternalInvariant("intrinsic XSI attribute declaration differs from its definition", nil)
 		}
 	}
 	return validateBuiltinSchemaLocationType(rt)
@@ -522,20 +522,20 @@ func validateBuiltinXSIAttributes(rt *schemaValidation) error {
 
 func validateBuiltinSchemaLocationType(rt *schemaValidation) error {
 	if !validSimpleTypeID(builtinSchemaLocationTypeID, len(rt.build.SimpleTypes)) {
-		return xsderrors.InternalInvariant("intrinsic schemaLocation type is missing")
+		return xsderrors.InternalInvariant("intrinsic schemaLocation type is missing", nil)
 	}
 	list := rt.build.SimpleTypes[builtinSchemaLocationTypeID]
 	name, ok := rt.build.Names.LookupQName(vocab.XSINamespaceURI, "$schemaLocation")
 	if !ok || list.Name != name || list.Scope != declarationScopeNonGlobal || list.Final != 0 || list.Missing ||
 		!intrinsicTypeSpecEqual(list.ValueSpec, builtinSchemaLocationTypeSpec()) {
-		return xsderrors.InternalInvariant("intrinsic schemaLocation type differs from its definition")
+		return xsderrors.InternalInvariant("intrinsic schemaLocation type differs from its definition", nil)
 	}
 	view, ok := rt.build.valueBuilder.TypeView(builtinSchemaLocationTypeID)
 	if !ok || view.Variety != value.List || view.Primitive != value.PrimitiveString ||
 		view.Base != value.AnySimpleTypeID || view.ListItem != value.BuiltinType(value.PrimitiveAnyURI) ||
 		view.Whitespace != value.WhitespaceCollapse || view.Builtin != value.BuiltinNone ||
 		len(view.Union) != 0 || view.HasEnumeration {
-		return xsderrors.InternalInvariant("intrinsic schemaLocation value metadata differs from its definition")
+		return xsderrors.InternalInvariant("intrinsic schemaLocation value metadata differs from its definition", nil)
 	}
 	return nil
 }
@@ -543,18 +543,18 @@ func validateBuiltinSchemaLocationType(rt *schemaValidation) error {
 func validateBuiltinSimpleBinding(rt *schemaValidation, id SimpleTypeID) error {
 	name, ok := value.BuiltinTypeName(id)
 	if !ok || !validSimpleTypeID(id, len(rt.build.SimpleTypes)) {
-		return xsderrors.InternalInvariant("builtin simple type declaration is missing")
+		return xsderrors.InternalInvariant("builtin simple type declaration is missing", nil)
 	}
 	q, ok := rt.build.Names.LookupQName(vocab.XSDNamespaceURI, name)
 	if !ok {
-		return xsderrors.InternalInvariant("builtin simple type name is missing")
+		return xsderrors.InternalInvariant("builtin simple type name is missing", nil)
 	}
 	simple := rt.build.SimpleTypes[id]
 	if simple.Name != q || simple.Scope != declarationScopeGlobal {
-		return xsderrors.InternalInvariant("builtin simple type declaration does not match its value definition")
+		return xsderrors.InternalInvariant("builtin simple type declaration does not match its value definition", nil)
 	}
 	if rt.build.GlobalTypes[q] != SimpleRef(id) {
-		return xsderrors.InternalInvariant("builtin simple type global binding does not match its value definition")
+		return xsderrors.InternalInvariant("builtin simple type global binding does not match its value definition", nil)
 	}
 	return nil
 }
@@ -568,7 +568,7 @@ func validateBuiltinDeclarations(rt *schemaValidation) error {
 		AttributeUseSets: len(rt.build.AttributeUseSets),
 		Models:           len(rt.build.Models),
 	}); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return nil
 }
@@ -576,16 +576,16 @@ func validateBuiltinDeclarations(rt *schemaValidation) error {
 func validateBuiltinAnyType(rt *schemaValidation) error {
 	anyType := rt.build.AnyType
 	if !validComplexTypeID(anyType, len(rt.build.ComplexTypes)) {
-		return xsderrors.InternalInvariant("builtin anyType references invalid declaration")
+		return xsderrors.InternalInvariant("builtin anyType references invalid declaration", nil)
 	}
 	q, ok := builtinAnyTypeQName(&rt.build.Names)
 	if !ok {
-		return xsderrors.InternalInvariant("builtin anyType name is missing")
+		return xsderrors.InternalInvariant("builtin anyType name is missing", nil)
 	}
 	typ, ok := rt.build.GlobalTypes[q]
 	id, isComplex := typ.Complex()
 	if !ok || !isComplex || id != anyType {
-		return xsderrors.InternalInvariant("builtin anyType handle does not match global type")
+		return xsderrors.InternalInvariant("builtin anyType handle does not match global type", nil)
 	}
 	ct := rt.build.ComplexTypes[anyType]
 	if ct.Name != q ||
@@ -594,7 +594,7 @@ func validateBuiltinAnyType(rt *schemaValidation) error {
 		ct.TextType != NoSimpleType ||
 		!validContentModelID(ct.Content, len(rt.build.Models)) ||
 		!validAttributeUseSetID(ct.Attrs, len(rt.build.AttributeUseSets)) {
-		return xsderrors.InternalInvariant("builtin anyType shape does not match handle")
+		return xsderrors.InternalInvariant("builtin anyType shape does not match handle", nil)
 	}
 	return validateBuiltinAnyTypeComponents(rt, ct)
 }
@@ -602,14 +602,14 @@ func validateBuiltinAnyType(rt *schemaValidation) error {
 func validateBuiltinAnyTypeComponents(rt *schemaValidation, ct complexTypeMetadata) error {
 	set := rt.build.AttributeUseSets[ct.Attrs]
 	if len(set.Uses) != 0 || len(set.Index) != 0 {
-		return xsderrors.InternalInvariant("builtin anyType attribute set does not match handle")
+		return xsderrors.InternalInvariant("builtin anyType attribute set does not match handle", nil)
 	}
 	w, ok := wildcardByID(rt.build.Wildcards, set.Wildcard)
 	if !ok || !builtinAnyTypeWildcardShape(w) {
-		return xsderrors.InternalInvariant("builtin anyType attribute wildcard does not match handle")
+		return xsderrors.InternalInvariant("builtin anyType attribute wildcard does not match handle", nil)
 	}
 	if !builtinAnyTypeContent(rt.build.Models[ct.Content], set.Wildcard) {
-		return xsderrors.InternalInvariant("builtin anyType content model does not match handle")
+		return xsderrors.InternalInvariant("builtin anyType content model does not match handle", nil)
 	}
 	return nil
 }
@@ -626,7 +626,7 @@ func validateElementDeclShape(rt *schemaValidation, decl elementDecl) error {
 		ComplexTypeCount: len(rt.build.ComplexTypes),
 		ElementCount:     len(rt.build.Elements),
 	}); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if simple, ok := decl.Type.Simple(); ok {
 		return validateNotationTypeUse(rt.build, simple)
@@ -640,7 +640,7 @@ func validateElementDeclValueConstraints(rt *schemaValidation, decl elementDecl)
 		return err
 	}
 	if err := validateValueConstraintIdentity(rt.build, defaultType, decl.ValueConstraint, valueConstraintOwnerElementDeclaration); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return validateValueConstraintRuntime(rt, decl.ValueConstraint, defaultType, valueConstraintOwnerElementDeclaration)
 }
@@ -649,30 +649,30 @@ func validateAttributeDecl(rt *schemaValidation, decl attributeDecl) error {
 	if err := validateAttributeDeclRuntime(&rt.build.Names, decl, declRefLimits{
 		SimpleTypeCount: len(rt.build.SimpleTypes),
 	}); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if err := checkNotationTypeUse(rt.build, decl.Type); err != nil {
 		return schemaBuildValidationError(err)
 	}
 	if err := validateValueConstraintIdentity(rt.build, decl.Type, decl.ValueConstraint, valueConstraintOwnerAttributeDeclaration); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return validateValueConstraintRuntime(rt, decl.ValueConstraint, decl.Type, valueConstraintOwnerAttributeDeclaration)
 }
 
 func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st simpleType) error {
 	if !validSimpleFinalMask(st.Final) {
-		return xsderrors.InternalInvariant("simple type final mask contains invalid derivation")
+		return xsderrors.InternalInvariant("simple type final mask contains invalid derivation", nil)
 	}
 	if rt.build.valueBuilder == nil {
-		return xsderrors.InternalInvariant("simple type has no value builder")
+		return xsderrors.InternalInvariant("simple type has no value builder", nil)
 	}
 	if _, ok := rt.build.valueBuilder.InputRequirements(id); !ok {
-		return xsderrors.InternalInvariant("simple type has no admitted value definition")
+		return xsderrors.InternalInvariant("simple type has no admitted value definition", nil)
 	}
 	constrained, ok := rt.build.valueBuilder.UnionHasFacets(id)
 	if !ok || constrained != st.unionHasFacets {
-		return xsderrors.InternalInvariant("simple type union facets differ from value definition")
+		return xsderrors.InternalInvariant("simple type union facets differ from value definition", nil)
 	}
 	return validateNotationConstructorUses(rt.build, id)
 }
@@ -684,7 +684,7 @@ func validateComplexTypeRecord(build *schemaBuild, id ComplexTypeID, ct complexT
 		AttributeUseSetCount: len(build.AttributeUseSets),
 		AnyType:              build.AnyType,
 	}); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if ct.TextType != NoSimpleType {
 		return validateNotationTypeUse(build, ct.TextType)
@@ -700,7 +700,7 @@ func validateComplexTypeDerivation(rt *schemaValidation, id ComplexTypeID, ct co
 		return validateSimpleBaseComplexDerivation(rt, baseID, ct)
 	}
 	if err := validateComplexTypeDerivationRuntime(rt.build.AnyType, id, ct); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	switch ct.Derivation {
 	case derivationKindExtension:
@@ -708,14 +708,14 @@ func validateComplexTypeDerivation(rt *schemaValidation, id ComplexTypeID, ct co
 	case derivationKindRestriction:
 		return validateComplexRestrictionRuntime(rt, ct)
 	case derivationKindNone:
-		return xsderrors.InternalInvariant("complex derivation mode was not handled")
+		return xsderrors.InternalInvariant("complex derivation mode was not handled", nil)
 	}
 	return nil
 }
 
 func validateSimpleBaseComplexDerivation(rt *schemaValidation, baseID SimpleTypeID, ct complexTypeMetadata) error {
 	if err := validateComplexTypeSimpleBaseExtensionRuntime(rt.build, baseID, ct); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return checkDerivedAttributeWildcard(attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard}, rt.build.AttributeUseSets[ct.Attrs], attributeWildcardExtension)
 }
@@ -726,7 +726,7 @@ func validateComplexExtensionRuntime(rt *schemaValidation, ct complexTypeMetadat
 		return err
 	}
 	if err := validateComplexTypeExtensionRuntime(rt.build, base, ct); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if err := validateComplexExtensionAttributeAncestry(rt.build, ct); err != nil {
 		return schemaBuildValidationError(err)
@@ -743,7 +743,7 @@ func validateComplexRestrictionRuntime(rt *schemaValidation, ct complexTypeMetad
 		return schemaBuildValidationError(err)
 	}
 	if err := validateComplexRestrictionAttributeWildcard(rt.build, ct); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if !baseIsUrType(rt.build, ct) {
 		if err := validateContentRestriction(
@@ -767,13 +767,13 @@ func schemaBuildValidationError(err error) error {
 	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
-	return xsderrors.InternalInvariant(err.Error())
+	return xsderrors.InternalInvariant("", err)
 }
 
 func complexBaseRuntime(rt *schemaValidation, ct complexTypeMetadata) (complexTypeMetadata, error) {
 	baseID, err := complexTypeDerivationBaseID(ct.Base, len(rt.build.ComplexTypes))
 	if err != nil {
-		return complexTypeMetadata{}, xsderrors.InternalInvariant(err.Error())
+		return complexTypeMetadata{}, xsderrors.InternalInvariant("", err)
 	}
 	return rt.build.ComplexTypes[baseID], nil
 }
@@ -782,7 +782,7 @@ func validateAttributeUsesExtend(rt *schemaValidation, baseID, derivedID attribu
 	base := rt.build.AttributeUseSets[baseID]
 	derived := rt.build.AttributeUseSets[derivedID]
 	if err := validateAttributeUseSetExtension(base, derived); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return checkDerivedAttributeWildcard(base, derived, attributeWildcardExtension)
 }
@@ -815,10 +815,10 @@ func validateAttributeUsesRestrict(rt *schemaValidation, baseID, derivedID attri
 
 func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, set attributeUseSet) error {
 	if err := validateAttributeWildcardProvenance(rt.build, set); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if err := validateAttributeUseSetRecord(&rt.build.Names, rt.build, set); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	for _, use := range set.Uses {
 		if err := checkNotationTypeUse(rt.build, use.Type); err != nil {
@@ -833,7 +833,7 @@ func validateAttributeUseSetRuntime(rt *schemaValidation, _ attributeUseSetID, s
 
 func checkDerivedAttributeWildcard(base, derived attributeUseSet, expected attributeWildcardDerivation) error {
 	if err := validateAttributeWildcardDerivation(base, derived, expected); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	return nil
 }
@@ -857,14 +857,14 @@ func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, e
 	if vc == nil {
 		return nil
 	}
-	label := owner.label() + " " + vc.kind().label() + " "
+	label := owner.label() + " " + vc.kind().label()
 	cached := newValueConstraintValidation(vc)
 	if err := validateValueConstraintShape(rt.build, cached, expected); err != nil {
-		return xsderrors.InternalInvariant(label + err.Error())
+		return xsderrors.InternalInvariant(label, err)
 	}
 	application := valueConstraintApplication(vc.Lexical, vc.Canonical, vc.Value)
 	if err := validateResolvedNameProof(application, vc.ResolvedNames); err != nil {
-		return xsderrors.InternalInvariant(label + err.Error())
+		return xsderrors.InternalInvariant(label, err)
 	}
 	return nil
 }

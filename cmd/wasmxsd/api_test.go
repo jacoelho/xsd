@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 const testSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -174,6 +177,27 @@ func TestValidationAdapterFatalAssessmentFailuresRetainCache(t *testing.T) {
 	}
 	if adapter.engine != engine || adapter.xsdText != key {
 		t.Fatalf("successful recovery changed cache: engine=%p key=%q, want engine=%p key=%q", adapter.engine, adapter.xsdText, engine, key)
+	}
+}
+
+func TestFormatErrorMessageKeepsMessageAndCause(t *testing.T) {
+	cause := errors.New("unexpected EOF")
+	for _, test := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "message and cause", err: xsderrors.Format(xsderrors.CodeFormatXML, "attribute value", cause), want: "attribute value: unexpected EOF"},
+		{name: "cause only", err: xsderrors.Format(xsderrors.CodeFormatXML, "", cause), want: "unexpected EOF"},
+		{name: "message only", err: xsderrors.Format(xsderrors.CodeFormatOption, "invalid indent", nil), want: "invalid indent"},
+		{name: "wrapped diagnostic", err: fmt.Errorf("format: %w", xsderrors.Format(xsderrors.CodeFormatXML, "attribute value", cause)), want: "attribute value: unexpected EOF"},
+		{name: "plain error", err: cause, want: "unexpected EOF"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := errorMessage(test.err); got != test.want {
+				t.Fatalf("errorMessage(%v) = %q, want %q", test.err, got, test.want)
+			}
+		})
 	}
 }
 

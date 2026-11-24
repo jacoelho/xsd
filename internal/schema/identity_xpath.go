@@ -35,7 +35,7 @@ func admitIdentityXPath(n *schemaSyntaxNode, value string, values *admittedValue
 	case vocab.XSDElemField:
 		values.xpath, err = parseIdentityFieldPaths(value, resolver)
 	default:
-		err = xsderrors.InternalInvariant("identity XPath admission of xs:" + diagnostictext.Quote(n.Name.Local))
+		err = xsderrors.InternalInvariant("identity XPath admission of xs:"+diagnostictext.Quote(n.Name.Local), nil)
 	}
 	return withSchemaCompileLocation(n, err)
 }
@@ -103,9 +103,9 @@ func internIdentityName(names *nameTable, syntax identityNameSyntax) (identityNa
 	case identityNameAny:
 		return identityNameTest{name: noQName(), wildcard: true}, nil
 	case identityNameInvalid, identityBranch:
-		return identityNameTest{}, xsderrors.InternalInvariant("identity XPath item is not a name test")
+		return identityNameTest{}, xsderrors.InternalInvariant("identity XPath item is not a name test", nil)
 	default:
-		return identityNameTest{}, xsderrors.InternalInvariant("unknown identity XPath name test kind")
+		return identityNameTest{}, xsderrors.InternalInvariant("unknown identity XPath name test kind", nil)
 	}
 }
 
@@ -147,7 +147,7 @@ type identityBranchItems struct {
 // index of the item after it.
 func (s identityXPathSyntax) branchAt(at int) (identityBranchItems, error) {
 	if at >= len(s.items) || !s.items[at].start {
-		return identityBranchItems{}, xsderrors.InternalInvariant("identity XPath item does not start a branch")
+		return identityBranchItems{}, xsderrors.InternalInvariant("identity XPath item does not start a branch", nil)
 	}
 	end := at + 1
 	for end < len(s.items) && !s.items[end].start {
@@ -157,7 +157,7 @@ func (s identityXPathSyntax) branchAt(at int) (identityBranchItems, error) {
 	branch := identityBranchItems{names: s.items[at:end], end: end, descendant: head.descendant, attribute: head.attribute}
 	if head.kind == identityBranch {
 		if end != at+1 || head.attribute {
-			return identityBranchItems{}, xsderrors.InternalInvariant("identity XPath branch without name tests has items")
+			return identityBranchItems{}, xsderrors.InternalInvariant("identity XPath branch without name tests has items", nil)
 		}
 		branch.names = nil
 	}
@@ -175,7 +175,7 @@ func (s identityXPathSyntax) selectorPaths(table *nameTable) ([]identityPath, er
 			return nil, err
 		}
 		if branch.attribute {
-			return nil, xsderrors.InternalInvariant("identity selector branch ends in an attribute")
+			return nil, xsderrors.InternalInvariant("identity selector branch ends in an attribute", nil)
 		}
 		steps, err := internIdentitySteps(table, branch.names)
 		if err != nil {
@@ -270,7 +270,7 @@ func parseIdentityPathsInto[R identityPrefixResolver](xpath string, resolver R, 
 		part, rest, more = strings.Cut(rest, "|")
 		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity selector XPath branch is empty")
+			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity selector XPath branch is empty", nil)
 		}
 		desc := false
 		if rest, ok := parseIdentityDescendantPrefix(part); ok {
@@ -320,7 +320,7 @@ func parseIdentityFieldPathsInto[R identityPrefixResolver](xpath string, resolve
 		part, rest, more = strings.Cut(rest, "|")
 		part = lex.TrimXMLWhitespaceString(part)
 		if part == "" {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
+			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty", nil)
 		}
 		var err error
 		if items, err = parseIdentityFieldPathBranch(part, resolver, items); err != nil {
@@ -337,7 +337,7 @@ func parseIdentityFieldPathBranch[R identityPrefixResolver](part string, resolve
 		part = rest
 	}
 	if part == "" {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty")
+		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "identity field XPath branch is empty", nil)
 	}
 	attribute, err := parseIdentityFieldAttribute(part, resolver)
 	if err != nil {
@@ -363,19 +363,19 @@ type identityFieldAttribute struct {
 
 func parseIdentityFieldAttribute[R identityPrefixResolver](part string, resolver R) (identityFieldAttribute, error) {
 	if strings.HasPrefix(part, "/") {
-		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part))
+		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part), nil)
 	}
 	elementPath, step := splitIdentityLastStep(part)
 	if name, ok := strings.CutPrefix(step, "@"); ok {
 		if name == "" {
-			return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part))
+			return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part), nil)
 		}
 		attrName, err := parseIdentityNameSyntax(name, resolver)
 		return identityFieldAttribute{elementPath: elementPath, name: attrName, present: true}, err
 	}
 	name, ok := parseIdentityAxisStep(step, "attribute")
 	if ok && name == "" {
-		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part))
+		return identityFieldAttribute{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity field XPath "+diagnostictext.Quote(part), nil)
 	}
 	if !ok {
 		return identityFieldAttribute{elementPath: part}, nil
@@ -460,10 +460,10 @@ func parseIdentityStepNames[R identityPrefixResolver](path string, resolver R, n
 
 func validateIdentityElementPath(path string) error {
 	if strings.Contains(path, "@") {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+diagnostictext.Quote(path))
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+diagnostictext.Quote(path), nil)
 	}
 	if strings.ContainsAny(path, "[]()") || strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+diagnostictext.Quote(path))
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath "+diagnostictext.Quote(path), nil)
 	}
 	return nil
 }
@@ -471,7 +471,7 @@ func validateIdentityElementPath(path string) error {
 func parseIdentityElementStep[R identityPrefixResolver](part string, resolver R) (identityNameSyntax, bool, error) {
 	part = lex.TrimXMLWhitespaceString(part)
 	if part == "" {
-		return identityNameSyntax{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step")
+		return identityNameSyntax{}, false, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step", nil)
 	}
 	if strings.Contains(part, "::") {
 		name, err := parseIdentityChildAxisStep(part)
@@ -490,10 +490,10 @@ func parseIdentityElementStep[R identityPrefixResolver](part string, resolver R)
 func parseIdentityChildAxisStep(part string) (string, error) {
 	name, ok := parseIdentityAxisStep(part, "child")
 	if !ok {
-		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step "+diagnostictext.Quote(part))
+		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step "+diagnostictext.Quote(part), nil)
 	}
 	if name == "" || name == "." {
-		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step child::")
+		return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity XPath step child::", nil)
 	}
 	return name, nil
 }
@@ -519,7 +519,7 @@ func parseIdentityQNamePrefixWildcard(lexical string) (string, bool, error) {
 		return "", false, nil
 	}
 	if prefix == "" || !lex.IsNCName(prefix) {
-		return "", true, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+diagnostictext.Quote(lexical))
+		return "", true, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+diagnostictext.Quote(lexical), nil)
 	}
 	return prefix, true, nil
 }

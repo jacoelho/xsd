@@ -79,7 +79,7 @@ func (s *session) locatePendingStart(err error, mode elementMode) error {
 	}
 	location, locationErr := s.reader.StartLocation()
 	if locationErr != nil {
-		return xsderrors.InternalInvariant("element-start diagnostic requires an admitted XML start: " + locationErr.Error())
+		return xsderrors.InternalInvariant("element-start diagnostic requires an admitted XML start", locationErr)
 	}
 	return xsderrors.WithLocation(s.doc.pathStringWithChild(location.Name, expandedInstancePath(mode, s.runtimeName(location.Name))), location.Line, location.Column, err)
 }
@@ -271,7 +271,7 @@ func attributeValidation(ctx startContext, msg string) error {
 // are rendered with an assessment-specific code and message.
 func terminalValueError(ctx startContext, err error, eval xsdValue.EvaluationLimits) error {
 	if errors.Is(err, xsdValue.ErrMetadata) {
-		return xsderrors.InternalInvariant("simple value metadata is invalid")
+		return xsderrors.InternalInvariant("simple value metadata is invalid", err)
 	}
 	if errors.Is(err, xsdValue.ErrPatternTotalLimit) {
 		return validation(ctx, xsderrors.CodeValidationLimit, msgSimpleValueLimit+": "+optionMaxInstanceTotalPatternWork+"="+strconv.FormatUint(eval.PatternTotal.Limit(), 10))
@@ -306,7 +306,7 @@ func optionError(msg string) error {
 
 func validationFromIssue(ctx startContext, issue validationIssue) error {
 	if issue.code == xsderrors.CodeInternalInvariant {
-		return xsderrors.InternalInvariant(issue.message)
+		return xsderrors.InternalInvariant(issue.message, nil)
 	}
 	return validation(ctx, issue.code, issue.message)
 }

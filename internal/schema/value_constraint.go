@@ -31,7 +31,7 @@ type valueConstraint struct {
 func sourceValueConstraint(n *schemaNode, defaultAttr, fixedAttr lexicalAttribute) (*valueConstraint, error) {
 	switch {
 	case defaultAttr.Present && fixedAttr.Present:
-		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("start tag admitted default with fixed"))
+		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("start tag admitted default with fixed", nil))
 	case defaultAttr.Present:
 		return &valueConstraint{Lexical: defaultAttr.Value}, nil
 	case fixedAttr.Present:

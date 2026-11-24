@@ -91,29 +91,29 @@ func formatName(s string) string { return diagnostictext.Quote(s) }
 		body string
 		bad  bool
 	}{
-		{"constant", `func f() error { return xsderrors.SchemaCompile("c", "fixed" + "text") }`, false},
-		{"quoted", `func f(raw string) error { return xsderrors.SchemaCompile("c", "bad "+diagnostictext.Quote(raw)) }`, false},
-		{"int", `func f(n int) error { return xsderrors.SchemaCompile("c", "bad "+strconv.Itoa(n)) }`, false},
-		{"error text", `func f(err error) error { return xsderrors.SchemaCompile("c", err.Error()) }`, false},
-		{"label method", `func f(n node) error { return xsderrors.SchemaCompile("c", "bad "+n.label()) }`, false},
-		{"allowlisted local", `func f(raw string) error { l := formatName(raw); return xsderrors.SchemaCompile("c", "bad "+l) }`, false},
-		{"allowlisted sprintf", `func f(raw string, n int) error { return xsderrors.SchemaCompile("c", fmt.Sprintf("bad %s %d", diagnostictext.Quote(raw), n)) }`, false},
+		{"constant", `func f() error { return xsderrors.SchemaCompile("c", "fixed" + "text", nil) }`, false},
+		{"quoted", `func f(raw string) error { return xsderrors.SchemaCompile("c", "bad "+diagnostictext.Quote(raw), nil) }`, false},
+		{"int", `func f(n int) error { return xsderrors.SchemaCompile("c", "bad "+strconv.Itoa(n), nil) }`, false},
+		{"error text", `func f(err error) error { return xsderrors.SchemaCompile("c", err.Error(), nil) }`, false},
+		{"label method", `func f(n node) error { return xsderrors.SchemaCompile("c", "bad "+n.label(), nil) }`, false},
+		{"allowlisted local", `func f(raw string) error { l := formatName(raw); return xsderrors.SchemaCompile("c", "bad "+l, nil) }`, false},
+		{"allowlisted sprintf", `func f(raw string, n int) error { return xsderrors.SchemaCompile("c", fmt.Sprintf("bad %s %d", diagnostictext.Quote(raw), n), nil) }`, false},
 		{"parse sink quoted", `func f(raw string) error { return schemaParseAt(1, 1, "c", "bad "+diagnostictext.Quote(raw), nil) }`, false},
-		{"wrapper caller quoted", `func wrap(m string) error { return xsderrors.SchemaCompile("c", m) }
+		{"wrapper caller quoted", `func wrap(m string) error { return xsderrors.SchemaCompile("c", m, nil) }
 func f(raw string) error { return wrap(diagnostictext.Quote(raw)) }`, false},
-		{"raw identifier", `func f(id string) error { return xsderrors.SchemaCompile("c", "a"+id) }
+		{"raw identifier", `func f(id string) error { return xsderrors.SchemaCompile("c", "a"+id, nil) }
 func g(n node) error { return f(n.name) }`, true},
-		{"raw field", `func f(n node) error { return xsderrors.SchemaCompile("c", "a"+n.name) }`, true},
-		{"raw sprintf", `func f(n node) error { return xsderrors.SchemaCompile("c", fmt.Sprintf("bad %s", n.name)) }`, true},
+		{"raw field", `func f(n node) error { return xsderrors.SchemaCompile("c", "a"+n.name, nil) }`, true},
+		{"raw sprintf", `func f(n node) error { return xsderrors.SchemaCompile("c", fmt.Sprintf("bad %s", n.name), nil) }`, true},
 		{"raw errorf", `func f(n node) error { return fmt.Errorf("bad %s", n.name) }`, true},
-		{"variable built", `func f(n node) error { msg := "bad " + n.name; return xsderrors.SchemaCompile("c", msg) }`, true},
-		{"reassigned local", `func f(n node) error { l := formatName(n.name); l += n.name; return xsderrors.SchemaCompile("c", l) }`, true},
-		{"trim bypass", `func f(n node) error { return xsderrors.SchemaCompile("c", "bad "+strings.TrimSpace(n.name)) }`, true},
-		{"conversion bypass", `func f(b []byte) error { return xsderrors.SchemaCompile("c", string(b)) }`, true},
-		{"wrapper caller raw", `func wrap(m string) error { return xsderrors.SchemaCompile("c", m) }
+		{"variable built", `func f(n node) error { msg := "bad " + n.name; return xsderrors.SchemaCompile("c", msg, nil) }`, true},
+		{"reassigned local", `func f(n node) error { l := formatName(n.name); l += n.name; return xsderrors.SchemaCompile("c", l, nil) }`, true},
+		{"trim bypass", `func f(n node) error { return xsderrors.SchemaCompile("c", "bad "+strings.TrimSpace(n.name), nil) }`, true},
+		{"conversion bypass", `func f(b []byte) error { return xsderrors.SchemaCompile("c", string(b), nil) }`, true},
+		{"wrapper caller raw", `func wrap(m string) error { return xsderrors.SchemaCompile("c", m, nil) }
 func f(n node) error { return wrap("bad " + n.name) }`, true},
 		{"raw parse at", `func f(n node) error { return schemaParseAt(1, 1, "c", "bad "+n.name, nil) }`, true},
-		{"wrapper caller quoted by local", `func wrap(m string) error { return xsderrors.SchemaCompile("c", m) }
+		{"wrapper caller quoted by local", `func wrap(m string) error { return xsderrors.SchemaCompile("c", m, nil) }
 func f(n node) error { q := diagnostictext.Quote(n.name); return wrap("bad " + q) }`, false},
 	}
 	for _, tt := range tests {
