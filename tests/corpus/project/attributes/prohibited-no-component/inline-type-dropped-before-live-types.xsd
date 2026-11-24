@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t">
+<xs:complexType name="A"><xs:attribute name="p" use="prohibited"><xs:simpleType><xs:union memberTypes="xs:boolean"><xs:simpleType><xs:list><xs:simpleType><xs:restriction base="xs:int"><xs:maxInclusive value="9"/></xs:restriction></xs:simpleType></xs:list></xs:simpleType></xs:union></xs:simpleType></xs:attribute></xs:complexType>
+<xs:element name="r"><xs:complexType><xs:attribute name="b"><xs:simpleType><xs:list><xs:simpleType><xs:restriction base="xs:int"><xs:minInclusive value="100"/></xs:restriction></xs:simpleType></xs:list></xs:simpleType></xs:attribute></xs:complexType></xs:element>
+</xs:schema>

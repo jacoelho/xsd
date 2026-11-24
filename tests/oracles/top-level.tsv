@@ -2391,6 +2391,19 @@ project/prohibited-no-component-chameleon-restriction-name	schema	dotnet	schema-
 project/prohibited-no-component-chameleon-restriction-name	schema	libxml2	schema-valid	
 project/prohibited-no-component-chameleon-restriction-name	schema	xerces	schema-valid	
 project/prohibited-no-component-chameleon-restriction-name	schema	xmlschema	schema-valid	
+project/prohibited-no-component-inline-type-dropped-before-live-types	dropped-item-value	dotnet	invalid	inline-type-dropped-before-live-types-dropped-item-value.xml:1:22: The 'b' attribute is invalid - The value '5' is invalid according to its datatype 'List of Int' - The MinInclusive constraint failed.
+project/prohibited-no-component-inline-type-dropped-before-live-types	dropped-item-value	xerces	invalid	inline-type-dropped-before-live-types-dropped-item-value.xml:1:29: cvc-minInclusive-valid: Value '5' is not facet-valid with respect to minInclusive '100' for type '#AnonType_br'.
+project/prohibited-no-component-inline-type-dropped-before-live-types	dropped-item-value	xmlschema	invalid	line None: attribute b='5': value has to be greater or equal than 100 (path /t:r)
+project/prohibited-no-component-inline-type-dropped-before-live-types	dropped-member-value	dotnet	invalid	inline-type-dropped-before-live-types-dropped-member-value.xml:1:22: The 'b' attribute is invalid - The value 'true' is invalid according to its datatype 'List of Int' - The string 'true' is not a valid Int32 value.
+project/prohibited-no-component-inline-type-dropped-before-live-types	dropped-member-value	xerces	invalid	inline-type-dropped-before-live-types-dropped-member-value.xml:1:32: cvc-datatype-valid.1.2.1: 'true' is not a valid value for 'integer'.
+project/prohibited-no-component-inline-type-dropped-before-live-types	dropped-member-value	xmlschema	invalid	line None: attribute b='true': invalid literal for int() with base 10: 'true' (path /t:r)
+project/prohibited-no-component-inline-type-dropped-before-live-types	live-value	dotnet	valid	
+project/prohibited-no-component-inline-type-dropped-before-live-types	live-value	xerces	valid	
+project/prohibited-no-component-inline-type-dropped-before-live-types	live-value	xmlschema	valid	
+project/prohibited-no-component-inline-type-dropped-before-live-types	schema	dotnet	schema-valid	warning: inline-type-dropped-before-live-types.xsd:2:27: The 'p' attribute is ignored, because the value of 'prohibited' for attribute use only prevents inheritance of an identically named attribute from the base type definition.
+project/prohibited-no-component-inline-type-dropped-before-live-types	schema	libxml2	schema-invalid	inline-type-dropped-before-live-types.xsd:2: element simpleType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': The content is not valid. Expected is (annotation?).␊WXS schema inline-type-dropped-before-live-types.xsd failed to compile
+project/prohibited-no-component-inline-type-dropped-before-live-types	schema	xerces	schema-valid	
+project/prohibited-no-component-inline-type-dropped-before-live-types	schema	xmlschema	schema-valid	
 project/prohibited-no-component-invalid-boolean-fixed-optional	schema	dotnet	schema-invalid	invalid-boolean-fixed-optional.xsd:1:173: The value 'oops' is invalid according to its schema type 'http://www.w3.org/2001/XMLSchema:boolean' - The string 'oops' is not a valid Boolean value.
 project/prohibited-no-component-invalid-boolean-fixed-optional	schema	libxml2	schema-invalid	invalid-boolean-fixed-optional.xsd:1: element attribute: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}attribute': 'oops' is not a valid value of the atomic type 'xs:boolean'.
 project/prohibited-no-component-invalid-boolean-fixed-optional	schema	xerces	schema-invalid	invalid-boolean-fixed-optional.xsd:1:242: cvc-datatype-valid.1.2.1: 'oops' is not a valid value for 'boolean'.

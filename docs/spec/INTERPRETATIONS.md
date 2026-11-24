@@ -377,6 +377,7 @@ libxml2 2.9.13:
 Cases: `project/builtin-xsi-prohibited-fixed-no-use`,
 `project/builtin-xsi-prohibited-maps-no-use`, `project/prohibited-fixed-*`,
 `project/prohibited-no-component-invalid-boolean-fixed-prohibited`,
+`project/prohibited-no-component-inline-type-dropped-before-live-types`,
 `project/prohibited-no-component-invalid-inline-type`,
 `project/prohibited-no-component-missing-xsd-type-prohibited`,
 `project/prohibited-no-component-qualified-xsi-local`,

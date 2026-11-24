@@ -193,6 +193,8 @@ default options; no test pins them:
 | The same element with an anonymous complex type holding one attribute of an anonymous simple type restricting `xs:string` by `xs:maxLength` | 6 | about 345 bytes |
 | The same element with an anonymous complex type holding one element | 4 | about 46 bytes |
 | The same element with an anonymous complex type and a key | 7 | about 128 bytes |
+| Prohibited local attribute with a distinct name | 1 | about 67 bytes |
+| The same attribute with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 67 bytes |
 
 In these shapes a node retains at most about 260 bytes plus its text, so
 the records stay under about 250 MiB at the default node limit and the text
@@ -211,8 +213,8 @@ name but no evaluation program or dispatch branch. An element declaration no
 instance element reaches is not published and retains nothing in the element
 table, though its local name stays in the name table, about 61 bytes plus
 its text for each distinct name. The inline simple type of a zero-count
-element, with the anonymous types nested in it, is compiled and checked, then
-dropped, so it retains nothing. Any other simple type no instance element
+element or of a prohibited attribute, with the types nested in it, retains
+nothing. Any other simple type no instance element
 reaches, such as an attribute type inside a detached complex type, keeps its
 ID, its derivation record and its value-program slot, about 250 bytes with
 slice growth, but no facets, patterns or enumerations, so it retains the

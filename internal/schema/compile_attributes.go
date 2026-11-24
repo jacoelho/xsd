@@ -604,8 +604,7 @@ func (c *compiler) admitProhibitedAttributeChildren(ctx *schemaSetDocument, n *s
 	if simple == nil {
 		return nil
 	}
-	_, err := c.compileAnonymousSimple(ctx, simple)
-	return err
+	return c.compileUnheldSimpleType(ctx, simple)
 }
 
 func attributeUseFromDecl(decl attributeDecl) attributeUse {

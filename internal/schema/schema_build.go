@@ -299,11 +299,36 @@ func (c *compiler) completeSimpleType(id SimpleTypeID, typ simpleType) error {
 	return c.completeValueType(id, typ)
 }
 
+// compileUnheldSimpleType compiles and checks the inline simple type n of a
+// source item that maps to no component, a zero-count element or a prohibited
+// attribute, then drops it with the anonymous types nested in it, since no
+// component holds them (dropSimpleTypesFrom). The one shared record compiling
+// them can create is the missing-type placeholder, for a simple-type name
+// outside the XSD namespace that resolves to no component, the target
+// namespace included; later references reuse it, so the types are kept when
+// it was created for them.
+func (c *compiler) compileUnheldSimpleType(ctx *schemaSetDocument, n *schemaNode) error {
+	missing := c.missingSimple
+	globalTypes := len(c.rt.GlobalTypes)
+	id, err := c.compileAnonymousSimple(ctx, n)
+	if err != nil {
+		return err
+	}
+	if c.missingSimple != missing {
+		return nil
+	}
+	if len(c.rt.GlobalTypes) != globalTypes {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unheld inline simple type registered a global type"))
+	}
+	return withSchemaCompileLocation(n, c.dropSimpleTypesFrom(id))
+}
+
 // dropSimpleTypesFrom removes the simple types whose ID is next or above
 // from the build and the value builder, so the next added type takes ID next.
 // The caller guarantees that nothing outside the removed types names them.
-// The removed types still count in the publication charges per simple type
-// and per constructor use (droppedSimpleTypeCharges).
+// Their names stay interned and their charges stay spent, and publication
+// still makes its per-type charges for them (droppedSimpleTypeCharges), so
+// dropping changes no diagnostic or limit verdict.
 func (c *compiler) dropSimpleTypesFrom(next SimpleTypeID) error {
 	if next < value.BuiltinTypeCount || !validSimpleTypeID(next, len(c.rt.SimpleTypes)) {
 		return xsderrors.InternalInvariant("dropped simple types start outside the user simple types")

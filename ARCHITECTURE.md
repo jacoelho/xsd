@@ -315,16 +315,12 @@ detached constraint's ID for keyref `refer` and diagnostics, but no content
 model, attribute uses or evaluation program. An unreached simple type keeps
 its ID, derivation record and value-program slot, but `Builder.SealKeeping`
 drops its value definition (facets, patterns, enumerations), and validating
-it reports `value.ErrMetadata`. The inline simple type of a zero-count element
-keeps nothing: `compileAbsentElementSimpleType` compiles and checks it with the
-anonymous types nested in it, then removes them from the build and the value
-builder (`dropSimpleTypesFrom`, `value.Builder.Truncate`), since no holder
-outside them can name them. Their names stay interned and their charges stay
-spent, `Builder.Truncate` refunds no type-count headroom, and publication
-spends the per-type charges it would have made for them
-(`droppedSimpleTypeCharges`), so dropping changes no verdict. They are kept
-when compiling them created the missing-type placeholder, which later
-references share. Unreached element declarations
+it reports `value.ErrMetadata`. The inline simple type of a source item that
+maps to no component, a zero-count element or a prohibited attribute, keeps
+nothing once checked, because no component can hold its ID:
+`compileUnheldSimpleType` drops it from the build and the value builder
+(`dropSimpleTypesFrom`, `value.Builder.Truncate`) without changing a verdict
+(`droppedSimpleTypeCharges`). Unreached element declarations
 are not published, and validation sees only published element IDs, which
 `publishedElements` owns. A published holder of element IDs is either a build
 table that names only declarations whose published ID is their build ID or a
@@ -1439,9 +1435,10 @@ graph preserves these ownership rules:
   every holder would need a copy. A per-type indirection in the value
   program's type lookup would free the 200-byte slot of an unreached type but
   adds a dependent load to every value evaluation. Only the inline simple type
-  of a zero-count element is freed, by truncation, because nothing outside it
-  can hold its ID; a simple type nested in a detached complex type keeps its
-  slot, since the complex type's attribute uses and text type hold it.
+  of a source item that maps to no component is freed, by truncation, because
+  no component can hold its ID; a simple type nested in a detached complex
+  type keeps its slot, since the complex type's attribute uses and text type
+  hold it.
 - Removing from the name table the names that only unreached element
   declarations use was rejected. A distinct name retains about 61 bytes plus
   its text: 79,000 element declarations, each under its own zero-count

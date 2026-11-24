@@ -1195,6 +1195,75 @@
       ]
     },
     {
+      "id": "project/prohibited-no-component-inline-type-dropped-before-live-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/prohibited-no-component",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-datatype-valid"
+        ],
+        "conditions": [
+          "The inline union type of a prohibited attribute, with its anonymous list member and item, maps to its own type definitions (docs/spec/INTERPRETATIONS.md I-008), but no attribute use has that type, so no attribute is assessed against it: b is assessed only against its own list of xs:int restricted by minInclusive 100, which rejects 5 and true although the prohibited attribute's type accepts them."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed",
+          "clause": "I-008 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-008"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "live-value",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-live-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "dropped-item-value",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-item-value.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "dropped-member-value",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-member-value.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-live-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-item-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-member-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/prohibited-no-component-invalid-inline-type",
       "expectedSource": "project",
       "source": {

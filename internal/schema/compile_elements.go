@@ -33,11 +33,13 @@ func (c *compiler) compileElementParticle(ctx *schemaSetDocument, n *schemaNode)
 // xs:element n: its inline type definition, which maps on its own as for a
 // prohibited attribute (I-008), and its identity constraints, which map to
 // identity-constraint definitions whatever their parent maps to (Structures
-// §3.11.2). No element declaration has that type or owns those constraints,
-// so detachUnreachableComponents detaches them.
+// §3.11.2). No element declaration has that type or owns those constraints:
+// an inline simple type is checked and dropped (compileUnheldSimpleType), and
+// detachUnreachableComponents detaches an inline complex type and the
+// identity constraints.
 func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) error {
 	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
-		if err := c.compileAbsentElementSimpleType(ctx, simple); err != nil {
+		if err := c.compileUnheldSimpleType(ctx, simple); err != nil {
 			return err
 		}
 	}
@@ -56,32 +58,6 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 		return err
 	}
 	return c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, NoElement)
-}
-
-// compileAbsentElementSimpleType compiles and checks the inline simple type n
-// of a zero-count element, then drops it with the anonymous types nested in
-// it: no element declaration has that type, and nothing outside it names
-// them. Their names stay interned and their charges stay spent, and
-// publication spends what it would have charged for them
-// (droppedSimpleTypeCharges), so dropping changes no diagnostic or limit
-// verdict. The one shared record compiling them can create is the
-// missing-type placeholder, for a reference into an optional import that was
-// not loaded; later references reuse it, so the types are kept when it was
-// created for them.
-func (c *compiler) compileAbsentElementSimpleType(ctx *schemaSetDocument, n *schemaNode) error {
-	missing := c.missingSimple
-	globalTypes := len(c.rt.GlobalTypes)
-	id, err := c.compileAnonymousSimple(ctx, n)
-	if err != nil {
-		return err
-	}
-	if c.missingSimple != missing {
-		return nil
-	}
-	if len(c.rt.GlobalTypes) != globalTypes {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("inline simple type of a zero-count element registered a global type"))
-	}
-	return withSchemaCompileLocation(n, c.dropSimpleTypesFrom(id))
 }
 
 func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *schemaNode) (ElementID, error) {

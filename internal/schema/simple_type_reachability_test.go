@@ -160,10 +160,25 @@ func TestZeroCountElementKeepsNoInlineSimpleType(t *testing.T) {
 	}
 }
 
-// TestZeroCountInlineTypeCreatingTheMissingTypeIsKept compiles z's inline
-// list first, in global type W, so its item reference creates the missing-type
-// placeholder; the global attribute g compiles after it and names the same
-// placeholder.
+func TestProhibitedAttributeKeepsNoInlineSimpleType(t *testing.T) {
+	t.Parallel()
+
+	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="B"><xs:attribute name="p" type="xs:string"/></xs:complexType>
+  <xs:element name="r"><xs:complexType><xs:complexContent><xs:restriction base="B">
+    <xs:attribute name="p" use="prohibited">PROHIBITED</xs:attribute>
+  </xs:restriction></xs:complexContent></xs:complexType></xs:element>
+</xs:schema>`
+	withInline := compiledTestBuild(t, strings.Replace(schema, "PROHIBITED", `<xs:simpleType><xs:list><xs:simpleType><xs:restriction base="xs:int"><xs:maxInclusive value="9"/></xs:restriction></xs:simpleType></xs:list></xs:simpleType>`, 1))
+	withoutInline := compiledTestBuild(t, strings.Replace(schema, "PROHIBITED", "", 1))
+	if got, want := len(withInline.SimpleTypes), len(withoutInline.SimpleTypes); got != want {
+		t.Fatalf("simple types with p's inline list = %d, want %d as without it: the list and its item are dropped", got, want)
+	}
+	if got, want := withInline.valueBuilder.UserTypeCount(), withoutInline.valueBuilder.UserTypeCount(); got != want {
+		t.Fatalf("value types with p's inline list = %d, want %d as without it", got, want)
+	}
+}
+
 func TestZeroCountInlineTypeCreatingTheMissingTypeIsKept(t *testing.T) {
 	t.Parallel()
 
