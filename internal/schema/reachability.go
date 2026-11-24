@@ -127,10 +127,10 @@ func (c *compiler) reachSimpleType(r *componentReach, id SimpleTypeID) error {
 	if id == NoSimpleType || id < value.BuiltinTypeCount {
 		return nil
 	}
-	user := int(id - value.BuiltinTypeCount)
-	if user >= len(r.simpleTypes) {
+	if uint64(id-value.BuiltinTypeCount) >= uint64(len(r.simpleTypes)) {
 		return xsderrors.InternalInvariant("simple type reference is invalid")
 	}
+	user := int(id - value.BuiltinTypeCount)
 	if r.simpleTypes[user] {
 		return nil
 	}

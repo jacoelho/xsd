@@ -38,7 +38,9 @@ func sharedAttributeGroupSchema(types, attributes int) string {
 // TestTypesSharingAnAttributeGroupReadItsSetOnce requires the statements of
 // internal/schema per charged step of two added types that reference one
 // shared attribute group to grow by at most sharedAttributeGroupGrowthLimit
-// when the group grows from 128 to 2048 attributes. A type referencing the
+// when the group grows from 64 attributes, the least set the restriction
+// check reads once, to 2048. A smaller group is reread by each type, at most
+// 63 uses per type. A type referencing the
 // group is charged for the reference, not for the group's uses, so a pass
 // that reads the shared set once per type, such as the reachability walk or
 // the implicit restriction of xs:anyType, executes statements per use that
@@ -49,7 +51,7 @@ func TestTypesSharingAnAttributeGroupReadItsSetOnce(t *testing.T) {
 
 	dir := t.TempDir()
 	driver := buildCompileWorkDriver(t, dir)
-	const small, large = 128, 2048
+	const small, large = 64, 2048
 	sizes := [4][2]int{{1, small}, {3, small}, {1, large}, {3, large}}
 	var samples [4]compileWorkSample
 	var errs [4]error
@@ -72,8 +74,8 @@ func TestTypesSharingAnAttributeGroupReadItsSetOnce(t *testing.T) {
 		}
 	}
 	growth := addedLarge.perStep() / addedSmall.perStep()
-	if !(growth <= sharedAttributeGroupGrowthLimit) {
-		t.Errorf("two added types: %d attributes: work %d / steps %d = %.2f; %d attributes: work %d / steps %d = %.2f; growth %.3f, want at most %.2f",
-			small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth, sharedAttributeGroupGrowthLimit)
+	if !(growth <= sharedAttributeGroupGrowthLimit && growth >= 1/sharedAttributeGroupGrowthLimit) {
+		t.Errorf("two added types: %d attributes: work %d / steps %d = %.2f; %d attributes: work %d / steps %d = %.2f; growth %.3f, want between %.2f and %.2f",
+			small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth, 1/sharedAttributeGroupGrowthLimit, sharedAttributeGroupGrowthLimit)
 	}
 }
