@@ -266,11 +266,11 @@ func (r *pairwiseFollows) repeat(t *testing.T, child dfaNode, occurs occurrence)
 	if occurs.Unbounded || occurs.Max > 1 {
 		for _, tail := range child.Last {
 			guards := slices.Clone(tail.Guards)
-			if counter.active() && !occurs.Unbounded {
+			if counter.active && !occurs.Unbounded {
 				guards = append(guards, compiledGuard{Slot: counter.slot, N: occurs.Max, Kind: compiledGuardLoopMax})
 			}
 			actions := slices.Clone(tail.Actions)
-			if counter.active() {
+			if counter.active {
 				actions = append(actions, compiledAction{Slot: counter.slot, Kind: compiledActionInc})
 			}
 			actions = append(actions, resetActions(child.Counters, counter.slot)...)
