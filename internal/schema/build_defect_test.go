@@ -76,6 +76,14 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 			defect: true,
 		},
 		{
+			name: "simple base outside the type table",
+			corrupt: func(t *testing.T, rt *schemaBuild) {
+				t.Helper()
+				rt.SimpleTypes[buildDefectSimpleType(t, rt, "ShortCode")].ValueSpec.Base = SimpleTypeID(outsideTable)
+			},
+			defect: true,
+		},
+		{
 			name: "simple type availability shorter than the type table",
 			corrupt: func(_ *testing.T, rt *schemaBuild) {
 				rt.simpleTypeUnavailable = rt.simpleTypeUnavailable[:1]
