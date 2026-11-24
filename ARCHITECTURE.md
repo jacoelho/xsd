@@ -207,11 +207,11 @@ each model record, row, edge and `xs:all` term before allocating it, and
 rows are windows of one edge run (`compiledModel.Run`) and share one index of
 the run (`publishedDFARun`), so its tables grow linearly with its particles.
 `compileContentModels` keeps only the published form (`compiledModelRead`) of
-each complex type's root model, indexed in the model's scope, and the kind of
-every other reached model, whose rows are still charged because its Unique
-Particle Attribution check reads them; publication takes a table without
-copying it when every element it names keeps its ID in the published
-numbering, and copies it otherwise; `sealSchemaProgram` adds dense indexes,
+each root model validation can enter, built over published element IDs and
+indexed in the model's scope, the kind and the scalars of the form of every
+other root, and the kind of every other reached model, whose rows are still
+charged because its Unique Particle Attribution check reads them; publication takes every table without
+copying it; `sealSchemaProgram` adds dense indexes,
 which rewrite rows the build shares, only after the last step that can reject
 the build. Spent work is never refunded. Retained derived records
 are charged to `MaxSchemaDependencySteps` at their admission owner:
@@ -305,7 +305,9 @@ what is detached: an instance names only global components (root, `xsi:type`,
 wildcard, substitution member), so a complex type or identity constraint no
 walk from them reaches is never assessed. `detachUnreachableComponents` owns
 that decision and charges no budget, because it reads only models
-`complexTypeReachableModels` already charged. The same walk reaches the
+`complexTypeReachableModels` already charged, and it runs before Unique
+Particle Attribution and automaton construction so the compiled tables can be
+built over published element IDs. The same walk reaches the
 simple types a published read can name: global types, global attribute
 types, a reached element's type, a reached complex type's text type and
 attribute-use types, and the base, list item and union members of a reached
@@ -323,9 +325,22 @@ nothing once checked, because no component can hold its ID:
 placeholder its compile created to the first dropped ID, without changing a verdict
 (`droppedSimpleTypeCharges`). Unreached element declarations
 are not published, and validation sees only published element IDs, which
-`publishedElements` owns. A published holder of element IDs is either a build
-table that names only declarations whose published ID is their build ID or a
-copy built over published IDs, never a table that mixes the two.
+`publishedElements` owns. Every published holder of element IDs names
+declarations only by published IDs. `compileContentModels` builds the content
+table of each root validation can enter (`entersContent`, the same fact
+`enterContentModels` enters by) over published IDs, and keeps the kind and
+the scalars of the form of any other root; `dfaRowIndexAnalysis` indexes the
+tables in that numbering. A `publishedElementID` is an ID in the numbering a
+table was projected over: the published numbering for an entered root, and
+the identity for any other root, which `withoutTables` then reduces. Only
+`newCompiledParticleRead` and the constant `noPublishedElement` produce one
+(`tests/published_element_id_conversion_test.go`).
+`compiledContent` records the numbering its tables were built over, and
+publication rejects a build whose reachability no longer derives it, or an
+entered root whose tables compilation dropped. The global element map and the
+substitution table, which compilation reads in build IDs, are copied over
+published IDs at publication; the substitution table is at most
+`MaxSubstitutionClosureEntries` entries.
 `validateReachableHolders`, `validatePublishedIdentityConstraints`,
 `validatePublishedSimpleTypes`, `SealKeeping` and `publishedElements` reject a
 published holder that names a detached or unreached component. Unique
@@ -1116,6 +1131,7 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
+| `tests/published_element_id_conversion_test.go` | In the non-test files of `internal/schema`, only `newCompiledParticleRead` and the `noPublishedElement` constant produce a `publishedElementID` by conversion, constant expression, arithmetic, increment, decrement, arithmetic assignment or generic instantiation with that type, each function and each constant or variable specification checked separately. It does not see the zero value (a variable declared without a value, or a composite literal omitting the field), a conversion inside a generic function's body, or reflection and unsafe, so it bounds rather than proves which IDs a table holds. Tests convert freely to build corrupt tables. It does not check that the translation itself is correct; `TestUnreachedElementDeclarationsDoNotChangeValidation` compares validation against the schema without unreached declarations |
 | `internal/schema/wildcard_work_external_test.go` with `internal/schema/wildcard_test.go` | The external test compiles interleaved namespace lists of 511 to 1,024 namespaces and requires at least 256 more steps of the owning budget when the lists are compared than when they are held apart, for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction. `TestWildcardSetOperationsChargeEveryNamespaceVisited` requires each set operation to charge at least its visit count on lists of unequal length: overlap and intersection the shorter in-range run, subset the subset list, union both lists, intersection with `##other` the finite list, equality the list. Neither covers a consumer that passes a budget that does not charge, attribute-wildcard union through compilation, or sequence wildcard equivalence |
 | `TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry` in `internal/schema/content_table_budget_external_test.go`, `TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms` in `internal/schema/content_compile_budget_test.go` and `TestRunIndexedRowsDispatchAsLinearScan` in `internal/schema/content_run_index_test.go` | A compiled model needs exactly two steps for its record plus one per row, edge and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, with and without repeated names, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edges, `xs:all` terms and name-index entries of the two tables, so a direct sequence's index grows with its names, not its rows. Every row that shares a run index dispatches every input as a linear scan of its edges does. `TestCompileRootContentModelChargesOnlyAutomatonTablesWhenDirectCompilationDoesNotApply` requires a sequence or choice holding a group that direct compilation cannot splice to need exactly the records of its automaton table, `TestCompileDirectModelDeclinesWithinThreeStepsPerParticleAndNoRetainedSteps` requires direct compilation to decline it within three analysis steps per particle and no `MaxSchemaDependencySteps`, and `TestDirectBuildRejectsWhatItsAdmissionDidNotCount` requires a direct build to fail with an internal invariant when its walk or rows exceed what admission counted |
 | `tests/content_model_particle_reads_test.go` | A content model's particle list is read through `chargedParticles`, except by the functions it lists, each with the owner that charges the particles it reads. The list is followed to a fixpoint from the `Particles` field into every holder: a parameter of a static in-package call, including a variadic parameter it is spread into with an ellipsis, and a variable, struct field or function result it is assigned, stored in a composite literal, or returned as; the result of `chargedParticles` holds none. A new function that reads a holder fails it, whether directly, through a package-level variable initializer, or through a list another function stored or returned, and so does a listed function that no longer exists or reads no particle list. A list passed to an interface method, a function value, or a variadic parameter without an ellipsis is read by the caller, and a list returned by a function that is exported, referenced other than as a callee, or a method named like an interface method is read by that function. It does not catch an uncharged loop added inside a listed function, a list stored as an element of an array, map or slice (the continuation sets and their cache) and read through it elsewhere, or a list whose particles are copied into another slice |
@@ -1428,8 +1444,9 @@ graph preserves these ownership rules:
   group that a live type references; it drops the value definitions of the
   simple types inside detached complex types and does not publish the element
   declarations (see `internal/schema`). The inline simple type of the
-  zero-count element itself is dropped once checked (`compileUnheldSimpleType`). Treating the whole subtree as absent was rejected:
-  §3.11.2 maps every identity constraint regardless of its parent.
+  zero-count element itself is dropped once checked
+  (`compileUnheldSimpleType`). Treating the whole subtree as absent was
+  rejected: §3.11.2 maps every identity constraint regardless of its parent.
 - Renumbering simple types densely over the reached ones, as element
   declarations are, was rejected: the simple-type ID is the value-program ID,
   named by the value program's own base, item and member references, the
@@ -1450,23 +1467,24 @@ graph preserves these ownership rules:
   resolved QName values, diagnostics and the published name indexes, and a
   holder the removal missed would silently change a verdict instead of failing
   a check.
-- Writing published element IDs while the compiled content tables are
-  projected, before publication, was rejected: the name indexes built with
-  them read build IDs against the declarations and the substitution table,
-  the root tables of detached types name declarations that have no published
-  ID, and publication's restriction checks read the substitution table in
-  build IDs, so the build would hold two element ID spaces.
-- Rewriting the element IDs of the build's content tables and substitution
-  entries in place after the last step that can reject the build was
-  rejected: its correctness rested on that ordering and on every particle
-  being reached exactly once, so a table whose rows shared an edge array
-  would be renumbered twice without any check failing.
-- Copying every content table at publication was rejected: on a schema with
-  no unreached declaration it raised the compilation peak and total
-  allocation by about a fifth (a choice of 120 elements with `maxOccurs`
-  16,000) to renumber nothing. Publication copies only a table that names a
-  declaration whose published ID differs from its build ID, which every
-  declaration below the first unreached one keeps.
+- Copying the content tables over published IDs at publication was
+  rejected: a schema with an unreached declaration before reached ones held
+  two copies of every table naming a renumbered declaration at the
+  compilation peak, up to about a fifth more peak and total allocation (a
+  choice of 120 elements with `maxOccurs` 16,000), and copying only the
+  tables that need it left two ways for a table to become published. Building
+  the tables over published IDs needs the reachability walk before automaton
+  construction, which costs nothing because the walk reads only models
+  `complexTypeReachableModels` already charged.
+- Rewriting the element IDs of the build's content tables in place after the
+  last step that can reject the build was rejected: its correctness rested on
+  that ordering and on every particle being reached exactly once, so a table
+  whose rows shared an edge array would be renumbered twice without any check
+  failing.
+- Building the substitution table over published IDs during compilation was
+  rejected: restriction checks, Unique Particle Attribution and automaton
+  construction read it in build IDs, against declarations that unreached
+  components still name, so compilation would hold two element ID spaces.
 - Marking detachment lexically, on the definitions nested under a zero-count
   element or compositor, was rejected: a local element declaration is
   compiled once per source node, so a named group referenced by both a

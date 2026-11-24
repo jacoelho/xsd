@@ -132,27 +132,6 @@ func TestPublicationRejectsGlobalDetachedComplexType(t *testing.T) {
 	}
 }
 
-func TestPublicationRejectsContentModelNamingUnreachableElement(t *testing.T) {
-	t.Parallel()
-
-	build := compiledTestBuild(t, detachedComplexTypeFixture())
-	marked := false
-	for i := range build.Elements {
-		if build.Elements[i].Scope == declarationScopeNonGlobal && build.ReachableElements[i] {
-			build.ReachableElements[i] = false
-			marked = true
-			break
-		}
-	}
-	if !marked {
-		t.Fatal("fixture has no reachable local element declaration")
-	}
-	_, err := publishSchema(build, unlimitedContentModelWork)
-	if err == nil || !strings.Contains(err.Error(), "published content model names an unreachable element declaration") {
-		t.Fatalf("publishSchema() error = %v, want a content model naming an unreachable element rejected", err)
-	}
-}
-
 func TestAnonymousTypesNoInstanceReachesPublishNoContentModelOrAttributeUses(t *testing.T) {
 	t.Parallel()
 

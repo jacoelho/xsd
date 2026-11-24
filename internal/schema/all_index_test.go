@@ -39,7 +39,7 @@ func TestAllContentIndexBoundsSubstitutionWork(t *testing.T) {
 	index := func(model compiledModel) (compiledModelRead, error) {
 		read := testProjectedModel(model)
 		remaining := 1 + compiledDFARowIndexMinEdges
-		err := newDFARowIndexAnalysis(source.build(), func(steps int) error {
+		err := newBuildNumberedDFARowIndexAnalysis(source.build(), func(steps int) error {
 			remaining -= steps
 			if remaining < 0 {
 				return exhausted
@@ -80,7 +80,7 @@ func TestAllContentIndexMapsEachTermOfAnIndexableModel(t *testing.T) {
 			t.Parallel()
 			names := allTermNames(tt.model)
 			read := testProjectedModel(tt.model)
-			if err := newDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: names}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&read, nil); err != nil {
+			if err := newBuildNumberedDFARowIndexAnalysis((dfaRowIndexFixture{elementNames: names}).build(), unlimitedContentModelWork, testDependencyWork()).indexModel(&read, nil); err != nil {
 				t.Fatalf("indexModel() error = %v", err)
 			}
 			if !tt.indexed {
