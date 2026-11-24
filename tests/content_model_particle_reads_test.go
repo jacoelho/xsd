@@ -28,11 +28,10 @@ import (
 //
 // The guard does not catch an uncharged loop added inside a listed function;
 // TestContentModelCompileWorkGrowsWithChargedSteps catches such a loop only
-// when its work grows faster than the charged steps. Nor does it follow a list
-// stored as an element of an array, map or slice, such as a continuationSets
-// array or the continuation cache, and read through that element by another
-// function, or a list whose particles are copied into another slice, such as
-// a merged continuation set.
+// when its work grows faster than the charged steps. Nor does it follow a
+// list rebuilt particle by particle into another slice, such as a merged
+// continuation set, past the function that rebuilds it, which reads the list.
+// Storing a container of lists as an element of another container is a read.
 var particleListReaders = map[string]string{
 	"chargedParticles":           "the charged accessor",
 	"appendModelParticles":       "the table writer that charges each particle it appends",
@@ -91,13 +90,12 @@ var particleListReaders = map[string]string{
 	"contentModelAnalysis.choiceCountRange":                         "callee ParticleCountRange charges each particle",
 	"contentModelAnalysis.allParticlesEmptiable":                    "callee cachedParticleEmptiable charges each particle",
 	"contentModelAnalysis.anyParticleEmptiable":                     "callee cachedParticleEmptiable charges each particle",
-	"contentModelAnalysis.leafContinuations":                        "returns as a continuation set the one particle its caller ParticleContinuations charged",
 	"restrictionNormalizer.copyPrefix":                              "charges the whole list before copying its prefix",
-	"restrictionNormalizer.appendChild":                             "charges a spliced group's members, or the one kept particle, before appending them to the normalized list",
 	"orderedGroupRestrictionMatcher.match":                          "charges each base particle it reads through compareParticleRestriction or ParticleEmptiable",
 	"orderedGroupRestrictionMatcher.validateRemainder":              "charges each base particle it reads through ParticleEmptiable",
-	"contentModelAnalysis.groupContinuations":                       "stores the start particles that startParticles charged and a shared continuation set in its sets, reading no particle",
-	"contentModelAnalysis.ModelContinuations":                       "caches the continuation set continuationsOf charged, reading no particle",
+	"contentModelAnalysis.ModelContinuations":                       "returns the cached continuation set that continuationsOf charged, reading no particle",
+	"contentModelCompiler.checkCandidatesUPA":                       "charges each candidate it reads",
+	"contentModelCompiler.wildcardContinuationOverlaps":             "charges each candidate it reads",
 	"contentModelAnalysis.nestedContinuations":                      "caller continuationsOf charges each of the same particles through ParticleContinuations",
 	"continuationMerge.copy":                                        "charges the whole set before copying it",
 }
@@ -219,30 +217,52 @@ type resultSlot struct {
 	index int
 }
 
+// holdKind is what a holder holds: a particle list, a container whose
+// elements are particle lists, or both.
+type holdKind uint8
+
+const (
+	holdsList holdKind = 1 << iota
+	holdsLists
+)
+
+// elementOf returns the kind of a container whose elements are values of
+// kind k, or 0 when k is not exactly a list: a container of containers is not
+// followed, so storing one is a read.
+func elementOf(k holdKind) holdKind {
+	if k == holdsList {
+		return holdsLists
+	}
+	return 0
+}
+
 // particleListFlow follows a content model's particle list from the
 // Particles field, to a fixpoint, into every holder: a parameter it is passed
 // to as an argument of a static call within the package, including the
 // receiver of a method expression, a variadic parameter it is spread into
 // with an ellipsis, and the parameter that a result of a multi-value call
-// binds when that call is the only argument; and a variable, struct field or
+// binds when that call is the only argument; a variable, struct field or
 // function result it is assigned, stored in a composite literal, or returned
-// as. A subslice of a
-// holder holds the list too. The result of chargedParticles holds none: it is
-// the charged accessor. A call through an interface method or a function
-// value is not followed, so the caller reads the argument, and a function
-// whose results such a call, or another package, may receive reads a list it
-// returns.
+// as; and a container, an array, slice or map variable, field or result, that
+// holds it as an element, stored by an indexed assignment, an append, or an
+// array, slice or map literal. A subslice of a holder, an element of a
+// container, the value a range loop takes from a container, and a copy made
+// by copy or by an append that spreads a holder hold the list too. The result
+// of chargedParticles holds none: it is the charged accessor. A call through
+// an interface method or a function value is not followed, so the caller
+// reads the argument, and a function whose results such a call, or another
+// package, may receive reads a list it returns.
 type particleListFlow struct {
 	info      *types.Info
 	particles *types.Var
 	charged   *types.Func
-	holders   map[*types.Var]bool
-	results   map[resultSlot]bool
+	holders   map[*types.Var]holdKind
+	results   map[resultSlot]holdKind
 	escaping  map[*types.Func]bool
 }
 
 func newParticleListFlow(info *types.Info, particles *types.Var, charged *types.Func) *particleListFlow {
-	return &particleListFlow{info: info, particles: particles, charged: charged, holders: map[*types.Var]bool{}, results: map[resultSlot]bool{}, escaping: map[*types.Func]bool{}}
+	return &particleListFlow{info: info, particles: particles, charged: charged, holders: map[*types.Var]holdKind{}, results: map[resultSlot]holdKind{}, escaping: map[*types.Func]bool{}}
 }
 
 // findEscapingFuncs records the functions whose results the flow cannot
@@ -321,9 +341,9 @@ func calledAt(id *ast.Ident, parents []ast.Node) bool {
 func (f *particleListFlow) propagate(functions []packageFunction) {
 	for changed := true; changed; {
 		changed = false
-		hold := func(v *types.Var) {
-			if v != nil && !f.holders[v] {
-				f.holders[v] = true
+		hold := func(v *types.Var, k holdKind) {
+			if v != nil && f.holders[v]&k != k {
+				f.holders[v] |= k
 				changed = true
 			}
 		}
@@ -334,16 +354,23 @@ func (f *particleListFlow) propagate(functions []packageFunction) {
 					if inner, ok := f.spreadResults(x); ok {
 						params := f.calleeParams(x)
 						for i, param := range params {
-							if param != nil && inner != nil && f.results[resultSlot{inner, i}] {
-								hold(param)
+							if param != nil && inner != nil {
+								hold(param, f.results[resultSlot{inner, i}])
 							}
 						}
 						break
 					}
 					for i, param := range f.argParams(x) {
-						if param != nil && f.carriesList(x.Args[i]) {
-							hold(param)
+						if param != nil {
+							hold(param, f.flowOf(x.Args[i]))
 						}
+					}
+					if f.isBuiltin(x, "copy") && len(x.Args) == 2 {
+						hold(f.storeTarget(unslice(x.Args[0]), f.flowOf(x.Args[1])))
+					}
+				case *ast.RangeStmt:
+					if x.Value != nil && f.flowOf(x.X) == holdsLists {
+						hold(f.target(x.Value), holdsList)
 					}
 				case *ast.AssignStmt:
 					f.assign(x.Lhs, x.Rhs, hold)
@@ -362,9 +389,9 @@ func (f *particleListFlow) propagate(functions []packageFunction) {
 			if !ok || obj == f.charged {
 				continue
 			}
-			for slot := range f.returnedLists(obj, decl) {
-				if !f.results[slot] {
-					f.results[slot] = true
+			for slot, k := range f.returnedLists(obj, decl) {
+				if f.results[slot]&k != k {
+					f.results[slot] |= k
 					changed = true
 				}
 			}
@@ -380,33 +407,32 @@ func identExprs(ids []*ast.Ident) []ast.Expr {
 	return exprs
 }
 
-// assign records as holders the targets of lhs that receive a list from rhs,
-// one value each or the results of one call.
-func (f *particleListFlow) assign(lhs, rhs []ast.Expr, hold func(*types.Var)) {
+// assign records as holders the targets of lhs that receive a list or a
+// container from rhs: one value each, the value of a comma-ok index of a
+// container, or the results of one call.
+func (f *particleListFlow) assign(lhs, rhs []ast.Expr, hold func(*types.Var, holdKind)) {
 	if len(lhs) == len(rhs) {
 		for i := range lhs {
-			if f.carriesList(rhs[i]) {
-				hold(f.target(lhs[i]))
-			}
+			hold(f.storeTarget(lhs[i], f.flowOf(rhs[i])))
 		}
 		return
 	}
 	if len(rhs) != 1 {
 		return
 	}
-	call, ok := ast.Unparen(rhs[0]).(*ast.CallExpr)
-	if !ok {
-		return
-	}
-	fn, _ := f.staticCallee(call)
-	for i := range lhs {
-		if fn != nil && f.results[resultSlot{fn, i}] {
-			hold(f.target(lhs[i]))
+	switch x := ast.Unparen(rhs[0]).(type) {
+	case *ast.IndexExpr:
+		hold(f.storeTarget(lhs[0], f.flowOf(x)))
+	case *ast.CallExpr:
+		if fn, _ := f.staticCallee(x); fn != nil {
+			for i := range lhs {
+				hold(f.storeTarget(lhs[i], f.results[resultSlot{fn, i}]))
+			}
 		}
 	}
 }
 
-func (f *particleListFlow) storeFields(lit *ast.CompositeLit, hold func(*types.Var)) {
+func (f *particleListFlow) storeFields(lit *ast.CompositeLit, hold func(*types.Var, holdKind)) {
 	tv, ok := f.info.Types[lit]
 	if !ok {
 		return
@@ -421,27 +447,25 @@ func (f *particleListFlow) storeFields(lit *ast.CompositeLit, hold func(*types.V
 			if !isIdent {
 				continue
 			}
-			if v, isVar := f.info.Uses[key].(*types.Var); isVar && f.carriesList(kv.Value) {
-				hold(v.Origin())
+			if v, isVar := f.info.Uses[key].(*types.Var); isVar {
+				hold(v.Origin(), f.flowOf(kv.Value))
 			}
 			continue
 		}
-		if i < st.NumFields() && f.carriesList(elt) {
-			hold(st.Field(i).Origin())
+		if i < st.NumFields() {
+			hold(st.Field(i).Origin(), f.flowOf(elt))
 		}
 	}
 }
 
-// returnedLists returns the results of fn that a return statement of decl,
-// outside the function literals it contains, gives a list, by value or
-// through a named result that holds one.
-func (f *particleListFlow) returnedLists(fn *types.Func, decl *ast.FuncDecl) map[resultSlot]bool {
-	slots := map[resultSlot]bool{}
+// returnedLists returns what each result of fn holds that a return statement
+// of decl, outside the function literals it contains, gives it, by value or
+// through a named result.
+func (f *particleListFlow) returnedLists(fn *types.Func, decl *ast.FuncDecl) map[resultSlot]holdKind {
+	slots := map[resultSlot]holdKind{}
 	results := fn.Signature().Results()
 	for i := range results.Len() {
-		if f.holders[results.At(i)] {
-			slots[resultSlot{fn, i}] = true
-		}
+		slots[resultSlot{fn, i}] |= f.holders[results.At(i)]
 	}
 	ast.Inspect(decl.Body, func(n ast.Node) bool {
 		switch x := n.(type) {
@@ -450,9 +474,7 @@ func (f *particleListFlow) returnedLists(fn *types.Func, decl *ast.FuncDecl) map
 		case *ast.ReturnStmt:
 			if len(x.Results) == results.Len() {
 				for i, r := range x.Results {
-					if f.carriesList(r) {
-						slots[resultSlot{fn, i}] = true
-					}
+					slots[resultSlot{fn, i}] |= f.flowOf(r)
 				}
 				return true
 			}
@@ -465,15 +487,41 @@ func (f *particleListFlow) returnedLists(fn *types.Func, decl *ast.FuncDecl) map
 			}
 			if callee, _ := f.staticCallee(call); callee != nil {
 				for i := range results.Len() {
-					if f.results[resultSlot{callee, i}] {
-						slots[resultSlot{fn, i}] = true
-					}
+					slots[resultSlot{fn, i}] |= f.results[resultSlot{callee, i}]
 				}
 			}
 		}
 		return true
 	})
 	return slots
+}
+
+// storeTarget returns the holder, and its kind, that writing a value of kind
+// k to expr records: the variable or field expr names, or the container expr
+// indexes. It returns nil for a write the flow does not follow.
+func (f *particleListFlow) storeTarget(expr ast.Expr, k holdKind) (*types.Var, holdKind) {
+	if k == 0 {
+		return nil, 0
+	}
+	if index, ok := ast.Unparen(expr).(*ast.IndexExpr); ok {
+		if elementOf(k) == 0 {
+			return nil, 0
+		}
+		return f.target(index.X), elementOf(k)
+	}
+	return f.target(expr), k
+}
+
+func unslice(expr ast.Expr) ast.Expr {
+	if slice, ok := ast.Unparen(expr).(*ast.SliceExpr); ok {
+		return slice.X
+	}
+	return expr
+}
+
+func (f *particleListFlow) isBuiltin(call *ast.CallExpr, name string) bool {
+	id, ok := ast.Unparen(call.Fun).(*ast.Ident)
+	return ok && f.info.Uses[id] == types.Universe.Lookup(name)
 }
 
 // target returns the variable or struct field an assignment writes, or nil.
@@ -596,7 +644,7 @@ func (f *particleListFlow) passedOn(call *ast.CallExpr, expr ast.Expr) bool {
 		}
 		params := f.calleeParams(call)
 		for i := range inner.Signature().Results().Len() {
-			if f.results[resultSlot{inner, i}] && (i >= len(params) || params[i] == nil) {
+			if f.results[resultSlot{inner, i}] != 0 && (i >= len(params) || params[i] == nil) {
 				return false
 			}
 		}
@@ -611,30 +659,65 @@ func (f *particleListFlow) passedOn(call *ast.CallExpr, expr ast.Expr) bool {
 	return false
 }
 
-// carriesList reports whether expr holds a particle list: the Particles
-// field, a holder, the first result of a call that returns one, or a subslice
-// of any of them.
-func (f *particleListFlow) carriesList(expr ast.Expr) bool {
-	expr = ast.Unparen(expr)
-	if slice, ok := expr.(*ast.SliceExpr); ok {
-		expr = ast.Unparen(slice.X)
-	}
-	switch x := expr.(type) {
+// flowOf returns what expr holds: the Particles field, a holder, or the first
+// result of a call that returns one, as they hold; a subslice as its operand
+// holds; a list for an element of a container; the union of its operands for
+// an append, each element appended counting as a container of lists; and a
+// container of lists for an array, slice or map literal with a list among its
+// elements.
+func (f *particleListFlow) flowOf(expr ast.Expr) holdKind {
+	switch x := ast.Unparen(expr).(type) {
+	case *ast.SliceExpr:
+		return f.flowOf(x.X)
+	case *ast.IndexExpr:
+		if f.flowOf(x.X) == holdsLists {
+			return holdsList
+		}
 	case *ast.SelectorExpr:
 		selection := f.info.Selections[x]
 		if selection == nil || selection.Kind() != types.FieldVal {
-			return false
+			return 0
 		}
 		v, ok := selection.Obj().(*types.Var)
-		return ok && (v == f.particles || f.holders[v.Origin()])
+		switch {
+		case !ok:
+			return 0
+		case v == f.particles:
+			return holdsList
+		}
+		return f.holders[v.Origin()]
 	case *ast.Ident:
-		v, ok := f.info.Uses[x].(*types.Var)
-		return ok && f.holders[v.Origin()]
+		if v, ok := f.info.Uses[x].(*types.Var); ok {
+			return f.holders[v.Origin()]
+		}
 	case *ast.CallExpr:
-		fn, _ := f.staticCallee(x)
-		return fn != nil && f.results[resultSlot{fn, 0}]
+		if f.isBuiltin(x, "append") && len(x.Args) > 0 {
+			k := f.flowOf(x.Args[0])
+			if x.Ellipsis.IsValid() {
+				return k | f.flowOf(x.Args[len(x.Args)-1])
+			}
+			for _, arg := range x.Args[1:] {
+				k |= elementOf(f.flowOf(arg))
+			}
+			return k
+		}
+		if fn, _ := f.staticCallee(x); fn != nil {
+			return f.results[resultSlot{fn, 0}]
+		}
+	case *ast.CompositeLit:
+		if f.isStruct(x) {
+			return 0
+		}
+		var k holdKind
+		for _, elt := range x.Elts {
+			if kv, ok := elt.(*ast.KeyValueExpr); ok {
+				elt = kv.Value
+			}
+			k |= elementOf(f.flowOf(elt))
+		}
+		return k
 	}
-	return false
+	return 0
 }
 
 // particleListRead is a read of a particle list and how the list reached it.
@@ -649,9 +732,11 @@ type particleListRead struct {
 // or a call whose result holds a list, reads it other than as the operand of
 // len, a comparison with nil, the range of a loop that takes only indexes,
 // indexed by an integer literal, written by an assignment or as a composite
-// literal key, passed whole or subsliced as an argument the flow follows, or
-// handed to a variable, a struct field, or a result of a function that is not
-// escaping.
+// literal key, passed whole or subsliced as an argument the flow follows,
+// handed to a variable, a struct field, a container, or a result of a
+// function that is not escaping, or copied into a holder by copy or append. A
+// container is read only through an element that is read, and its range loop
+// reads nothing when the value it takes is a variable.
 func (f *particleListFlow) reads(fn ast.Node) []particleListRead {
 	var reads []particleListRead
 	var stack []ast.Node
@@ -666,7 +751,7 @@ func (f *particleListFlow) reads(fn ast.Node) []particleListRead {
 				reads = append(reads, particleListRead{x.Pos(), "reads a content model's particle list"})
 			}
 		case *ast.Ident:
-			if v, ok := f.info.Uses[x].(*types.Var); ok && v != f.particles && f.holders[v.Origin()] {
+			if v, ok := f.info.Uses[x].(*types.Var); ok && v != f.particles && f.holders[v.Origin()] != 0 {
 				var expr ast.Expr = x
 				parents := stack
 				if len(parents) > 0 {
@@ -691,7 +776,8 @@ func (f *particleListFlow) reads(fn ast.Node) []particleListRead {
 
 // handedOn reports whether expr, a holder or a call returning a list, whose
 // ancestors are parents, is used without reading the list's elements: bounded,
-// compared with nil, ranged over for indexes only, or handed to a holder.
+// compared with nil, ranged over for indexes only, or handed to a holder,
+// subsliced, indexed as a container, or copied, in a way propagate records.
 func (f *particleListFlow) handedOn(expr ast.Expr, parents []ast.Node) bool {
 	if len(parents) == 0 {
 		return false
@@ -699,7 +785,14 @@ func (f *particleListFlow) handedOn(expr ast.Expr, parents []ast.Node) bool {
 	if f.bounded(expr, parents, true) {
 		return true
 	}
+	outer := parents[:len(parents)-1]
 	switch p := parents[len(parents)-1].(type) {
+	case *ast.SliceExpr:
+		return p.X == expr && f.handedOn(p, outer)
+	case *ast.IndexExpr:
+		return p.X == expr && f.flowOf(expr) == holdsLists && (written(p, outer) || f.handedOn(p, outer))
+	case *ast.CallExpr:
+		return f.copiedBy(p, expr, outer)
 	case *ast.BinaryExpr:
 		other := p.X
 		if other == expr {
@@ -708,21 +801,24 @@ func (f *particleListFlow) handedOn(expr ast.Expr, parents []ast.Node) bool {
 		id, ok := other.(*ast.Ident)
 		return (p.Op == token.EQL || p.Op == token.NEQ) && ok && f.info.Uses[id] == types.Universe.Lookup("nil")
 	case *ast.RangeStmt:
-		return p.X == expr && p.Value == nil
+		return p.X == expr && (p.Value == nil || (f.flowOf(expr) == holdsLists && f.target(p.Value) != nil))
 	case *ast.AssignStmt:
 		return f.storedBy(p.Lhs, p.Rhs, expr)
 	case *ast.ValueSpec:
 		return f.storedBy(identExprs(p.Names), p.Values, expr)
 	case *ast.KeyValueExpr:
-		if p.Value != expr || len(parents) < 2 {
+		if p.Value != expr || len(outer) == 0 {
 			return false
 		}
-		lit, ok := parents[len(parents)-2].(*ast.CompositeLit)
+		lit, ok := outer[len(outer)-1].(*ast.CompositeLit)
+		if ok && !f.isStruct(lit) {
+			return f.elementOfLiteral(lit, expr, outer[:len(outer)-1])
+		}
 		key, isIdent := p.Key.(*ast.Ident)
 		_, isField := f.info.Uses[key].(*types.Var)
-		return ok && isIdent && isField && f.isStruct(lit)
+		return ok && isIdent && isField
 	case *ast.CompositeLit:
-		return f.isStruct(p)
+		return f.isStruct(p) || f.elementOfLiteral(p, expr, outer)
 	case *ast.ReturnStmt:
 		return f.returnedByDecl(p, parents)
 	}
@@ -738,24 +834,65 @@ func (f *particleListFlow) isStruct(lit *ast.CompositeLit) bool {
 	return ok
 }
 
+// copiedBy reports whether expr, an argument of call, is copied by it into a
+// holder: the operand or a spread or appended element of an append whose
+// result is handed on, or the source of a copy into a holder.
+func (f *particleListFlow) copiedBy(call *ast.CallExpr, expr ast.Expr, outer []ast.Node) bool {
+	switch {
+	case f.isBuiltin(call, "append") && len(call.Args) > 0:
+		last := len(call.Args) - 1
+		switch {
+		case call.Args[0] == expr, call.Ellipsis.IsValid() && call.Args[last] == expr:
+		case !call.Ellipsis.IsValid() && slices.Contains(call.Args[1:], expr) && elementOf(f.flowOf(expr)) != 0:
+		default:
+			return false
+		}
+		return f.handedOn(call, outer)
+	case f.isBuiltin(call, "copy") && len(call.Args) == 2 && call.Args[1] == expr:
+		target, _ := f.storeTarget(unslice(call.Args[0]), f.flowOf(expr))
+		return target != nil
+	}
+	return false
+}
+
+// elementOfLiteral reports whether expr, an element of the array, slice or
+// map literal lit, is a list the literal holds as a container that is handed
+// on.
+func (f *particleListFlow) elementOfLiteral(lit *ast.CompositeLit, expr ast.Expr, outer []ast.Node) bool {
+	return elementOf(f.flowOf(expr)) != 0 && f.handedOn(lit, outer)
+}
+
 // storedBy reports whether expr, one of rhs, is assigned to a target that
 // propagate records as a holder.
 func (f *particleListFlow) storedBy(lhs, rhs []ast.Expr, expr ast.Expr) bool {
 	if len(lhs) == len(rhs) {
 		i := slices.Index(rhs, expr)
-		return i >= 0 && f.target(lhs[i]) != nil
-	}
-	call, ok := expr.(*ast.CallExpr)
-	if !ok || len(rhs) != 1 || rhs[0] != expr {
-		return false
-	}
-	fn, _ := f.staticCallee(call)
-	for i := range lhs {
-		if fn == nil || (f.results[resultSlot{fn, i}] && f.target(lhs[i]) == nil) {
+		if i < 0 {
 			return false
 		}
+		target, _ := f.storeTarget(lhs[i], f.flowOf(expr))
+		return target != nil
 	}
-	return true
+	if len(rhs) != 1 || rhs[0] != expr {
+		return false
+	}
+	switch x := expr.(type) {
+	case *ast.IndexExpr:
+		target, _ := f.storeTarget(lhs[0], f.flowOf(x))
+		return target != nil
+	case *ast.CallExpr:
+		fn, _ := f.staticCallee(x)
+		if fn == nil {
+			return false
+		}
+		for i := range lhs {
+			if target, _ := f.storeTarget(lhs[i], f.results[resultSlot{fn, i}]); f.results[resultSlot{fn, i}] != 0 && target == nil {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // returnedByDecl reports whether ret returns from a function declaration,
@@ -784,7 +921,7 @@ func (f *particleListFlow) returnedByDecl(ret *ast.ReturnStmt, parents []ast.Nod
 
 func (f *particleListFlow) returnsList(fn *types.Func) bool {
 	for i := range fn.Signature().Results().Len() {
-		if f.results[resultSlot{fn, i}] {
+		if f.results[resultSlot{fn, i}] != 0 {
 			return true
 		}
 	}
@@ -811,7 +948,7 @@ func written(expr ast.Expr, parents []ast.Node) bool {
 }
 
 // bounded reports whether expr, whose ancestors are parents, is the operand
-// of len, indexed by an integer literal, or, when follow is set, passed whole
+// of len, a list indexed by an integer literal, or, when follow is set, passed whole
 // or subsliced as an argument the flow follows.
 func (f *particleListFlow) bounded(expr ast.Expr, parents []ast.Node, follow bool) bool {
 	if len(parents) == 0 {
@@ -830,7 +967,7 @@ func (f *particleListFlow) bounded(expr ast.Expr, parents []ast.Node, follow boo
 		return follow && f.passedOn(p, expr)
 	case *ast.IndexExpr:
 		lit, ok := p.Index.(*ast.BasicLit)
-		return expr == whole && p.X == whole && ok && lit.Kind == token.INT
+		return expr == whole && p.X == whole && ok && lit.Kind == token.INT && f.flowOf(whole)&holdsLists == 0
 	}
 	return false
 }

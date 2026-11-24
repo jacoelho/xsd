@@ -48,12 +48,17 @@ type coverageBlock struct {
 
 // contentModelWorkFamily is a shape of schema whose added components each
 // read content-model particle lists in proportion to size. schema returns a
-// document with the given number of components of the given size.
+// document with the given number of components of the given size, each of
+// which compiles; a compiling family adds two components to one. A family
+// that rejects has one rejected component, since compilation stops at its
+// first rejection, and its components count is 0 or 1: the rejected component
+// at its least size, which reaches the same rejection, or grown to size.
 type contentModelWorkFamily struct {
 	name         string
 	schema       func(components, size int) string
 	small, large int
 	growthLimit  float64
+	rejects      bool
 }
 
 const workSchemaOpen = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:t="urn:t" targetNamespace="urn:t" elementFormDefault="qualified">`
@@ -283,35 +288,61 @@ var contentModelWorkFamilies = []contentModelWorkFamily{
 		// Measured growth 1.06, and 2.72 with uncharged loops quadratic in the lists dfaBuilder.groupNode and chargedParticles read.
 		growthLimit: 1.7,
 	},
-}
-
-// particleListReadersOnlyRejecting are the allowed particle-list readers
-// that execute only in a compilation that fails, which no content-model work
-// family measures.
-var particleListReadersOnlyRejecting = map[string]string{
-	"contentRestrictionValidator.modelContainsWildcard": "called only by validateFallbackContentRestriction, which rejects the restriction",
+	{
+		name: "wildcard choice restricting all",
+		schema: func(components, size int) string {
+			var b strings.Builder
+			b.WriteString(workSchemaOpen + `<xs:complexType name="B"><xs:all>`)
+			elementList(&b, size, ` minOccurs="0"`)
+			b.WriteString(`</xs:all></xs:complexType>`)
+			restrictionTypes(&b, 1, wrapped(`<xs:choice>`, `<xs:any namespace="##other"/></xs:choice>`, components*(size-1), ""))
+			return b.String() + `</xs:schema>`
+		},
+		small: 128, large: 2048,
+		// Measured growth 1.00, and 4.72 with an uncharged loop quadratic in the list modelContainsWildcard reads.
+		growthLimit: 2.0,
+		rejects:     true,
+	},
+	{
+		name: "references to one repeated choice group",
+		schema: func(components, size int) string {
+			var b strings.Builder
+			b.WriteString(workSchemaOpen + `<xs:group name="G"><xs:sequence><xs:choice maxOccurs="unbounded">`)
+			b.WriteString(strings.Repeat(`<xs:element name="e"/>`, size))
+			b.WriteString(`</xs:choice></xs:sequence></xs:group><xs:complexType name="T"><xs:sequence>`)
+			for range 2 + components*(size-2) {
+				b.WriteString(`<xs:group ref="t:G"/>`)
+			}
+			return b.String() + `</xs:sequence></xs:complexType></xs:schema>`
+		},
+		small: 64, large: 1024,
+		// Measured growth 0.24, and 3.48 without the charge for the continuation candidates wildcardContinuationOverlaps reads.
+		growthLimit: 1.5,
+		rejects:     true,
+	},
 }
 
 // TestContentModelCompileWorkGrowsWithChargedSteps requires, for each
 // content-model work family, that the statements of internal/schema per
-// charged step that two added components cost grow by at most the family's
+// charged step that the added components cost grow by at most the family's
 // growth limit when the components grow sixteenfold. Work per step of a whole
 // compilation would hide added work behind the fixed part of the document.
-// It also requires every function of particleListReaders, except those in
-// particleListReadersOnlyRejecting, to execute more often with the added
+// A rejected component is measured up to its rejection. It also requires
+// every function of particleListReaders to execute more often with the added
 // components of some family at the large size, so each allowed reader runs
 // under a measured budget; that check runs only when every family is measured.
 //
 // The test catches only uncharged work that grows faster than the charged
-// steps of the component that does it: a loop over a list whose particles are
-// charged once each is invisible to it, and so is a quadratic loop in a
+// steps of the component that does it. An uncharged loop whose work grows as
+// fast as the charged steps is invisible to it, whatever its constant: a loop
+// over a list whose particles are charged once each, and a quadratic loop in a
 // family whose charged steps are already quadratic. Work counts executed
 // statements of internal/schema only, so it does not see work in a for-clause
 // condition or post statement, inside a library or builtin call such as
-// slices.Index or copy, or in another package. Only compilations that succeed
-// are measured. The test does not build on 32-bit or WebAssembly targets: the
-// counts do not depend on the architecture, so the 32-bit target would repeat
-// it, and WebAssembly cannot run the go command.
+// slices.Index or copy, or in another package. The test does not build on
+// 32-bit or WebAssembly targets: the counts do not depend on the
+// architecture, so the 32-bit target would repeat it, and WebAssembly cannot
+// run the go command.
 func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 	t.Parallel()
 
@@ -326,17 +357,8 @@ func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 			return
 		}
 		for _, name := range slices.Sorted(maps.Keys(particleListReaders)) {
-			_, rejecting := particleListReadersOnlyRejecting[name]
-			switch {
-			case rejecting && exercised[name]:
-				t.Errorf("allowed particle-list reader %s is listed as executing only in failing compilations but a content-model work family exercises it", name)
-			case !rejecting && !exercised[name]:
+			if !exercised[name] {
 				t.Errorf("allowed particle-list reader %s is exercised by no content-model work family", name)
-			}
-		}
-		for _, name := range slices.Sorted(maps.Keys(particleListReadersOnlyRejecting)) {
-			if _, ok := particleListReaders[name]; !ok {
-				t.Errorf("%s is listed as executing only in failing compilations but is not an allowed particle-list reader", name)
 			}
 		}
 	})
@@ -358,14 +380,18 @@ func TestContentModelCompileWorkGrowsWithChargedSteps(t *testing.T) {
 // added components and returns the blocks they execute at the large size.
 func measureFamily(t *testing.T, driver, dir string, family contentModelWorkFamily) []coverageBlock {
 	t.Helper()
-	sizes := [4][2]int{{1, family.small}, {3, family.small}, {1, family.large}, {3, family.large}}
+	fewer, more := 1, 3
+	if family.rejects {
+		fewer, more = 0, 1
+	}
+	sizes := [4][2]int{{fewer, family.small}, {more, family.small}, {fewer, family.large}, {more, family.large}}
 	var samples [4]compileWorkSample
 	var errs [4]error
 	var wg sync.WaitGroup
 	for i, size := range sizes {
 		wg.Go(func() {
 			schema := family.schema(size[0], size[1])
-			samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%d-%d", size[0], size[1])), schema)
+			samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%d-%d", size[0], size[1])), schema, family.rejects)
 		})
 	}
 	wg.Wait()
@@ -376,12 +402,12 @@ func measureFamily(t *testing.T, driver, dir string, family contentModelWorkFami
 	addedLarge := samples[3].minus(samples[2])
 	for _, added := range []compileWorkSample{addedSmall, addedLarge} {
 		if added.work <= 0 || added.steps <= 0 {
-			t.Fatalf("two added components measured work %d and steps %d, want both positive", added.work, added.steps)
+			t.Fatalf("added components measured work %d and steps %d, want both positive", added.work, added.steps)
 		}
 	}
 	growth := addedLarge.perStep() / addedSmall.perStep()
 	if !(growth <= family.growthLimit) {
-		t.Errorf("two added components: size %d: work %d / steps %d = %.2f; size %d: work %d / steps %d = %.2f; growth %.3f, want at most %.2f",
+		t.Errorf("added components: size %d: work %d / steps %d = %.2f; size %d: work %d / steps %d = %.2f; growth %.3f, want at most %.2f",
 			family.small, addedSmall.work, addedSmall.steps, addedSmall.perStep(), family.large, addedLarge.work, addedLarge.steps, addedLarge.perStep(), growth, family.growthLimit)
 	}
 	var added []coverageBlock
@@ -456,7 +482,9 @@ func buildCompileWorkDriver(t *testing.T, dir string) string {
 	return out
 }
 
-func measureCompileWork(ctx context.Context, driver, dir, schema string) (compileWorkSample, error) {
+// measureCompileWork measures one default-options compilation of schema,
+// which must be rejected if rejected is set and compile otherwise.
+func measureCompileWork(ctx context.Context, driver, dir, schema string, rejected bool) (compileWorkSample, error) {
 	counters := filepath.Join(dir, "counters")
 	if err := os.MkdirAll(counters, 0o750); err != nil {
 		return compileWorkSample{}, err
@@ -475,8 +503,16 @@ func measureCompileWork(ctx context.Context, driver, dir, schema string) (compil
 		return compileWorkSample{}, fmt.Errorf("compilework %s: %w\n%s", schemaPath, runErr, stderr.String())
 	}
 	var analysis, dependency int
-	if _, err := fmt.Sscan(string(out), &analysis, &dependency); err != nil {
+	var outcome string
+	if _, err := fmt.Sscan(string(out), &analysis, &dependency, &outcome); err != nil {
 		return compileWorkSample{}, fmt.Errorf("compilework %s output %q: %w", schemaPath, out, err)
+	}
+	want := "compiled"
+	if rejected {
+		want = "rejected"
+	}
+	if outcome != want {
+		return compileWorkSample{}, fmt.Errorf("compilework %s: %s, want %s", schemaPath, outcome, want)
 	}
 	profile := filepath.Join(dir, "profile.txt")
 	//nolint:gosec // test-controlled go tool arguments only.

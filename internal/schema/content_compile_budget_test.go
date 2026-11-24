@@ -273,7 +273,7 @@ func TestCheckContentModelsUPAChargesNothingAfterASplitIsDecided(t *testing.T) {
 	})
 }
 
-func TestWildcardOverlapPassChargesNothingForElementCandidates(t *testing.T) {
+func TestWildcardOverlapPassChargesAnElementCandidateOnceWithoutWalkingFollowingMembers(t *testing.T) {
 	t.Parallel()
 
 	const following = 30
@@ -298,7 +298,7 @@ func TestWildcardOverlapPassChargesNothingForElementCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sequenceHasWildcardEquivalentOverlap() error = %v", err)
 	}
-	expectChargeLimit(t, withoutCandidate, func(limit int) (int, error) {
+	expectChargeLimit(t, withoutCandidate+1, func(limit int) (int, error) {
 		return pass(occurrence{Min: 1, Max: 2}, limit)
 	})
 }

@@ -8,10 +8,12 @@
 //
 //	compilework <schema.xsd>
 //
-// It prints "<analysis steps> <dependency steps>": for each budget, the least
-// limit under which the schema compiles. It clears the counters before a final
-// compilation under default options, so the internal/schema counters it leaves
-// in GOCOVERDIR count that compilation only.
+// It prints "<analysis steps> <dependency steps> <outcome>": for each budget,
+// the least limit under which compilation ends other than at that limit, and
+// "compiled" or "rejected" for how a final compilation under default options
+// ends. It clears the counters before that compilation, so the internal/schema
+// counters it leaves in GOCOVERDIR count that compilation only. A final
+// compilation that ends at a limit is an error.
 package main
 
 import (
@@ -26,7 +28,7 @@ import (
 )
 
 // searchCeiling is above the steps of every schema the test measures, all of
-// which compile within the default limits.
+// which end within the default limits.
 const searchCeiling = 1 << 24
 
 func main() {
@@ -64,31 +66,30 @@ func run(path string) error {
 	if err := coverage.ClearCounters(); err != nil {
 		return err
 	}
-	if err := compile(xsd.CompileOptions{}); err != nil {
+	outcome := "compiled"
+	if err := compile(xsd.CompileOptions{}); isLimit(err) {
 		return err
+	} else if err != nil {
+		outcome = "rejected"
 	}
-	_, err := fmt.Println(analysis, dependency)
+	_, err := fmt.Println(analysis, dependency, outcome)
 	return err
 }
 
-// leastLimit returns the least limit under which compile succeeds. Spent
-// steps are never refunded, so a compilation that fails at a limit fails at
-// every lower one.
+// leastLimit returns the least limit under which compile ends other than at
+// the limit. Spent steps are never refunded, so a compilation that ends at a
+// limit ends there at every lower one.
 func leastLimit(compile func(limit int) error) (int, error) {
-	if err := compile(searchCeiling); err != nil {
+	if err := compile(searchCeiling); isLimit(err) {
 		return 0, err
 	}
 	low, high := 1, searchCeiling
 	for low < high {
 		mid := low + (high-low)/2
-		err := compile(mid)
-		switch {
-		case err == nil:
-			high = mid
-		case isLimit(err):
+		if isLimit(compile(mid)) {
 			low = mid + 1
-		default:
-			return 0, fmt.Errorf("limit %d: %w", mid, err)
+		} else {
+			high = mid
 		}
 	}
 	return low, nil
