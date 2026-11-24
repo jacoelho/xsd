@@ -308,15 +308,40 @@ func (c *compiler) completeSimpleType(id SimpleTypeID, typ simpleType) error {
 // namespace included. Later references reuse it, so it is kept, at the first
 // dropped ID.
 func (c *compiler) compileUnheldSimpleType(ctx *schemaSetDocument, n *schemaNode) error {
-	globalTypes := len(c.rt.GlobalTypes)
+	holders := c.simpleTypeHolders()
 	id, err := c.compileAnonymousSimple(ctx, n)
 	if err != nil {
 		return err
 	}
-	if len(c.rt.GlobalTypes) != globalTypes {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unheld inline simple type registered a global type"))
+	if c.simpleTypeHolders() != holders {
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("unheld inline simple type compile added a record that can name it"))
 	}
 	return withSchemaCompileLocation(n, c.dropSimpleTypesFrom(id))
+}
+
+// simpleTypeHolderCounts is the length of every build table and deferred
+// compile list whose records can name a simple type ID. Compiling a simple
+// type adds to none of them, which is what lets dropSimpleTypesFrom remove it.
+type simpleTypeHolderCounts struct {
+	globalTypes               int
+	attributes                int
+	elements                  int
+	complexTypes              int
+	attributeUseSets          int
+	complexDefinitions        int
+	pendingElementConstraints int
+}
+
+func (c *compiler) simpleTypeHolders() simpleTypeHolderCounts {
+	return simpleTypeHolderCounts{
+		globalTypes:               len(c.rt.GlobalTypes),
+		attributes:                len(c.rt.Attributes),
+		elements:                  len(c.rt.Elements),
+		complexTypes:              len(c.rt.ComplexTypes),
+		attributeUseSets:          len(c.rt.AttributeUseSets),
+		complexDefinitions:        len(c.complexDefinitions),
+		pendingElementConstraints: len(c.pendingElementConstraints),
+	}
 }
 
 // dropSimpleTypesFrom removes the simple types whose ID is next or above
@@ -362,12 +387,9 @@ func (c *compiler) chargeDroppedSimpleTypes(builder *value.Builder, next, keep S
 		if id == keep {
 			continue
 		}
-		uses, ok := builder.ConstructorUses(id)
-		if !ok {
-			return xsderrors.InternalInvariant("dropped simple type has no completed value definition")
+		if err := c.rt.droppedSimpleTypes.add(builder, id); err != nil {
+			return err
 		}
-		c.rt.droppedSimpleTypes.constructorUses += uses.Len()
-		c.rt.droppedSimpleTypes.types++
 	}
 	return nil
 }

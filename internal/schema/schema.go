@@ -49,13 +49,25 @@ type schemaBuild struct {
 }
 
 // droppedSimpleTypeCharges is what publication would have charged for the
-// simple types dropSimpleTypesFrom removed: one MaxContentModelAnalysisSteps
-// step per type, and one MaxSchemaDependencySteps step per list item or union
-// member the constructor-use audit reads (validateNotationConstructorUses).
-// Publication spends both, so removing a type changes no limit verdict.
+// simple types dropSimpleTypesFrom removed. Publication spends it, so removing
+// a type changes no limit verdict.
 type droppedSimpleTypeCharges struct {
 	types           int
 	constructorUses int
+}
+
+// add records the publication charges of simple type id: one
+// MaxContentModelAnalysisSteps step, as publishSchema spends for each simple
+// type, and one MaxSchemaDependencySteps step for each of its source
+// constructor uses (sourceConstructorUses).
+func (c *droppedSimpleTypeCharges) add(builder *value.Builder, id SimpleTypeID) error {
+	uses, err := sourceConstructorUses(builder, id)
+	if err != nil {
+		return err
+	}
+	c.types++
+	c.constructorUses += uses.Len()
+	return nil
 }
 
 // schemaProgram is the immutable validation representation produced by one
