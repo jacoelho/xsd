@@ -138,6 +138,27 @@ func TestDFAGuardsAndActionsReportCounterOutOfRangeAsInternalInvariant(t *testin
 	}
 }
 
+func TestContentModelStepsReportUnknownParticleKindAsInternalInvariant(t *testing.T) {
+	t.Parallel()
+	unknown := contentParticle{Kind: particleKind(200), Occurs: occurrence{Min: 1, Max: 1}}
+	for name, err := range map[string]error{
+		"lowering": func() error {
+			work := newWorkBudget(contentModelWorkBudget, 100)
+			model := contentModelNode{Kind: modelSequence}
+			return appendParticle(&work, nil, &model, unknown)
+		}(),
+		"DFA edge": func() error {
+			_, err := particleTermKeyOf(unknown)
+			return err
+		}(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		})
+	}
+}
+
 func TestUntypedFailureBecomesInternalInvariantAndDiagnosticsPassThrough(t *testing.T) {
 	t.Parallel()
 	for _, untyped := range []error{

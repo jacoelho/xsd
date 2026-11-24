@@ -385,7 +385,10 @@ func (c *deterministicModelCompilation) collectEdge(edge dfaSourceEdge, counters
 	if err != nil {
 		return err
 	}
-	group := c.group(edge.Particle)
+	group, err := c.group(edge.Particle)
+	if err != nil {
+		return err
+	}
 	group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: next})
 	return nil
 }
@@ -400,10 +403,13 @@ func (c *deterministicModelCompilation) applyActions(counters []uint32, actions 
 
 // group returns the transition set of p's term in the row being built. The
 // first particle to reach a term is the particle of its edge.
-func (c *deterministicModelCompilation) group(p contentParticle) *dfaTransitionSet {
-	key := particleTermKeyOf(p)
+func (c *deterministicModelCompilation) group(p contentParticle) (*dfaTransitionSet, error) {
+	key, err := particleTermKeyOf(p)
+	if err != nil {
+		return nil, err
+	}
 	if i, ok := c.groupIndex[key]; ok {
-		return &c.groups[i]
+		return &c.groups[i], nil
 	}
 	i := len(c.groups)
 	c.groupIndex[key] = i
@@ -413,7 +419,7 @@ func (c *deterministicModelCompilation) group(p contentParticle) *dfaTransitionS
 	} else {
 		c.groups = append(c.groups, dfaTransitionSet{Particle: p, Key: key})
 	}
-	return &c.groups[i]
+	return &c.groups[i], nil
 }
 
 func (c *deterministicModelCompilation) appendTransition(row *compiledModelRow, group *dfaTransitionSet, stateID func([]dfaConfig) (uint32, error)) error {
@@ -527,17 +533,17 @@ func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 	return nil
 }
 
-func particleTermKeyOf(p contentParticle) particleTermKey {
+func particleTermKeyOf(p contentParticle) (particleTermKey, error) {
 	switch p.Kind {
 	case particleElement:
-		return particleTermKey{Kind: p.Kind, Element: p.Element}
+		return particleTermKey{Kind: p.Kind, Element: p.Element}, nil
 	case particleWildcard:
-		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}
+		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}, nil
 	case particleModel:
-		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}
+		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}, nil
 	default:
+		return particleTermKey{}, xsderrors.InternalInvariant("content model DFA edge particle has unknown kind", nil)
 	}
-	return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}
 }
 
 func compareParticleTermKey(a, b particleTermKey) int {
