@@ -27489,6 +27489,305 @@
       ]
     },
     {
+      "id": "project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-datatype-valid"
+        ],
+        "conditions": [
+          "The inline union type of an xs:element with minOccurs and maxOccurs 0, with its anonymous list member and item, maps to its own type definitions (docs/spec/INTERPRETATIONS.md I-008), but no element declaration has that type, so no instance element is assessed against it: b is assessed only against its own list of xs:int restricted by minInclusive 100, which rejects 5 and true although the zero-count element's type accepts them."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "clause": "I-008 in docs/spec/INTERPRETATIONS.md: the inline type definition of an xs:element with minOccurs and maxOccurs 0 maps on its own, and a sibling declaration is assessed against its own type; this observation is not a majority-vote oracle"
+        }
+      },
+      "instances": [
+        {
+          "testName": "live-type-value",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/live-type-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "dropped-item-value",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/dropped-item-value.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "dropped-member-value",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/dropped-member-value.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/live-type-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/dropped-item-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-before-live-types/dropped-member-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-nested-member-checked",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-nested-member-checked",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cos-applicable-facets"
+        ],
+        "conditions": [
+          "An inline simple type maps to its own type definition under an xs:element with minOccurs and maxOccurs 0 (docs/spec/INTERPRETATIONS.md I-008), and so does the anonymous member type nested in it, so the member's facet rules still apply: length is not a facet of xs:int."
+        ]
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-nested-member-checked/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element",
+          "clause": "I-008 and I-023 in docs/spec/INTERPRETATIONS.md: the type definitions nested in the inline type of an xs:element with minOccurs and maxOccurs 0 map on their own and keep their facet rules; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-023"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-nested-member-checked/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-unavailable-item",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "The inline list type of an xs:element with minOccurs and maxOccurs 0 and the inline list type of attribute a both name the missing item type t:missing, so the schema loads; an element that omits a is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item/attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item/attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item/attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item/attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-unavailable-item-only",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "The only reference to the missing type t:missing is the item type of the inline list type of an xs:element with minOccurs and maxOccurs 0, so the schema loads; no element is assessed against that list type. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/sibling.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "The global list type L and the inline list type of an xs:element with minOccurs and maxOccurs 0 both name the missing item type t:missing, so the schema loads; an element that omits attribute a, of type L, is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/element-zero-occurrence/ref-unbound-prefix",
       "expectedSource": "project",
       "source": {

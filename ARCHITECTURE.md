@@ -321,7 +321,13 @@ detached constraint's ID for keyref `refer` and diagnostics, but no content
 model, attribute uses or evaluation program. An unreached simple type keeps
 its ID, derivation record and value-program slot, but `Builder.SealKeeping`
 drops its value definition (facets, patterns, enumerations), and validating
-it reports `value.ErrMetadata`. Unreached element declarations
+it reports `value.ErrMetadata`. The inline simple type of a source item that
+maps to no component, a zero-count element or a prohibited attribute, keeps
+nothing once checked, because no component can hold its ID:
+`compileUnheldSimpleType` drops it from the build and the value builder
+(`dropSimpleTypesFrom`, `value.Builder.Truncate`), moving a missing-type
+placeholder its compile created to the first dropped ID, without changing a verdict
+(`droppedSimpleTypeCharges`). Unreached element declarations
 are not published, and validation sees only published element IDs, which
 `publishedElements` owns. Every published holder of element IDs names
 declarations only by published IDs. `compileContentModels` builds the content
@@ -1448,16 +1454,31 @@ graph preserves these ownership rules:
   declarations nested in them and the children of a zero-count compositor,
   unless a live type also reaches them, as it does a declaration in a named
   group that a live type references; it drops the value definitions of the
-  simple types among them and does not publish the element declarations (see
-  `internal/schema`). Treating the whole subtree as absent was rejected:
-  §3.11.2 maps every identity constraint regardless of its parent.
+  simple types inside detached complex types and does not publish the element
+  declarations (see `internal/schema`). The inline simple type of the
+  zero-count element itself is dropped once checked
+  (`compileUnheldSimpleType`). Treating the whole subtree as absent was
+  rejected: §3.11.2 maps every identity constraint regardless of its parent.
 - Renumbering simple types densely over the reached ones, as element
   declarations are, was rejected: the simple-type ID is the value-program ID,
   named by the value program's own base, item and member references, the
   derivation records, the global type map and every value constraint, so
   every holder would need a copy. A per-type indirection in the value
   program's type lookup would free the 200-byte slot of an unreached type but
-  adds a dependent load to every value evaluation.
+  adds a dependent load to every value evaluation. Only the inline simple type
+  of a source item that maps to no component is freed, by truncation, because
+  no component can hold its ID; a simple type nested in a detached complex
+  type keeps its slot, since the complex type's attribute uses and text type
+  hold it.
+- Removing from the name table the names that only unreached element
+  declarations use was rejected. A distinct name retains about 61 bytes plus
+  its text: 79,000 element declarations, each under its own zero-count
+  sequence, retain about 67 bytes each with distinct names of about six bytes,
+  about 99 bytes with names 32 bytes longer, and nothing with one repeated
+  name. But name IDs are held by declarations, identity-constraint paths,
+  resolved QName values, diagnostics and the published name indexes, and a
+  holder the removal missed would silently change a verdict instead of failing
+  a check.
 - Copying the content tables over published IDs at publication was
   rejected: a schema with an unreached declaration before reached ones held
   two copies of every table naming a renumbered declaration at the

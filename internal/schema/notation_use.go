@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -46,15 +47,25 @@ func validateNotationTypeUse(build *schemaBuild, id SimpleTypeID) error {
 	return nil
 }
 
-func validateNotationConstructorUses(build *schemaBuild, id SimpleTypeID) error {
-	// Fixed intrinsic constructors are checked by the canonical declaration
-	// audit; only source constructors consume the dependency-work allowance.
+// sourceConstructorUses returns the list item or union members of simple type
+// id that the constructor-use audit reads (validateNotationConstructorUses),
+// each charged one MaxSchemaDependencySteps step. An intrinsic type has none:
+// the canonical declaration audit checks its fixed constructors.
+func sourceConstructorUses(builder *value.Builder, id SimpleTypeID) (value.ConstructorUses, error) {
 	if id < builtinSchemaSimpleTypeCount {
-		return nil
+		return value.ConstructorUses{}, nil
 	}
-	uses, ok := build.valueBuilder.ConstructorUses(id)
+	uses, ok := builder.ConstructorUses(id)
 	if !ok {
-		return xsderrors.InternalInvariant("NOTATION constructor has no value definition")
+		return value.ConstructorUses{}, xsderrors.InternalInvariant("NOTATION constructor has no value definition")
+	}
+	return uses, nil
+}
+
+func validateNotationConstructorUses(build *schemaBuild, id SimpleTypeID) error {
+	uses, err := sourceConstructorUses(build.valueBuilder, id)
+	if err != nil {
+		return err
 	}
 	for i := range uses.Len() {
 		member, valid := uses.At(i)
