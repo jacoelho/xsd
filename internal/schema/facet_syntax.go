@@ -30,10 +30,10 @@ func isFacetLocal(local string) bool {
 func validateFacetSource(source facetSource) (valuepkg.FacetMask, error) {
 	mask, ok := facetMaskForLocal(source.Local)
 	if !ok {
-		return 0, xsderrors.InternalInvariant("facet source is not a facet element")
+		return 0, xsderrors.InternalInvariant("facet source is not a facet element", nil)
 	}
 	if !valuepkg.FacetAllowed(source.Variety, source.Primitive, mask) {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "facet "+facetLabel(source.Local)+" is not allowed")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "facet "+facetLabel(source.Local)+" is not allowed", nil)
 	}
 	return mask, nil
 }
@@ -84,7 +84,7 @@ func parseWhitespaceFacetValue(value string) (valuepkg.WhitespaceMode, error) {
 	case vocab.XSDWhitespaceCollapse:
 		mode = valuepkg.WhitespaceCollapse
 	default:
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid whiteSpace facet "+diagnostictext.Quote(value))
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid whiteSpace facet "+diagnostictext.Quote(value), nil)
 	}
 	return mode, nil
 }

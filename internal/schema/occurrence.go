@@ -70,7 +70,7 @@ func (a *occurrenceAdmission) admitAttribute(attr, value string) error {
 	case vocab.XSDAttrMaxOccurs:
 		return a.admitMax(value)
 	}
-	return xsderrors.InternalInvariant("occurrence admission of attribute " + diagnostictext.Quote(attr))
+	return xsderrors.InternalInvariant("occurrence admission of attribute "+diagnostictext.Quote(attr), nil)
 }
 
 func (a *occurrenceAdmission) admitMin(value string) error {
@@ -79,11 +79,11 @@ func (a *occurrenceAdmission) admitMin(value string) error {
 		return err
 	}
 	if number > maxUint32Value {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "minOccurs exceeds uint32 limit", nil)
 	}
 	minimum := uint32(number) // #nosec G115 -- checked against the uint32 cap above.
 	if a.scope == occurrenceScopeAllGroup && !allGroupMinAdmitted(minimum) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage, nil)
 	}
 	a.min, a.hasMin = minimum, true
 	return nil
@@ -97,15 +97,15 @@ func (a *occurrenceAdmission) admitMax(value string) error {
 	maximum := maxOccurrence{kind: maxOccurrenceUnbounded}
 	if !lexical.unbounded {
 		if maxOccursLimitExceeded(lexical.count, a.limit) {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(a.limit))
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, maxOccursLimitMessage(a.limit), nil)
 		}
 		maximum = maxOccurrence{value: uint32(lexical.count), kind: maxOccurrenceFinite} // #nosec G115 -- maxOccursLimitExceeded enforces the uint32 cap.
 	}
 	switch {
 	case a.scope == occurrenceScopeAllGroup && !allGroupMaxAdmitted(maximum):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage, nil)
 	case a.scope == occurrenceScopeAllMember && maximum.repeats():
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allMemberOccurrenceMessage)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allMemberOccurrenceMessage, nil)
 	}
 	a.max, a.hasMax = maximum, true
 	return nil
@@ -131,12 +131,12 @@ func (m maxOccurrence) withMinimum(minOccurs uint32) (occurrence, error) {
 		return occurrence{Min: minOccurs, Unbounded: true}, nil
 	case maxOccurrenceFinite:
 	case maxOccurrenceInvalid:
-		return occurrence{}, xsderrors.InternalInvariant("maxOccurs parser returned an invalid kind")
+		return occurrence{}, xsderrors.InternalInvariant("maxOccurs parser returned an invalid kind", nil)
 	default:
-		return occurrence{}, xsderrors.InternalInvariant("maxOccurs parser returned an unknown kind")
+		return occurrence{}, xsderrors.InternalInvariant("maxOccurs parser returned an unknown kind", nil)
 	}
 	if m.value < minOccurs {
-		return occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "maxOccurs is less than minOccurs")
+		return occurrence{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "maxOccurs is less than minOccurs", nil)
 	}
 	return occurrence{Min: minOccurs, Max: m.value}, nil
 }
@@ -146,7 +146,7 @@ func (m maxOccurrence) withMinimum(minOccurs uint32) (occurrence, error) {
 func parseMinOccursLexical(value string) (uint64, error) {
 	number, err := parseSchemaNonNegativeInteger(lex.TrimXMLWhitespaceString(value))
 	if err != nil {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+diagnostictext.Quote(value))
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid minOccurs "+diagnostictext.Quote(value), nil)
 	}
 	return number, nil
 }
@@ -166,7 +166,7 @@ func parseMaxOccursLexical(value string) (maxOccursLexical, error) {
 	}
 	count, err := parseSchemaNonNegativeInteger(trimmed)
 	if err != nil {
-		return maxOccursLexical{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+diagnostictext.Quote(value))
+		return maxOccursLexical{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, "invalid maxOccurs "+diagnostictext.Quote(value), nil)
 	}
 	return maxOccursLexical{count: count}, nil
 }
@@ -204,7 +204,7 @@ func validateAllModelOccurrence(occurs occurrence) error {
 		maximum = maxOccurrence{kind: maxOccurrenceUnbounded}
 	}
 	if !allGroupMinAdmitted(occurs.Min) || !allGroupMaxAdmitted(maximum) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage)
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaOccurrence, allGroupOccurrenceMessage, nil)
 	}
 	return nil
 }

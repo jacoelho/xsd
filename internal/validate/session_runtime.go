@@ -127,12 +127,12 @@ const (
 
 func (s *session) validate(r io.Reader) error {
 	if s == nil {
-		return xsderrors.InternalInvariant("nil validation session")
+		return xsderrors.InternalInvariant("nil validation session", nil)
 	}
 	// The reader owns borrowed token lifetimes; detach before any caller guard is released.
 	defer s.reader.Detach()
 	if s.rt == nil {
-		return xsderrors.InternalInvariant("nil validation session")
+		return xsderrors.InternalInvariant("nil validation session", nil)
 	}
 	// Every entry starts a fresh document account, including after a document
 	// that failed mid-stream.
@@ -391,7 +391,7 @@ func (t *sessionStartTransaction) stageContent(accepted *acceptedChild) {
 
 func (t *sessionStartTransaction) commitXMLStart(start preparedXMLStart, pathMode xmlPathMode, payload frame) error {
 	if t.phase != startTransactionPrepared || t.s.doc.Depth() != t.xml.depth {
-		return xsderrors.InternalInvariant("XML start transaction phase is invalid")
+		return xsderrors.InternalInvariant("XML start transaction phase is invalid", nil)
 	}
 	switch pathMode {
 	case xmlPathLexical:
@@ -399,9 +399,9 @@ func (t *sessionStartTransaction) commitXMLStart(start preparedXMLStart, pathMod
 	case xmlPathExpanded:
 		t.s.doc.CommitExpandedStart(start, payload)
 	case xmlPathInvalid:
-		return xsderrors.InternalInvariant("XML path mode is invalid")
+		return xsderrors.InternalInvariant("XML path mode is invalid", nil)
 	default:
-		err := xsderrors.InternalInvariant("XML path mode is invalid")
+		err := xsderrors.InternalInvariant("XML path mode is invalid", nil)
 		return err
 	}
 	t.phase = startTransactionXMLCommitted
@@ -410,14 +410,14 @@ func (t *sessionStartTransaction) commitXMLStart(start preparedXMLStart, pathMod
 
 func (t *sessionStartTransaction) commit() error {
 	if t.phase != startTransactionXMLCommitted {
-		return xsderrors.InternalInvariant("start transaction commit phase is invalid")
+		return xsderrors.InternalInvariant("start transaction commit phase is invalid", nil)
 	}
 	parent, _, err := t.parentFrame()
 	if err != nil {
 		return err
 	}
 	if t.transition.IsPlanned() && parent == nil {
-		return xsderrors.InternalInvariant("root start has a parent content transition")
+		return xsderrors.InternalInvariant("root start has a parent content transition", nil)
 	}
 	if err := t.s.doc.identity.validateStartCommit(); err != nil {
 		return err
@@ -436,7 +436,7 @@ func (t *sessionStartTransaction) parentFrame() (*frame, bool, error) {
 		return nil, false, nil
 	}
 	if t.parentIndex >= len(t.s.doc.elements) {
-		return nil, false, xsderrors.InternalInvariant("start transaction parent frame is invalid")
+		return nil, false, xsderrors.InternalInvariant("start transaction parent frame is invalid", nil)
 	}
 	return &t.s.doc.elements[t.parentIndex].payload, true, nil
 }
@@ -447,7 +447,7 @@ func (t *sessionStartTransaction) commitContentTransition(parent *frame) error {
 	}
 	scratch := t.s.contentScratch(parent)
 	if !t.transition.Commit(&parent.Content, &scratch) {
-		return xsderrors.InternalInvariant("parent content transition commit failed")
+		return xsderrors.InternalInvariant("parent content transition commit failed", nil)
 	}
 	return nil
 }
@@ -471,9 +471,9 @@ func (t *sessionStartTransaction) stopSemanticValidation(start preparedXMLStart)
 	case startTransactionXMLCommitted:
 		t.s.doc.clearCurrentPayload()
 	case startTransactionDone:
-		return xsderrors.InternalInvariant("start transaction stop phase is invalid")
+		return xsderrors.InternalInvariant("start transaction stop phase is invalid", nil)
 	default:
-		err := xsderrors.InternalInvariant("start transaction stop phase is invalid")
+		err := xsderrors.InternalInvariant("start transaction stop phase is invalid", nil)
 		return err
 	}
 	t.phase = startTransactionDone
@@ -708,7 +708,7 @@ func (s *session) validateStartAttributes(start schemaStart, attrs []xmlstream.A
 	case elementWildcardSkipped:
 		return nil
 	default:
-		return xsderrors.InternalInvariant("element assessment mode is invalid")
+		return xsderrors.InternalInvariant("element assessment mode is invalid", nil)
 	}
 }
 
@@ -724,7 +724,7 @@ func (s *session) syntaxStart(line, col int) error {
 func (s *session) initialElementAssessment(start *schemaStart, declaration startDeclaration) (xsdSchema.TypeInfo, bool, error) {
 	info, known := s.rt.TypeInfo(start.typ)
 	if !known {
-		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid")
+		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("start type metadata is invalid", nil)
 	}
 	if !info.Unavailable {
 		if declaration.present && declaration.abstract {
@@ -750,7 +750,7 @@ func (s *session) initialElementAssessment(start *schemaStart, declaration start
 	}
 	info, known = s.rt.TypeInfo(start.typ)
 	if !known {
-		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("anyType metadata is invalid")
+		return xsdSchema.TypeInfo{}, true, xsderrors.InternalInvariant("anyType metadata is invalid", nil)
 	}
 	return info, false, nil
 }
@@ -796,7 +796,7 @@ func (s *session) assessXSIType(start *schemaStart, assessment xsiTypeAssessment
 	}
 	overrideInfo, known := s.rt.TypeInfo(override)
 	if !known {
-		return assessment.typeInfo, true, xsderrors.InternalInvariant("start type metadata is invalid")
+		return assessment.typeInfo, true, xsderrors.InternalInvariant("start type metadata is invalid", nil)
 	}
 	if overrideInfo.Unavailable {
 		// Like any rejected override, the governing type remains selected.
@@ -895,7 +895,7 @@ func (s *session) startType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr, fl
 	}
 	parent, ok := s.doc.Current()
 	if !ok {
-		return xsderrors.InternalInvariant("child start has no parent frame")
+		return xsderrors.InternalInvariant("child start has no parent frame", nil)
 	}
 	err := s.acceptChild(parent, rn, flags, line, col, accepted)
 	if err == nil {
@@ -970,7 +970,7 @@ func (s *session) newSchemaFrame(
 	typ := start.typ
 	read, ok := s.rt.ElementFrame(typ, elem)
 	if !ok {
-		return frame{}, xsderrors.InternalInvariant("element frame metadata is invalid")
+		return frame{}, xsderrors.InternalInvariant("element frame metadata is invalid", nil)
 	}
 	contentFrame := read.Content
 	bitLen := contentFrame.AllBitLen()

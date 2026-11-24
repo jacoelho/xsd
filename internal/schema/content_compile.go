@@ -11,7 +11,7 @@ const dfaEndPos = -1
 
 func checkedSchemaUint32(n int, msg string) (uint32, error) {
 	if n < 0 || uint64(n) > math.MaxUint32 {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg)
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg, nil)
 	}
 	return uint32(n), nil
 }
@@ -191,7 +191,7 @@ func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []ui
 	}
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
-		return xsderrors.InternalInvariant("UPA check references missing content model")
+		return xsderrors.InternalInvariant("UPA check references missing content model", nil)
 	}
 	needsSplit, err := c.modelNeedsRuntimeSplitSeen(id, occurrence{Min: 1, Max: 1}, seen, tag)
 	if err != nil || needsSplit {
@@ -270,7 +270,7 @@ func newElementDeclarationConsistencyChecker(
 
 func (c *elementDeclarationConsistencyChecker) spend() error {
 	if c.work == nil {
-		return xsderrors.InternalInvariant("element declaration consistency work budget is missing")
+		return xsderrors.InternalInvariant("element declaration consistency work budget is missing", nil)
 	}
 	return c.work(1)
 }
@@ -287,12 +287,12 @@ func (c *elementDeclarationConsistencyChecker) collectModel(
 		return nil, err
 	}
 	if !validContentModelID(id, len(c.models)) {
-		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model")
+		return nil, xsderrors.InternalInvariant("element declaration consistency check references missing content model", nil)
 	}
 	collected := &c.models[id]
 	switch collected.state {
 	case contentModelVisiting:
-		return nil, xsderrors.InternalInvariant("element declaration consistency check references cyclic content model")
+		return nil, xsderrors.InternalInvariant("element declaration consistency check references cyclic content model", nil)
 	case contentModelVisited:
 		return collected.declarations, nil
 	}
@@ -388,7 +388,7 @@ func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(declara
 	}
 	name, ok := c.rt.ElementName(member)
 	if !ok {
-		return xsderrors.InternalInvariant("element declaration consistency references missing substitution member")
+		return xsderrors.InternalInvariant("element declaration consistency references missing substitution member", nil)
 	}
 	if accepted, ok := c.rt.Substitutions.MemberByName(head, name); !ok || accepted != member {
 		return nil
@@ -399,7 +399,7 @@ func (c *elementDeclarationConsistencyChecker) collectSubstitutionMember(declara
 func (c *elementDeclarationConsistencyChecker) collectElementDeclaration(declarations *elementDeclarationSet, element ElementID) error {
 	name, ok := c.rt.ElementName(element)
 	if !ok {
-		return xsderrors.InternalInvariant("element declaration consistency check references missing element name")
+		return xsderrors.InternalInvariant("element declaration consistency check references missing element name", nil)
 	}
 	return c.addElementDeclaration(declarations, namedElementDeclaration{name: name, element: element})
 }
@@ -436,17 +436,17 @@ func (c *elementDeclarationConsistencyChecker) addElementDeclaration(
 	previousType, previousOK := elementTypeByID(c.rt.Elements, previous)
 	typ, ok := elementTypeByID(c.rt.Elements, declaration.element)
 	if !previousOK || !ok {
-		return xsderrors.InternalInvariant("element declaration consistency check references missing element type")
+		return xsderrors.InternalInvariant("element declaration consistency check references missing element type", nil)
 	}
 	if previousType != typ {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must have the same type")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must have the same type", nil)
 	}
 	named, err := c.hasNamedType(typ)
 	if err != nil {
 		return err
 	}
 	if !named {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must use a named top-level type")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "element declarations with the same name must use a named top-level type", nil)
 	}
 	return nil
 }
@@ -454,7 +454,7 @@ func (c *elementDeclarationConsistencyChecker) addElementDeclaration(
 func (c *elementDeclarationConsistencyChecker) hasNamedType(typ TypeID) (bool, error) {
 	name, valid := typeNameByID(c.rt.SimpleTypes, c.rt.ComplexTypes, typ)
 	if !valid {
-		return false, xsderrors.InternalInvariant("element declaration consistency references invalid type")
+		return false, xsderrors.InternalInvariant("element declaration consistency references invalid type", nil)
 	}
 	var scope declarationScope
 	if id, simple := typ.Simple(); simple {
@@ -477,7 +477,7 @@ func (c *elementDeclarationConsistencyChecker) hasNamedType(typ TypeID) (bool, e
 func (c *contentModelCompiler) modelNeedsRuntimeSplitSeen(id contentModelID, reached occurrence, seen []uint64, tag uint64) (bool, error) {
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
-		return false, xsderrors.InternalInvariant("UPA runtime-split check references missing content model")
+		return false, xsderrors.InternalInvariant("UPA runtime-split check references missing content model", nil)
 	}
 	if choiceNeedsRuntimeSplit(model, reached) {
 		return true, nil
@@ -508,7 +508,7 @@ func (c *contentModelCompiler) visitRuntimeSplitModel(id contentModelID, seen []
 		return false, err
 	}
 	if !validUint32Index(uint32(id), len(seen)) {
-		return false, xsderrors.InternalInvariant("UPA runtime-split check references content model outside its visit table")
+		return false, xsderrors.InternalInvariant("UPA runtime-split check references content model outside its visit table", nil)
 	}
 	if seen[id] == tag {
 		return false, nil
@@ -684,7 +684,7 @@ func (c *contentModelCompiler) wildcardEquivalentOverlap(a, b contentParticle) (
 func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledModel, error) {
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
-		return compiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model")
+		return compiledModel{}, xsderrors.InternalInvariant("content model compiler references missing content model", nil)
 	}
 	model, err := c.executionModel(model)
 	if err != nil {
@@ -710,7 +710,7 @@ func (c *contentModelCompiler) compileContentModel(id contentModelID) (compiledM
 		}
 		return b.compile(model)
 	default:
-		return compiledModel{}, xsderrors.InternalInvariant("content model has unknown kind")
+		return compiledModel{}, xsderrors.InternalInvariant("content model has unknown kind", nil)
 	}
 }
 
@@ -804,7 +804,7 @@ func (c *contentModelCompiler) executionGroup(parent modelKind, p contentParticl
 	}
 	child, ok := contentModelByID(c.rt.Models, p.Model)
 	if !ok {
-		return contentModelNode{}, false, xsderrors.InternalInvariant("execution particle references missing content model")
+		return contentModelNode{}, false, xsderrors.InternalInvariant("execution particle references missing content model", nil)
 	}
 	return child, child.Occurs.IsExactlyOne() && child.Kind == parent, nil
 }
@@ -827,7 +827,7 @@ func (c *contentModelCompiler) executionSingleton(p contentParticle) (contentPar
 		return contentParticle{}, false, err
 	}
 	if !validContentModelID(p.Model, len(c.rt.Models)) {
-		return contentParticle{}, false, xsderrors.InternalInvariant("execution particle references missing content model")
+		return contentParticle{}, false, xsderrors.InternalInvariant("execution particle references missing content model", nil)
 	}
 	model := c.rt.Models[p.Model]
 	if (model.Kind != modelSequence && model.Kind != modelChoice) || len(model.Particles) != 1 {
@@ -892,7 +892,7 @@ func (c *contentModelCompiler) directParticles(model contentModelNode, add func(
 		return addErr
 	}
 	if err != nil {
-		return xsderrors.InternalInvariant("direct content model build walk diverged from its admission: " + err.Error())
+		return xsderrors.InternalInvariant("direct content model build walk diverged from its admission", err)
 	}
 	return nil
 }
@@ -933,7 +933,7 @@ func (a *directModelAdmission) admit(particle contentParticle) (bool, error) {
 		return true, nil
 	}
 	if a.rows >= c.maxContentModelStates {
-		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+		return false, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded", nil)
 	}
 	a.rows++
 	return true, nil
@@ -944,7 +944,7 @@ func directParticleKind(particle contentParticle) bool {
 }
 
 func unadmittedDirectParticle() error {
-	return xsderrors.InternalInvariant("direct content model build met a particle its admission rejected")
+	return xsderrors.InternalInvariant("direct content model build met a particle its admission rejected", nil)
 }
 
 func (c *contentModelCompiler) compileDirectSequenceModel(model contentModelNode, walk *contentModelCompiler, admittedRows int) (compiledModel, error) {
@@ -1128,7 +1128,7 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 // counted admittedRows rows, which MaxContentModelStates bounds.
 func (c *contentModelCompiler) appendCompiledModelRow(rows []compiledModelRow, row compiledModelRow, admittedRows int) ([]compiledModelRow, error) {
 	if len(rows) >= admittedRows {
-		return nil, xsderrors.InternalInvariant("direct content model build exceeds the rows its admission counted")
+		return nil, xsderrors.InternalInvariant("direct content model build exceeds the rows its admission counted", nil)
 	}
 	if err := c.retained.spend(1); err != nil {
 		return nil, err
@@ -1260,7 +1260,7 @@ func (c *contentModelCompiler) compileAllModel(model contentModelNode) (compiled
 	required := false
 	for _, p := range model.Particles {
 		if p.Kind == particleModel {
-			return compiledModel{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot contain model group particles")
+			return compiledModel{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot contain model group particles", nil)
 		}
 		if p.Occurs.Min > 0 {
 			required = true
@@ -1320,7 +1320,7 @@ func (c *contentModelCompiler) checkParticleAgainstFollowingUPA(particle content
 
 func (c *contentModelCompiler) particlesOverlap(a, b contentParticle) (particleOverlap, bool, error) {
 	if c.analysis == nil {
-		return particleOverlap{}, false, xsderrors.InternalInvariant("content model analysis is nil")
+		return particleOverlap{}, false, xsderrors.InternalInvariant("content model analysis is nil", nil)
 	}
 	return c.analysis.Overlap(a, b)
 }
@@ -1427,7 +1427,7 @@ func (b *dfaBuilder) row(entries []dfaStateEntry) (dfaSourceRow, error) {
 			continue
 		}
 		if e.Pos < 0 || e.Pos >= len(b.positions) {
-			return dfaSourceRow{}, xsderrors.InternalInvariant("content model DFA references invalid position")
+			return dfaSourceRow{}, xsderrors.InternalInvariant("content model DFA references invalid position", nil)
 		}
 		to, err := b.followStateID(e.Pos)
 		if err != nil {
@@ -1476,7 +1476,7 @@ func (b *dfaBuilder) followStateID(pos int) (uint32, error) {
 	}
 	if !ref.created {
 		if !ref.class.state.known {
-			return 0, xsderrors.InternalInvariant("content model follow class has no state")
+			return 0, xsderrors.InternalInvariant("content model follow class has no state", nil)
 		}
 		return ref.class.state.id, nil
 	}
@@ -1496,7 +1496,7 @@ func (b *dfaBuilder) internState(entries []dfaStateEntry) (uint32, error) {
 		return id, nil
 	}
 	if len(b.states) >= b.limit {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content model DFA state limit exceeded", nil)
 	}
 	id, err := checkedSchemaUint32(len(b.states), "content model DFA state limit exceeded")
 	if err != nil {
@@ -1526,7 +1526,7 @@ func (b *dfaBuilder) modelNode(id contentModelID) (dfaNode, error) {
 	}
 	model, ok := contentModelByID(b.c.rt.Models, id)
 	if !ok {
-		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model")
+		return dfaNode{}, xsderrors.InternalInvariant("content model DFA references missing content model", nil)
 	}
 	return b.groupNode(model)
 }
@@ -1550,9 +1550,9 @@ func (b *dfaBuilder) groupNode(model contentModelNode) (dfaNode, error) {
 			return dfaNode{}, err
 		}
 	case modelAll:
-		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models")
+		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "xs:all cannot be nested in DFA content models", nil)
 	default:
-		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model")
+		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported content model", nil)
 		return dfaNode{}, err
 	}
 	return b.repeat(node, model.Occurs)
@@ -1668,7 +1668,7 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 		}
 		node = child
 	default:
-		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported particle")
+		return dfaNode{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "unsupported particle", nil)
 	}
 	return b.repeat(node, p.Occurs)
 }

@@ -51,7 +51,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 	needsIdentity := identityTarget.needsIdentity()
 	input, ok := s.rt.ValueProgram().InputRequirements(typeID)
 	if !ok {
-		return false, xsderrors.InternalInvariant("simple content input metadata is invalid")
+		return false, xsderrors.InternalInvariant("simple content input metadata is invalid", nil)
 	}
 	if !needsIdentity && !hasValueConstraint && !input.DocumentIdentity {
 		value, err := s.validateSimpleValueBytes(typeID, rawText, input, 0)
@@ -86,7 +86,7 @@ func (s *session) frameElementValueConstraints(f *frame) (xsdSchema.ElementValue
 	}
 	constraints, _, ok := s.rt.ElementValueConstraints(f.Element)
 	if !ok {
-		return xsdSchema.ElementValueConstraints{}, xsderrors.InternalInvariant("element value constraint metadata is invalid")
+		return xsdSchema.ElementValueConstraints{}, xsderrors.InternalInvariant("element value constraint metadata is invalid", nil)
 	}
 	return constraints, nil
 }
@@ -147,7 +147,7 @@ func (s *session) checkFixedElementValue(ctx startContext, result xsdValue.Value
 		return rejectErr
 	}
 	if !valid {
-		return xsderrors.InternalInvariant("fixed element value-space identity is missing")
+		return xsderrors.InternalInvariant("fixed element value-space identity is missing", nil)
 	}
 	return validation(ctx, xsderrors.CodeValidationElement, fixedElementMessage(result.CanonicalText(), fixed.CanonicalText()))
 }

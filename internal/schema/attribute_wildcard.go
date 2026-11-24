@@ -122,9 +122,9 @@ func (b *attributeWildcardBuilder) finish(rt schemaAttributeWildcardRuntime) (Wi
 	case attributeMergeRestriction:
 		return b.finishRestriction(rt)
 	case attributeMergeInvalid:
-		return NoWildcard, xsderrors.InternalInvariant("invalid attribute merge mode")
+		return NoWildcard, xsderrors.InternalInvariant("invalid attribute merge mode", nil)
 	default:
-		return NoWildcard, xsderrors.InternalInvariant("unknown attribute merge mode")
+		return NoWildcard, xsderrors.InternalInvariant("unknown attribute merge mode", nil)
 	}
 }
 
@@ -155,7 +155,7 @@ func (b *attributeWildcardBuilder) finishRestriction(rt schemaAttributeWildcardR
 		return NoWildcard, nil
 	}
 	if b.inheritedWildcard == NoWildcard {
-		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard")
+		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attribute wildcard restriction requires base wildcard", nil)
 	}
 	declared, err := requiredAttributeWildcard(rt, b.wildcard)
 	if err != nil {
@@ -170,7 +170,7 @@ func (b *attributeWildcardBuilder) finishRestriction(rt schemaAttributeWildcardR
 		return NoWildcard, err
 	}
 	if !subset {
-		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base")
+		return NoWildcard, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "attribute wildcard restriction is not subset of base", nil)
 	}
 	return b.wildcard, nil
 }
@@ -186,9 +186,9 @@ func schemaAttributeWildcardDerivation(mode attributeMergeMode) (attributeWildca
 	case attributeMergeRestriction:
 		return attributeWildcardRestriction, nil
 	case attributeMergeInvalid:
-		return attributeWildcardNone, xsderrors.InternalInvariant("invalid attribute merge mode")
+		return attributeWildcardNone, xsderrors.InternalInvariant("invalid attribute merge mode", nil)
 	default:
-		return attributeWildcardNone, xsderrors.InternalInvariant("unknown attribute merge mode")
+		return attributeWildcardNone, xsderrors.InternalInvariant("unknown attribute merge mode", nil)
 	}
 }
 
@@ -198,13 +198,13 @@ func wildcardOperationError(err error) error {
 	if isSchemaLimit(err) {
 		return err
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error(), nil)
 }
 
 func requiredAttributeWildcard(rt schemaAttributeWildcardRuntime, id WildcardID) (wildcardRuntime, error) {
 	wildcard, ok := rt.Wildcard(id)
 	if !ok {
-		return wildcardRuntime{}, xsderrors.InternalInvariant("attribute wildcard references missing wildcard")
+		return wildcardRuntime{}, xsderrors.InternalInvariant("attribute wildcard references missing wildcard", nil)
 	}
 	return wildcard, nil
 }

@@ -6,6 +6,12 @@
 // nil for them, constructors discard them as causes, and the classifiers report
 // false. Errors from other packages, including wrappers, keep their identity and
 // cause chain; they are never unwrapped or replaced.
+//
+// Every constructor takes a message and a cause, and the diagnostic it returns
+// unwraps to that cause, so [errors.Is] and [errors.As] reach it. A code that
+// [ValidCategoryCode] does not admit for the constructor's category yields a
+// [CodeInternalInvariant] diagnostic whose message names the code and category
+// before the caller's message, and which keeps the caller's cause.
 package xsderrors
 
 import (
@@ -405,57 +411,10 @@ func conclusiveDiagnosticAggregateCause(children []error) bool {
 	return true
 }
 
-// isConclusiveValidationDiagnostic owns the per-code disposition. Every code
-// is listed so a new code cannot be added without deciding whether it is
-// semantic evidence of invalidity. ValidCategoryCode binds codes to their
-// category, so the code alone decides.
+// isConclusiveValidationDiagnostic reads the disposition from the catalog;
+// constructors bind every code to its category, so the code alone decides.
 func isConclusiveValidationDiagnostic(err *Error) bool {
-	if err == nil {
-		return false
-	}
-	switch err.code {
-	case CodeValidationRoot,
-		CodeValidationElement,
-		CodeValidationAttribute,
-		CodeValidationText,
-		CodeValidationType,
-		CodeValidationFacet,
-		CodeValidationContent,
-		CodeValidationNil,
-		CodeValidationIdentity:
-		return true
-	case CodeSchemaRead,
-		CodeSchemaXML,
-		CodeSchemaRoot,
-		CodeSchemaDuplicate,
-		CodeSchemaReference,
-		CodeSchemaFacet,
-		CodeSchemaOccurrence,
-		CodeSchemaContentModel,
-		CodeSchemaNoSources,
-		CodeSchemaInvalidAttribute,
-		CodeSchemaIdentity,
-		CodeSchemaLimit,
-		CodeUnsupportedDTD,
-		CodeUnsupportedExternal,
-		CodeUnsupportedEntity,
-		CodeUnsupportedNonUTF8,
-		CodeUnsupportedRedefine,
-		CodeUnsupportedRegex,
-		CodeUnsupportedXMLVersion,
-		CodeUnsupportedXSD11,
-		CodeValidationXML,
-		CodeValidationRead,
-		CodeValidationOption,
-		CodeValidationSession,
-		CodeValidationLimit,
-		CodeFormatXML,
-		CodeFormatOption,
-		CodeFormatLimit,
-		CodeInternalInvariant:
-		return false
-	}
-	return false
+	return err != nil && catalogEntry(err.code).conclusive
 }
 
 // appendFlattened reports whether err contains an aggregate that replaced its
@@ -514,7 +473,10 @@ func isNilDiagnostic(err error) bool {
 	return false
 }
 
-// IsUnsupported reports whether err represents an unsupported feature.
+// IsUnsupported reports whether err represents an unsupported feature: whether
+// a [CategoryUnsupported] diagnostic is reachable through wrappers, aggregates
+// and diagnostic causes. The cause of an internal invariant is not searched,
+// because the invariant reports a defect of this module.
 func IsUnsupported(err error) bool {
 	if isNilDiagnostic(err) {
 		return false
@@ -547,7 +509,10 @@ func asDiagnostic(err error) (*Error, bool) {
 }
 
 func isUnsupportedDiagnostic(err *Error) bool {
-	return err != nil && (err.category == CategoryUnsupported || IsUnsupported(err.cause))
+	if err == nil || err.category == CategoryInternal {
+		return false
+	}
+	return err.category == CategoryUnsupported || IsUnsupported(err.cause)
 }
 
 func isUnsupportedWrapper(err error) bool {
@@ -561,62 +526,111 @@ func isUnsupportedWrapper(err error) bool {
 }
 
 // ValidCategoryCode reports whether code belongs to category in the public
-// diagnostic catalog.
+// diagnostic catalog. CodeSchemaRead, CodeSchemaRoot and CodeSchemaLimit
+// belong to both schema categories; every other code belongs to exactly one
+// category.
 func ValidCategoryCode(category Category, code Code) bool {
+	member := categoryMember(category)
+	return member != 0 && catalogEntry(code).categories&member != 0
+}
+
+type categorySet uint8
+
+const (
+	schemaParseMember categorySet = 1 << iota
+	schemaCompileMember
+	unsupportedMember
+	validationMember
+	formatMember
+	internalMember
+)
+
+func categoryMember(category Category) categorySet {
 	switch category {
 	case CategorySchemaParse:
-		return validSchemaParseCode(code)
+		return schemaParseMember
 	case CategorySchemaCompile:
-		return validSchemaCompileCode(code)
+		return schemaCompileMember
 	case CategoryUnsupported:
-		return validUnsupportedCode(code)
+		return unsupportedMember
 	case CategoryValidation:
-		return validValidationCode(code)
+		return validationMember
 	case CategoryFormat:
-		return validFormatCode(code)
+		return formatMember
 	case CategoryInternal:
-		return code == CodeInternalInvariant
+		return internalMember
 	}
-	return false
+	return 0
 }
 
-func validSchemaParseCode(code Code) bool {
-	return code == CodeSchemaRead || code == CodeSchemaXML || code == CodeSchemaRoot || code == CodeSchemaLimit
+// codeEntry is the catalog row of one code: the categories it belongs to and
+// whether it is semantic evidence of document invalidity.
+type codeEntry struct {
+	categories categorySet
+	conclusive bool
 }
 
-func validSchemaCompileCode(code Code) bool {
-	return code == CodeSchemaRead || code == CodeSchemaRoot || code == CodeSchemaDuplicate || code == CodeSchemaReference ||
-		code == CodeSchemaFacet || code == CodeSchemaOccurrence || code == CodeSchemaContentModel || code == CodeSchemaNoSources ||
-		code == CodeSchemaInvalidAttribute || code == CodeSchemaIdentity || code == CodeSchemaLimit
-}
-
-func validUnsupportedCode(code Code) bool {
-	return code == CodeUnsupportedDTD || code == CodeUnsupportedExternal || code == CodeUnsupportedEntity ||
-		code == CodeUnsupportedNonUTF8 || code == CodeUnsupportedRedefine || code == CodeUnsupportedRegex ||
-		code == CodeUnsupportedXMLVersion || code == CodeUnsupportedXSD11
-}
-
-func validValidationCode(code Code) bool {
-	return code == CodeValidationXML || code == CodeValidationRoot || code == CodeValidationElement || code == CodeValidationAttribute ||
-		code == CodeValidationText || code == CodeValidationType || code == CodeValidationFacet || code == CodeValidationContent ||
-		code == CodeValidationNil || code == CodeValidationIdentity || code == CodeValidationOption || code == CodeValidationSession ||
-		code == CodeValidationLimit || code == CodeValidationRead
-}
-
-func validFormatCode(code Code) bool {
-	return code == CodeFormatXML || code == CodeFormatOption || code == CodeFormatLimit
+// catalogEntry is the only list of codes besides their declarations, so a
+// code cannot be added without its categories and disposition. An unknown
+// code belongs to no category.
+func catalogEntry(code Code) codeEntry {
+	switch code {
+	case CodeSchemaRead, CodeSchemaRoot, CodeSchemaLimit:
+		return codeEntry{categories: schemaParseMember | schemaCompileMember}
+	case CodeSchemaXML:
+		return codeEntry{categories: schemaParseMember}
+	case CodeSchemaDuplicate,
+		CodeSchemaReference,
+		CodeSchemaFacet,
+		CodeSchemaOccurrence,
+		CodeSchemaContentModel,
+		CodeSchemaNoSources,
+		CodeSchemaInvalidAttribute,
+		CodeSchemaIdentity:
+		return codeEntry{categories: schemaCompileMember}
+	case CodeUnsupportedDTD,
+		CodeUnsupportedExternal,
+		CodeUnsupportedEntity,
+		CodeUnsupportedNonUTF8,
+		CodeUnsupportedRedefine,
+		CodeUnsupportedRegex,
+		CodeUnsupportedXMLVersion,
+		CodeUnsupportedXSD11:
+		return codeEntry{categories: unsupportedMember}
+	case CodeValidationRoot,
+		CodeValidationElement,
+		CodeValidationAttribute,
+		CodeValidationText,
+		CodeValidationType,
+		CodeValidationFacet,
+		CodeValidationContent,
+		CodeValidationNil,
+		CodeValidationIdentity:
+		return codeEntry{categories: validationMember, conclusive: true}
+	case CodeValidationXML,
+		CodeValidationRead,
+		CodeValidationOption,
+		CodeValidationSession,
+		CodeValidationLimit:
+		return codeEntry{categories: validationMember}
+	case CodeFormatXML, CodeFormatOption, CodeFormatLimit:
+		return codeEntry{categories: formatMember}
+	case CodeInternalInvariant:
+		return codeEntry{categories: internalMember}
+	}
+	return codeEntry{}
 }
 
 func newDiagnostic(category Category, code Code, msg string, cause error) error {
-	if !ValidCategoryCode(category, code) {
-		return &Error{
-			category: CategoryInternal,
-			code:     CodeInternalInvariant,
-			message:  fmt.Sprintf("diagnostic code %q does not belong to category %q", code, category),
-		}
-	}
 	if isNilDiagnostic(cause) {
 		cause = nil
+	}
+	if !ValidCategoryCode(category, code) {
+		mismatch := fmt.Sprintf("diagnostic code %q does not belong to category %q", code, category)
+		if msg != "" {
+			mismatch += ": " + msg
+		}
+		return &Error{cause: cause, category: CategoryInternal, code: CodeInternalInvariant, message: mismatch}
 	}
 	return &Error{cause: cause, category: category, code: code, message: msg}
 }
@@ -627,8 +641,8 @@ func SchemaParse(code Code, msg string, cause error) error {
 }
 
 // SchemaCompile returns a schema compilation diagnostic.
-func SchemaCompile(code Code, msg string) error {
-	return newDiagnostic(CategorySchemaCompile, code, msg, nil)
+func SchemaCompile(code Code, msg string, cause error) error {
+	return newDiagnostic(CategorySchemaCompile, code, msg, cause)
 }
 
 // WithLocation attaches missing source location fields to a direct diagnostic.
@@ -670,11 +684,12 @@ func Validation(code Code, msg string, cause error) error {
 }
 
 // Format returns an XML formatting diagnostic.
-func Format(code Code, cause error) error {
-	return newDiagnostic(CategoryFormat, code, "", cause)
+func Format(code Code, msg string, cause error) error {
+	return newDiagnostic(CategoryFormat, code, msg, cause)
 }
 
-// InternalInvariant returns an internal invariant diagnostic.
-func InternalInvariant(msg string) error {
-	return newDiagnostic(CategoryInternal, CodeInternalInvariant, msg, nil)
+// InternalInvariant returns an internal invariant diagnostic, which reports a
+// defect of this module.
+func InternalInvariant(msg string, cause error) error {
+	return newDiagnostic(CategoryInternal, CodeInternalInvariant, msg, cause)
 }

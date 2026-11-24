@@ -117,7 +117,7 @@ type typedSchemaParseState struct {
 // reuse it sequentially; this function detaches it before returning.
 func parseTypedSchemaSourceDocument(name, key string, input io.Reader, limits Limits, parser *xmlstream.Reader, patterns *schemaPatterns) (*schemaDocument, error) {
 	if parser == nil {
-		return nil, xsderrors.InternalInvariant("schema parser reader is nil")
+		return nil, xsderrors.InternalInvariant("schema parser reader is nil", nil)
 	}
 	doc := &schemaDocument{name: name, key: key}
 	if err := parser.Reset(input, xmlstream.Config{
@@ -176,7 +176,7 @@ func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
 	case xmlstream.KindCharData:
 		return s.chars(tok.Data, tok.Line, tok.Column)
 	case xmlstream.KindComment:
-		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode")
+		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode", nil)
 	default: // processing instructions are ignored.
 		return nil
 	}
@@ -401,7 +401,7 @@ func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *t
 // of parent and admits it there.
 func admitChildContent(n *schemaSyntaxNode, parent *typedSchemaParseFrame) error {
 	if (parent.content == childContentOrdered || parent.content == childContentSchema) && parent.order == nil {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(parent.name.Local)+" has no child order"))
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(parent.name.Local)+" has no child order", nil))
 	}
 	if message := childContentViolation(n.Name.Local, parent); message != "" {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, message)

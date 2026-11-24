@@ -33,7 +33,7 @@ func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleType, base
 		MaxExclusive: state.stepFacets&valuepkg.FacetMaxExclusive != 0,
 	}
 	if err := validateOrderedFacetStep(step); err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error(), nil)
 	}
 	if state.unavailable {
 		state.apply(st)
@@ -83,7 +83,7 @@ func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base Sim
 func validateFacetChildSource(child *schemaNode, st *simpleType) (valuepkg.FacetMask, error) {
 	source := semanticSource[*schemaFacetSource](&child.semantic)
 	if source == nil {
-		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source"))
+		return 0, withSchemaCompileLocation(child, xsderrors.InternalInvariant("facet node has no typed facet source", nil))
 	}
 	mask, err := validateFacetSource(facetSource{
 		Local: child.local, Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
@@ -128,7 +128,7 @@ func (c *compiler) compileEnumerationFacet(child *schemaNode, literalType Simple
 // the patterns of the restriction step.
 func (*compiler) compilePatternFacet(child *schemaNode, pattern *xsdregex.Pattern, state *compiledFacetState) error {
 	if pattern == nil {
-		return withSchemaCompileLocation(child, xsderrors.InternalInvariant("pattern facet was not admitted at its start tag"))
+		return withSchemaCompileLocation(child, xsderrors.InternalInvariant("pattern facet was not admitted at its start tag", nil))
 	}
 	state.valuePatterns = append(state.valuePatterns, pattern)
 	return nil
@@ -144,7 +144,7 @@ type facetInput struct {
 func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
 	source := semanticSource[*schemaFacetSource](&n.semantic)
 	if source == nil {
-		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source"))
+		return facetInput{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("facet node has no typed facet source", nil))
 	}
 	value := source.Value.Value
 	return facetInput{value: value, parsed: source.Parsed, flag: flag, fixed: source.Parsed.fixed}, nil
@@ -252,7 +252,7 @@ func schemaRegexError(err error) error {
 		return nil
 	}
 	if xsdregex.IsLimit(err) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "pattern exceeds fixed compile limit: "+err.Error())
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "pattern exceeds fixed compile limit: "+err.Error(), nil)
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid pattern: "+err.Error())
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, "invalid pattern: "+err.Error(), nil)
 }

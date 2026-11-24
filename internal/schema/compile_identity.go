@@ -63,11 +63,11 @@ func (c *compiler) declareIdentityConstraintsInTree(ctx *schemaSetDocument, n *s
 func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schemaNode) error {
 	key := nodeKey(ctx, node)
 	if _, declared := c.identityDeclared[key]; declared {
-		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint declared twice in one document context"))
+		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint declared twice in one document context", nil))
 	}
 	source := semanticSource[*schemaIdentitySource](&node.semantic)
 	if source == nil {
-		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source"))
+		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source", nil))
 	}
 	name := ExpandedName{Namespace: ctx.effectiveTargetNS, Local: source.Name.Value}
 	if duplicateErr := c.checkIdentityConstraintNameAvailable(name); duplicateErr != nil {
@@ -104,7 +104,7 @@ func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*
 	for _, node := range nodes {
 		id, ok := c.identityDeclared[nodeKey(ctx, node)]
 		if !ok {
-			return nil, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint was not declared before compilation"))
+			return nil, withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint was not declared before compilation", nil))
 		}
 		if err := c.nameIdentityConstraint(id); err != nil {
 			return nil, err
@@ -176,7 +176,7 @@ func (c *compiler) compileIdentityRefer(ctx *schemaSetDocument, n *schemaNode) (
 	}
 	typed := semanticSource[*schemaIdentitySource](&n.semantic)
 	if typed == nil {
-		return NoIdentityConstraint, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity node has no typed identity source"))
+		return NoIdentityConstraint, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity node has no typed identity source", nil))
 	}
 	q, err := c.referenceQName(ctx, n, typed.Refer.Name)
 	if err != nil {
@@ -235,7 +235,7 @@ func (c *compiler) identityPaths(n *schemaNode, syntax identityConstraintSyntax)
 func identityXPathOf(n *schemaNode) (identityXPathSyntax, error) {
 	source := semanticSource[*schemaIdentityXPathSource](&n.semantic)
 	if source == nil || len(source.XPath.items) == 0 {
-		return identityXPathSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity "+n.local+" has no admitted paths"))
+		return identityXPathSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity "+n.local+" has no admitted paths", nil))
 	}
 	return source.XPath, nil
 }

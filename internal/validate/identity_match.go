@@ -12,5 +12,5 @@ type identityConstraintProgram = xsdSchema.IdentityConstraintProgramRead
 // internalIdentityMetadataError keeps malformed published metadata in the
 // internal-invariant error category.
 func internalIdentityMetadataError(message string) error {
-	return xsderrors.InternalInvariant(message)
+	return xsderrors.InternalInvariant(message, nil)
 }

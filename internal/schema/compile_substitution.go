@@ -66,14 +66,14 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	raw := s.compiler.elementComponents[memberQName]
 	source := semanticSource[*schemaElementSource](&raw.sourceNode().semantic)
 	if source == nil {
-		return xsderrors.InternalInvariant("element substitution source is not typed")
+		return xsderrors.InternalInvariant("element substitution source is not typed", nil)
 	}
 	if !source.SubstitutionGroup.Lexical.Present {
 		return nil
 	}
 	member, ok := s.compiler.rt.GlobalElements[memberQName]
 	if !ok || !validElementID(member, len(s.elements)) {
-		return xsderrors.InternalInvariant("substitution member was not compiled")
+		return xsderrors.InternalInvariant("substitution member was not compiled", nil)
 	}
 	s.inheritsType[member] = elementUsesSubstitutionType(raw.sourceNode())
 	headQName, err := s.compiler.referenceQName(raw.ctx, raw.sourceNode(), source.SubstitutionGroup.Name)
@@ -85,7 +85,7 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 		return nil
 	}
 	if !validElementID(head, len(s.elements)) {
-		return xsderrors.InternalInvariant("substitution head was not compiled")
+		return xsderrors.InternalInvariant("substitution head was not compiled", nil)
 	}
 	s.elements[member].SubstHead = head
 	s.children[head] = append(s.children[head], member)
@@ -129,7 +129,7 @@ func (s *substitutionCompilation) cycleError(member ElementID) error {
 		return err
 	}
 	name := s.elements[cycle].Name
-	return s.compiler.atGlobalElement(name, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+s.compiler.rt.formatName(name)))
+	return s.compiler.atGlobalElement(name, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+s.compiler.rt.formatName(name), nil))
 }
 
 // atGlobalElement locates diagnostic at the declaration of the global element
@@ -138,7 +138,7 @@ func (s *substitutionCompilation) cycleError(member ElementID) error {
 func (c *compiler) atGlobalElement(name QName, diagnostic error) error {
 	raw, exists := c.elementComponents[name]
 	if !exists {
-		return xsderrors.InternalInvariant("substitution group element " + c.rt.formatName(name) + " has no global declaration")
+		return xsderrors.InternalInvariant("substitution group element "+c.rt.formatName(name)+" has no global declaration", nil)
 	}
 	return withSchemaCompileLocation(raw.sourceNode(), diagnostic)
 }
@@ -154,11 +154,11 @@ func (s *substitutionCompilation) finalizeElementConstraints() error {
 
 func (s *substitutionCompilation) finalizeElementConstraint(pending pendingElementConstraint) error {
 	if !validElementID(pending.element, len(s.elements)) {
-		return xsderrors.InternalInvariant("pending element constraint references invalid element")
+		return xsderrors.InternalInvariant("pending element constraint references invalid element", nil)
 	}
 	decl := s.elements[pending.element]
 	if decl.ValueConstraint != nil {
-		return xsderrors.InternalInvariant("pending element constraint targets finalized declaration")
+		return xsderrors.InternalInvariant("pending element constraint targets finalized declaration", nil)
 	}
 	decl.ValueConstraint = pending.constraint
 	if err := s.compiler.validateElementValueConstraints(&decl, pending.node, s.compiler.rt.simpleTypeUnavailable); err != nil {
@@ -172,11 +172,11 @@ func (c *compiler) substitutionTableError(err error, elements []elementDecl) err
 	if cycle, ok := errors.AsType[substitutionCycleError](err); ok {
 		name, nameOK := c.rt.ElementName(cycle.Element)
 		if nameOK {
-			return c.atGlobalElement(name, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+c.rt.formatName(name)))
+			return c.atGlobalElement(name, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "cyclic substitution group "+c.rt.formatName(name), nil))
 		}
 	}
 	if limitErr, ok := errors.AsType[substitutionClosureLimitError](err); ok {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "substitution-group closure exceeds MaxSubstitutionClosureEntries ("+strconv.Itoa(limitErr.Limit)+")")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "substitution-group closure exceeds MaxSubstitutionClosureEntries ("+strconv.Itoa(limitErr.Limit)+")", nil)
 	}
 	if membership, ok := errors.AsType[substitutionMembershipError](err); ok &&
 		validElementID(membership.Member, len(elements)) && validElementID(membership.Head, len(elements)) {
@@ -185,7 +185,7 @@ func (c *compiler) substitutionTableError(err error, elements []elementDecl) err
 	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
-	return xsderrors.InternalInvariant(err.Error())
+	return xsderrors.InternalInvariant("", err)
 }
 
 // substitutionMembershipError reports the rejected membership of member in
@@ -212,12 +212,12 @@ func substitutionCycleElement(start ElementID, elements []elementDecl) (ElementI
 	current := start
 	for range elements {
 		if !validElementID(current, len(elements)) {
-			return NoElement, xsderrors.InternalInvariant("substitution cycle references invalid element")
+			return NoElement, xsderrors.InternalInvariant("substitution cycle references invalid element", nil)
 		}
 		current = elements[current].SubstHead
 	}
 	if !validElementID(current, len(elements)) {
-		return NoElement, xsderrors.InternalInvariant("substitution residual does not lead to a cycle")
+		return NoElement, xsderrors.InternalInvariant("substitution residual does not lead to a cycle", nil)
 	}
 	return current, nil
 }

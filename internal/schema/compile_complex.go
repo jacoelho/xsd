@@ -162,11 +162,11 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 		return c.complexTypeCycleError(id, nil)
 	case complexTypeReserved:
 	default:
-		return xsderrors.InternalInvariant("unknown complex type completion state")
+		return xsderrors.InternalInvariant("unknown complex type completion state", nil)
 	}
 	n := definition.source.sourceNode()
 	if n == nil {
-		return xsderrors.InternalInvariant("complex type definition has no source")
+		return xsderrors.InternalInvariant("complex type definition has no source", nil)
 	}
 	if err = c.spendComponentDependency(n); err != nil {
 		return err
@@ -189,7 +189,7 @@ func (c *compiler) completeComplexDefinition(id ComplexTypeID) (err error) {
 		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 			return withSchemaCompileLocation(n, err)
 		}
-		return withSchemaCompileLocation(n, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error()))
+		return withSchemaCompileLocation(n, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil))
 	}
 	c.completeComplexType(id, ct)
 	c.complexDefinitions[id].state = complexTypeComplete
@@ -203,9 +203,9 @@ func schemaComplexContentKind(n *schemaNode, attr lexicalAttribute, defaultKind 
 	case contentMixed:
 		defaultMixed = true
 	case contentSimple:
-		return contentElementOnly, xsderrors.InternalInvariant("complex content inherited a simple content kind")
+		return contentElementOnly, xsderrors.InternalInvariant("complex content inherited a simple content kind", nil)
 	default:
-		return contentElementOnly, xsderrors.InternalInvariant("complex content inherited an unknown content kind")
+		return contentElementOnly, xsderrors.InternalInvariant("complex content inherited an unknown content kind", nil)
 	}
 	mixed, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrMixed, Value: attr.Value, HasValue: attr.Present, Default: defaultMixed})
 	if err != nil {
@@ -242,7 +242,7 @@ func explicitContentEmpty(modelNode *schemaNode) (bool, error) {
 	}
 	kind, ok := schemaModelKind(modelNode)
 	if !ok {
-		return false, withSchemaCompileLocation(modelNode, xsderrors.InternalInvariant("model node has no typed model kind"))
+		return false, withSchemaCompileLocation(modelNode, xsderrors.InternalInvariant("model node has no typed model kind", nil))
 	}
 	for child := range modelNode.xsdChildren() {
 		if child.local != vocab.XSDElemAnnotation {
@@ -291,7 +291,7 @@ func (c *compiler) canonicalComplexContentModel(id contentModelID, kind complexC
 	}
 	model, ok := contentModelByID(c.rt.Models, id)
 	if !ok {
-		return noContentModel, xsderrors.InternalInvariant("complex content references missing content model")
+		return noContentModel, xsderrors.InternalInvariant("complex content references missing content model", nil)
 	}
 	if kind == contentEmpty {
 		if model.Kind == modelEmpty &&
@@ -322,7 +322,7 @@ func (c *compiler) compileComplexType(ctx *schemaSetDocument, owner complexTypeO
 func (c *compiler) newComplexType(ctx *schemaSetDocument, n *schemaNode, name QName) (complexTypeMetadata, error) {
 	source := semanticSource[*schemaComplexTypeSource](&n.semantic)
 	if source == nil {
-		return complexTypeMetadata{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("complexType node has no typed complexType source"))
+		return complexTypeMetadata{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("complexType node has no typed complexType source", nil))
 	}
 	contentKind, err := schemaComplexContentKind(n, source.Mixed, contentElementOnly)
 	if err != nil {
@@ -376,7 +376,7 @@ func (c *compiler) compileComplexContent(ctx *schemaSetDocument, owner complexTy
 	}
 	mixedSource, ok := n.semantic.kind.(*schemaComplexContentSource)
 	if !ok || mixedSource == nil {
-		return complexTypeMetadata{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("complexContent node has no typed complexContent source"))
+		return complexTypeMetadata{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("complexContent node has no typed complexContent source", nil))
 	}
 	mixedKind, err := schemaComplexContentKind(n, mixedSource.Mixed, ct.ContentKind)
 	if err != nil {
@@ -416,7 +416,7 @@ func (c *compiler) complexContentBase(ctx *schemaSetDocument, child *schemaNode)
 func (c *compiler) contentDerivationBaseQName(ctx *schemaSetDocument, child *schemaNode) (QName, error) {
 	baseSource, ok := child.semantic.derivationBase()
 	if !ok {
-		return QName{}, withSchemaCompileLocation(child, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
+		return QName{}, withSchemaCompileLocation(child, xsderrors.InternalInvariant("derivation node has no typed derivation source", nil))
 	}
 	return c.referenceQName(ctx, child, baseSource.Name)
 }
@@ -494,12 +494,12 @@ func (c *compiler) extensionContentType(owner ComplexTypeID, base complexTypeMet
 	case effective.variety == contentEmpty:
 		return effectiveContent{model: base.Content, variety: base.ContentKind}, nil
 	case base.SimpleContent():
-		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to simple content"))
+		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot add particles to simple content", nil))
 	case use == modelRoot:
 		return effective, nil
 	}
 	if base.Mixed() && !effective.variety.Mixed() {
-		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content"))
+		return effectiveContent{}, withSchemaCompileLocation(at, xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "complexContent extension cannot drop mixed base content", nil))
 	}
 	if err := validateExtensionSequenceTerms(&c.rt, base.Content, effective); err != nil {
 		return effectiveContent{}, withSchemaCompileLocation(at, err)
@@ -560,7 +560,7 @@ func (c *compiler) compileComplexContentRestriction(ctx *schemaSetDocument, owne
 	}
 	ct.Attrs = attrs
 	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {
-		return complexTypeMetadata{}, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error()))
+		return complexTypeMetadata{}, withSchemaCompileLocation(child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil))
 	}
 	return ct, nil
 }
@@ -605,7 +605,7 @@ func (c *compiler) finishSimpleContent(ctx *schemaSetDocument, owner complexType
 	ct.Derivation = derivation.kind
 	ct.ExplicitDerivation = true
 	if err := validateComplexRestrictionAttributeWildcard(&c.rt, ct); err != nil {
-		return complexTypeMetadata{}, withSchemaCompileLocation(source.child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error()))
+		return complexTypeMetadata{}, withSchemaCompileLocation(source.child, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil))
 	}
 	return ct, nil
 }
@@ -629,7 +629,7 @@ func (c *compiler) resolveSimpleContentSource(ctx *schemaSetDocument, n *schemaN
 	}
 	baseSource, ok := syntax.node.semantic.derivationBase()
 	if !ok {
-		return simpleContentSource{}, withSchemaCompileLocation(syntax.node, xsderrors.InternalInvariant("derivation node has no typed derivation source"))
+		return simpleContentSource{}, withSchemaCompileLocation(syntax.node, xsderrors.InternalInvariant("derivation node has no typed derivation source", nil))
 	}
 	base, err := c.referenceQName(ctx, syntax.node, baseSource.Name)
 	if err != nil {
@@ -683,7 +683,7 @@ func (c *compiler) compileSimpleContentComplexBase(child *schemaNode, kind conte
 	}
 	switch kind {
 	case contentDerivationNone:
-		return complexTypeMetadata{}, NoSimpleType, xsderrors.InternalInvariant("simpleContent complex base derivation missing")
+		return complexTypeMetadata{}, NoSimpleType, xsderrors.InternalInvariant("simpleContent complex base derivation missing", nil)
 	case contentDerivationExtension:
 		if err := checkComplexTypeFinalAllows(base.Final, DerivationExtension, complexTypeFinalBaseExtension); err != nil {
 			return complexTypeMetadata{}, NoSimpleType, withSchemaCompileLocation(child, err)

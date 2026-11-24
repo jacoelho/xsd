@@ -67,7 +67,7 @@ func (c *compiler) compileAttributeDecl(ctx *schemaSetDocument, n *schemaNode, q
 func (c *compiler) compileAttributeDeclType(ctx *schemaSetDocument, n *schemaNode) (SimpleTypeID, error) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
-		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source"))
+		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute node has no typed attribute source", nil))
 	}
 	if typeLex := source.Type.Lexical; typeLex.Present {
 		q, err := c.referenceQName(ctx, n, source.Type.Name)
@@ -93,7 +93,7 @@ func (c *compiler) validateAttributeValueConstraint(
 	owner valueConstraintOwner,
 ) (*valueConstraint, error) {
 	if !validSimpleTypeID(typ, len(c.rt.simpleTypeUnavailable)) {
-		return nil, xsderrors.InternalInvariant("attribute value constraint references invalid simple type")
+		return nil, xsderrors.InternalInvariant("attribute value constraint references invalid simple type", nil)
 	}
 	if c.rt.simpleTypeUnavailable[typ] {
 		return nil, nil //nolint:nilnil // A nil constraint is the absent {value constraint}; see valueConstraint.
@@ -336,7 +336,7 @@ func (b *attributeUseCompilation) validateRequiredInheritedUses(set attributeUse
 	}
 	for _, use := range b.inherited {
 		if _, present := set.Index[use.Name]; use.Required && !present {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "complex restriction omits required base attribute")
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "complex restriction omits required base attribute", nil)
 		}
 	}
 	return nil
@@ -358,16 +358,16 @@ func (b *attributeUseCompilation) finalUses() []attributeUse {
 
 func (b *attributeUseCompilation) mergeUse(use attributeUse) error {
 	if b.mode == attributeMergeInvalid {
-		return xsderrors.InternalInvariant("invalid attribute merge mode")
+		return xsderrors.InternalInvariant("invalid attribute merge mode", nil)
 	}
 	if b.mode > attributeMergeRestriction {
-		return xsderrors.InternalInvariant("unknown attribute merge mode")
+		return xsderrors.InternalInvariant("unknown attribute merge mode", nil)
 	}
 	if index, ok := b.seen[use.Name]; ok {
 		if sameAttributeUseComponent(use, b.uses[index]) {
 			return nil
 		}
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use", nil)
 	}
 	if err := b.validateInheritedUse(use); err != nil {
 		return err
@@ -402,13 +402,13 @@ func (b *attributeUseCompilation) validateInheritedUse(use attributeUse) error {
 	index, inherited := b.inheritedIndex[use.Name]
 	if b.mode != attributeMergeRestriction {
 		if inherited && !sameAttributeUseComponent(use, b.inherited[index]) {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use")
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate attribute use", nil)
 		}
 		return nil
 	}
 	if !inherited {
 		if !b.inheritedWildcardAllows(use.Name) {
-			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard")
+			return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "new restricted attribute is not allowed by base wildcard", nil)
 		}
 		return nil
 	}
@@ -420,7 +420,7 @@ func (b *attributeUseCompilation) validateRestrictedUse(base, use attributeUse) 
 		if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 			return err
 		}
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil)
 	}
 	return nil
 }
@@ -466,7 +466,7 @@ func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, mo
 
 func (c *compiler) allocateAttributeUseID() (uint32, error) {
 	if c.attributeUseCount == ^uint32(0) {
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute use identity limit exceeded")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "attribute use identity limit exceeded", nil)
 	}
 	c.attributeUseCount++
 	return c.attributeUseCount, nil
@@ -507,7 +507,7 @@ func (c *compiler) validateAttributeUseOverrides(n *schemaNode, use *attributeUs
 func (c *compiler) compileAttributeUseBase(ctx *schemaSetDocument, n *schemaNode) (attributeUseBase, error) {
 	source := semanticSource[*schemaAttributeSource](&n.semantic)
 	if source == nil {
-		return attributeUseBase{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source"))
+		return attributeUseBase{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attribute use has no typed attribute source", nil))
 	}
 	if source.Ref.Lexical.Present {
 		return c.compileAttributeRefUse(ctx, n, source.Ref.Name)
@@ -634,7 +634,7 @@ func (c *compiler) compileAttributeGroupUse(ctx *schemaSetDocument, n *schemaNod
 func (c *compiler) compileAttributeGroupUseID(ctx *schemaSetDocument, n *schemaNode) (attributeUseSetID, error) {
 	source := semanticSource[*schemaAttributeGroupSource](&n.semantic)
 	if source == nil {
-		return noAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source"))
+		return noAttributeUseSet, withSchemaCompileLocation(n, xsderrors.InternalInvariant("attributeGroup use has no typed attributeGroup source", nil))
 	}
 	q, err := c.referenceQName(ctx, n, source.Ref.Name)
 	if err != nil {

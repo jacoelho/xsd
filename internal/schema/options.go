@@ -192,5 +192,5 @@ func byteLimitOrDefault(name string, value, def int64) (int64, error) {
 }
 
 func limitError(msg string) error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg)
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, msg, nil)
 }

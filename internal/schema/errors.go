@@ -13,10 +13,10 @@ type schemaLocated interface {
 
 func schemaCompileAt(n schemaLocated, code xsderrors.Code, msg string) error {
 	if n == nil {
-		return xsderrors.SchemaCompile(code, msg)
+		return xsderrors.SchemaCompile(code, msg, nil)
 	}
 	path, line, column := n.schemaLocation()
-	return xsderrors.WithLocation(path, line, column, xsderrors.SchemaCompile(code, msg))
+	return xsderrors.WithLocation(path, line, column, xsderrors.SchemaCompile(code, msg, nil))
 }
 
 // wrapUnlessLimit adds context to err, except that a schema.limit diagnostic is
@@ -49,7 +49,7 @@ func admittedValueInvariant(err error) error {
 	if err == nil {
 		return nil
 	}
-	return xsderrors.InternalInvariant("start tag admitted an invalid attribute value: " + err.Error())
+	return xsderrors.InternalInvariant("start tag admitted an invalid attribute value", err)
 }
 
 func unsupportedAtSchemaNode(n schemaLocated, code xsderrors.Code, msg string) error {

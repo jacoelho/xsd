@@ -185,11 +185,11 @@ func newSchemaTargetContexts(documents []schemaSetDocument, limit, nodeLimit int
 
 func (c *schemaTargetContexts) checkAddLimits(sourceIndex int) error {
 	if len(c.queue) >= c.limit {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts", nil)
 	}
 	nodes := c.nodeCounts[sourceIndex]
 	if nodes > c.nodeLimit-c.nodes {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema context nodes exceed MaxSchemaInstantiatedNodes")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema context nodes exceed MaxSchemaInstantiatedNodes", nil)
 	}
 	return nil
 }
@@ -246,7 +246,7 @@ func loadSchemaGraphOwned(
 	patterns *schemaPatterns,
 ) (loadedSchemaGraph, error) {
 	if dependencyWork == nil {
-		return loadedSchemaGraph{}, xsderrors.InternalInvariant("schema dependency work budget is nil")
+		return loadedSchemaGraph{}, xsderrors.InternalInvariant("schema dependency work budget is nil", nil)
 	}
 	l := schemaSetLoader{
 		limits:         limits,
@@ -363,7 +363,7 @@ func (l *schemaSetLoader) read(item schemaLoadRequest, queue *[]schemaLoadReques
 	src := item.source
 	name := src.Name()
 	if name == "" {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required", nil)
 	}
 	key := source.Key(name)
 	if loaded, ok := l.byKey[key]; ok {
@@ -389,7 +389,7 @@ func (l *schemaSetLoader) parseNewSource(item schemaLoadRequest, key string) (*s
 	if input != nil && len(l.byKey) >= l.limits.MaxSchemaSources {
 		// Not-found is known only after the open, so an unavailable target is
 		// never counted. The over-limit document is closed unread.
-		limitErr := l.locateSourceError(item, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema source count exceeds MaxSchemaSources"))
+		limitErr := l.locateSourceError(item, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema source count exceeds MaxSchemaSources", nil))
 		if closeErr := input.Discard(); closeErr != nil {
 			limitErr = errors.Join(limitErr, closeErr)
 		}
@@ -421,7 +421,7 @@ func (*schemaSetLoader) locateSourceError(item schemaLoadRequest, err error) err
 }
 
 func (l *schemaSetLoader) totalBytesLimitError(item schemaLoadRequest, acquireErr error) error {
-	return schemaTotalBytesLimitError(l.locateSourceError(item, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema sources exceed MaxSchemaTotalBytes")), acquireErr)
+	return schemaTotalBytesLimitError(l.locateSourceError(item, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema sources exceed MaxSchemaTotalBytes", nil)), acquireErr)
 }
 
 func (l *schemaSetLoader) admitSourceResult(item schemaLoadRequest, result source.ReadResult, readLimit, remaining int64) (bool, error) {
@@ -444,7 +444,7 @@ func (l *schemaSetLoader) classifySchemaAcquireResult(item schemaLoadRequest, re
 			return true, nil
 		}
 	default:
-		return false, xsderrors.InternalInvariant("unknown schema source requirement")
+		return false, xsderrors.InternalInvariant("unknown schema source requirement", nil)
 	}
 	if result.LimitExceeded && readLimit == remaining {
 		return false, l.totalBytesLimitError(item, result.Err)
@@ -572,7 +572,7 @@ func (l *schemaSetLoader) validateLoadedSourceBytes(item schemaLoadRequest, key 
 }
 
 func (l *schemaSetLoader) sourceIdentityError(item schemaLoadRequest, key string) error {
-	return l.locateSourceError(item, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+diagnostictext.Quote(key)))
+	return l.locateSourceError(item, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "schema source identity resolves to different document content: "+diagnostictext.Quote(key), nil))
 }
 
 // schemaTotalBytesLimitError joins the located MaxSchemaTotalBytes diagnostic
@@ -607,7 +607,7 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, doc *schemaDocume
 	refs := doc.references
 	referenceCount := len(refs)
 	if referenceCount > l.limits.MaxSchemaReferences-l.references {
-		return withSchemaCompileLocation(doc.root, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema references exceed MaxSchemaReferences"))
+		return withSchemaCompileLocation(doc.root, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema references exceed MaxSchemaReferences", nil))
 	}
 	l.references += referenceCount
 	for i := range refs {
@@ -794,7 +794,7 @@ func schemaReferenceKindForLocal(local string) (schemaReferenceKind, bool) {
 func parseSchemaReferenceLocation(child *schemaNode, kind schemaReferenceKind) (uriref.Reference, bool, error) {
 	raw, present := schemaLocationAttr(child)
 	if kind == schemaReferenceInclude && !present {
-		return uriref.Reference{}, false, withSchemaCompileLocation(child, xsderrors.InternalInvariant("include start tag admitted no schemaLocation"))
+		return uriref.Reference{}, false, withSchemaCompileLocation(child, xsderrors.InternalInvariant("include start tag admitted no schemaLocation", nil))
 	}
 	if !present {
 		return uriref.Reference{}, false, nil
@@ -826,7 +826,7 @@ func (c schemaDocumentReferenceContext) parseLocalBase(child *schemaNode) (urire
 func schemaImportNamespace(child *schemaNode) (string, error) {
 	referenceSource, ok := child.semantic.kind.(*schemaReferenceSource)
 	if !ok || referenceSource == nil {
-		return "", withSchemaCompileLocation(child, xsderrors.InternalInvariant("import node has no typed reference source"))
+		return "", withSchemaCompileLocation(child, xsderrors.InternalInvariant("import node has no typed reference source", nil))
 	}
 	if err := validateSchemaImportNamespace(referenceSource.Namespace); err != nil {
 		return "", withSchemaCompileLocation(child, admittedValueInvariant(err))
@@ -872,7 +872,7 @@ func schemaReferenceCompileAt(src source.Source, node *schemaNode, message strin
 	if node != nil {
 		line, column = node.line, node.column
 	}
-	return xsderrors.WithLocation(src.Name(), line, column, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, message))
+	return xsderrors.WithLocation(src.Name(), line, column, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, message, nil))
 }
 
 func withSchemaReferenceLocation(request schemaLoadRequest, err error) error {
@@ -943,7 +943,7 @@ func (l *schemaSetLoader) validateLoadedImportNamespace(ref *schemaReference) er
 
 func (l *schemaSetLoader) validateLoadedReference(ref *schemaReference, target *schemaDocument) error {
 	if target == nil {
-		return xsderrors.InternalInvariant("schema reference target validation requires a target")
+		return xsderrors.InternalInvariant("schema reference target validation requires a target", nil)
 	}
 	effective, fixed := l.fixedTargetNamespace(ref.doc)
 	if !fixed && ref.kind == schemaReferenceInclude {
@@ -995,7 +995,7 @@ func validateReferenceTarget(effectiveTarget string, ref *schemaReference, targe
 			return schemaCompileAt(ref.sourceNode(), xsderrors.CodeSchemaReference, "import namespace does not match imported schema targetNamespace")
 		}
 	default:
-		return xsderrors.InternalInvariant("schema reference target validation received invalid edge kind")
+		return xsderrors.InternalInvariant("schema reference target validation received invalid edge kind", nil)
 	}
 	return nil
 }
@@ -1023,7 +1023,7 @@ func (g *loadedSchemaGraph) instantiateTargetContexts() error {
 
 func (g *loadedSchemaGraph) applyDeclaredTargetContexts() error {
 	if len(g.documents) > g.limits.MaxSchemaTargetContexts {
-		return locateSetWide(g.documents, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts"))
+		return locateSetWide(g.documents, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema target contexts exceed MaxSchemaTargetContexts", nil))
 	}
 	for i := range g.documents {
 		g.documents[i].effectiveTargetNS = g.documents[i].doc.defaults.TargetNamespace

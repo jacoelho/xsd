@@ -254,7 +254,7 @@ func TestValidateContentModelTableRejectsCycles(t *testing.T) {
 				return
 			}
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-			if diag, _ := errors.AsType[*xsderrors.Error](err); diag.Message() != tt.wantErr {
+			if err.Error() != "internal.invariant: "+tt.wantErr {
 				t.Fatalf("validateContentModelTable() error = %v, want %q", err, tt.wantErr)
 			}
 		})

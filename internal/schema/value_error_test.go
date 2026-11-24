@@ -14,7 +14,7 @@ func TestSchemaValueError(t *testing.T) {
 	t.Parallel()
 
 	unsupported := xsderrors.Unsupported(xsderrors.CodeUnsupportedRegex, "unsupported regex", nil)
-	located := xsderrors.WithLocation("constraint.xsd", 7, 11, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exhausted"))
+	located := xsderrors.WithLocation("constraint.xsd", 7, 11, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content work exhausted", nil))
 	wrappedUnsupported := fmt.Errorf("mixed content constraint: %w", unsupported)
 
 	tests := []struct {
@@ -54,11 +54,14 @@ func TestSchemaValueError(t *testing.T) {
 				if xerr.Category() != xsderrors.CategoryInternal {
 					t.Fatalf("category = %s, want internal", xerr.Category())
 				}
+				if !errors.Is(got, tt.err) {
+					t.Fatalf("schemaValueError() = %v, want it to wrap %v", got, tt.err)
+				}
 			} else if xerr.Category() != xsderrors.CategorySchemaCompile || xerr.Code() != tt.code {
 				t.Fatalf("diagnostic = %s/%s, want schema compile %s", xerr.Category(), xerr.Code(), tt.code)
 			}
-			if !strings.Contains(xerr.Message(), tt.contains) {
-				t.Fatalf("message = %q, want it to contain %q", xerr.Message(), tt.contains)
+			if !strings.Contains(xerr.Error(), tt.contains) {
+				t.Fatalf("error = %q, want it to contain %q", xerr.Error(), tt.contains)
 			}
 		})
 	}

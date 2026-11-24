@@ -112,10 +112,10 @@ func wildcardNamespaceURI(part, targetNS string) (string, error) {
 		return targetNS, nil
 	default:
 		if strings.HasPrefix(part, "##") {
-			return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+diagnostictext.Quote(part))
+			return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+diagnostictext.Quote(part), nil)
 		}
 		if _, err := uriref.Check(part); err != nil {
-			return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+diagnostictext.Quote(part))
+			return "", xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid wildcard namespace "+diagnostictext.Quote(part), nil)
 		}
 		return part, nil
 	}
@@ -136,13 +136,13 @@ func parseWildcardProcessContents(attrs wildcardAttrs) (ProcessContents, error) 
 	case processContentsStrict:
 		return processStrict, nil
 	default:
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid processContents")
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "invalid processContents", nil)
 	}
 }
 
 func internWildcardNamespace(names nameInterner, uri string) (namespaceID, error) {
 	if names.table == nil {
-		return 0, xsderrors.InternalInvariant("wildcard parser requires namespace interner")
+		return 0, xsderrors.InternalInvariant("wildcard parser requires namespace interner", nil)
 	}
 	return names.InternNamespace(uri)
 }

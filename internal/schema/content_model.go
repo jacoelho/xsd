@@ -265,10 +265,10 @@ func (a *contentModelTableAudit) enter(id contentModelID) error {
 		return err
 	}
 	if err := validateContentModelKindShape(model); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if model.NonUnitParticle != slices.ContainsFunc(particles, nonUnitParticle) {
-		return xsderrors.InternalInvariant("content model non-unit particle flag disagrees with its particles")
+		return xsderrors.InternalInvariant("content model non-unit particle flag disagrees with its particles", nil)
 	}
 	a.state[id] = contentModelGraphChecking
 	a.stack = appendDFSFrame(a.stack, contentModelGraphFrame{particles: particles, id: id}, len(a.models))
@@ -298,10 +298,10 @@ func (a *contentModelTableAudit) advance() error {
 	particle := frame.particles[frame.next]
 	frame.next++
 	if err := validateParticleShape(particle); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if err := validateParticleRuntimeReference(particle, a.limits, len(a.models)); err != nil {
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 	if particle.Kind != particleModel {
 		return nil
@@ -310,7 +310,7 @@ func (a *contentModelTableAudit) advance() error {
 	case contentModelGraphUnchecked:
 		return a.enter(particle.Model)
 	case contentModelGraphChecking:
-		return xsderrors.InternalInvariant("content model graph contains cycle")
+		return xsderrors.InternalInvariant("content model graph contains cycle", nil)
 	case contentModelGraphChecked:
 	}
 	return nil

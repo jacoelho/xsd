@@ -19,7 +19,7 @@ func (s *session) validateAttributes(typ xsdSchema.TypeID, attrs []xmlstream.Att
 		return s.validateSimpleTypeAttributes(attrs, line, col)
 	}
 	if !ok {
-		return xsderrors.InternalInvariant("complex attribute use set is invalid")
+		return xsderrors.InternalInvariant("complex attribute use set is invalid", nil)
 	}
 	if len(attrs) == 0 && set.RequiredSlots().Len() == 0 && set.ValueConstraintSlots().Len() == 0 {
 		return nil
@@ -41,7 +41,7 @@ func (s *session) attributeDecl(id xsdSchema.AttributeID) (xsdSchema.AttributeDe
 func (s *session) attributeValue(attr *xmlstream.Attr) (string, error) {
 	value, err := s.reader.AttrValue(attr)
 	if err != nil {
-		return "", xsderrors.InternalInvariant("instance reader skipped attribute value")
+		return "", xsderrors.InternalInvariant("instance reader skipped attribute value", nil)
 	}
 	return value, nil
 }
@@ -192,7 +192,7 @@ func (s *session) validateDeclaredAttributeUse(
 	}
 	input, ok := s.rt.ValueProgram().InputRequirements(use.TypeID())
 	if !ok {
-		return s.rejectAttributeIdentityValue(identityTarget, xsderrors.InternalInvariant("attribute input metadata is invalid"))
+		return s.rejectAttributeIdentityValue(identityTarget, xsderrors.InternalInvariant("attribute input metadata is invalid", nil))
 	}
 	plan := newDeclaredAttributePlan(use, identityTarget, input)
 	if handled, err := s.validateDeclaredAttributeFast(ctx, &plan, attr, rn); handled {
@@ -310,7 +310,7 @@ func (s *session) validateWildcardAttribute(
 ) (bool, error) {
 	match, valid := matchAttributeWildcard(s.rt, set.Wildcard(), rn)
 	if !valid {
-		return true, xsderrors.InternalInvariant("attribute wildcard state is invalid")
+		return true, xsderrors.InternalInvariant("attribute wildcard state is invalid", nil)
 	}
 	switch match.disposition {
 	case attributeWildcardNoMatch:
@@ -324,7 +324,7 @@ func (s *session) validateWildcardAttribute(
 	case attributeWildcardDeclared:
 		decl, ok := s.attributeDecl(match.attribute)
 		if !ok {
-			return true, xsderrors.InternalInvariant("attribute wildcard matched invalid declaration")
+			return true, xsderrors.InternalInvariant("attribute wildcard matched invalid declaration", nil)
 		}
 		value, err := s.attributeValue(attr)
 		if err != nil {
@@ -332,7 +332,7 @@ func (s *session) validateWildcardAttribute(
 		}
 		return true, s.validateKnownWildcardAttribute(ctx, set, decl, rn, value)
 	}
-	return true, xsderrors.InternalInvariant("attribute wildcard match disposition is invalid")
+	return true, xsderrors.InternalInvariant("attribute wildcard match disposition is invalid", nil)
 }
 
 // captureUnknownIdentityAttribute records an attribute that a lax wildcard
@@ -382,7 +382,7 @@ func (s *session) validateKnownWildcardAttribute(
 	typeID := decl.TypeID()
 	input, ok := s.rt.ValueProgram().InputRequirements(typeID)
 	if !ok {
-		return s.rejectAttributeIdentityValue(identityTarget, xsderrors.InternalInvariant("attribute input metadata is invalid"))
+		return s.rejectAttributeIdentityValue(identityTarget, xsderrors.InternalInvariant("attribute input metadata is invalid", nil))
 	}
 	if set.HasIDUse() && input.CarriesID {
 		return s.rejectAttributeIdentityValue(identityTarget, attributeValidation(ctx, msgWildcardIDDeclaredUse))
@@ -436,7 +436,7 @@ func (s *session) validateFixedAttributeValue(
 		return invalidateErr
 	}
 	if !valid {
-		return xsderrors.InternalInvariant("fixed attribute value-space identity is missing")
+		return xsderrors.InternalInvariant("fixed attribute value-space identity is missing", nil)
 	}
 	return attributeValidation(ctx, fixedAttributeMessage(label, lexical, fixed.CanonicalText()))
 }
@@ -444,7 +444,7 @@ func (s *session) validateFixedAttributeValue(
 func (s *session) validateAttributeTypeAvailable(ctx startContext, id xsdSchema.SimpleTypeID, label string) error {
 	unavailable, ok := s.rt.SimpleTypeUnavailable(id)
 	if !ok {
-		return xsderrors.InternalInvariant("attribute type metadata is invalid")
+		return xsderrors.InternalInvariant("attribute type metadata is invalid", nil)
 	}
 	if unavailable {
 		return attributeValidation(ctx, unavailableAttributeTypeMessage(label))
@@ -475,14 +475,14 @@ func (s *session) validateRequiredAttributes(ctx startContext, set xsdSchema.Att
 func requiredAttributeError(ctx startContext, set xsdSchema.AttributeUseSetRead, seen attributeSeen, required xsdSchema.AttributeUseSlots, slotIndex int) error {
 	slot, ok := required.At(slotIndex)
 	if !ok {
-		return xsderrors.InternalInvariant("required attribute slot is invalid")
+		return xsderrors.InternalInvariant("required attribute slot is invalid", nil)
 	}
 	if seen.has(int(slot)) {
 		return nil
 	}
 	use, ok := set.UseAt(int(slot))
 	if !ok {
-		return xsderrors.InternalInvariant("required attribute slot is invalid")
+		return xsderrors.InternalInvariant("required attribute slot is invalid", nil)
 	}
 	return attributeValidation(ctx, requiredAttributeMessage(use.QuotedName()))
 }
@@ -500,14 +500,14 @@ func (s *session) validateDefaultAttributes(ctx startContext, set xsdSchema.Attr
 func (s *session) validateDefaultAttribute(ctx startContext, set xsdSchema.AttributeUseSetRead, seen attributeSeen, valueConstraints xsdSchema.AttributeUseSlots, slotIndex int) error {
 	slot, ok := valueConstraints.At(slotIndex)
 	if !ok {
-		return xsderrors.InternalInvariant("value constraint attribute slot is invalid")
+		return xsderrors.InternalInvariant("value constraint attribute slot is invalid", nil)
 	}
 	if seen.has(int(slot)) {
 		return nil
 	}
 	use, ok := set.UseAt(int(slot))
 	if !ok {
-		return xsderrors.InternalInvariant("value constraint attribute slot is invalid")
+		return xsderrors.InternalInvariant("value constraint attribute slot is invalid", nil)
 	}
 	if use.Required() {
 		return nil

@@ -20,7 +20,7 @@ func parseQNameParts(lexical string) (qNameParts, error) {
 	lexical = lex.TrimXMLWhitespaceString(lexical)
 	parts := lex.SplitQName(lexical)
 	if !parts.Valid {
-		return qNameParts{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+diagnostictext.Quote(lexical))
+		return qNameParts{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, invalidQNameMessagePrefix+diagnostictext.Quote(lexical), nil)
 	}
 	return qNameParts{Prefix: parts.Prefix, Local: parts.Local, Prefixed: parts.Prefixed}, nil
 }

@@ -266,7 +266,7 @@ type followClassRef struct {
 // first time a position with its segment list is reached.
 func (t *followTable) class(pos int) (followClassRef, error) {
 	if pos < 0 || pos >= len(t.classOf) {
-		return followClassRef{}, xsderrors.InternalInvariant("content model DFA references invalid position")
+		return followClassRef{}, xsderrors.InternalInvariant("content model DFA references invalid position", nil)
 	}
 	ref := &t.classOf[pos]
 	created := false

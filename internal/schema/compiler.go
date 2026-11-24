@@ -32,15 +32,15 @@ func CompileMappedSources[T any](opts Options, sources []T, sourceOf func(T) sou
 		return nil, err
 	}
 	if len(sources) == 0 {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaNoSources, "at least one schema source is required")
+		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaNoSources, "at least one schema source is required", nil)
 	}
 	// Bounds the caller's explicit list; documents, explicit and
 	// resolver-loaded, are counted when the loader registers them.
 	if len(sources) > limits.MaxSchemaSources {
-		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema source count exceeds MaxSchemaSources")
+		return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema source count exceeds MaxSchemaSources", nil)
 	}
 	if sourceOf == nil {
-		return nil, xsderrors.InternalInvariant("schema source mapper is nil")
+		return nil, xsderrors.InternalInvariant("schema source mapper is nil", nil)
 	}
 	c, err := newCompiler(limits)
 	if err != nil {
@@ -58,7 +58,7 @@ func mapSchemaSources[T any](sources []T, sourceOf func(T) source.Source) ([]sou
 	for i, input := range sources {
 		owned[i] = sourceOf(input)
 		if owned[i].Name() == "" {
-			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required")
+			return nil, xsderrors.SchemaCompile(xsderrors.CodeSchemaRead, "schema source name is required", nil)
 		}
 	}
 	return owned, nil
@@ -232,7 +232,7 @@ type componentScope struct {
 // function, so the depth is restored when the component's work returns.
 func (c *compiler) enterComponent(n *schemaNode) (componentScope, error) {
 	if c.componentDepth >= maxComponentDependencyDepth {
-		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema component dependency depth limit exceeded")
+		err := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema component dependency depth limit exceeded", nil)
 		if n != nil {
 			err = withSchemaCompileLocation(n, err)
 		}
@@ -440,7 +440,7 @@ func (c *compiler) validateComplexRestrictionModel(id ComplexTypeID) (err error)
 	}
 	n := c.complexDefinitions[id].source.sourceNode()
 	if n == nil {
-		return xsderrors.InternalInvariant("restricted complex type has no source")
+		return xsderrors.InternalInvariant("restricted complex type has no source", nil)
 	}
 	scope, err := c.enterComponent(n)
 	if err != nil {
@@ -463,11 +463,11 @@ func contentRestrictionCompileError(err error) error {
 	case err == nil:
 		return nil
 	case isContentRestrictionMismatch(err):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error())
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, err.Error(), nil)
 	case errors.As(err, &diagnostic):
 		return err
 	default:
-		return xsderrors.InternalInvariant(err.Error())
+		return xsderrors.InternalInvariant("", err)
 	}
 }
 
@@ -478,7 +478,7 @@ func complexBlockMaskWithDefault(n *schemaNode, def DerivationMask) (DerivationM
 func simpleFinalMaskWithDefaultChecked(n *schemaNode, def DerivationMask) (DerivationMask, error) {
 	typedSource, ok := n.semantic.kind.(*schemaSimpleTypeSource)
 	if !ok || typedSource == nil {
-		return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType node has no typed simpleType source"))
+		return 0, withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType node has no typed simpleType source", nil))
 	}
 	return derivationMaskWithDefaultChecked(n, typedSource.Final, def, simpleTypeFinalDerivation())
 }
@@ -655,7 +655,7 @@ func (c *compiler) compileAnonymousSimple(ctx *schemaSetDocument, n *schemaNode)
 func (c *compiler) compileSimpleType(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
 	child := simpleTypeDerivationChild(n)
 	if child == nil {
-		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType child order admitted no derivation"))
+		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("simpleType child order admitted no derivation", nil))
 	}
 	switch child.local {
 	case vocab.XSDElemRestriction:
@@ -665,7 +665,7 @@ func (c *compiler) compileSimpleType(ctx *schemaSetDocument, n *schemaNode, name
 	case vocab.XSDElemUnion:
 		return c.compileUnion(ctx, child, name)
 	default:
-		return simpleType{}, xsderrors.InternalInvariant("simpleType child validator admitted " + child.local)
+		return simpleType{}, xsderrors.InternalInvariant("simpleType child validator admitted "+child.local, nil)
 	}
 }
 
@@ -705,11 +705,11 @@ func (c *compiler) compileRestriction(ctx *schemaSetDocument, n *schemaNode, nam
 func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode) (SimpleTypeID, error) {
 	children := schemaSimpleTypeChildren(n)
 	if len(children) > 1 {
-		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children")
+		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children", nil)
 	}
 	baseSource, ok := n.semantic.derivationBase()
 	if !ok {
-		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction node has no typed derivation source"))
+		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction node has no typed derivation source", nil))
 	}
 	if baseSource.Lexical.Present {
 		q, err := c.referenceQName(ctx, n, baseSource.Name)
@@ -722,7 +722,7 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 	if len(children) == 1 {
 		return c.compileAnonymousSimple(ctx, children[0])
 	}
-	return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction child order admitted no base type"))
+	return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction child order admitted no base type", nil))
 }
 
 func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName) (simpleType, error) {
@@ -743,10 +743,10 @@ func (c *compiler) compileList(ctx *schemaSetDocument, n *schemaNode, name QName
 		}
 		item = id
 	case len(simpleTypeChildren) > 1:
-		return simpleType{}, xsderrors.InternalInvariant("list child validator admitted multiple simpleType children")
+		return simpleType{}, xsderrors.InternalInvariant("list child validator admitted multiple simpleType children", nil)
 	}
 	if item == NoSimpleType {
-		return simpleType{}, xsderrors.InternalInvariant("list source validator admitted missing item type")
+		return simpleType{}, xsderrors.InternalInvariant("list source validator admitted missing item type", nil)
 	}
 	if err := c.admitListItemType(n, item); err != nil {
 		return simpleType{}, err
@@ -812,7 +812,7 @@ func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QNam
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
 	memberTypesSource, ok := n.semantic.derivationMemberTypes()
 	if !ok {
-		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("union node has no typed derivation source"))
+		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("union node has no typed derivation source", nil))
 	}
 	memberTypes := memberTypesSource.Names
 	for _, member := range memberTypes {
@@ -826,7 +826,7 @@ func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QNam
 		}
 	}
 	if len(compilation.typeDef.ValueSpec.Union) == 0 {
-		return simpleType{}, xsderrors.InternalInvariant("union source validator admitted missing member types")
+		return simpleType{}, xsderrors.InternalInvariant("union source validator admitted missing member types", nil)
 	}
 	return compilation.typeDef, nil
 }
@@ -869,7 +869,7 @@ func (c *simpleUnionCompilation) add(node *schemaNode, id SimpleTypeID) error {
 	added, ok := c.compiler.rt.appendFlattenedUnionMember(&c.typeDef.ValueSpec.Union, id, c.seen, remaining)
 	c.compiler.unionMemberEntries += added
 	if !ok {
-		return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries"))
+		return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries", nil))
 	}
 	c.typeDef.unionContainsList = c.typeDef.unionContainsList || c.compiler.simpleListItemReachesList(id)
 	return nil
@@ -877,7 +877,7 @@ func (c *simpleUnionCompilation) add(node *schemaNode, id SimpleTypeID) error {
 
 func (c *compiler) chargeSimpleUnionMemberEntries(node *schemaNode, count int) error {
 	if count > c.limits.MaxSimpleUnionMemberEntries-c.unionMemberEntries {
-		return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries"))
+		return withSchemaCompileLocation(node, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "simple union members exceed MaxSimpleUnionMemberEntries", nil))
 	}
 	c.unionMemberEntries += count
 	return nil

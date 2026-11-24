@@ -107,7 +107,7 @@ func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement s
 	case schemaPlacementNamedGroupModel:
 		message = misplacedNamedGroupModelAttribute(attr)
 	default:
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown", nil))
 	}
 	if message == "" {
 		return nil
@@ -189,7 +189,7 @@ func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, place
 	element := n.Name.Local
 	required, known := requiredSchemaAttribute(element, placement)
 	if !known {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown"))
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element placement is unknown", nil))
 	}
 	if required == "" {
 		return nil
@@ -199,7 +199,7 @@ func checkPlacementRequiredAttribute(n *schemaSyntaxNode, parent xml.Name, place
 	}
 	message := missingSchemaAttributeMessage(element, parent, placement)
 	if message == "" {
-		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message"))
+		return withSchemaCompileLocation(n, xsderrors.InternalInvariant("schema element xs:"+diagnostictext.Quote(element)+" has no required attribute message", nil))
 	}
 	return schemaCompileAt(n, xsderrors.CodeSchemaReference, message)
 }

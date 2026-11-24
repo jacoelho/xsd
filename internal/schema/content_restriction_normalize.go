@@ -58,7 +58,7 @@ func (n *restrictionNormalizer) particle(p contentParticle, depth int) (contentP
 		return contentParticle{}, err
 	}
 	if depth > maxComponentDependencyDepth {
-		return contentParticle{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content restriction normalization exceeds depth limit")
+		return contentParticle{}, xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "content restriction normalization exceeds depth limit", nil)
 	}
 	switch p.Kind {
 	case particleElement:

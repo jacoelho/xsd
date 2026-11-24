@@ -86,7 +86,7 @@ type schemaAttribute struct {
 func schemaAttrValue(reader *xmlstream.Reader, attr *xmlstream.Attr) (string, error) {
 	value, err := reader.AttrValue(attr)
 	if err != nil {
-		return "", xsderrors.InternalInvariant("schema reader skipped attribute value")
+		return "", xsderrors.InternalInvariant("schema reader skipped attribute value", nil)
 	}
 	return value, nil
 }
@@ -169,11 +169,11 @@ func parseSchemaDocument(name, key string, input io.Reader, limits Limits, parse
 
 func parseDocumentDefaultsNode(root *schemaNode) (schemaDefaults, error) {
 	if root == nil {
-		return schemaDefaults{}, xsderrors.InternalInvariant("schema defaults require a parsed root")
+		return schemaDefaults{}, xsderrors.InternalInvariant("schema defaults require a parsed root", nil)
 	}
 	source, ok := root.semantic.kind.(*schemaDocumentSource)
 	if !ok || source == nil {
-		return schemaDefaults{}, withSchemaCompileLocation(root, xsderrors.InternalInvariant("schema defaults require a typed document source"))
+		return schemaDefaults{}, withSchemaCompileLocation(root, xsderrors.InternalInvariant("schema defaults require a typed document source", nil))
 	}
 	defaults, err := parseSchemaDefaults(*source)
 	return defaults, withSchemaCompileLocation(root, err)
@@ -209,7 +209,7 @@ func schemaReaderLimitError(limit xmlstream.Limit, line, col int, err error, lim
 	case xmlstream.LimitDepth:
 		option, configured = "MaxSchemaDepth", int64(limits.MaxSchemaDepth)
 	case xmlstream.LimitInputBytes:
-		return xsderrors.InternalInvariant("schema reader has no input limit")
+		return xsderrors.InternalInvariant("schema reader has no input limit", nil)
 	}
 	return schemaParseAt(line, col, xsderrors.CodeSchemaLimit, option+"="+strconv.FormatInt(configured, 10)+" exceeded", err)
 }
@@ -225,7 +225,7 @@ func unsupportedSchemaFeature(feature xmlstream.UnsupportedFeature, err error) e
 	case xmlstream.UnsupportedEntityReference:
 		return xsderrors.Unsupported(xsderrors.CodeUnsupportedExternal, "schema documents cannot reference undeclared entities", err)
 	}
-	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
+	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature", nil)
 }
 
 func schemaNodeIDFor(index int) (schemaNodeID, error) {

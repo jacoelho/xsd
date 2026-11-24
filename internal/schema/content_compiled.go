@@ -301,7 +301,7 @@ func requireRootedAllModels(roots []int, models []compiledModelRead) error {
 	}
 	for i := range models {
 		if models[i].Kind == compiledModelAll && !rooted[i] {
-			return xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type")
+			return xsderrors.InternalInvariant("schema compiled all content model is not the content of a complex type", nil)
 		}
 	}
 	return nil
@@ -314,7 +314,7 @@ func contentRoots(types []complexTypeMetadata, content *compiledContent) ([]int,
 	for i := range types {
 		root, ok := slices.BinarySearch(content.Sources, types[i].Content)
 		if !ok {
-			return nil, xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root")
+			return nil, xsderrors.InternalInvariant("schema compiled content-model table lacks a complex-type root", nil)
 		}
 		roots[i] = root
 	}
@@ -412,7 +412,7 @@ func readRows(source []compiledModelRow) []compiledModelRowRead {
 func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead) ([]compiledModelRowRead, error) {
 	for k, edge := range run {
 		if uint64(edge.To) != uint64(k)+1 {
-			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows")
+			return nil, xsderrors.InternalInvariant("compiled edge run does not target consecutive rows", nil)
 		}
 	}
 	rows := make([]compiledModelRowRead, len(source))
@@ -422,7 +422,7 @@ func readRunRows(source []compiledModelRow, run []compiledModelEdgeRead) ([]comp
 			start := uint64(row.Edges[0].To) - 1
 			end := start + uint64(len(row.Edges))
 			if row.Edges[0].To == 0 || end > uint64(len(run)) || uint64(row.Edges[len(row.Edges)-1].To) != end {
-				return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run")
+				return nil, xsderrors.InternalInvariant("compiled row edges are not a window of the model's edge run", nil)
 			}
 			window = run[start:end:end]
 		}

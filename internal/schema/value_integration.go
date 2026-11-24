@@ -97,20 +97,20 @@ func schemaValueError(limits Limits, code xsderrors.Code, subject string, err er
 	case err == nil:
 		return nil
 	case errors.Is(err, value.ErrMetadata):
-		return xsderrors.InternalInvariant(subject + ": " + err.Error())
+		return xsderrors.InternalInvariant(subject, err)
 	case errors.Is(err, value.ErrPatternTotalLimit):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaTotalPatternWork="+strconv.FormatUint(limits.MaxSchemaTotalPatternWork, 10)+" exceeded")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaTotalPatternWork="+strconv.FormatUint(limits.MaxSchemaTotalPatternWork, 10)+" exceeded", nil)
 	case errors.Is(err, value.ErrPatternLimit):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaPatternWork="+strconv.FormatUint(limits.MaxSchemaPatternWork, 10)+" exceeded")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaPatternWork="+strconv.FormatUint(limits.MaxSchemaPatternWork, 10)+" exceeded", nil)
 	case errors.Is(err, value.ErrLimit):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": "+err.Error())
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": "+err.Error(), nil)
 	case xsderrors.IsUnsupported(err):
 		return err
 	}
 	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic != nil {
 		return err
 	}
-	return xsderrors.SchemaCompile(code, subject+": "+err.Error())
+	return xsderrors.SchemaCompile(code, subject+": "+err.Error(), nil)
 }
 
 func (c *compiler) completeValueType(id SimpleTypeID, st simpleType) error {
@@ -137,7 +137,7 @@ func (c *compiler) completeValueType(id SimpleTypeID, st simpleType) error {
 	}
 	constrained, ok := builder.UnionHasFacets(id)
 	if !ok {
-		return xsderrors.InternalInvariant("completed simple type has no value definition")
+		return xsderrors.InternalInvariant("completed simple type has no value definition", nil)
 	}
 	c.rt.SimpleTypes[id].unionHasFacets = constrained
 	return nil

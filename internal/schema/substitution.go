@@ -208,7 +208,7 @@ func (t substitutionTable) published(elements publishedElements) (substitutionTa
 	for i, entry := range t.entries {
 		id, ok := elements.id(entry.member)
 		if !ok {
-			return substitutionTable{}, xsderrors.InternalInvariant("substitution member has no published ID")
+			return substitutionTable{}, xsderrors.InternalInvariant("substitution member has no published ID", nil)
 		}
 		entry.member = id
 		entries[i] = entry
@@ -217,7 +217,7 @@ func (t substitutionTable) published(elements publishedElements) (substitutionTa
 		return substitutionTable{entries: entries, byName: t.byName}, nil
 	}
 	if len(t.spans) != len(elements.ids) {
-		return substitutionTable{}, xsderrors.InternalInvariant("substitution table does not cover the element declarations")
+		return substitutionTable{}, xsderrors.InternalInvariant("substitution table does not cover the element declarations", nil)
 	}
 	spans := make([]substitutionSpan, elements.count)
 	for head, span := range t.spans {
@@ -225,7 +225,7 @@ func (t substitutionTable) published(elements publishedElements) (substitutionTa
 		if ok {
 			spans[id] = span
 		} else if span.count != 0 {
-			return substitutionTable{}, xsderrors.InternalInvariant("substitution head has no published ID")
+			return substitutionTable{}, xsderrors.InternalInvariant("substitution head has no published ID", nil)
 		}
 	}
 	return substitutionTable{spans: spans, entries: entries, byName: t.byName}, nil

@@ -37,7 +37,7 @@ func (p *SessionPool) Validate(r io.Reader, opts Options) error {
 		return err
 	}
 	if p == nil || p.rt == nil {
-		return xsderrors.InternalInvariant("nil validation schema")
+		return xsderrors.InternalInvariant("nil validation schema", nil)
 	}
 
 	scratch := p.idle.Swap(nil)
@@ -62,7 +62,7 @@ func (p *SessionPool) NewSession(opts Options) (*Session, error) {
 		return nil, err
 	}
 	if p == nil || p.rt == nil {
-		return nil, xsderrors.InternalInvariant("nil validation schema")
+		return nil, xsderrors.InternalInvariant("nil validation schema", nil)
 	}
 	result := new(Session)
 	initializeSession(&result.session, p.rt, limits)

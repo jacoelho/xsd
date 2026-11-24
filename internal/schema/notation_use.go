@@ -13,17 +13,17 @@ var errBareNotationTypeUse = errors.New("NOTATION type use requires enumeration"
 // so completed list and union types require no repeated descendant walk.
 func checkNotationTypeUse(build *schemaBuild, id SimpleTypeID) error {
 	if !validSimpleTypeID(id, len(build.SimpleTypes)) || !validSimpleTypeID(id, len(build.simpleTypeUnavailable)) {
-		return xsderrors.InternalInvariant("NOTATION use references invalid simple type")
+		return xsderrors.InternalInvariant("NOTATION use references invalid simple type", nil)
 	}
 	if build.simpleTypeUnavailable[id] {
 		return nil
 	}
 	if build.valueBuilder == nil {
-		return xsderrors.InternalInvariant("NOTATION use has no value builder")
+		return xsderrors.InternalInvariant("NOTATION use has no value builder", nil)
 	}
 	bare, ok := build.valueBuilder.NotationWithoutEnumeration(id)
 	if !ok {
-		return xsderrors.InternalInvariant("NOTATION use has no completed value definition")
+		return xsderrors.InternalInvariant("NOTATION use has no completed value definition", nil)
 	}
 	if bare {
 		return errBareNotationTypeUse
@@ -34,7 +34,7 @@ func checkNotationTypeUse(build *schemaBuild, id SimpleTypeID) error {
 func (c *compiler) admitNotationTypeUse(node *schemaNode, id SimpleTypeID) error {
 	err := checkNotationTypeUse(&c.rt, id)
 	if errors.Is(err, errBareNotationTypeUse) {
-		err = xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error())
+		err = xsderrors.SchemaCompile(xsderrors.CodeSchemaFacet, err.Error(), nil)
 	}
 	return withSchemaCompileLocation(node, err)
 }
@@ -54,12 +54,12 @@ func validateNotationConstructorUses(build *schemaBuild, id SimpleTypeID) error 
 	}
 	uses, ok := build.valueBuilder.ConstructorUses(id)
 	if !ok {
-		return xsderrors.InternalInvariant("NOTATION constructor has no value definition")
+		return xsderrors.InternalInvariant("NOTATION constructor has no value definition", nil)
 	}
 	for i := range uses.Len() {
 		member, valid := uses.At(i)
 		if !valid {
-			return xsderrors.InternalInvariant("NOTATION constructor references invalid member")
+			return xsderrors.InternalInvariant("NOTATION constructor references invalid member", nil)
 		}
 		if err := validateNotationConstructorEdge(build, member); err != nil {
 			return err

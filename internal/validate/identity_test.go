@@ -1057,7 +1057,7 @@ func finishSelectionsForTest(
 		}
 		info, ok := infoByID[sel.constraint]
 		if !ok {
-			return xsderrors.InternalInvariant("identity constraint metadata is invalid")
+			return xsderrors.InternalInvariant("identity constraint metadata is invalid", nil)
 		}
 		if err := s.finishSelectionWithConstraint(ctx, nil, info.Kind, info.Refer, sel, identityLimits{}); err != nil {
 			clear(s.selectionFields(sel))

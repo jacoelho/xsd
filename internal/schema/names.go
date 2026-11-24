@@ -13,11 +13,11 @@ import (
 
 var (
 	// errNameLimit reports that the configured total name limit was exceeded.
-	errNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema name limit exceeded")
+	errNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema name limit exceeded", nil)
 	// errNamespaceLimit reports that namespace IDs exceeded the runtime ID range.
-	errNamespaceLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema namespace limit exceeded")
+	errNamespaceLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema namespace limit exceeded", nil)
 	// errLocalNameLimit reports that local-name IDs exceeded the runtime ID range.
-	errLocalNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema local-name limit exceeded")
+	errLocalNameLimit = xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "schema local-name limit exceeded", nil)
 )
 
 // ExpandedName is a namespace URI and local-name pair.

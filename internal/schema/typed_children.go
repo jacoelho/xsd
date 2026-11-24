@@ -26,7 +26,7 @@ func contentDerivationOf(n *schemaNode, container string) (contentDerivationSour
 			return contentDerivationSource{node: child, kind: contentDerivationRestriction}, nil
 		}
 	}
-	return contentDerivationSource{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant(container+" child order admitted no derivation"))
+	return contentDerivationSource{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant(container+" child order admitted no derivation", nil))
 }
 
 // topLevelGroupModel selects the model group of n, a top-level xs:group,
@@ -38,7 +38,7 @@ func topLevelGroupModel(n *schemaNode) (*schemaNode, error) {
 			return child, nil
 		}
 	}
-	return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("top-level group child order admitted no model group"))
+	return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("top-level group child order admitted no model group", nil))
 }
 
 func checkSchemaQNameParts(n *schemaNode, lexical string) (qNameParts, error) {

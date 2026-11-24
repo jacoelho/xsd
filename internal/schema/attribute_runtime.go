@@ -6,5 +6,5 @@ func invalidAttributeError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error())
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, err.Error(), nil)
 }

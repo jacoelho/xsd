@@ -3,6 +3,7 @@ package xsderrors
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 )
 
@@ -31,7 +32,7 @@ func TestDiagnosticAccessorsAndLocationAreImmutable(t *testing.T) {
 func TestWithLocationPreservesWrappersAndExistingFields(t *testing.T) {
 	t.Parallel()
 
-	original := WithLocation("original.xsd", 1, 2, SchemaCompile(CodeSchemaReference, "missing type"))
+	original := WithLocation("original.xsd", 1, 2, SchemaCompile(CodeSchemaReference, "missing type", nil))
 	if got := WithLocation("replacement.xsd", 3, 4, original); got != original { //nolint:errorlint // Identity is the no-op contract.
 		t.Fatal("WithLocation() replaced an already located diagnostic")
 	}
@@ -270,8 +271,8 @@ func TestIsConclusiveValidationTruthTable(t *testing.T) {
 		{name: "session diagnostic", err: Validation(CodeValidationSession, "session busy", nil)},
 		{name: "limit diagnostic", err: limit},
 		{name: "unsupported diagnostic", err: unsupported},
-		{name: "internal diagnostic", err: InternalInvariant("broken invariant")},
-		{name: "schema diagnostic", err: SchemaCompile(CodeSchemaReference, "missing type")},
+		{name: "internal diagnostic", err: InternalInvariant("broken invariant", nil)},
+		{name: "schema diagnostic", err: SchemaCompile(CodeSchemaReference, "missing type", nil)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -283,28 +284,190 @@ func TestIsConclusiveValidationTruthTable(t *testing.T) {
 	}
 }
 
-func TestDiagnosticCatalogRejectsMismatchedCategoryAndCode(t *testing.T) {
+func TestDiagnosticCatalogAdmitsEachCodeOnlyInItsCategories(t *testing.T) {
 	t.Parallel()
 
-	if !ValidCategoryCode(CategoryFormat, CodeFormatLimit) || ValidCategoryCode(CategoryValidation, CodeFormatLimit) {
-		t.Fatal("ValidCategoryCode() returned an invalid catalog result")
+	categories := []Category{
+		CategorySchemaParse,
+		CategorySchemaCompile,
+		CategoryUnsupported,
+		CategoryValidation,
+		CategoryFormat,
+		CategoryInternal,
+		"unknown",
 	}
-	diagnostic := requireDiagnostic(t, Validation(CodeSchemaXML, "wrong category", nil))
-	if diagnostic.Category() != CategoryInternal || diagnostic.Code() != CodeInternalInvariant {
-		t.Fatalf("invalid constructor pair produced %s/%s", diagnostic.Category(), diagnostic.Code())
+	parseAndCompile := []Category{CategorySchemaParse, CategorySchemaCompile}
+	catalog := map[Code][]Category{
+		"schema.read":                 parseAndCompile,
+		"schema.xml":                  {CategorySchemaParse},
+		"schema.root":                 parseAndCompile,
+		"schema.duplicate":            {CategorySchemaCompile},
+		"schema.reference":            {CategorySchemaCompile},
+		"schema.facet":                {CategorySchemaCompile},
+		"schema.occurrence":           {CategorySchemaCompile},
+		"schema.content_model":        {CategorySchemaCompile},
+		"schema.no_sources":           {CategorySchemaCompile},
+		"schema.invalid_attribute":    {CategorySchemaCompile},
+		"schema.identity":             {CategorySchemaCompile},
+		"schema.limit":                parseAndCompile,
+		"unsupported.dtd":             {CategoryUnsupported},
+		"unsupported.external_entity": {CategoryUnsupported},
+		"unsupported.entity":          {CategoryUnsupported},
+		"unsupported.non_utf8":        {CategoryUnsupported},
+		"unsupported.xs_redefine":     {CategoryUnsupported},
+		"unsupported.regex":           {CategoryUnsupported},
+		"unsupported.xml_version":     {CategoryUnsupported},
+		"unsupported.xsd_1_1":         {CategoryUnsupported},
+		"validation.xml":              {CategoryValidation},
+		"validation.read":             {CategoryValidation},
+		"validation.root":             {CategoryValidation},
+		"validation.element":          {CategoryValidation},
+		"validation.attribute":        {CategoryValidation},
+		"validation.text":             {CategoryValidation},
+		"validation.type":             {CategoryValidation},
+		"validation.facet":            {CategoryValidation},
+		"validation.content":          {CategoryValidation},
+		"validation.nil":              {CategoryValidation},
+		"validation.identity":         {CategoryValidation},
+		"validation.option":           {CategoryValidation},
+		"validation.session":          {CategoryValidation},
+		"validation.limit":            {CategoryValidation},
+		"format.xml":                  {CategoryFormat},
+		"format.option":               {CategoryFormat},
+		"format.limit":                {CategoryFormat},
+		"internal.invariant":          {CategoryInternal},
+		"unknown.code":                nil,
+		"":                            nil,
+	}
+	for code, members := range catalog {
+		for _, category := range categories {
+			want := slices.Contains(members, category)
+			if got := ValidCategoryCode(category, code); got != want {
+				t.Errorf("ValidCategoryCode(%q, %q) = %v, want %v", category, code, got, want)
+			}
+		}
 	}
 }
 
-func TestIsUnsupportedRecursesThroughDiagnosticCause(t *testing.T) {
+type causeError struct{ detail string }
+
+func (e *causeError) Error() string { return e.detail }
+
+func TestEveryConstructorKeepsCategoryCodeMessageAndCause(t *testing.T) {
 	t.Parallel()
 
-	err := SchemaParse(
-		CodeSchemaXML,
-		"invalid schema XML",
-		Unsupported(CodeUnsupportedRegex, "unsupported regex", nil),
-	)
-	if !IsUnsupported(fmt.Errorf("outer: %w", err)) {
-		t.Fatalf("IsUnsupported(%v) = false", err)
+	tests := []struct {
+		name     string
+		build    func(msg string, cause error) error
+		category Category
+		code     Code
+	}{
+		{"SchemaParse", func(m string, c error) error { return SchemaParse(CodeSchemaXML, m, c) }, CategorySchemaParse, "schema.xml"},
+		{"SchemaCompile", func(m string, c error) error { return SchemaCompile(CodeSchemaFacet, m, c) }, CategorySchemaCompile, "schema.facet"},
+		{"Unsupported", func(m string, c error) error { return Unsupported(CodeUnsupportedRegex, m, c) }, CategoryUnsupported, "unsupported.regex"},
+		{"Validation", func(m string, c error) error { return Validation(CodeValidationType, m, c) }, CategoryValidation, "validation.type"},
+		{"Format", func(m string, c error) error { return Format(CodeFormatXML, m, c) }, CategoryFormat, "format.xml"},
+		{"InternalInvariant", InternalInvariant, CategoryInternal, "internal.invariant"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			sentinel := errors.New("sentinel")
+			cause := fmt.Errorf("reading: %w", &causeError{detail: "typed cause"})
+			joined := errors.Join(sentinel, cause)
+			err := test.build("what failed", joined)
+			diagnostic := requireDiagnostic(t, err)
+			if diagnostic.Category() != test.category || diagnostic.Code() != test.code || diagnostic.Message() != "what failed" {
+				t.Fatalf("%s() = %s/%s %q, want %s/%s %q", test.name,
+					diagnostic.Category(), diagnostic.Code(), diagnostic.Message(), test.category, test.code, "what failed")
+			}
+			if want := string(test.code) + ": what failed: sentinel\nreading: typed cause"; err.Error() != want {
+				t.Fatalf("%s().Error() = %q, want %q", test.name, err.Error(), want)
+			}
+			if !errors.Is(err, sentinel) {
+				t.Fatalf("errors.Is(%s(), sentinel) = false", test.name)
+			}
+			typed, ok := errors.AsType[*causeError](err)
+			if !ok || typed.detail != "typed cause" {
+				t.Fatalf("errors.AsType[*causeError](%s()) = %v, %v", test.name, typed, ok)
+			}
+			if without := requireDiagnostic(t, test.build("what failed", nil)); without.Cause() != nil || without.Unwrap() != nil {
+				t.Fatalf("%s() without a cause unwraps to %v", test.name, without.Unwrap())
+			}
+		})
+	}
+}
+
+func TestMismatchedConstructorKeepsMessageAndCauseInInternalInvariant(t *testing.T) {
+	t.Parallel()
+
+	cause := errors.New("reader failed")
+	tests := []struct {
+		name        string
+		err         error
+		wantMessage string
+	}{
+		{
+			name:        "with message",
+			err:         Validation(CodeFormatXML, "caller message", cause),
+			wantMessage: `diagnostic code "format.xml" does not belong to category "validation": caller message`,
+		},
+		{
+			name:        "without message",
+			err:         Format(CodeSchemaXML, "", cause),
+			wantMessage: `diagnostic code "schema.xml" does not belong to category "format"`,
+		},
+		{
+			name:        "schema-parse-only code in compile",
+			err:         SchemaCompile(CodeSchemaXML, "caller message", cause),
+			wantMessage: `diagnostic code "schema.xml" does not belong to category "schema_compile": caller message`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			diagnostic := requireDiagnostic(t, test.err)
+			if diagnostic.Category() != CategoryInternal || diagnostic.Code() != CodeInternalInvariant {
+				t.Fatalf("mismatched pair produced %s/%s, want internal/internal.invariant", diagnostic.Category(), diagnostic.Code())
+			}
+			if diagnostic.Message() != test.wantMessage {
+				t.Fatalf("Message() = %q, want %q", diagnostic.Message(), test.wantMessage)
+			}
+			if !errors.Is(test.err, cause) {
+				t.Fatal("mismatched pair dropped its cause")
+			}
+		})
+	}
+}
+
+func TestIsUnsupportedFollowsDiagnosticCausesExceptInternalInvariants(t *testing.T) {
+	t.Parallel()
+
+	unsupported := Unsupported(CodeUnsupportedRegex, "unsupported regex", nil)
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"unsupported", unsupported, true},
+		{"schema parse", SchemaParse(CodeSchemaXML, "bad XML", nil), false},
+		{"schema compile", SchemaCompile(CodeSchemaFacet, "bad facet", nil), false},
+		{"validation", Validation(CodeValidationType, "bad type", nil), false},
+		{"format", Format(CodeFormatXML, "bad XML", nil), false},
+		{"internal invariant", InternalInvariant("broken", nil), false},
+		{"plain cause", SchemaCompile(CodeSchemaFacet, "bad facet", errors.New("plain")), false},
+		{"schema parse with unsupported cause", fmt.Errorf("outer: %w", SchemaParse(CodeSchemaXML, "bad XML", unsupported)), true},
+		{"schema compile with unsupported cause", SchemaCompile(CodeSchemaFacet, "bad facet", unsupported), true},
+		{"internal invariant with unsupported cause", InternalInvariant("broken", unsupported), false},
+		{"mismatched pair with unsupported cause", Unsupported(CodeSchemaXML, "wrong category", unsupported), false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IsUnsupported(test.err); got != test.want {
+				t.Fatalf("IsUnsupported(%v) = %v, want %v", test.err, got, test.want)
+			}
+		})
 	}
 }
 

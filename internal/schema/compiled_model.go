@@ -190,7 +190,7 @@ func indexableEdges(edges []compiledModelEdgeRead) ([]uint32, bool, error) {
 		case particleModel:
 			return nil, false, nil
 		default:
-			return nil, false, xsderrors.InternalInvariant("compiled content model index has invalid edge particle")
+			return nil, false, xsderrors.InternalInvariant("compiled content model index has invalid edge particle", nil)
 		}
 	}
 	return wildcards, true, nil
@@ -375,7 +375,7 @@ type runIndex struct {
 func (b *runIndex) addWildcards(positions []uint32) error {
 	count, ok := newUint32Index(len(positions))
 	if !ok {
-		return xsderrors.InternalInvariant("run index wildcard count exceeds its data")
+		return xsderrors.InternalInvariant("run index wildcard count exceeds its data", nil)
 	}
 	b.data[0] = count
 	copy(b.data[1:], positions)
@@ -413,7 +413,7 @@ func (a *dfaRowIndexAnalysis) indexDenseRun(rows []compiledModelRowRead, runLen 
 	}
 	bounds, valid := scanDenseIndexBounds(positions, runLen)
 	if !valid {
-		return false, xsderrors.InternalInvariant("run index name position is outside its run")
+		return false, xsderrors.InternalInvariant("run index name position is outside its run", nil)
 	}
 	span := uint64(bounds.maxLocal) - uint64(bounds.minLocal) + 1
 	if bounds.mixed || span > 2*uint64(len(positions)) {
@@ -442,7 +442,7 @@ func (a *dfaRowIndexAnalysis) indexAllTerms(model *compiledModelRead) error {
 	names := make(map[QName]uint32, len(model.All))
 	for i, term := range model.All {
 		if term.Particle.Kind != particleElement {
-			return xsderrors.InternalInvariant("all-group index requires element particles")
+			return xsderrors.InternalInvariant("all-group index requires element particles", nil)
 		}
 		unique, err := a.collectElementNames(term.Particle.Element, uint32(i), uniqueNames(names))
 		if err != nil || !unique {
@@ -465,7 +465,7 @@ func (a *dfaRowIndexAnalysis) collectElementNames(element ElementID, pos uint32,
 	}
 	name, ok := a.rt.ElementName(element)
 	if !ok {
-		return false, xsderrors.InternalInvariant("compiled content model index references invalid element")
+		return false, xsderrors.InternalInvariant("compiled content model index references invalid element", nil)
 	}
 	if !add(name, pos) {
 		return false, nil

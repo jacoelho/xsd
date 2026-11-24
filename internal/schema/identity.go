@@ -17,7 +17,7 @@ func identityConstraintKindForLocal(local string) (IdentityKind, error) {
 	case vocab.XSDElemKeyref:
 		return IdentityKeyRef, nil
 	default:
-		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity constraint "+diagnostictext.Quote(local))
+		return 0, xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "invalid identity constraint "+diagnostictext.Quote(local), nil)
 	}
 }
 
@@ -49,7 +49,7 @@ func newIdentityConstraint(kind IdentityKind, name QName, refer IdentityConstrai
 // constraint is already declared with it.
 func (c *compiler) checkIdentityConstraintNameAvailable(name ExpandedName) error {
 	if _, exists := c.identityNames[name]; exists {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate identity constraint "+diagnostictext.ExpandedName(name.Namespace, name.Local))
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaDuplicate, "duplicate identity constraint "+diagnostictext.ExpandedName(name.Namespace, name.Local), nil)
 	}
 	return nil
 }
@@ -59,7 +59,7 @@ func (c *compiler) checkIdentityConstraintNameAvailable(name ExpandedName) error
 func (c *compiler) resolveIdentityConstraintRefer(q QName) (IdentityConstraintID, error) {
 	id, exists := c.identityNames[ExpandedName{Namespace: c.rt.Names.Namespace(q.Namespace), Local: c.rt.Names.Local(q.Local)}]
 	if !exists {
-		return NoIdentityConstraint, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown keyref refer "+c.rt.Names.Format(q))
+		return NoIdentityConstraint, xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "unknown keyref refer "+c.rt.Names.Format(q), nil)
 	}
 	return id, nil
 }
@@ -72,14 +72,14 @@ func validateKeyrefReference(identities []identityConstraintSpec, ic identityCon
 		return nil
 	}
 	if !validUint32Index(uint32(ic.Refer), len(identities)) {
-		return xsderrors.InternalInvariant("keyref references missing identity constraint")
+		return xsderrors.InternalInvariant("keyref references missing identity constraint", nil)
 	}
 	ref := identities[ic.Refer]
 	if ref.Kind == IdentityKeyRef {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref refer cannot be keyref")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref refer cannot be keyref", nil)
 	}
 	if len(ic.Fields) != len(ref.Fields) {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref field count does not match referenced key")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaIdentity, "keyref field count does not match referenced key", nil)
 	}
 	return nil
 }

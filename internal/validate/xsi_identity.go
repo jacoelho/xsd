@@ -119,7 +119,7 @@ func xsiSchemaLocationItemIdentity(ctx startContext, rt *xsdSchema.Schema, anyUR
 		return "", validation(ctx, xsderrors.CodeValidationAttribute, invalidURIMessage("xsi:schemaLocation", field))
 	}
 	if !item.HasIdentity() {
-		return "", xsderrors.InternalInvariant("xsi:schemaLocation anyURI identity is missing")
+		return "", xsderrors.InternalInvariant("xsi:schemaLocation anyURI identity is missing", nil)
 	}
 	return item.IdentityKey(), nil
 }
@@ -131,15 +131,15 @@ func xsiAnyURIType(rt *xsdSchema.Schema) (xsdSchema.SimpleTypeID, error) {
 func xsiBuiltinType(rt *xsdSchema.Schema, local string) (xsdSchema.SimpleTypeID, error) {
 	name, ok := rt.LookupQName(vocab.XSDNamespaceURI, local)
 	if !ok {
-		return xsdSchema.NoSimpleType, xsderrors.InternalInvariant("xs:" + local + " name is missing")
+		return xsdSchema.NoSimpleType, xsderrors.InternalInvariant("xs:"+local+" name is missing", nil)
 	}
 	typ, ok := rt.Type(name)
 	if !ok {
-		return xsdSchema.NoSimpleType, xsderrors.InternalInvariant("xs:" + local + " type is missing")
+		return xsdSchema.NoSimpleType, xsderrors.InternalInvariant("xs:"+local+" type is missing", nil)
 	}
 	id, ok := typ.Simple()
 	if !ok {
-		return xsdSchema.NoSimpleType, xsderrors.InternalInvariant("xs:" + local + " is not a simple type")
+		return xsdSchema.NoSimpleType, xsderrors.InternalInvariant("xs:"+local+" is not a simple type", nil)
 	}
 	return id, nil
 }

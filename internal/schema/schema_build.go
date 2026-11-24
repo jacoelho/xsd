@@ -281,7 +281,7 @@ func (c *compiler) addSimpleType(typ simpleType) (SimpleTypeID, error) {
 			return NoSimpleType, schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "simple type", reserveErr)
 		}
 		if reserved != id {
-			return NoSimpleType, xsderrors.InternalInvariant("schema and value type IDs diverged")
+			return NoSimpleType, xsderrors.InternalInvariant("schema and value type IDs diverged", nil)
 		}
 	}
 	typ.Scope = declarationScopeNonGlobal
@@ -363,7 +363,7 @@ func (c *compiler) addAttributeUseSet(set attributeUseSet) (attributeUseSetID, e
 // zero-count particle.
 func (c *compiler) addModel(model contentModelNode, source *schemaNode, definer ComplexTypeID) (contentModelID, error) {
 	if source == nil {
-		return noContentModel, xsderrors.InternalInvariant("content model has no source")
+		return noContentModel, xsderrors.InternalInvariant("content model has no source", nil)
 	}
 	return c.appendModel(model, source, definer)
 }
@@ -424,15 +424,15 @@ func (c *compiler) registerBuiltinAnyType(q QName, typ complexTypeMetadata) (Com
 
 func (c *compiler) publishSchema() (*Schema, error) {
 	if len(c.deferredModelChildren) != 0 {
-		return nil, xsderrors.InternalInvariant("omitted compositor descendants were not completed")
+		return nil, xsderrors.InternalInvariant("omitted compositor descendants were not completed", nil)
 	}
 	for _, definition := range c.complexDefinitions {
 		if definition.state != complexTypeComplete {
-			return nil, xsderrors.InternalInvariant("complex type definitions were not completed")
+			return nil, xsderrors.InternalInvariant("complex type definitions were not completed", nil)
 		}
 	}
 	if len(c.pendingElementConstraints) != 0 {
-		return nil, xsderrors.InternalInvariant("element value constraints were not finalized")
+		return nil, xsderrors.InternalInvariant("element value constraints were not finalized", nil)
 	}
 	published, err := publishSchema(&c.rt, c.contentWork.spend)
 	if err != nil {

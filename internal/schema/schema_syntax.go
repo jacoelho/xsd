@@ -10,7 +10,7 @@ import (
 // attribute value.
 func validateSchemaTargetNamespace(target lexicalAttribute) error {
 	if target.Present && target.Value == "" {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema targetNamespace cannot be empty")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema targetNamespace cannot be empty", nil)
 	}
 	return nil
 }
@@ -19,7 +19,7 @@ func validateSchemaTargetNamespace(target lexicalAttribute) error {
 // attribute value.
 func validateSchemaImportNamespace(namespace lexicalAttribute) error {
 	if namespace.Present && namespace.Value == "" {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "import namespace cannot be empty", nil)
 	}
 	return nil
 }
@@ -29,9 +29,9 @@ func validateSchemaImportNamespace(namespace lexicalAttribute) error {
 func validateSchemaNameAttribute(attr, value string) error {
 	switch {
 	case attr == vocab.XSDAttrID && !lex.IsNCName(value):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema id must be NCName")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema id must be NCName", nil)
 	case attr == vocab.XSDAttrName && !lex.IsNCName(value):
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema component name must be NCName")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaInvalidAttribute, "schema component name must be NCName", nil)
 	}
 	return nil
 }

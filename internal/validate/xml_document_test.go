@@ -30,7 +30,7 @@ type emptyXMLDocument struct {
 // commits perform this transition together with the Reader commit.
 func (d *xmlDocument[P]) commitEndState() error {
 	if d.Depth() == 0 {
-		return xsderrors.InternalInvariant("cannot commit XML end element with no open element")
+		return xsderrors.InternalInvariant("cannot commit XML end element with no open element", nil)
 	}
 
 	i := len(d.elements) - 1

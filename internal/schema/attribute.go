@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -117,7 +118,7 @@ func newAttributeUseSetRead(names *nameTable, set *attributeUseSet, values *valu
 		uses[j] = newAttributeUseRead(names, set.Uses[j])
 		input, ok := values.InputRequirements(set.Uses[j].Type)
 		if !ok {
-			return AttributeUseSetRead{}, xsderrors.InternalInvariant("attribute use input metadata is invalid")
+			return AttributeUseSetRead{}, xsderrors.InternalInvariant("attribute use input metadata is invalid", nil)
 		}
 		hasIDUse = hasIDUse || input.CarriesID
 		if set.Uses[j].Required {
@@ -623,7 +624,7 @@ func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state attributeUse
 	}
 	union, err := unionWildcard(declared, base, declared.Process, admittedWildcardWork)
 	if err != nil {
-		return errors.New("attribute wildcard extension cannot be rederived")
+		return fmt.Errorf("attribute wildcard extension cannot be rederived: %w", err)
 	}
 	equal, err := wildcardNamespaceEqual(actual, union, admittedWildcardWork)
 	if err != nil {

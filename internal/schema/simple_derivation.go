@@ -18,7 +18,7 @@ const (
 // checkSimpleRestrictionBase rejects direct restriction of xs:anySimpleType.
 func checkSimpleRestrictionBase(baseID, anySimpleType SimpleTypeID) error {
 	if baseID == anySimpleType {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "simple type cannot restrict xs:anySimpleType")
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, "simple type cannot restrict xs:anySimpleType", nil)
 	}
 	return nil
 }
@@ -27,13 +27,13 @@ func checkSimpleRestrictionBase(baseID, anySimpleType SimpleTypeID) error {
 // the compile diagnostic for the schema role being derived.
 func checkSimpleTypeFinalAllows(final, derivation DerivationMask, role simpleTypeFinalRole) error {
 	if err := validateSimpleTypeFinalAllows(final, derivation); err != nil {
-		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, simpleTypeFinalRoleMessage(role))
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaReference, simpleTypeFinalRoleMessage(role), nil)
 	}
 	return nil
 }
 
 func simpleListItemListReachError() error {
-	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "list item type cannot be a list type")
+	return xsderrors.SchemaCompile(xsderrors.CodeSchemaContentModel, "list item type cannot be a list type", nil)
 }
 
 func simpleTypeFinalRoleMessage(role simpleTypeFinalRole) string {

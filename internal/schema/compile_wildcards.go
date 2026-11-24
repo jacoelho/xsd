@@ -21,7 +21,7 @@ func (c *compiler) compileAttributeWildcard(ctx *schemaSetDocument, n *schemaNod
 func (c *compiler) compileWildcard(ctx *schemaSetDocument, n *schemaNode) (WildcardID, error) {
 	source := semanticSource[*schemaWildcardSource](&n.semantic)
 	if source == nil {
-		return NoWildcard, withSchemaCompileLocation(n, xsderrors.InternalInvariant("wildcard node has no typed wildcard source"))
+		return NoWildcard, withSchemaCompileLocation(n, xsderrors.InternalInvariant("wildcard node has no typed wildcard source", nil))
 	}
 	ns, hasNS := source.Namespace.Value, source.Namespace.Present
 	process, hasProcess := source.ProcessContents.Value, source.ProcessContents.Present
