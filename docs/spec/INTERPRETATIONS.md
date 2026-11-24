@@ -2927,3 +2927,66 @@ cannot express that case: resolved against a file base, `//` names
 `file:///`, outside every corpus root, so .NET and xmlschema report it
 blocked, Xerces-J skips it and validates, and libxml2 rejects the schema as
 including itself.
+
+## I-052 — Unique Particle Attribution compares particles a required empty choice cuts off
+
+**Status:** for particles that follow a required empty choice, decided by the
+[processor tie-break](#processor-tie-break): the specification text supports
+two readings, no adopted correction or accepted W3C test decides it, and the
+processors disagree, so Xerces-J's result applies. For particles on either
+side of a required empty choice, both readings agree, so the text decides.
+
+A required empty choice matches nothing ([I-042](#i-042--empty-choice)). In
+`<xs:sequence><xs:choice/><xs:element name="c" minOccurs="0"/><xs:element name="c"/></xs:sequence>`
+no item ever reaches the two `c` particles, yet they overlap, and the first has
+`minOccurs` below `maxOccurs`. The schema is invalid. The library checks
+Unique Particle Attribution on the structure of the content model and does
+not first remove the particles that no item reaches.
+
+[Unique Particle Attribution](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig)
+asks that "during ·validation· of an element information item sequence" the
+particle "with which to attempt to ·validate· each item" be uniquely
+determined. Read for attempts alone, it never meets particles that no item
+reaches, and the schema would be valid. The constraint's note says its concise
+expression "is difficult" and defers to the non-normative
+[Appendix H](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#non-ambig).
+Appendix H states the constraint on the content model's structure: two
+overlapping particles violate it when they "may validate adjacent information
+items", that is, when they are "separated by at most epsilon transitions". The
+two `c` particles are separated by one epsilon transition, wherever the
+sequence sits.
+
+Particles on either side of a required empty choice, as in
+`<xs:sequence><xs:element name="c" minOccurs="0"/><xs:choice/><xs:element name="c"/></xs:sequence>`,
+never compete. No item passes the choice, so no attempt meets both, and the
+choice transcribes to no transition, so no epsilon path joins them. The schema
+is valid under both readings.
+
+Observed: Xerces-J 2.12.2, .NET 10.0.14 and xmlschema 4.3.2 reject every case
+below that has an overlap, including the one with the empty choice between
+the particles. These three accept empty content for a required empty choice
+(I-042), so they treat it as an epsilon transition, and their verdict on
+`required-empty-choice-between-overlap` follows from that reading, which I-042
+rejects. libxml2 2.9.13 accepts the cases in which the overlap follows a
+required empty choice. It also accepts `zero-occurrence-before-overlap`, where
+an element particle with `minOccurs` and `maxOccurs` 0 corresponds to no
+component and leaves the overlap at the start of the sequence, so its
+acceptance is no evidence of a reachability rule. All four reject the overlap
+when it precedes the required empty choice, when an optional empty choice
+precedes it, and when it starts the sequence. All four accept a single
+element after a required empty choice.
+
+Rejected: removing the particles that no item reaches before checking. It
+follows the attempt reading, which no processor applies, and every direct and
+automaton check would need to know which particles of each nested group the
+content model reaches.
+
+Cases, `project/content-models/upa-unreachable/*`:
+`required-empty-choice-before-overlap`, `nested-empty-choice-before-overlap`,
+`group-ref-empty-choice-before-overlap` and
+`repeated-empty-choice-before-overlap` are invalid, and libxml2 differs on
+each. `required-empty-choice-between-overlap` is valid, and Xerces-J, .NET and
+xmlschema differ. The controls `required-empty-choice-after-overlap`,
+`optional-empty-choice-before-overlap`, `zero-occurrence-before-overlap`
+(libxml2 differs) and `reachable-overlap` are invalid, and
+`required-empty-choice-before-element` is valid.
