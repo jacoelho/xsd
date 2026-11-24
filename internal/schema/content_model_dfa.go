@@ -616,8 +616,6 @@ func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 	return nil
 }
 
-// dfaTransitionKeyOf returns the key of the transition that the edge of
-// position pos, whose particle is p, joins.
 func dfaTransitionKeyOf(p contentParticle, pos int) (dfaTransitionKey, error) {
 	switch p.Kind {
 	case particleElement:
