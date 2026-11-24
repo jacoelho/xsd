@@ -308,7 +308,7 @@ func TestWildcardOverlapPassChargesNothingForARepeatedElementMember(t *testing.T
 	})
 }
 
-func TestWildcardOverlapPassReadsAGroupsElementCandidatesOncePerModel(t *testing.T) {
+func TestWildcardOverlapPassChargesAGroupsElementCandidatesOncePerModel(t *testing.T) {
 	t.Parallel()
 
 	one := occurrence{Min: 1, Max: 1}
