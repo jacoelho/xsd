@@ -566,6 +566,46 @@ func TestNormalizeFollowsChargesFollowEntryGuards(t *testing.T) {
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
+func TestFollowStateChargesEachEntryWithItsGuardsAndActions(t *testing.T) {
+	t.Parallel()
+
+	guards := []compiledGuard{{Slot: 0, N: 2, Kind: compiledGuardLoopMax}, {Slot: 1, N: 3, Kind: compiledGuardExitMin}}
+	actions := []compiledAction{{Slot: 0, Kind: compiledActionInc}}
+	const twoEntriesWithTwoGuardsAndOneActionEach = 2 + 1 + 2*(2+1)
+	for _, tc := range []struct {
+		budget int
+		fits   bool
+	}{
+		{budget: twoEntriesWithTwoGuardsAndOneActionEach, fits: true},
+		{budget: twoEntriesWithTwoGuardsAndOneActionEach - 1, fits: false},
+	} {
+		follow := newFollowTable()
+		for range 3 {
+			follow.addPosition()
+		}
+		set, err := follow.addSet([]int{1, 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := follow.add(0, guards, actions, set); err != nil {
+			t.Fatal(err)
+		}
+		if err := follow.chargeNormalization(func(int) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		work := newWorkBudget(contentModelWorkBudget, tc.budget)
+		b := &dfaBuilder{c: &contentModelCompiler{work: &work, retained: testDependencyWork()}, follow: follow, states: make(map[string]uint32), limit: 1}
+		_, err = b.followStateID(0)
+		if tc.fits {
+			if err != nil {
+				t.Fatalf("followStateID() with budget %d error = %v, want nil", tc.budget, err)
+			}
+			continue
+		}
+		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	}
+}
+
 // followTableOf returns a follow table in which each position of follows is
 // followed by exactly its positions, without guards or actions.
 func followTableOf(follows map[int][]int) followTable {
