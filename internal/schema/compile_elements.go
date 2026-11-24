@@ -212,9 +212,9 @@ type compiledElementProperties struct {
 }
 
 func (c *compiler) compileElementProperties(ctx *schemaSetDocument, n *schemaNode, q QName) (compiledElementProperties, error) {
-	source, ok := semanticSource[*schemaElementSource](&n.semantic)
-	if !ok {
-		return compiledElementProperties{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source", nil))
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	if err != nil {
+		return compiledElementProperties{}, err
 	}
 	nillable, err := parseBooleanAttr(booleanAttr{Name: vocab.XSDAttrNillable, Value: source.Nillable.Value, HasValue: source.Nillable.Present})
 	if err != nil {
@@ -274,9 +274,9 @@ func applyElementDerivationMasks(ctx *schemaSetDocument, n *schemaNode, decl *el
 }
 
 func compileElementConstraintSource(n *schemaNode) (*valueConstraint, error) {
-	source, ok := semanticSource[*schemaElementSource](&n.semantic)
-	if !ok {
-		return nil, withSchemaCompileLocation(n, xsderrors.InternalInvariant("element node has no typed element source", nil))
+	source, err := requiredSemanticSource[*schemaElementSource](n)
+	if err != nil {
+		return nil, err
 	}
 	return sourceValueConstraint(n, source.Default, source.Fixed)
 }

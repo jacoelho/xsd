@@ -711,9 +711,9 @@ func (c *compiler) compileRestrictionBase(ctx *schemaSetDocument, n *schemaNode)
 	if len(children) > 1 {
 		return NoSimpleType, xsderrors.InternalInvariant("restriction child validator admitted multiple simpleType children", nil)
 	}
-	derivation, ok := semanticSource[*schemaBaseDerivationSource](&n.semantic)
-	if !ok {
-		return NoSimpleType, withSchemaCompileLocation(n, xsderrors.InternalInvariant("restriction node has no typed derivation source", nil))
+	derivation, err := requiredSemanticSource[*schemaBaseDerivationSource](n)
+	if err != nil {
+		return NoSimpleType, err
 	}
 	baseSource := derivation.Base
 	if baseSource.Lexical.Present {
@@ -819,9 +819,9 @@ func (c *compiler) compileUnion(ctx *schemaSetDocument, n *schemaNode, name QNam
 		seen: make(map[SimpleTypeID]struct{}),
 	}
 	simpleTypeChildren := schemaSimpleTypeChildren(n)
-	union, ok := semanticSource[*schemaUnionDerivationSource](&n.semantic)
-	if !ok {
-		return simpleType{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("union node has no typed derivation source", nil))
+	union, err := requiredSemanticSource[*schemaUnionDerivationSource](n)
+	if err != nil {
+		return simpleType{}, err
 	}
 	memberTypes := union.MemberTypes.Names
 	for _, member := range memberTypes {

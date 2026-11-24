@@ -65,9 +65,9 @@ func (c *compiler) declareIdentityConstraint(ctx *schemaSetDocument, node *schem
 	if _, declared := c.identityDeclared[key]; declared {
 		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity constraint declared twice in one document context", nil))
 	}
-	source, ok := semanticSource[*schemaIdentitySource](&node.semantic)
-	if !ok {
-		return withSchemaCompileLocation(node, xsderrors.InternalInvariant("identity node has no typed identity source", nil))
+	source, err := requiredSemanticSource[*schemaIdentitySource](node)
+	if err != nil {
+		return err
 	}
 	name := ExpandedName{Namespace: ctx.effectiveTargetNS, Local: source.Name.Value}
 	if duplicateErr := c.checkIdentityConstraintNameAvailable(name); duplicateErr != nil {
@@ -174,9 +174,9 @@ func (c *compiler) compileIdentityRefer(ctx *schemaSetDocument, n *schemaNode) (
 	if n.local != vocab.XSDElemKeyref {
 		return NoIdentityConstraint, nil
 	}
-	typed, ok := semanticSource[*schemaIdentitySource](&n.semantic)
-	if !ok {
-		return NoIdentityConstraint, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity node has no typed identity source", nil))
+	typed, err := requiredSemanticSource[*schemaIdentitySource](n)
+	if err != nil {
+		return NoIdentityConstraint, err
 	}
 	q, err := c.referenceQName(ctx, n, typed.Refer.Name)
 	if err != nil {
@@ -233,8 +233,11 @@ func (c *compiler) identityPaths(n *schemaNode, syntax identityConstraintSyntax)
 
 // identityXPathOf returns the path the selector or field n admitted.
 func identityXPathOf(n *schemaNode) (identityXPathSyntax, error) {
-	source, ok := semanticSource[*schemaIdentityXPathSource](&n.semantic)
-	if !ok || len(source.XPath.items) == 0 {
+	source, err := requiredSemanticSource[*schemaIdentityXPathSource](n)
+	if err != nil {
+		return identityXPathSyntax{}, err
+	}
+	if len(source.XPath.items) == 0 {
 		return identityXPathSyntax{}, withSchemaCompileLocation(n, xsderrors.InternalInvariant("identity "+n.local+" has no admitted paths", nil))
 	}
 	return source.XPath, nil
