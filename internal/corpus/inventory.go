@@ -3,8 +3,9 @@
 // cross-validator observations in tests/oracles. tests/README.md owns the
 // meaning of both; this package owns their file layout and grammar.
 //
-// Every loader reads from an fs.FS rooted at the tests directory, so callers
-// choose the filesystem and the package performs no file I/O of its own.
+// Every loader reads from an fs.FS rooted at the tests directory, and every
+// formatter returns the bytes of a file, so callers choose the filesystem and
+// the package performs no file I/O of its own.
 package corpus
 
 import (
@@ -41,33 +42,48 @@ type Inventory struct {
 }
 
 // Case is one corpus case: an optional schema phase and its instance phases.
+// Title, Source, DocRefs and Internal are provenance metadata that no
+// consumer interprets; Source and DocRefs keep their upstream shape.
 type Case struct {
-	Schema         *Schema    `json:"schema"`
-	ID             string     `json:"id"`
-	ExpectedSource string     `json:"expectedSource"`
-	Instances      []Instance `json:"instances"`
-	Files          []File     `json:"files"`
+	Schema         *Schema         `json:"schema"`
+	ID             string          `json:"id"`
+	ExpectedSource string          `json:"expectedSource"`
+	Title          string          `json:"title"`
+	Source         json.RawMessage `json:"source"`
+	DocRefs        json.RawMessage `json:"docRefs"`
+	Internal       json.RawMessage `json:"internal"`
+	Instances      []Instance      `json:"instances"`
+	Files          []File          `json:"files"`
 }
 
-// Schema is the schema phase of a case.
+// Schema is the schema phase of a case. TestName, Status and Version are
+// upstream provenance metadata that no consumer interprets.
 type Schema struct {
 	Rule        *Rule                   `json:"rule"`
 	Oracle      map[string]Provenance   `json:"oracle"`
 	Differences map[Provider]Difference `json:"differences"`
 	Expected    Expectation             `json:"expected"`
 	ErrorCode   string                  `json:"errorCode"`
+	TestName    string                  `json:"testName"`
+	Status      string                  `json:"status"`
+	Version     string                  `json:"version"`
 	Documents   []Document              `json:"documents"`
 }
 
-// Instance is one instance phase of a case.
+// Instance is one instance phase of a case. Status, Version and
+// InternalExpected are upstream or extraction provenance metadata that no
+// consumer interprets.
 type Instance struct {
-	Rule        *Rule                   `json:"rule"`
-	Oracle      map[string]Provenance   `json:"oracle"`
-	Differences map[Provider]Difference `json:"differences"`
-	TestName    string                  `json:"testName"`
-	File        string                  `json:"file"`
-	Expected    Expectation             `json:"expected"`
-	ErrorCode   string                  `json:"errorCode"`
+	Rule             *Rule                   `json:"rule"`
+	Oracle           map[string]Provenance   `json:"oracle"`
+	Differences      map[Provider]Difference `json:"differences"`
+	TestName         string                  `json:"testName"`
+	File             string                  `json:"file"`
+	Expected         Expectation             `json:"expected"`
+	ErrorCode        string                  `json:"errorCode"`
+	Status           string                  `json:"status"`
+	Version          string                  `json:"version"`
+	InternalExpected string                  `json:"internalExpected"`
 }
 
 // Phase is what every schema or instance phase has: its name within its case,
@@ -81,9 +97,11 @@ type Phase struct {
 	Expected    Expectation
 }
 
-// Document is a schema compilation root.
+// Document is a schema compilation root. Role is upstream metadata that no
+// consumer interprets.
 type Document struct {
 	File string `json:"file"`
+	Role string `json:"role"`
 }
 
 // File is a corpus file a case references.
@@ -189,18 +207,25 @@ func shardPath(name string) string {
 	return "manifest/" + name + ".json"
 }
 
+// index is the IndexPath file; source records the upstream suites the
+// inventory was extracted from, which no consumer interprets.
 type index struct {
-	Version       string   `json:"version"`
-	Specification string   `json:"specification"`
-	Shards        []string `json:"shards"`
+	Version       string          `json:"version"`
+	Specification string          `json:"specification"`
+	Source        json.RawMessage `json:"source"`
+	Shards        []string        `json:"shards"`
 }
 
+// shard is an inventory shard file; loadShard decodes each case on its own so
+// an error names the case.
 type shard struct {
-	Cases []Case `json:"cases"`
+	Cases []json.RawMessage `json:"cases"`
 }
 
 // LoadInventory reads the index and every shard it lists from fsys, rooted at
-// the tests directory, and validates the result.
+// the tests directory, and validates the result. A key the grammar does not
+// declare, a key spelt in another case and a repeated key are errors, so a
+// misspelt optional key cannot load as an absent one.
 func LoadInventory(fsys fs.FS) (Inventory, error) {
 	var idx index
 	if err := readJSON(fsys, IndexPath, &idx); err != nil {
@@ -228,33 +253,31 @@ func LoadInventory(fsys fs.FS) (Inventory, error) {
 	return inv, nil
 }
 
-func readJSON(fsys fs.FS, name string, v any) error {
-	data, err := fs.ReadFile(fsys, name)
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal(data, v); err != nil {
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	return nil
-}
-
 // loadShard reads one shard; every case in it must belong to it.
 func loadShard(fsys fs.FS, name string) ([]Case, error) {
 	var s shard
 	if err := readJSON(fsys, shardPath(name), &s); err != nil {
 		return nil, err
 	}
-	for i := range s.Cases {
-		want, err := ShardName(s.Cases[i].ID)
+	cases := make([]Case, len(s.Cases))
+	for i, raw := range s.Cases {
+		c := &cases[i]
+		if err := decodeJSON(raw, c); err != nil {
+			var id struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(raw, &id) //nolint:errcheck // The ID only labels the decoding error; an undecodable one stays empty.
+			return nil, fmt.Errorf("%s case %d %q: %w", shardPath(name), i, id.ID, err)
+		}
+		want, err := ShardName(c.ID)
 		if err != nil {
 			return nil, err
 		}
 		if want != name {
-			return nil, fmt.Errorf("case %q is in shard %q, want %q", s.Cases[i].ID, name, want)
+			return nil, fmt.Errorf("case %q is in shard %q, want %q", c.ID, name, want)
 		}
 	}
-	return s.Cases, nil
+	return cases, nil
 }
 
 // ValidateCases checks the case invariants the tests/README.md Corpus Contract

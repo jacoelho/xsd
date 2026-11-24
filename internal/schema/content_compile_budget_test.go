@@ -273,34 +273,69 @@ func TestCheckContentModelsUPAChargesNothingAfterASplitIsDecided(t *testing.T) {
 	})
 }
 
-func TestWildcardOverlapPassChargesNothingForElementCandidates(t *testing.T) {
+func wildcardOverlapPassWithin(t *testing.T, models map[contentModelID]contentModelNode, limit int) (int, error) {
+	t.Helper()
+	rt := compiledModelFixture{models: models}
+	work := newWorkBudget(contentModelWorkBudget, limit)
+	analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
+	c := newContentModelCompiler(rt.build(), 0, &work, testDependencyWork(), analysis)
+	overlap, err := c.sequenceHasWildcardEquivalentOverlap(models[0])
+	if overlap {
+		t.Fatal("sequenceHasWildcardEquivalentOverlap() = true for a sequence without wildcards")
+	}
+	return work.limit - work.remaining, err
+}
+
+func TestWildcardOverlapPassChargesNothingForARepeatedElementMember(t *testing.T) {
 	t.Parallel()
 
 	const following = 30
 	one := occurrence{Min: 1, Max: 1}
 	optional := occurrence{Min: 0, Max: 1}
-	pass := func(first occurrence, limit int) (int, error) {
+	sequence := func(first occurrence) map[contentModelID]contentModelNode {
 		particles := []contentParticle{elementParticle(0, first)}
 		for i := range following {
 			particles = append(particles, elementParticle(ElementID(1+i), optional))
 		}
-		rt := compiledModelFixture{models: map[contentModelID]contentModelNode{0: {Kind: modelSequence, Occurs: one, Particles: particles}}}
-		work := newWorkBudget(contentModelWorkBudget, limit)
-		analysis := mustContentModelAnalysis(t, rt.build(), work.spend)
-		c := newContentModelCompiler(rt.build(), 0, &work, testDependencyWork(), analysis)
-		overlap, err := c.sequenceHasWildcardEquivalentOverlap(contentModelNode{Kind: modelSequence, Occurs: one, Particles: particles})
-		if overlap {
-			t.Fatal("sequenceHasWildcardEquivalentOverlap() = true for a sequence without wildcards")
-		}
-		return work.limit - work.remaining, err
+		return map[contentModelID]contentModelNode{0: {Kind: modelSequence, Occurs: one, Particles: particles}}
 	}
-	withoutCandidate, err := pass(one, 1_000_000)
+	single, err := wildcardOverlapPassWithin(t, sequence(one), 1_000_000)
 	if err != nil {
 		t.Fatalf("sequenceHasWildcardEquivalentOverlap() error = %v", err)
 	}
-	expectChargeLimit(t, withoutCandidate, func(limit int) (int, error) {
-		return pass(occurrence{Min: 1, Max: 2}, limit)
+	expectChargeLimit(t, single, func(limit int) (int, error) {
+		return wildcardOverlapPassWithin(t, sequence(occurrence{Min: 1, Max: 2}), limit)
 	})
+}
+
+func TestWildcardOverlapPassChargesAGroupsElementCandidatesOncePerModel(t *testing.T) {
+	t.Parallel()
+
+	one := occurrence{Min: 1, Max: 1}
+	twice := occurrence{Min: 1, Max: 2}
+	pass := func(references, width int) int {
+		choice := make([]contentParticle, width)
+		for i := range choice {
+			choice[i] = elementParticle(ElementID(i), one)
+		}
+		var sequence []contentParticle
+		for range references {
+			sequence = append(sequence, modelParticle(1, twice))
+		}
+		sequence = append(sequence, elementParticle(1_000, one))
+		steps, err := wildcardOverlapPassWithin(t, map[contentModelID]contentModelNode{
+			0: {Kind: modelSequence, Occurs: one, Particles: sequence},
+			1: {Kind: modelChoice, Occurs: twice, Particles: choice},
+		}, 1_000_000)
+		if err != nil {
+			t.Fatalf("sequenceHasWildcardEquivalentOverlap() error = %v", err)
+		}
+		return steps
+	}
+	once := pass(1, 40) - pass(1, 1)
+	if many := pass(8, 40) - pass(8, 1); many != once {
+		t.Fatalf("39 more choice members cost %d steps across 8 references, want %d as across 1", many, once)
+	}
 }
 
 func TestDFAFollowStateLookupChargesCacheHits(t *testing.T) {

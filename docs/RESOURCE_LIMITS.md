@@ -123,7 +123,8 @@ required wildcards, each of its own namespace, compiles at the defaults with
 29 complex types and retains about 44 MiB, about 46 bytes per step; 30 types
 exceed the limit. 800 complex types that each hold a sequence of 40 optional
 elements need about 167,000 steps and retain about 2.9 MiB, and the 93
-document schemas of UBL 2.4 compiled together need about 54,000. A choice of
+document schemas of UBL 2.4 compiled together need a
+`MaxSchemaDependencySteps` of about 54,000 and retain about 2.4 MiB. A choice of
 120 elements with `maxOccurs="16000"`, whose rows carry counters, compiled
 with both step limits raised, retains about 60 MiB at its least limit of about
 7.7 million steps, about 8 bytes per step. Direct compilation decides that it
@@ -131,9 +132,8 @@ applies before it builds a row, so a sequence or choice that automaton
 construction compiles is charged for the automaton's table alone. While a
 model compiles, the heap also holds that model's construction state, which
 `MaxContentModelAnalysisSteps` bounds as above, and its transient name indexes, so the peak is the retained tables
-plus one model's construction. Publication adds a copy of each table that
-names an element declaration renumbered because an earlier one is unreached
-(see `internal/schema`); a schema whose declarations are all reached adds none. Name indexing also keeps, for the whole
+plus one model's construction. The tables are built over published element
+IDs, so publication copies none of them. Name indexing also keeps, for the whole
 compilation, the member names of each substitution head an indexed edge
 names, at most the entries `MaxSubstitutionClosureEntries` caps. The dense
 dispatch indexes that publication adds to rows of at least 16 edges that own
@@ -187,10 +187,14 @@ default options; no test pins them:
 | Local element with an anonymous complex type holding one element | 4 | about 631 bytes |
 | Key with its selector and field | 3 | about 470 bytes |
 | Element with `minOccurs="0"` and `maxOccurs="0"` and a simple type | 1 | none |
-| The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 299 bytes |
-| The same element with an anonymous simple type restricting `xs:string` by a pattern and two enumerations | 6 | about 299 bytes |
+| The same element with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | none |
+| The same element with an anonymous simple type restricting `xs:string` by a pattern and two enumerations | 6 | none |
+| The same element with an anonymous list type whose item restricts `xs:int` | 6 | none |
+| The same element with an anonymous complex type holding one attribute of an anonymous simple type restricting `xs:string` by `xs:maxLength` | 6 | about 345 bytes |
 | The same element with an anonymous complex type holding one element | 4 | about 46 bytes |
 | The same element with an anonymous complex type and a key | 7 | about 128 bytes |
+| Prohibited local attribute with a distinct name | 1 | about 67 bytes |
+| The same attribute with an anonymous simple type restricting `xs:string` by `xs:maxLength` | 4 | about 67 bytes |
 
 In these shapes a node retains at most about 260 bytes plus its text, so
 the records stay under about 250 MiB at the default node limit and the text
@@ -207,13 +211,18 @@ references. A detached complex type keeps its ID and derivation record but no
 content model or attribute uses, and a detached identity constraint keeps its
 name but no evaluation program or dispatch branch. An element declaration no
 instance element reaches is not published and retains nothing in the element
-table, though its local name stays in the name table. A simple type no
-instance element reaches keeps its ID, its derivation record and its
-value-program slot, about 250 bytes with slice growth, but no facets,
-patterns or enumerations, so the same element retains the same whatever
-facets its type has. Such a type is still compiled and checked first, so its
-patterns and facet literals charge the pattern, storage and work limits as a
-reached type's do.
+table, though its local name stays in the name table, about 61 bytes plus
+its text for each distinct name. The inline simple type of a zero-count
+element or of a prohibited attribute, with the types nested in it, retains
+nothing but the names it interned, except that when it is the first
+reference to a missing type, the missing-type placeholder it created stays,
+about 250 bytes, for later references to reuse. Any other simple type no instance element
+reaches, such as an attribute type inside a detached complex type, keeps its
+ID, its derivation record and its value-program slot, about 250 bytes with
+slice growth, but no facets, patterns or enumerations, so it retains the
+same whatever facets it has. Both are still compiled and
+checked first, so their patterns and facet literals charge the pattern,
+storage, type-count and work limits as a reached type's do.
 
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand

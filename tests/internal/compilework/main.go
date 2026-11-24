@@ -1,17 +1,22 @@
 // Command compilework compiles one schema document and reports the analysis
 // and dependency steps the compilation charges. It is built with coverage
-// counters by TestContentModelCompileWorkGrowsWithChargedSteps and
-// TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps, which read
-// the statements one default-options compilation executes.
+// counters by TestContentModelCompileWorkGrowsWithChargedSteps,
+// TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps and
+// TestTypesSharingAnAttributeGroupReadItsSetOnce, which read the statements
+// one default-options compilation executes.
 //
 // Usage:
 //
 //	compilework <schema.xsd>
 //
-// It prints "<analysis steps> <dependency steps>": for each budget, the least
-// limit under which the schema compiles. It clears the counters before a final
-// compilation under default options, so the internal/schema counters it leaves
-// in GOCOVERDIR count that compilation only.
+// It prints "<analysis steps> <dependency steps> <outcome>": for each budget,
+// the least limit under which compilation ends other than at that limit, and
+// "compiled" or "rejected" for how a final compilation under default options
+// ends. A rejection is followed by one "<code>\t<message>" line per
+// diagnostic. It clears the counters before that compilation, so the
+// internal/schema counters it leaves in GOCOVERDIR count that compilation
+// only. A final or reference compilation that ends at a limit, with an
+// internal invariant, or with an error that is not a diagnostic is an error.
 package main
 
 import (
@@ -26,7 +31,7 @@ import (
 )
 
 // searchCeiling is above the steps of every schema the test measures, all of
-// which compile within the default limits.
+// which end within the default limits.
 const searchCeiling = 1 << 24
 
 func main() {
@@ -64,34 +69,91 @@ func run(path string) error {
 	if err := coverage.ClearCounters(); err != nil {
 		return err
 	}
-	if err := compile(xsd.CompileOptions{}); err != nil {
-		return err
-	}
-	_, err := fmt.Println(analysis, dependency)
-	return err
+	return report(analysis, dependency, compile(xsd.CompileOptions{}))
 }
 
-// leastLimit returns the least limit under which compile succeeds. Spent
-// steps are never refunded, so a compilation that fails at a limit fails at
-// every lower one.
+// report prints the steps and how the final compilation, which ended with
+// compileErr, ends.
+func report(analysis, dependency int, compileErr error) error {
+	if isLimit(compileErr) {
+		return compileErr
+	}
+	diagnostics, err := rejection(compileErr)
+	if err != nil {
+		return err
+	}
+	if compileErr == nil {
+		_, err = fmt.Println(analysis, dependency, "compiled")
+		return err
+	}
+	if _, err = fmt.Println(analysis, dependency, "rejected"); err != nil {
+		return err
+	}
+	for _, diagnostic := range diagnostics {
+		if _, err = fmt.Printf("%s\t%s\n", diagnostic.Code(), diagnostic.Message()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rejection returns the diagnostics of a compilation error, or err itself
+// when it holds an internal invariant or an entry that is not a diagnostic.
+func rejection(err error) ([]*xsderrors.Error, error) {
+	var diagnostics []*xsderrors.Error
+	for _, entry := range xsderrors.Flatten(err) {
+		diagnostic, ok := errors.AsType[*xsderrors.Error](entry)
+		if !ok || diagnostic.Code() == xsderrors.CodeInternalInvariant {
+			return nil, err
+		}
+		diagnostics = append(diagnostics, diagnostic)
+	}
+	return diagnostics, nil
+}
+
+// leastLimit returns the least limit under which compile ends other than at
+// the limit. Spent steps are never refunded, so a compilation that ends at a
+// limit ends there at every lower one. Above that limit every compilation
+// ends as the one at searchCeiling does: compiled, or rejected with the same
+// diagnostic codes. Any other end is an error.
 func leastLimit(compile func(limit int) error) (int, error) {
-	if err := compile(searchCeiling); err != nil {
+	reference := compile(searchCeiling)
+	if isLimit(reference) {
+		return 0, reference
+	}
+	if _, err := rejection(reference); err != nil {
 		return 0, err
 	}
+	want := diagnosticCodes(reference)
 	low, high := 1, searchCeiling
 	for low < high {
 		mid := low + (high-low)/2
 		err := compile(mid)
 		switch {
-		case err == nil:
-			high = mid
 		case isLimit(err):
 			low = mid + 1
+		case !slices.Equal(diagnosticCodes(err), want):
+			return 0, fmt.Errorf("limit %d ends with codes %v, not %v as at limit %d: %w", mid, diagnosticCodes(err), want, searchCeiling, err)
 		default:
-			return 0, fmt.Errorf("limit %d: %w", mid, err)
+			high = mid
 		}
 	}
 	return low, nil
+}
+
+// diagnosticCodes returns the sorted codes of err's diagnostics, an empty
+// code for each entry that is not a diagnostic, and none for nil.
+func diagnosticCodes(err error) []xsderrors.Code {
+	var codes []xsderrors.Code
+	for _, entry := range xsderrors.Flatten(err) {
+		if diagnostic, ok := errors.AsType[*xsderrors.Error](entry); ok {
+			codes = append(codes, diagnostic.Code())
+		} else {
+			codes = append(codes, "")
+		}
+	}
+	slices.Sort(codes)
+	return codes
 }
 
 func isLimit(err error) bool {

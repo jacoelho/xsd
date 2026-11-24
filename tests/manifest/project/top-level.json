@@ -1195,6 +1195,279 @@
       ]
     },
     {
+      "id": "project/prohibited-no-component-inline-type-dropped-before-live-types",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/prohibited-no-component",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#cvc-datatype-valid"
+        ],
+        "conditions": [
+          "The inline union type of a prohibited attribute, with its anonymous list member and item, maps to its own type definitions (docs/spec/INTERPRETATIONS.md I-008), but no attribute use has that type, so no attribute is assessed against it: b is assessed only against its own list of xs:int restricted by minInclusive 100, which rejects 5 and true although the prohibited attribute's type accepts them."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-008--prohibited-attribute-use-with-fixed",
+          "clause": "I-008 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "libxml2": {
+            "record": "I-008"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "live-value",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-live-value.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "dropped-item-value",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-item-value.xml",
+          "expected": "invalid"
+        },
+        {
+          "testName": "dropped-member-value",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-member-value.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-live-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-item-value.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-dropped-before-live-types-dropped-member-value.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/prohibited-no-component-inline-type-only-unavailable-item",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/prohibited-no-component",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "The inline list type of a prohibited attribute is the only reference to the missing item type t:missing, so the schema loads; the prohibited attribute declares nothing, so an element carrying its name is invalid and one carrying the declared attribute a is valid. See docs/spec/INTERPRETATIONS.md I-008 and I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/prohibited-no-component/inline-type-only-unavailable-item.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-008"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "declared-attribute",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-only-unavailable-item-declared-attribute.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "prohibited-name",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-only-unavailable-item-prohibited-name.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-only-unavailable-item.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-only-unavailable-item-declared-attribute.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-only-unavailable-item-prohibited-name.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/prohibited-no-component-inline-type-reuses-placeholder",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/prohibited-no-component",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "The inline list type of attribute a in complex type A names the missing item type t:missing before the inline list type of a prohibited attribute in complex type B names it, so the schema loads; an element that omits a is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-008 and I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/prohibited-no-component/inline-type-reuses-placeholder.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-008"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-reuses-placeholder-attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-reuses-placeholder-attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-reuses-placeholder.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-reuses-placeholder-attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-reuses-placeholder-attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/prohibited-no-component-inline-type-unavailable-item",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/attributes/prohibited-no-component",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-attribute"
+        ],
+        "conditions": [
+          "The inline list type of a prohibited attribute and the inline list type of attribute a both name the missing item type t:missing, the prohibited one first, so the schema loads; an element that omits a is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-008 and I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-008"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/attributes/prohibited-no-component/inline-type-unavailable-item-attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/prohibited-no-component-invalid-inline-type",
       "expectedSource": "project",
       "source": {

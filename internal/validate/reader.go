@@ -58,21 +58,6 @@ func unsupportedInstanceFeature(feature xmlstream.UnsupportedFeature, err error)
 	return xsderrors.InternalInvariant("unknown xmlstream unsupported feature")
 }
 
-func streamErrorPosition(reader *xmlstream.Reader, err error) (line, column int) {
-	if boundary, ok := errors.AsType[*xmlstream.Error](err); ok && boundary != nil && boundary.Line > 0 {
-		return boundary.Line, max(boundary.Column, 1)
-	}
-	return readerPosition(reader)
-}
-
-// readerPosition is the reader position for a diagnostic that has no token.
-// The reader reports column 0 before the first byte of a line, and line 0
-// before Reset succeeds; a diagnostic reads 0 as unknown, so both start at 1.
-func readerPosition(reader *xmlstream.Reader) (line, column int) {
-	line, column = reader.Pos()
-	return max(line, 1), max(column, 1)
-}
-
 func validationReaderCause(code xsderrors.Code, line, col int, path string, err error) error {
 	return xsderrors.WithLocation(path, line, col, xsderrors.Validation(code, "", err))
 }
@@ -85,7 +70,7 @@ func resetInstanceReader(reader *xmlstream.Reader, r io.Reader, limits Limits) e
 	if err := reader.Reset(r, limits.readerConfig()); err != nil {
 		// A failure while reading the document prologue precedes any element,
 		// so it is located at the document root path.
-		line, col := streamErrorPosition(reader, err)
+		line, col := reader.ErrorPos(err)
 		return streamError(startContext{Path: "/", Line: line, Column: col}, err, limits)
 	}
 	return nil

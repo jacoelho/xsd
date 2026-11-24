@@ -62,7 +62,7 @@ func TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps(t *testing.T
 			for i, size := range sizes {
 				wg.Go(func() {
 					schema := attributeDerivationSchema(method, size[0], size[1])
-					samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%s-%d-%d", method, size[0], size[1])), schema)
+					samples[i], errs[i] = measureCompileWork(t.Context(), driver, filepath.Join(dir, fmt.Sprintf("%s-%d-%d", method, size[0], size[1])), schema, compiled)
 				})
 			}
 			wg.Wait()

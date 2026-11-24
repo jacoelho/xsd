@@ -122,17 +122,9 @@ func TestPublishedContentModelsKeepsEnteredOrder(t *testing.T) {
 			All:  []compiledAllTerm{{Required: i%2 == 0}},
 		})
 	}
-	build := &schemaBuild{
-		Elements:          make([]elementDecl, 1),
-		ReachableElements: []bool{true},
-		CompiledContent:   compiledContent{Models: models, Runs: make([][]compiledModelEdgeRead, len(models))},
-	}
-	elements, err := newPublishedElements(build)
-	if err != nil {
-		t.Fatal(err)
-	}
+	content := &compiledContent{Models: models, Runs: make([][]compiledModelEdgeRead, len(models))}
 	entered := []int{1, 3, 4}
-	reads, err := publishedContentModels(build, entered, elements)
+	reads, err := publishedContentModels(content, entered, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +146,7 @@ func TestCompiledModelReadProjectionAllocatesOneTablePerKind(t *testing.T) {
 		model.Rows = append(model.Rows, compiledModelRow{Edges: []compiledModelEdge{{To: uint32(i)}, {To: uint32(i + 1)}}})
 	}
 	allocs := testing.AllocsPerRun(3, func() {
-		read, _, err := newCompiledModelRead(model, unlimitedContentModelWork)
+		read, _, err := newCompiledModelRead(model, unlimitedContentModelWork, identityElements(1))
 		if err != nil {
 			panic(err)
 		}

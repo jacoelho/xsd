@@ -437,6 +437,23 @@ func (r *Reader) Pos() (line, column int) {
 	return r.parser.pos()
 }
 
+// DiagnosticPos reports Pos for a diagnostic. Pos is column 0 before the first
+// byte of a line and line 0 before Reset succeeds, while a diagnostic reads 0
+// as unknown, so both start at 1.
+func (r *Reader) DiagnosticPos() (line, column int) {
+	line, column = r.Pos()
+	return max(line, 1), max(column, 1)
+}
+
+// ErrorPos reports the diagnostic position of err from r: the position a
+// reader [Error] carries, otherwise DiagnosticPos. Both start at 1.
+func (r *Reader) ErrorPos(err error) (line, column int) {
+	if boundary, ok := errors.AsType[*Error](err); ok && boundary != nil && boundary.Line > 0 {
+		return boundary.Line, max(boundary.Column, 1)
+	}
+	return r.DiagnosticPos()
+}
+
 // Context captures an immutable namespace view for semantic QName work. The
 // captured view remains valid after the matching element closes or Reader is
 // reset.

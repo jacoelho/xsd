@@ -11,11 +11,11 @@ import (
 // validation program, and seals the result. The caller must provide exclusive
 // access to build for the duration of the call. A rejected build is left
 // unchanged. On success, build is cleared and the returned schema owns all
-// validation-facing storage. The schema takes the compiled content tables
-// that need no renumbering without copying them, and copies the others and
-// the substitution table over published element IDs while sharing their name
-// indexes with build; other previously retained aliases may be mutated
-// without affecting the schema.
+// validation-facing storage. The schema takes the compiled content tables,
+// already over published element IDs, without copying them, and copies the
+// substitution table over published element IDs while sharing its name index
+// with build; other previously retained aliases may be mutated without
+// affecting the schema.
 func publishSchema(build *schemaBuild, work contentModelWork) (*Schema, error) {
 	if build == nil {
 		return nil, errors.New("nil schema build")
@@ -131,14 +131,14 @@ type publishedElementReads struct {
 }
 
 func newPublishedElementReads(build *schemaBuild, entered []int) (publishedElementReads, error) {
-	elements, err := newPublishedElements(build)
+	elements, err := compiledNumbering(build)
 	if err != nil {
 		return publishedElementReads{}, err
 	}
 	if err = validateReachableHolders(build); err != nil {
 		return publishedElementReads{}, err
 	}
-	models, err := publishedContentModels(build, entered, elements)
+	models, err := publishedContentModels(&build.CompiledContent, entered, elements.count)
 	if err != nil {
 		return publishedElementReads{}, err
 	}
@@ -171,7 +171,7 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 	if err != nil {
 		return schemaProgram{}, err
 	}
-	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes), len(build.ComplexTypes)} {
+	for _, count := range []int{len(build.Names.locals), len(build.Identities), len(build.SimpleTypes) + build.droppedSimpleTypes.types, len(build.ComplexTypes)} {
 		if workErr := spendContentModelWorkN(work, count); workErr != nil {
 			return schemaProgram{}, workErr
 		}

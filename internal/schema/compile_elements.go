@@ -33,11 +33,13 @@ func (c *compiler) compileElementParticle(ctx *schemaSetDocument, n *schemaNode)
 // xs:element n: its inline type definition, which maps on its own as for a
 // prohibited attribute (I-008), and its identity constraints, which map to
 // identity-constraint definitions whatever their parent maps to (Structures
-// §3.11.2). No element declaration has that type or owns those constraints,
-// so detachUnreachableComponents detaches them.
+// §3.11.2). No element declaration has that type or owns those constraints:
+// an inline simple type is checked and dropped (compileUnheldSimpleType), and
+// detachUnreachableComponents detaches an inline complex type and the
+// identity constraints.
 func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) error {
 	if simple := n.firstXS(vocab.XSDElemSimpleType); simple != nil {
-		if _, err := c.compileAnonymousSimple(ctx, simple); err != nil {
+		if err := c.compileUnheldSimpleType(ctx, simple); err != nil {
 			return err
 		}
 	}
