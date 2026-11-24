@@ -341,24 +341,24 @@ func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	return storage, nil
 }
 
-// TypeCount returns the number of type IDs the builder has issued, builtins
-// included: the length of the keep SealKeeping takes.
-func (b *Builder) TypeCount() int {
+// UserTypeCount returns the number of user type IDs the builder has issued:
+// the length of the keep SealKeeping takes.
+func (b *Builder) UserTypeCount() int {
 	if b == nil || b.program == nil {
 		return 0
 	}
-	return int(BuiltinTypeCount) + len(b.program.types)
+	return len(b.program.types)
 }
 
 // SealKeeping closes the incremental builder and returns its immutable value
-// program, keeping the definitions of the user types keep marks. keep is
-// indexed by type ID and has TypeCount entries. A type that is not kept keeps
-// its ID but no definition, and validating it returns ErrMetadata. Builtins
-// are always kept, and keep is not retained. SealKeeping fails without
-// consuming the builder while any slot is reserved (reported first, naming
-// the slot) or still being completed, when keep does not have TypeCount
-// entries, and when a kept type's base, list item or union member is not
-// kept, since evaluation and diagnostics read them.
+// program, keeping the definitions of the user types keep marks. keep has
+// UserTypeCount entries, and keep[i] marks the type with ID BuiltinTypeCount+i.
+// A type that is not kept keeps its ID but no definition, and validating it
+// returns ErrMetadata. Builtins are always kept, and keep is not retained.
+// SealKeeping fails without consuming the builder while any slot is reserved
+// (reported first, naming the slot) or still being completed, when keep does
+// not have UserTypeCount entries, and when a kept type's base, list item or
+// union member is not kept, since evaluation and diagnostics read them.
 func (b *Builder) SealKeeping(keep []bool) (*Program, error) {
 	if b == nil || b.program == nil || b.program.sealed {
 		return nil, ErrMetadata
@@ -379,11 +379,11 @@ func (b *Builder) SealKeeping(keep []bool) (*Program, error) {
 }
 
 func (p *Program) verifyKeptDependencies(keep []bool) error {
-	if len(keep) != int(BuiltinTypeCount)+len(p.types) {
+	if len(keep) != len(p.types) {
 		return ErrMetadata
 	}
 	for i := range p.types {
-		if keep[int(BuiltinTypeCount)+i] && !keepsDependencies(&p.types[i], keep) {
+		if keep[i] && !keepsDependencies(&p.types[i], keep) {
 			return fmt.Errorf(msgTypeMetadata, userTypeID(i), ErrMetadata)
 		}
 	}
@@ -394,7 +394,8 @@ func (p *Program) verifyKeptDependencies(keep []bool) error {
 // members of t. Builtins and NoType are always kept.
 func keepsDependencies(t *typeDef, keep []bool) bool {
 	kept := func(id TypeID) bool {
-		return id < BuiltinTypeCount || id == NoType || uint64(id) < uint64(len(keep)) && keep[id]
+		index, user := userTypeIndex(id, len(keep))
+		return id < BuiltinTypeCount || id == NoType || user && keep[index]
 	}
 	if !kept(t.base) || !kept(t.listItem) {
 		return false
@@ -412,7 +413,7 @@ func keepsDependencies(t *typeDef, keep []bool) bool {
 // a discarded derived type may share the facet arrays of its kept base.
 func (p *Program) discardUnkept(keep []bool) {
 	for i := range p.types {
-		if !keep[int(BuiltinTypeCount)+i] {
+		if !keep[i] {
 			p.types[i] = typeDef{variety: varietyDiscarded}
 		}
 	}

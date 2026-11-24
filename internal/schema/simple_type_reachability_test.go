@@ -200,13 +200,13 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 			if global := build.SimpleTypes[id].Scope == declarationScopeGlobal; global != test.global {
 				t.Fatalf("holder names type %d, global %v, want global %v", id, global, test.global)
 			}
-			build.ReachableSimpleTypes[id] = false
+			build.ReachableSimpleTypes[id-value.BuiltinTypeCount] = false
 			_, err := publishSchema(build, unlimitedContentModelWork)
 			if err == nil || !strings.Contains(err.Error(), test.message) {
 				t.Fatalf("publishSchema() error = %v, want %q", err, test.message)
 			}
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-			build.ReachableSimpleTypes[id] = true
+			build.ReachableSimpleTypes[id-value.BuiltinTypeCount] = true
 			if _, err := publishSchema(build, unlimitedContentModelWork); err != nil {
 				t.Fatalf("publishSchema() after the rejected publication error = %v, want the build unchanged", err)
 			}

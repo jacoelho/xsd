@@ -3,6 +3,7 @@ package schema
 import (
 	"slices"
 
+	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -16,14 +17,21 @@ import (
 // item and union members, which its evaluation and diagnostics read. Each
 // model, attribute-use set and simple type is visited once by ID, so a group
 // or attribute group shared by many types is read once.
+//
+// The walk detaches every complex type before it starts and attaches each one
+// it reaches, so complexTypeMetadata.Detached is its complex-type mark. The
+// other marks share one allocation. Builtin simple types are always kept and
+// name only builtins, so simpleTypes marks the user types, indexed from
+// value.BuiltinTypeCount. A user simple type is walked depth-first: the value
+// builder completed it only after its base, list item and union members, at a
+// greater dependency depth, so the recursion is no deeper than
+// maxComponentDependencyDepth.
 type componentReach struct {
 	elements      []bool
-	complexTypes  []bool
 	models        []bool
 	attributeSets []bool
 	simpleTypes   []bool
 	queue         []contentModelID
-	simpleQueue   []SimpleTypeID
 }
 
 // detachUnreachableComponents marks the components no instance element
@@ -49,9 +57,6 @@ func (c *compiler) detachUnreachableComponents() error {
 	if err != nil {
 		return err
 	}
-	for i := range c.rt.ComplexTypes {
-		c.rt.ComplexTypes[i].Detached = !r.complexTypes[i]
-	}
 	for i := range c.rt.Identities {
 		declarer := c.rt.Identities[i].Declarer
 		c.rt.Identities[i].Detached = declarer == NoElement || !validElementID(declarer, len(r.elements)) || !r.elements[declarer]
@@ -62,13 +67,24 @@ func (c *compiler) detachUnreachableComponents() error {
 }
 
 func (c *compiler) reachFromGlobals() (componentReach, error) {
+	userSimpleTypes := len(c.rt.SimpleTypes) - int(value.BuiltinTypeCount)
+	if userSimpleTypes < 0 {
+		return componentReach{}, xsderrors.InternalInvariant("simple type table does not hold the builtins")
+	}
+	for i := range c.rt.ComplexTypes {
+		c.rt.ComplexTypes[i].Detached = true
+	}
+	marks := make([]bool, len(c.rt.Elements)+len(c.rt.Models)+len(c.rt.AttributeUseSets)+userSimpleTypes)
+	take := func(n int) []bool {
+		taken := marks[:n:n]
+		marks = marks[n:]
+		return taken
+	}
 	r := componentReach{
-		elements:      make([]bool, len(c.rt.Elements)),
-		complexTypes:  make([]bool, len(c.rt.ComplexTypes)),
-		models:        make([]bool, len(c.rt.Models)),
-		attributeSets: make([]bool, len(c.rt.AttributeUseSets)),
-		simpleTypes:   make([]bool, len(c.rt.SimpleTypes)),
-		simpleQueue:   make([]SimpleTypeID, 0, len(c.rt.SimpleTypes)),
+		elements:      take(len(c.rt.Elements)),
+		models:        take(len(c.rt.Models)),
+		attributeSets: take(len(c.rt.AttributeUseSets)),
+		simpleTypes:   take(userSimpleTypes),
 	}
 	if err := c.reachGlobalSimpleTypes(&r); err != nil {
 		return componentReach{}, err
@@ -84,59 +100,50 @@ func (c *compiler) reachFromGlobals() (componentReach, error) {
 			return componentReach{}, err
 		}
 	}
-	for next := 0; next < len(r.simpleQueue); {
-		id := r.simpleQueue[next]
-		next++
-		if err := c.reachSimpleTypeDependencies(&r, id); err != nil {
-			return componentReach{}, err
-		}
-	}
 	return r, nil
 }
 
 // reachGlobalSimpleTypes roots the simple types validation can name without
-// an element: the global types, builtins included, that xsi:type names, and
-// the types of the global and intrinsic xsi attribute declarations.
+// an element: the global types that xsi:type names, and the types of the
+// global and intrinsic xsi attribute declarations.
 func (c *compiler) reachGlobalSimpleTypes(r *componentReach) error {
-	for _, typ := range c.rt.GlobalTypes {
-		if id, ok := typ.Simple(); ok {
-			if err := r.reachSimpleType(id); err != nil {
-				return err
-			}
+	for i := int(value.BuiltinTypeCount); i < len(c.rt.SimpleTypes); i++ {
+		if c.rt.SimpleTypes[i].Scope != declarationScopeGlobal {
+			continue
+		}
+		if err := c.reachSimpleType(r, SimpleTypeID(i)); err != nil {
+			return err
 		}
 	}
 	for i := range c.rt.Attributes {
-		if err := r.reachSimpleType(c.rt.Attributes[i].Type); err != nil {
+		if err := c.reachSimpleType(r, c.rt.Attributes[i].Type); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *componentReach) reachSimpleType(id SimpleTypeID) error {
-	if id == NoSimpleType {
+func (c *compiler) reachSimpleType(r *componentReach, id SimpleTypeID) error {
+	if id == NoSimpleType || id < value.BuiltinTypeCount {
 		return nil
 	}
-	if !validSimpleTypeID(id, len(r.simpleTypes)) {
+	user := int(id - value.BuiltinTypeCount)
+	if user >= len(r.simpleTypes) {
 		return xsderrors.InternalInvariant("simple type reference is invalid")
 	}
-	if !r.simpleTypes[id] {
-		r.simpleTypes[id] = true
-		r.simpleQueue = append(r.simpleQueue, id)
+	if r.simpleTypes[user] {
+		return nil
 	}
-	return nil
-}
-
-func (c *compiler) reachSimpleTypeDependencies(r *componentReach, id SimpleTypeID) error {
+	r.simpleTypes[user] = true
 	spec := &c.rt.SimpleTypes[id].ValueSpec
-	if err := r.reachSimpleType(spec.Base); err != nil {
+	if err := c.reachSimpleType(r, spec.Base); err != nil {
 		return err
 	}
-	if err := r.reachSimpleType(spec.ListItem); err != nil {
+	if err := c.reachSimpleType(r, spec.ListItem); err != nil {
 		return err
 	}
 	for _, member := range spec.Union {
-		if err := r.reachSimpleType(member); err != nil {
+		if err := c.reachSimpleType(r, member); err != nil {
 			return err
 		}
 	}
@@ -170,7 +177,7 @@ func (c *compiler) reachElement(r *componentReach, id ElementID) error {
 	r.elements[id] = true
 	typ := c.rt.Elements[id].Type
 	if simple, ok := typ.Simple(); ok {
-		return r.reachSimpleType(simple)
+		return c.reachSimpleType(r, simple)
 	}
 	if complexType, ok := typ.Complex(); ok {
 		return c.reachComplexType(r, complexType)
@@ -179,15 +186,15 @@ func (c *compiler) reachElement(r *componentReach, id ElementID) error {
 }
 
 func (c *compiler) reachComplexType(r *componentReach, id ComplexTypeID) error {
-	if !validComplexTypeID(id, len(r.complexTypes)) {
+	if !validComplexTypeID(id, len(c.rt.ComplexTypes)) {
 		return xsderrors.InternalInvariant("element declaration references invalid complex type")
 	}
-	if r.complexTypes[id] {
+	if !c.rt.ComplexTypes[id].Detached {
 		return nil
 	}
-	r.complexTypes[id] = true
+	c.rt.ComplexTypes[id].Detached = false
 	typ := &c.rt.ComplexTypes[id]
-	if err := r.reachSimpleType(typ.TextType); err != nil {
+	if err := c.reachSimpleType(r, typ.TextType); err != nil {
 		return err
 	}
 	if err := c.reachAttributeUseSet(r, typ.Attrs); err != nil {
@@ -205,7 +212,7 @@ func (c *compiler) reachAttributeUseSet(r *componentReach, id attributeUseSetID)
 	}
 	r.attributeSets[id] = true
 	for _, use := range c.rt.AttributeUseSets[id].Uses {
-		if err := r.reachSimpleType(use.Type); err != nil {
+		if err := c.reachSimpleType(r, use.Type); err != nil {
 			return err
 		}
 	}
@@ -538,12 +545,15 @@ func validatePublishedIdentityConstraints(elements *elementReadTable, identities
 // validatePublishedSimpleTypes checks that every simple type a published read
 // names is one build.ReachableSimpleTypes marks, so sealing the value program
 // keeping only the reached types leaves no read naming a type without a
-// definition.
+// definition. When every simple type is reached no read can name an unreached
+// one, so the reads are not scanned.
 func validatePublishedSimpleTypes(p *schemaProgram, build *schemaBuild) error {
 	r := reachedSimpleTypes(build.ReachableSimpleTypes)
 	switch {
-	case len(r) != len(build.SimpleTypes):
+	case len(r) != len(build.SimpleTypes)-int(value.BuiltinTypeCount):
 		return xsderrors.InternalInvariant("reachable simple types do not cover the simple types")
+	case !slices.Contains(r, false):
+		return nil
 	case !r.keepElementTypes(p.Elements.meta):
 		return xsderrors.InternalInvariant("published element declaration names an unreached simple type")
 	case !r.keepTextTypes(p.ComplexTypes):
@@ -562,7 +572,11 @@ func validatePublishedSimpleTypes(p *schemaProgram, build *schemaBuild) error {
 type reachedSimpleTypes []bool
 
 func (r reachedSimpleTypes) keeps(id SimpleTypeID) bool {
-	return id == NoSimpleType || validSimpleTypeID(id, len(r)) && r[id]
+	if id == NoSimpleType || id < value.BuiltinTypeCount {
+		return true
+	}
+	user := uint64(id - value.BuiltinTypeCount)
+	return user < uint64(len(r)) && r[user]
 }
 
 func (r reachedSimpleTypes) keepsType(typ TypeID) bool {
