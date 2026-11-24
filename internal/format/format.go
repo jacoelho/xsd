@@ -112,22 +112,19 @@ func resetReader(reader *xmlstream.Reader, input string, limits Options) error {
 		SkipOrdinaryAttrValues: true,
 	})
 	if err != nil {
-		return readerError(err, 0, 0, limits)
+		return readerError(reader, err, limits)
 	}
 	return nil
 }
 
 // readerError is the one mapping of xmlstream reader failures, on both the
-// Reset and token paths. A positioned reader error keeps its own location;
-// line and col locate any other failure.
-func readerError(err error, line, col int, limits Options) error {
-	boundary, isBoundary := errors.AsType[*xmlstream.Error](err)
-	if isBoundary && boundary.Line > 0 {
-		line, col = boundary.Line, boundary.Column
-	}
+// Reset and token paths.
+func readerError(reader *xmlstream.Reader, err error, limits Options) error {
+	line, col := reader.ErrorPos(err)
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return xsderrors.WithLocation("", line, col, unsupportedFormatFeature(feature, err))
 	}
+	boundary, isBoundary := errors.AsType[*xmlstream.Error](err)
 	if !isBoundary {
 		return xmlFormatErr(line, col, err, limits)
 	}
@@ -300,6 +297,8 @@ type formatEvent struct {
 	end      int
 	kind     xmlstream.TokenKind
 	textKind xmlstream.CharacterDataKind
+	// layout marks character data that only lays out its block parent.
+	layout bool
 	// inline is meaningful on start events only, and is final only after the
 	// matching end commits, because later content can change the decision.
 	inline bool
@@ -359,7 +358,7 @@ func (a *formatAnalysis) format() error {
 
 func (a *formatAnalysis) finishEOF() error {
 	if len(a.stack) > 0 {
-		line, col := a.reader.Pos()
+		line, col := a.reader.DiagnosticPos()
 		return xmlFormatErr(line, col, fmt.Errorf("unexpected EOF before end element </%s>", xmlQName(a.stack[len(a.stack)-1].name)), a.limits)
 	}
 	if completeErr := a.reader.Complete(); completeErr != nil {
@@ -373,6 +372,7 @@ func (a *formatAnalysis) finishEOF() error {
 
 //nolint:gocognit // This dispatch owns one state transition per validated XML token.
 func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
+	layout := false
 	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
 	case xmlstream.KindStart:
 		if err := a.collectStart(tok); err != nil {
@@ -383,7 +383,8 @@ func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
 			return err
 		}
 	case xmlstream.KindCharData:
-		if err := a.collectChars(tok); err != nil {
+		var err error
+		if layout, err = a.collectChars(tok); err != nil {
 			return err
 		}
 	case xmlstream.KindComment, xmlstream.KindPI:
@@ -401,6 +402,7 @@ func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
 		end:      tok.EndOffset,
 		kind:     tok.Kind,
 		textKind: tok.TextKind,
+		layout:   layout,
 	})
 	return nil
 }
@@ -450,23 +452,24 @@ func (a *formatAnalysis) collectEnd(tok *xmlstream.Token) error {
 	return nil
 }
 
-func (a *formatAnalysis) collectChars(tok *xmlstream.Token) error {
+// collectChars reports whether tok only lays out its parent element.
+func (a *formatAnalysis) collectChars(tok *xmlstream.Token) (layout bool, err error) {
 	if len(a.stack) == 0 {
 		// Reader.Next rejects non-whitespace text, references, and CDATA
 		// outside the document element; literal whitespace is the only token
 		// admitted here.
-		return nil
+		return true, nil
 	}
 	if err := a.appendNode(tok.Line, tok.Column); err != nil {
-		return err
+		return false, err
 	}
 	frame := &a.stack[len(a.stack)-1]
 	if tokenIsInlineContent(tok) {
 		frame.hasInlineContent = true
-	} else {
-		frame.hasNonElementLayout = true
+		return false, nil
 	}
-	return nil
+	frame.hasNonElementLayout = true
+	return true, nil
 }
 
 func (a *formatAnalysis) appendNode(line, col int) error {
@@ -551,9 +554,10 @@ func (f *xmlFormatter) renderChars(event formatEvent) error {
 	if len(f.stack) == 0 {
 		return nil
 	}
-	// Analysis makes inline every element holding character data other than
-	// block whitespace, so a block parent's character data is layout only.
 	if !f.stack[len(f.stack)-1].inline {
+		if !event.layout {
+			return xsderrors.InternalInvariant("format tape holds content character data in a block element")
+		}
 		return nil
 	}
 	if err := f.prepareItem(); err != nil {
@@ -588,8 +592,7 @@ func tokenIsInlineContent(tok *xmlstream.Token) bool {
 }
 
 func (a *formatAnalysis) readerError(err error) error {
-	line, col := a.reader.Pos()
-	return readerError(err, line, col, a.limits)
+	return readerError(a.reader, err, a.limits)
 }
 
 func (f analysisFrame) inline() bool {
@@ -640,12 +643,9 @@ func xmlFormatErr(line, col int, err error, opts Options) error {
 	return formatXMLErr(line, col, err)
 }
 
-// classifyLimit returns the format.limit diagnostic for the formatter output
-// limit or a reader limit, and nil for any other error.
+// classifyLimit returns the format.limit diagnostic for a reader limit, and
+// nil for any other error.
 func classifyLimit(line, col int, err error, opts Options) error {
-	if errors.Is(err, errFormatOutputLimit) {
-		return formatLimitErr(line, col, err)
-	}
 	if limit, ok := xmlstream.LimitOf(err); ok {
 		return formatReaderLimitErr(limit, line, col, err, opts)
 	}
