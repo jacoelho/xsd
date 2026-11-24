@@ -28,10 +28,11 @@ import (
 //
 // The guard does not catch an uncharged loop added inside a listed function;
 // TestContentModelCompileWorkGrowsWithChargedSteps catches such a loop only
-// when its work grows faster than the charged steps. Nor does it follow a
-// list rebuilt particle by particle into another slice, such as a merged
-// continuation set, past the function that rebuilds it, which reads the list.
-// Storing a container of lists as an element of another container is a read.
+// when its work grows faster than the charged steps. It follows a list
+// rebuilt from the particles a range loop takes from a list, such as a merged
+// continuation set or a model's wildcards, but not one rebuilt from particles
+// taken by index or passed through a parameter or field. Storing a container
+// of lists as an element of another container is a read.
 var particleListReaders = map[string]string{
 	"chargedParticles":           "the charged accessor",
 	"appendModelParticles":       "the table writer that charges each particle it appends",
@@ -85,8 +86,9 @@ var particleListReaders = map[string]string{
 	"contentRestrictionValidator.matchChoiceRestrictionBranch":      "compareParticleRestriction charges each base particle compared",
 	"contentRestrictionValidator.findMappedGroupParticle":           "reads only unmapped base particles, each charged by compareParticleRestriction",
 	"contentRestrictionValidator.validateUnmappedGroupParticles":    "reads only unmapped base particles, each charged by ParticleEmptiable",
-	"contentModelAnalysis.ParticleContinuations":                    "charges the one particle it reads",
-	"contentModelAnalysis.ParticleWildcardContinuations":            "charges the one particle it reads; a group's sets come from wildcardsOf",
+	"contentModelAnalysis.ParticleContinuations":                    "returns the sets memberContinuations charges",
+	"contentModelAnalysis.ParticleWildcardContinuations":            "returns the sets memberContinuations charges",
+	"contentModelAnalysis.memberContinuations":                      "charges the one particle it reads; a group's sets are charged by startParticles, ModelContinuations or wildcardsOf",
 	"contentModelAnalysis.wildcardsOf":                              "charges the whole set, once per model through its caches",
 	"contentModelAnalysis.sequenceStart":                            "charges each particle it reads",
 	"contentModelAnalysis.sequenceCountRange":                       "callee ParticleCountRange charges each particle",
@@ -101,6 +103,7 @@ var particleListReaders = map[string]string{
 	"contentModelCompiler.wildcardCandidatesOverlap":                "charges each wildcard candidate it reads",
 	"contentModelAnalysis.nestedContinuations":                      "caller continuationsOf charges each of the same particles through ParticleContinuations",
 	"continuationMerge.copy":                                        "charges the whole set before copying it",
+	"continuationMerge.release":                                     "removes each particle the merge added, each charged by copy",
 }
 
 func TestContentModelParticleListsAreReadThroughChargedParticles(t *testing.T) {
@@ -221,19 +224,25 @@ type resultSlot struct {
 }
 
 // holdKind is what a holder holds: a particle list, a container whose
-// elements are particle lists, or both.
+// elements are particle lists, or both; or one particle of a list, which only
+// the value a range loop takes from a list holds.
 type holdKind uint8
 
 const (
 	holdsList holdKind = 1 << iota
 	holdsLists
+	holdsParticle
 )
 
 // elementOf returns the kind of a container whose elements are values of
-// kind k, or 0 when k is not exactly a list: a container of containers is not
-// followed, so storing one is a read.
+// kind k: a list for a particle, a container of lists for a list, and 0
+// otherwise: a container of containers is not followed, so storing one is a
+// read.
 func elementOf(k holdKind) holdKind {
-	if k == holdsList {
+	switch k {
+	case holdsParticle:
+		return holdsList
+	case holdsList:
 		return holdsLists
 	}
 	return 0
@@ -250,7 +259,9 @@ func elementOf(k holdKind) holdKind {
 // holds it as an element, stored by an indexed assignment, an append, or an
 // array, slice or map literal. A subslice of a holder, an element of a
 // container, the value a range loop takes from a container, and a copy made
-// by copy or by an append that spreads a holder hold the list too. The result
+// by copy or by an append that spreads a holder hold the list too, and a
+// slice that a particle a range loop takes from a list is appended to, or
+// stored in by index or a literal, holds a list. The result
 // of chargedParticles holds none: it is the charged accessor. A call through
 // an interface method or a function value is not followed, so the caller
 // reads the argument, and a function whose results such a call, or another
@@ -344,11 +355,14 @@ func calledAt(id *ast.Ident, parents []ast.Node) bool {
 func (f *particleListFlow) propagate(functions []packageFunction) {
 	for changed := true; changed; {
 		changed = false
-		hold := func(v *types.Var, k holdKind) {
+		record := func(v *types.Var, k holdKind) {
 			if v != nil && f.holders[v]&k != k {
 				f.holders[v] |= k
 				changed = true
 			}
+		}
+		hold := func(v *types.Var, k holdKind) {
+			record(v, k&^holdsParticle)
 		}
 		for _, fn := range functions {
 			ast.Inspect(fn.node, func(n ast.Node) bool {
@@ -375,6 +389,9 @@ func (f *particleListFlow) propagate(functions []packageFunction) {
 					if x.Value != nil && f.flowOf(x.X) == holdsLists {
 						hold(f.target(x.Value), holdsList)
 					}
+					if x.Value != nil && f.flowOf(x.X)&holdsList != 0 {
+						record(f.target(x.Value), holdsParticle)
+					}
 				case *ast.AssignStmt:
 					f.assign(x.Lhs, x.Rhs, hold)
 				case *ast.ValueSpec:
@@ -393,6 +410,7 @@ func (f *particleListFlow) propagate(functions []packageFunction) {
 				continue
 			}
 			for slot, k := range f.returnedLists(obj, decl) {
+				k &^= holdsParticle
 				if f.results[slot]&k != k {
 					f.results[slot] |= k
 					changed = true
@@ -755,7 +773,7 @@ func (f *particleListFlow) reads(fn ast.Node) []particleListRead {
 				reads = append(reads, particleListRead{x.Pos(), "reads a content model's particle list"})
 			}
 		case *ast.Ident:
-			if v, ok := f.info.Uses[x].(*types.Var); ok && v != f.particles && f.holders[v.Origin()] != 0 {
+			if v, ok := f.info.Uses[x].(*types.Var); ok && v != f.particles && f.holders[v.Origin()]&^holdsParticle != 0 {
 				var expr ast.Expr = x
 				parents := stack
 				if len(parents) > 0 {

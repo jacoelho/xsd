@@ -23,8 +23,7 @@ type contentModelAnalysis struct {
 	continuationPath  map[contentModelID]bool
 	continuationIndex map[contentParticle]struct{}
 
-	startWildcardSets        map[contentModelID][]contentParticle
-	continuationWildcardSets map[contentModelID][]contentParticle
+	wildcards map[contentModelID]modelWildcards
 }
 
 func (a *contentModelAnalysis) contentModel(id contentModelID) (contentModelNode, bool) {
@@ -68,9 +67,6 @@ func newContentModelAnalysis(rt *schemaBuild, work contentModelWork) (*contentMo
 		continuations:     make(map[contentModelID][]contentParticle),
 		continuationPath:  make(map[contentModelID]bool),
 		continuationIndex: make(map[contentParticle]struct{}),
-
-		startWildcardSets:        make(map[contentModelID][]contentParticle),
-		continuationWildcardSets: make(map[contentModelID][]contentParticle),
 	}, nil
 }
 
