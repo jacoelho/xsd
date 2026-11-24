@@ -5727,6 +5727,138 @@ project/content-models/restriction-repeated-choice-shared-group-tail	xsi-derived
 project/content-models/restriction-repeated-choice-shared-group-tail	xsi-derived-two-a	libxml2	valid	
 project/content-models/restriction-repeated-choice-shared-group-tail	xsi-derived-two-a	xerces	valid	
 project/content-models/restriction-repeated-choice-shared-group-tail	xsi-derived-two-a	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member	schema	dotnet	schema-invalid	schema.xsd:3:2: 'm' cannot be a member of substitution group with head element 'h'.
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member	schema	libxml2	schema-invalid	schema.xsd:3: element element: Schemas parser error : element decl. 'm': The type definition '(NULL)' was either rejected by the substitution group affiliation 'h', or not validly derived from its type definition '(NULL)'.␊WXS schema schema.xsd failed to compile
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member	schema	xerces	schema-invalid	schema.xsd:3:44: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-anonymous-member	schema	xmlschema	schema-invalid	XsdElement(name='m', occurs=[1, 1]) type is not of the same or a derivation of the head element XsdElement(name='h', occurs=[1, 1]) type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" substitutionGroup="h"><xs:complexType><xs:sequence><xs:element name="a" type="xs:int" /></xs:sequence></xs:complexType></xs:element>␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member-wrong-content	dotnet	invalid	member-wrong-content.xml:1:8: The element 'm' has invalid child element 'b'. List of possible elements expected: 'a'.
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member-wrong-content	libxml2	invalid	member-wrong-content.xml:1: element b: Schemas validity error : Element 'b': This element is not expected. Expected is ( a ).
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member-wrong-content	xerces	invalid	member-wrong-content.xml:1:10: cvc-complex-type.2.4.a: Invalid content was found starting with element 'b'. One of '{a}' is expected.
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	member-wrong-content	xmlschema	invalid	line None: Unexpected child with tag 'b' at position 1. Tag 'a' expected. (path /w/m)
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-complex-head-untyped-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member	schema	dotnet	schema-invalid	schema.xsd:3:2: 'm' cannot be a member of substitution group with head element 'h'.
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member	schema	libxml2	schema-invalid	schema.xsd:3: element element: Schemas parser error : element decl. 'm': The type definition '{http://www.w3.org/2001/XMLSchema}integer' was either rejected by the substitution group affiliation 'h', or not validly derived from its type definition '(NULL)'.␊WXS schema schema.xsd failed to compile
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member	schema	xerces	schema-invalid	schema.xsd:3:63: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-named-member	schema	xmlschema	schema-invalid	XsdElement(name='m', occurs=[1, 1]) type is not of the same or a derivation of the head element XsdElement(name='h', occurs=[1, 1]) type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" type="xs:integer" substitutionGroup="h" />␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member-out-of-range	dotnet	invalid	member-out-of-range.xml:1:11: The 'm' element is invalid - The value '11' is invalid according to its datatype 'Integer' - The MaxInclusive constraint failed.
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member-out-of-range	libxml2	invalid	member-out-of-range.xml:1: element m: Schemas validity error : Element 'm': [facet 'maxInclusive'] The value '11' is greater than the maximum value allowed ('10').
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member-out-of-range	xerces	invalid	member-out-of-range.xml:1:13: cvc-maxInclusive-valid: Value '11' is not facet-valid with respect to maxInclusive '10' for type '#AnonType_h'.
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	member-out-of-range	xmlschema	invalid	line None: value has to be less than or equal than 10 (path /w/m)
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/anonymous-simple-head-untyped-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member-head-content	dotnet	invalid	member-head-content.xml:1:17: The element 'm' has incomplete content. List of possible elements expected: 'b'.
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member-head-content	libxml2	invalid	member-head-content.xml:1: element m: Schemas validity error : Element 'm': Missing child element(s). Expected is ( b ).
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member-head-content	xerces	invalid	member-head-content.xml:1:19: cvc-complex-type.2.4.b: The content of element 'm' is not complete. One of '{b}' is expected.
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	member-head-content	xmlschema	invalid	line None: The content of element 'm' is not complete. Tag 'b' expected. (path /w/m)
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-derived	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/complex-member-not-derived	schema	dotnet	schema-invalid	schema.xsd:4:2: 'm' cannot be a member of substitution group with head element 'h'.
+project/content-models/substitution-anonymous-type-membership/complex-member-not-derived	schema	libxml2	schema-invalid	schema.xsd:4: element element: Schemas parser error : element decl. 'm': The type definition '(NULL)' was either rejected by the substitution group affiliation 'h', or not validly derived from its type definition 'HT'.␊WXS schema schema.xsd failed to compile
+project/content-models/substitution-anonymous-type-membership/complex-member-not-derived	schema	xerces	schema-invalid	schema.xsd:4:44: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/content-models/substitution-anonymous-type-membership/complex-member-not-derived	schema	xmlschema	schema-invalid	XsdElement(name='m', occurs=[1, 1]) type is not of the same or a derivation of the head element XsdElement(name='h', occurs=[1, 1]) type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" substitutionGroup="h"><xs:complexType><xs:sequence><xs:element name="a" type="xs:int" /></xs:sequence></xs:complexType></xs:element>␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	head	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	head	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	head	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	head	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	member	dotnet	invalid	member.xml:1:5: Member element m's type cannot be derived by restriction or extension from head element h's type, because it has block='restriction' or 'extension'.
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	member	libxml2	invalid	member.xml:1: element m: Schemas validity error : Element 'm': This element is not expected. Expected is ( h ).
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	member	xerces	invalid	member.xml:1:7: cvc-complex-type.2.4.a: Invalid content was found starting with element 'm'. One of '{h}' is expected.
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, None]) is blocked (path /w/m)
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-complex-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-extension-simple-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	head	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	head	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	head	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	head	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	member	dotnet	invalid	member.xml:1:5: Member element m's type cannot be derived by restriction or extension from head element h's type, because it has block='restriction' or 'extension'.
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	member	libxml2	invalid	member.xml:1: element m: Schemas validity error : Element 'm': This element is not expected. Expected is ( h ).
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	member	xerces	invalid	member.xml:1:7: cvc-complex-type.2.4.a: Invalid content was found starting with element 'm'. One of '{h}' is expected.
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, None]) is blocked (path /w/m)
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-block-restriction-simple-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member	schema	dotnet	schema-invalid	schema.xsd:4:2: 'm' cannot be a member of substitution group with head element 'h'.
+project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member	schema	libxml2	schema-invalid	schema.xsd:4: element element: Schemas parser error : element decl. 'm': The type definition '(NULL)' was either rejected by the substitution group affiliation 'h', or not validly derived from its type definition 'HT'.␊WXS schema schema.xsd failed to compile
+project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member	schema	xerces	schema-invalid	schema.xsd:4:44: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/content-models/substitution-anonymous-type-membership/head-final-extension-complex-member	schema	xmlschema	schema-invalid	head element XsdElement(name='h', occurs=[1, 1]) can't be substituted by an element that has an extension of its type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" substitutionGroup="h"><xs:complexType><xs:complexContent><xs:extension base="HT"><xs:sequence><xs:element name="b" type="xs:int" /></xs:sequence></xs:extension></xs:complexContent></xs:complexType></xs:element>␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-extension-simple-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-complex-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member	schema	dotnet	schema-invalid	schema.xsd:3:2: 'm' cannot be a member of substitution group with head element 'h'.
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member	schema	libxml2	schema-invalid	schema.xsd:3: element element: Schemas parser error : element decl. 'm': The type definition '(NULL)' was either rejected by the substitution group affiliation 'h', or not validly derived from its type definition '{http://www.w3.org/2001/XMLSchema}integer'.␊WXS schema schema.xsd failed to compile
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member	schema	xerces	schema-invalid	schema.xsd:3:44: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/content-models/substitution-anonymous-type-membership/head-final-restriction-simple-member	schema	xmlschema	schema-invalid	head element XsdElement(name='h', occurs=[1, 1]) can't be substituted by an element that has a restriction of its type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" substitutionGroup="h"><xs:simpleType><xs:restriction base="xs:integer"><xs:maxInclusive value="10" /></xs:restriction></xs:simpleType></xs:element>␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	head	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	head	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	head	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	head	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	member	libxml2	invalid	member.xml:1: element m: Schemas validity error : Element 'm': This element is not expected. Expected is ( h ).
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	member	xerces	invalid	member.xml:1:7: cvc-complex-type.2.4.a: Invalid content was found starting with element 'm'. One of '{h}' is expected.
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	member	xmlschema	invalid	line None: substitution of XsdElement(ref='h', occurs=[1, None]) is blocked (path /w/m)
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/head-type-block-extension-complex-member	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member	dotnet	valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member	libxml2	valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member	xerces	valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member	xmlschema	valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member-out-of-range	dotnet	invalid	member-out-of-range.xml:1:11: The 'm' element is invalid - The value '11' is invalid according to its datatype 'Integer' - The MaxInclusive constraint failed.
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member-out-of-range	libxml2	invalid	member-out-of-range.xml:1: element m: Schemas validity error : Element 'm': [facet 'maxInclusive'] The value '11' is greater than the maximum value allowed ('10').
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member-out-of-range	xerces	invalid	member-out-of-range.xml:1:13: cvc-maxInclusive-valid: Value '11' is not facet-valid with respect to maxInclusive '10' for type '#AnonType_m'.
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	member-out-of-range	xmlschema	invalid	line None: value has to be less than or equal than 10 (path /w/m)
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	schema	dotnet	schema-valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	schema	libxml2	schema-valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	schema	xerces	schema-valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-derived	schema	xmlschema	schema-valid	
+project/content-models/substitution-anonymous-type-membership/simple-member-not-derived	schema	dotnet	schema-invalid	schema.xsd:3:2: 'm' cannot be a member of substitution group with head element 'h'.
+project/content-models/substitution-anonymous-type-membership/simple-member-not-derived	schema	libxml2	schema-invalid	schema.xsd:3: element element: Schemas parser error : element decl. 'm': The type definition '(NULL)' was either rejected by the substitution group affiliation 'h', or not validly derived from its type definition '{http://www.w3.org/2001/XMLSchema}integer'.␊WXS schema schema.xsd failed to compile
+project/content-models/substitution-anonymous-type-membership/simple-member-not-derived	schema	xerces	schema-invalid	schema.xsd:3:44: e-props-correct.4: The {type definition} of element 'm' is not validly derived from the {type definition} of the substitutionHead ':h', or the {substitution group exclusions} property of ':h' does not allow this derivation.
+project/content-models/substitution-anonymous-type-membership/simple-member-not-derived	schema	xmlschema	schema-invalid	XsdElement(name='m', occurs=[1, 1]) type is not of the same or a derivation of the head element XsdElement(name='h', occurs=[1, 1]) type:␊␊Schema component:␊␊  <xs:element xmlns:xs="http://www.w3.org/2001/XMLSchema" name="m" substitutionGroup="h"><xs:simpleType><xs:restriction base="xs:string"><xs:maxLength value="3" /></xs:restriction></xs:simpleType></xs:element>␊␊Path: /xs:schema/xs:element[2]␊␊Schema URL: schema.xsd
 project/content-models/substitution-boundaries/abstract-blocked-intermediate	ancestor-head	dotnet	valid	
 project/content-models/substitution-boundaries/abstract-blocked-intermediate	ancestor-head	libxml2	valid	
 project/content-models/substitution-boundaries/abstract-blocked-intermediate	ancestor-head	xerces	valid	
