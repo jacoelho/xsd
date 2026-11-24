@@ -36,8 +36,8 @@ func isSchemaLimit(err error) bool {
 }
 
 // buildDefectError reports a state that only a corrupt build reaches, such as an
-// out-of-range ID, from a check that compilation and the publication audit
-// share. A schema violation found by the same check is a plain error.
+// out-of-range ID or an unknown kind. A schema violation found by the same
+// check is a plain error.
 type buildDefectError struct {
 	message string
 }

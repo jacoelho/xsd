@@ -378,7 +378,7 @@ func (c *deterministicModelCompilation) collectEdge(edge dfaSourceEdge, counters
 	if err != nil || !ok {
 		return err
 	}
-	if err := work.spend(len(counters) + len(edge.Actions) + 1); err != nil {
+	if err = work.spend(len(counters) + len(edge.Actions) + 1); err != nil {
 		return err
 	}
 	next, err := c.applyActions(counters, edge.Actions)

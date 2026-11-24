@@ -474,11 +474,11 @@ func TestSchemaUnreachableReaderStatesKeepTheReaderError(t *testing.T) {
 	}
 }
 
-func testSemanticSource[T schemaSemanticKind](t testing.TB, s *schemaSemanticSource) T {
-	t.Helper()
+func testSemanticSource[T schemaSemanticKind](tb testing.TB, s *schemaSemanticSource) T {
+	tb.Helper()
 	source, ok := semanticSource[T](s)
 	if !ok {
-		t.Fatalf("semantic source is %T, want %T", s.kind, source)
+		tb.Fatalf("semantic source is %T, want %T", s.kind, source)
 	}
 	return source
 }

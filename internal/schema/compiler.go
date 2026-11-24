@@ -472,11 +472,11 @@ func contentRestrictionCompileError(err error) error {
 }
 
 func complexBlockMaskWithDefault(n *schemaNode, def DerivationMask) (DerivationMask, error) {
-	source, err := requiredSemanticSource[*schemaComplexTypeSource](n)
+	typed, err := requiredSemanticSource[*schemaComplexTypeSource](n)
 	if err != nil {
 		return 0, err
 	}
-	return derivationMaskWithDefaultChecked(n, source.Block, def, complexTypeBlockDerivation())
+	return derivationMaskWithDefaultChecked(n, typed.Block, def, complexTypeBlockDerivation())
 }
 
 func simpleFinalMaskWithDefaultChecked(n *schemaNode, def DerivationMask) (DerivationMask, error) {

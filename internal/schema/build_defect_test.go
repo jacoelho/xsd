@@ -9,6 +9,9 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+// outsideTable is an ID past every table of buildDefectSchema.
+const outsideTable = 1 << 20
+
 const buildDefectSchema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base">
     <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
@@ -38,6 +41,7 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 		{
 			name: "particle kind out of range",
 			corrupt: func(t *testing.T, rt *schemaBuild) {
+				t.Helper()
 				model := &rt.Models[rt.ComplexTypes[buildDefectComplexType(t, rt, "Base")].Content]
 				model.Particles[0].Kind = particleKind(200)
 			},
@@ -46,13 +50,15 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 		{
 			name: "complex base outside the type table",
 			corrupt: func(t *testing.T, rt *schemaBuild) {
-				rt.ComplexTypes[buildDefectComplexType(t, rt, "Derived")].Base = ComplexRef(ComplexTypeID(len(rt.ComplexTypes) + 7))
+				t.Helper()
+				rt.ComplexTypes[buildDefectComplexType(t, rt, "Derived")].Base = ComplexRef(ComplexTypeID(outsideTable))
 			},
 			defect: true,
 		},
 		{
 			name: "complex derivation cycle",
 			corrupt: func(t *testing.T, rt *schemaBuild) {
+				t.Helper()
 				base := buildDefectComplexType(t, rt, "Base")
 				rt.ComplexTypes[base].Base = ComplexRef(buildDefectComplexType(t, rt, "Derived"))
 				rt.ComplexTypes[base].Derivation = derivationKindExtension
@@ -61,6 +67,7 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 		{
 			name: "attribute wildcard derivation out of range",
 			corrupt: func(t *testing.T, rt *schemaBuild) {
+				t.Helper()
 				rt.AttributeUseSets[rt.ComplexTypes[buildDefectComplexType(t, rt, "Derived")].Attrs].WildcardDerive = attributeWildcardDerivation(200)
 			},
 			defect: true,
@@ -74,7 +81,8 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 		{
 			name: "substitution head outside the element table",
 			corrupt: func(t *testing.T, rt *schemaBuild) {
-				rt.Elements[buildDefectGlobalElement(t, rt, "member")].SubstHead = ElementID(len(rt.Elements) + 7)
+				t.Helper()
+				rt.Elements[buildDefectGlobalElement(t, rt, "member")].SubstHead = ElementID(outsideTable)
 			},
 			defect: true,
 		},
@@ -124,6 +132,7 @@ func TestDFAGuardsAndActionsReportCounterOutOfRangeAsInternalInvariant(t *testin
 		"action without cap": applyDFAActions([]uint32{0, 0}, caps, []compiledAction{{Kind: compiledActionInc, Slot: outside}}),
 	} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
 		})
 	}
@@ -138,11 +147,12 @@ func TestUntranslatedBuildDefectBecomesInternalInvariantAndDiagnosticsPassThroug
 		t.Fatalf("error = %v, want the defect as its cause", got)
 	}
 	limit := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "budget", nil)
-	if got := untranslatedBuildDefect(limit); got != limit {
+	if got := untranslatedBuildDefect(limit); !errors.Is(got, limit) {
 		t.Fatalf("diagnostic = %v, want it unchanged", got)
 	}
+	expectDiagnostic(t, untranslatedBuildDefect(limit), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	violation := errors.New("schema violation")
-	if got := untranslatedBuildDefect(violation); got != violation {
+	if got := untranslatedBuildDefect(violation); !errors.Is(got, violation) || isDiagnostic(got) {
 		t.Fatalf("plain error = %v, want it unchanged", got)
 	}
 }
@@ -151,10 +161,8 @@ func TestAuditErrorKeepsLimitsAndInvariantsAndMakesEverythingElseAnInvariant(t *
 	t.Parallel()
 	limit := xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, "budget", nil)
 	invariant := xsderrors.InternalInvariant("broken", nil)
-	if got := auditError("", limit); got != limit {
-		t.Fatalf("limit = %v, want it unchanged", got)
-	}
-	if got := auditError("", invariant); got != invariant {
+	expectDiagnostic(t, auditError("", limit), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	if got := auditError("", invariant); !errors.Is(got, invariant) || errors.Unwrap(got) != nil {
 		t.Fatalf("invariant = %v, want it unchanged", got)
 	}
 	for _, err := range []error{
@@ -181,6 +189,11 @@ func buildDefectComplexType(t *testing.T, rt *schemaBuild, local string) Complex
 		t.Fatalf("type %q is not complex", local)
 	}
 	return id
+}
+
+func isDiagnostic(err error) bool {
+	_, ok := errors.AsType[*xsderrors.Error](err)
+	return ok
 }
 
 func buildDefectGlobalElement(t *testing.T, rt *schemaBuild, local string) ElementID {
@@ -214,7 +227,7 @@ func TestDerivationWalksReportMissingTypesAndCyclesAsBuildDefects(t *testing.T) 
 	}
 	corruptions := map[string]func(rt *schemaBuild, derived, base ComplexTypeID){
 		"base outside the type table": func(rt *schemaBuild, derived, _ ComplexTypeID) {
-			rt.ComplexTypes[derived].Base = ComplexRef(ComplexTypeID(len(rt.ComplexTypes) + 7))
+			rt.ComplexTypes[derived].Base = ComplexRef(ComplexTypeID(outsideTable))
 		},
 		"cycle": func(rt *schemaBuild, derived, base ComplexTypeID) {
 			rt.ComplexTypes[base].Base = ComplexRef(derived)
@@ -227,7 +240,7 @@ func TestDerivationWalksReportMissingTypesAndCyclesAsBuildDefects(t *testing.T) 
 				c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
 				derived, base := buildDefectComplexType(t, &c.rt, "Derived"), buildDefectComplexType(t, &c.rt, "Base")
 				corrupt(&c.rt, derived, base)
-				if err := walk(&c.rt, derived, ComplexTypeID(len(c.rt.ComplexTypes)+9)); !isBuildDefect(err) {
+				if err := walk(&c.rt, derived, ComplexTypeID(outsideTable+1)); !isBuildDefect(err) {
 					t.Fatalf("walk error = %v, want a build defect", err)
 				}
 			})
@@ -249,10 +262,11 @@ func TestCompileRuleChecksReportCorruptInputsAsInternalInvariantAndViolationsAsS
 		{"complex final blocks extension", checkComplexTypeFinalAllows(DerivationExtension, DerivationExtension, complexTypeFinalBaseExtension), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaReference},
 		{"simple final mask outside its domain", checkSimpleTypeFinalAllows(invalidMaskBit, DerivationRestriction, simpleTypeFinalBaseRestriction), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant},
 		{"simple final blocks restriction", checkSimpleTypeFinalAllows(DerivationRestriction, DerivationRestriction, simpleTypeFinalBaseRestriction), xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaReference},
-		{"NOTATION use of a type outside the type table", c.admitNotationTypeUse(nil, SimpleTypeID(len(c.rt.SimpleTypes)+7)), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant},
+		{"NOTATION use of a type outside the type table", c.admitNotationTypeUse(nil, SimpleTypeID(outsideTable)), xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			expectDiagnostic(t, tt.err, tt.category, tt.code)
 		})
 	}

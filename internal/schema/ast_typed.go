@@ -524,14 +524,7 @@ func completeTypedNode(frame *typedSchemaParseFrame) error {
 	if frame.order == nil {
 		return nil
 	}
-	rule, err := frame.orders.missingChild(frame.order, frame.node)
-	if err != nil {
-		return err
-	}
-	if rule != nil {
-		return schemaCompileAt(frame.node, rule.MissingCode, rule.MissingMsg)
-	}
-	return nil
+	return frame.orders.rejectMissingChild(frame.order, frame.node)
 }
 
 // schemaNodeNeedsDeferredQNameContext identifies source values whose QName

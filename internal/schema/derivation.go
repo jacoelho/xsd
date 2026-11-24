@@ -725,15 +725,15 @@ func substitutionTypeBlocks(rt *schemaBuild, derived, base TypeID, work func(int
 		if err := work(1); err != nil {
 			return 0, err
 		}
-		block, parent, done, err := nextSubstitutionTypeBlock(rt, current, base)
+		step, err := nextSubstitutionTypeBlock(rt, current, base)
 		if err != nil {
 			return 0, err
 		}
-		if done {
+		if step.done {
 			return blocks, nil
 		}
-		blocks |= block
-		current = parent
+		blocks |= step.block
+		current = step.parent
 	}
 	return 0, newBuildDefect("complex type derivation graph is cyclic")
 }
@@ -750,30 +750,36 @@ func baseSubstitutionTypeBlock(rt *schemaBuild, base TypeID) (DerivationMask, er
 	return baseType.Block, nil
 }
 
-// nextSubstitutionTypeBlock returns the block of current's complex base and
-// that base, or done when current derives directly from base or has no
-// complex base.
+// substitutionTypeBlockStep is one step of a substitution blocking walk: the
+// block of the current type's complex base and that base, or done when the
+// current type derives directly from the walk's base or has no complex base.
+type substitutionTypeBlockStep struct {
+	parent ComplexTypeID
+	block  DerivationMask
+	done   bool
+}
+
 func nextSubstitutionTypeBlock(
 	rt *schemaBuild,
 	current ComplexTypeID,
 	base TypeID,
-) (block DerivationMask, parent ComplexTypeID, done bool, err error) {
+) (substitutionTypeBlockStep, error) {
 	typ, ok := rt.ComplexTypeDerivation(current)
 	if !ok {
-		return 0, 0, false, newBuildDefect("substitution type derivation references invalid type")
+		return substitutionTypeBlockStep{}, newBuildDefect("substitution type derivation references invalid type")
 	}
 	if typ.Base == base {
-		return 0, 0, true, nil
+		return substitutionTypeBlockStep{done: true}, nil
 	}
-	parent, ok = typ.Base.Complex()
+	parent, ok := typ.Base.Complex()
 	if !ok {
-		return 0, 0, true, nil
+		return substitutionTypeBlockStep{done: true}, nil
 	}
 	parentType, ok := rt.ComplexTypeDerivation(parent)
 	if !ok {
-		return 0, 0, false, newBuildDefect("substitution type derivation references invalid base")
+		return substitutionTypeBlockStep{}, newBuildDefect("substitution type derivation references invalid base")
 	}
-	return parentType.Block, parent, false, nil
+	return substitutionTypeBlockStep{block: parentType.Block, parent: parent}, nil
 }
 
 func derivationKindMask(kind derivationKind) DerivationMask {

@@ -408,14 +408,8 @@ func (s *childOrderState) accept(n *schemaSyntaxNode, order *childOrder, parent 
 	if s.seen&bit != 0 && rule.MaxOne {
 		return schemaCompileAt(n, xsderrors.CodeSchemaContentModel, rule.DupMsg)
 	}
-	if rule.ConflictMsg != "" {
-		supplied, err := rule.Supplied(parent)
-		if err != nil {
-			return err
-		}
-		if supplied {
-			return schemaCompileAt(n, rule.ConflictCode, rule.ConflictMsg)
-		}
+	if err := rule.rejectConflict(n, parent); err != nil {
+		return err
 	}
 	if err := s.acceptFacet(n); err != nil {
 		return err
@@ -442,27 +436,44 @@ func (s *childOrderState) acceptFacet(n *schemaSyntaxNode) error {
 	return nil
 }
 
-// missingChild returns the first rule of order, in rule order, that requires
-// a child parent ended without, or nil when parent has every child order
-// requires.
-func (s *childOrderState) missingChild(order *childOrder, parent *schemaNode) (*childRule, error) {
+// rejectMissingChild reports the first rule of order, in rule order, that
+// requires a child parent ended without, or returns nil when parent has every
+// child order requires.
+func (s *childOrderState) rejectMissingChild(order *childOrder, parent *schemaNode) error {
 	for i := range order.Rules {
 		rule := &order.Rules[i]
 		if rule.MissingMsg == "" || s.seen&(uint64(1)<<i) != 0 {
 			continue
 		}
-		if rule.Supplied != nil {
-			supplied, err := rule.Supplied(parent)
-			if err != nil {
-				return nil, err
-			}
-			if supplied {
-				continue
-			}
+		supplied, err := rule.supplied(parent)
+		if err != nil {
+			return err
 		}
-		return rule, nil
+		if !supplied {
+			return schemaCompileAt(parent, rule.MissingCode, rule.MissingMsg)
+		}
 	}
-	return nil, nil
+	return nil
+}
+
+func (r *childRule) supplied(parent *schemaNode) (bool, error) {
+	if r.Supplied == nil {
+		return false, nil
+	}
+	return r.Supplied(parent)
+}
+
+// rejectConflict reports n when the parent's attributes already supply what n
+// would.
+func (r *childRule) rejectConflict(n *schemaSyntaxNode, parent *schemaNode) error {
+	if r.ConflictMsg == "" {
+		return nil
+	}
+	supplied, err := r.supplied(parent)
+	if err != nil || !supplied {
+		return err
+	}
+	return schemaCompileAt(n, r.ConflictCode, r.ConflictMsg)
 }
 
 func (s *childOrderState) seenBelow(level int, rules []childRule) bool {
