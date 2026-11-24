@@ -35,23 +35,23 @@ func isSchemaLimit(err error) bool {
 	return ok && diagnostic.Code() == xsderrors.CodeSchemaLimit
 }
 
-// buildDefect reports a state that only a corrupt build reaches, such as an
+// buildDefectError reports a state that only a corrupt build reaches, such as an
 // out-of-range ID, from a check that compilation and the publication audit
 // share. A schema violation found by the same check is a plain error.
-type buildDefect struct {
+type buildDefectError struct {
 	message string
 }
 
-func (e *buildDefect) Error() string { return e.message }
+func (e *buildDefectError) Error() string { return e.message }
 
 func newBuildDefect(message string) error {
-	return &buildDefect{message: message}
+	return &buildDefectError{message: message}
 }
 
 // isBuildDefect reports a build defect of this package or corrupt value
 // metadata, which value.ErrMetadata identifies.
 func isBuildDefect(err error) bool {
-	if _, ok := errors.AsType[*buildDefect](err); ok {
+	if _, ok := errors.AsType[*buildDefectError](err); ok {
 		return true
 	}
 	return errors.Is(err, value.ErrMetadata)

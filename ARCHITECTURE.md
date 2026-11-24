@@ -594,7 +594,7 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   then limits are `schema.limit`, then `compileRuleError` decides the rest.
   `compileRuleError` is also the one translation of a rule check that
   compilation shares with the publication audit: a build defect
-  (`buildDefect` or `ErrMetadata`) is an internal invariant with the failure as
+  (`buildDefectError` or `ErrMetadata`) is an internal invariant with the failure as
   its cause, an existing diagnostic passes through, and any other failure keeps
   its reason under the caller's code. Whitespace loosening is rejected only by the
   value Builder's derivation check.

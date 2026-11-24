@@ -144,9 +144,9 @@ func internalInvariantErrorTextViolations(t *testing.T, fset *token.FileSet, imp
 	}
 	files := make([]*ast.File, 0, len(pkg.GoFiles))
 	for _, name := range pkg.GoFiles {
-		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
-		if err != nil {
-			t.Fatal(err)
+		file, parseErr := parser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
+		if parseErr != nil {
+			t.Fatal(parseErr)
 		}
 		files = append(files, file)
 	}
@@ -264,7 +264,7 @@ func errorOperand(info *types.Info, assigns map[types.Object][]ast.Expr, errorTy
 		if !ok {
 			return true
 		}
-		if tv, ok := info.Types[e]; ok && tv.Type != nil && !tv.IsType() && !tv.IsNil() && types.Implements(tv.Type, errorType) {
+		if tv, typed := info.Types[e]; typed && tv.Type != nil && !tv.IsType() && !tv.IsNil() && types.Implements(tv.Type, errorType) {
 			found = e
 			return false
 		}
