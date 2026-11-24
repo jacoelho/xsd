@@ -65,10 +65,13 @@ type Token struct {
 	// parser input. They are byte offsets in [StartOffset, EndOffset].
 	StartOffset int
 	EndOffset   int
-	Line        int
-	Column      int
-	Kind        TokenKind
-	TextKind    CharacterDataKind
+	// Line and Column locate the token's first byte, both starting at 1;
+	// Column counts bytes. The end token of an empty element has no bytes of
+	// its own and is located at the element's closing '>'.
+	Line     int
+	Column   int
+	Kind     TokenKind
+	TextKind CharacterDataKind
 }
 
 // begin retires only the previous active payload. t must be zero or a produced
@@ -280,7 +283,8 @@ func (p *parser) next(dst *Token) error {
 	p.attrs = p.attrs[:0]
 	if p.inCDATA {
 		p.retainedBytes = 0
-		if err := p.readCDATAChunk(dst, 0, 0); err != nil {
+		line, col := p.br.nextBytePos()
+		if err := p.readCDATAChunk(dst, line, col); err != nil {
 			return err
 		}
 		p.withTokenSpan(dst, dst.StartOffset)
@@ -299,6 +303,7 @@ func (p *parser) next(dst *Token) error {
 	}
 	for {
 		tokenStart := p.br.offset()
+		line, col := p.br.nextBytePos()
 		p.retainedBytes = 0
 		b, err := p.br.readByte()
 		if err != nil {
@@ -306,13 +311,12 @@ func (p *parser) next(dst *Token) error {
 		}
 		if b != '<' {
 			p.atStart = false
-			if charErr := p.readCharData(dst, b); charErr != nil {
+			if charErr := p.readCharData(dst, b, line, col); charErr != nil {
 				return charErr
 			}
 			p.withTokenSpan(dst, tokenStart)
 			return nil
 		}
-		line, col := p.br.pos()
 		next, err := p.br.readByte()
 		if err != nil {
 			return streamSyntaxError("unexpected EOF after <", err)
@@ -388,8 +392,7 @@ func (p *parser) pos() (line, column int) {
 func IsEOF(err error) bool { return err == io.EOF } //nolint:errorlint // identity is the rule
 
 //nolint:funlen,gocognit // One loop owns byte consumption, delimiter state, and token position.
-func (p *parser) readCharData(dst *Token, first byte) error {
-	line, col := p.br.pos()
+func (p *parser) readCharData(dst *Token, first byte, line, col int) error {
 	p.textBuf = p.textBuf[:0]
 	cdataEnd := 0
 	kind := CharacterDataText
@@ -725,9 +728,6 @@ func (p *parser) readDirectivePrefix() error {
 }
 
 func (p *parser) readCDATAChunk(dst *Token, line, col int) error {
-	if line == 0 {
-		line, col = p.br.pos()
-	}
 	p.textBuf = p.textBuf[:0]
 	chunkOffset := p.cdataChunkOffset
 	matched := p.cdataMatched

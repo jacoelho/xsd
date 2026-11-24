@@ -12,7 +12,8 @@ import (
 
 // FuzzReader exercises the public Reader lifecycle against arbitrary XML and
 // requires the token stream and final outcome to be independent of how the
-// input reader splits its bytes. chunks cycles through read lengths; an empty
+// input reader splits its bytes, and every token position to have line and
+// column at least 1. chunks cycles through read lengths; an empty
 // chunks reads the whole input and is the reference.
 func FuzzReader(f *testing.F) {
 	for _, seed := range []string{
@@ -20,6 +21,7 @@ func FuzzReader(f *testing.F) {
 		`<?xml version="1.0"?><root a="&amp;">text</root>`,
 		`<root><![CDATA[x<y]]><!--c--><?pi v?></root>`,
 		`<root><a/><b attr="value">text</b></root>`,
+		"\n<root>\r\n<a/>\r<![CDATA[\n]]></root>",
 	} {
 		f.Add(seed, []byte(nil))
 		f.Add(seed, []byte{1})
@@ -60,6 +62,9 @@ func FuzzReader(f *testing.F) {
 		for i := range whole {
 			if chunked[i] != whole[i] {
 				t.Fatalf("token %d chunked = %+v, whole = %+v", i, chunked[i], whole[i])
+			}
+			if whole[i].line < 1 || whole[i].column < 1 {
+				t.Fatalf("token %d position = %d:%d, want line and column at least 1", i, whole[i].line, whole[i].column)
 			}
 		}
 	})
