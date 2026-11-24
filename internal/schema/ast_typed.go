@@ -498,10 +498,10 @@ func (s *typedSchemaParseState) end(line, col int) error {
 	index := len(s.stack) - 1
 	frame := &s.stack[index]
 	if err := s.parser.MatchEnd(frame.namespace); err != nil {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
+		return schemaStreamError(s.parser, err, s.limits)
 	}
 	if err := s.parser.CommitEnd(frame.namespace); err != nil {
-		return schemaParseAt(line, col, xsderrors.CodeSchemaXML, "invalid schema XML", err)
+		return schemaStreamError(s.parser, err, s.limits)
 	}
 	s.stack = s.stack[:index]
 	if frame.node == nil {
