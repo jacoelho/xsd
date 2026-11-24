@@ -270,10 +270,12 @@ type publishedElements struct {
 	declarations int
 }
 
-// publishedElementID is the published ID of an element declaration
-// (publishedElements). A compiled content table names declarations only by
-// published IDs, which newCompiledParticleRead alone produces from build IDs
-// (tests/published_element_id_conversion_test.go).
+// publishedElementID is an element declaration's ID in the numbering a
+// compiled content table was projected over: the published numbering
+// (publishedElements) for a root validation can enter, and the identity for
+// any other root, which withoutTables then reduces to no particles.
+// newCompiledParticleRead produces one from a build ID and noPublishedElement
+// is the one for no element (tests/published_element_id_conversion_test.go).
 type publishedElementID ElementID
 
 const noPublishedElement = publishedElementID(NoElement)

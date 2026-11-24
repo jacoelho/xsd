@@ -362,10 +362,10 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 // group stops compilation at the first model, in source order, holding it.
 // Only a root model validation can enter (entersContent) can be published, so
 // only such a root keeps its published form, built over the published element
-// numbering; any other model keeps its kind alone. A root validation cannot
-// enter may name unpublished declarations, so it is projected and indexed over
-// build IDs, spending what an entered root would, and then keeps the kind and
-// the scalars of its form.
+// numbering; any other root keeps the kind and the scalars of its form, and
+// any other model its kind alone. A root validation cannot enter may name
+// unpublished declarations, so it is projected and indexed over build IDs,
+// spending what an entered root would, before it is reduced.
 func (c *compiler) compileContentModels(reached []reachedModel) error {
 	elements, err := newPublishedElements(c.rt.ReachableElements, len(c.rt.Elements))
 	if err != nil {
