@@ -27662,6 +27662,132 @@
       ]
     },
     {
+      "id": "project/content-models/element-zero-occurrence/inline-type-unavailable-item-only",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "The only reference to the missing type t:missing is the item type of the inline list type of an xs:element with minOccurs and maxOccurs 0, so the schema loads; no element is assessed against that list type. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "sibling",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/sibling.xml",
+          "expected": "valid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-unavailable-item-only/sibling.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#declare-element"
+        ],
+        "conditions": [
+          "The global list type L and the inline list type of an xs:element with minOccurs and maxOccurs 0 both name the missing item type t:missing, so the schema loads; an element that omits attribute a, of type L, is valid and one that carries it is invalid. See docs/spec/INTERPRETATIONS.md I-023 (unresolved references)."
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#conformance-missing",
+          "clause": "Structures 5.3 Missing Sub-components, under which an unresolved QName leaves the property absent and only an item assessed against the affected component fails, as I-023 in docs/spec/INTERPRETATIONS.md records; this observation is not a majority-vote oracle"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-023"
+          },
+          "dotnet": {
+            "record": "I-023"
+          },
+          "xmlschema": {
+            "record": "I-023"
+          },
+          "libxml2": {
+            "record": "I-023"
+          }
+        }
+      },
+      "instances": [
+        {
+          "testName": "attribute-absent",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-absent.xml",
+          "expected": "valid"
+        },
+        {
+          "testName": "attribute-present",
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-present.xml",
+          "expected": "invalid"
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-absent.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/element-zero-occurrence/inline-type-dropped-after-placeholder/attribute-present.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/element-zero-occurrence/ref-unbound-prefix",
       "expectedSource": "project",
       "source": {
