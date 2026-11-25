@@ -277,7 +277,7 @@ func TestAttributeUseModeIsAdmittedAtTheTag(t *testing.T) {
 		{value: "optional", start: attributeUseRequired, want: attributeUseOptional},
 		{value: "required", start: attributeUseProhibited, want: attributeUseRequired},
 		{value: "prohibited", start: attributeUseOptional, want: attributeUseProhibited},
-		{value: "sometimes", wantMsg: "invalid attribute use sometimes"},
+		{value: "sometimes", wantMsg: `invalid attribute use "sometimes"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {

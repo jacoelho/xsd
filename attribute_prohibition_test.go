@@ -53,7 +53,7 @@ func TestAttributeDirectiveDiagnosticPrecedence(t *testing.T) {
 
 	for _, test := range []struct{ name, attributes, message string }{
 		{"reference shape before mode", `ref="missing" type="xs:string" use="bad"`, `attribute ref cannot have attribute "type"`},
-		{"mode", `ref="missing" use="bad"`, "invalid attribute use bad"},
+		{"mode", `ref="missing" use="bad"`, `invalid attribute use "bad"`},
 		{"reference shape before prohibition constraint", `ref="missing" type="xs:string" use="prohibited" default="x"`, `attribute ref cannot have attribute "type"`},
 		{"prohibition constraint", `ref="missing" use="prohibited" default="x"`, "prohibited attribute cannot have default"},
 	} {
