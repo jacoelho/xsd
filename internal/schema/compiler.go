@@ -336,7 +336,7 @@ func (c *compiler) compileGlobalAttributeAndModelGroups() error {
 		}
 	}
 	for _, q := range sortedBuildQNames(&c.rt, c.groupComponents) {
-		if err := c.compileModelGroupByQName(q); err != nil {
+		if err := c.compileGlobalModelGroup(c.groupComponents[q]); err != nil {
 			return err
 		}
 	}
@@ -402,12 +402,7 @@ func (c *compiler) finalizeCompiledGlobals() error {
 	return c.compileContentModels(reached)
 }
 
-func (c *compiler) compileModelGroupByQName(q QName) error {
-	label := c.rt.formatName(q)
-	raw, ok := c.groupComponents[q]
-	if !ok {
-		return schemaComponentMissingError(schemaComponentModelGroup, label)
-	}
+func (c *compiler) compileGlobalModelGroup(raw schemaComponent) error {
 	modelNode, err := topLevelGroupModel(raw.sourceNode())
 	if err != nil {
 		return err
@@ -507,17 +502,6 @@ func (c *compiler) validateAttributeDeclName(n *schemaNode, q QName) error {
 		return withSchemaCompileLocation(n, invalidAttributeError(err))
 	}
 	return nil
-}
-
-func parseAttributeUseModeChecked(n *schemaNode, modeSource lexicalAttribute) (attributeUseMode, error) {
-	if !modeSource.Present {
-		return attributeUseOptional, nil
-	}
-	parsed, err := parseAttributeUseMode(modeSource.Value)
-	if err != nil {
-		return attributeUseOptional, withSchemaCompileLocation(n, admittedValueInvariant(err))
-	}
-	return parsed, nil
 }
 
 func validateAttributeUseValueConstraintAtNode(n *schemaNode, hasDefault, refHasFixed bool) error {
@@ -793,13 +777,17 @@ func (c *compiler) compileSimpleTypeReference(n *schemaNode, q QName) (SimpleTyp
 		id, compileErr := c.compileSimpleByQName(q)
 		return id, withSchemaCompileLocation(n, compileErr)
 	}
-	if c.typeQNameKnown(q) {
-		missingErr := schemaComponentMissingError(schemaComponentSimpleType, c.rt.formatName(q))
-		return NoSimpleType, withSchemaCompileLocation(n, missingErr)
-	}
-	if !c.typeQNameMayBeUnavailable(q) {
-		missingErr := schemaComponentMissingError(schemaComponentSimpleType, c.rt.formatName(q))
-		return NoSimpleType, withSchemaCompileLocation(n, missingErr)
+	return c.unresolvedTypeReference(n, q, schemaComponentSimpleType)
+}
+
+// unresolvedTypeReference returns the type that a type, itemType or
+// memberTypes attribute of n binds to when it names q, which resolves to no
+// type of the kind the attribute requires: a reference error located at n
+// when q names a type of another kind or is in the XML Schema namespace, and
+// the missing simple type otherwise (I-023).
+func (c *compiler) unresolvedTypeReference(n *schemaNode, q QName, kind schemaComponentKind) (SimpleTypeID, error) {
+	if c.typeQNameKnown(q) || !c.typeQNameMayBeUnavailable(q) {
+		return NoSimpleType, withSchemaCompileLocation(n, schemaComponentMissingError(kind, c.rt.formatName(q)))
 	}
 	return c.missingSimpleType()
 }

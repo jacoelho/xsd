@@ -2,6 +2,8 @@ package schema
 
 import (
 	"errors"
+
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 )
 
 // attributeUseMode identifies the lexical xs:attribute use mode.
@@ -46,7 +48,7 @@ func parseAttributeUseMode(mode string) (attributeUseMode, error) {
 	case attributeUseProhibitedLexical:
 		return attributeUseProhibited, nil
 	default:
-		return attributeUseOptional, errors.New("invalid attribute use " + mode)
+		return attributeUseOptional, errors.New("invalid attribute use " + diagnostictext.Quote(mode))
 	}
 }
 

@@ -147,6 +147,7 @@ type admittedValues struct {
 	typeName          schemaQNameAttribute
 	occurrence        occurrenceAdmission
 	occurs            occurrence
+	use               attributeUseMode
 }
 
 // schemaGlobalSource contains the common source contract for named global
@@ -187,9 +188,9 @@ type schemaAttributeSource struct {
 	Default lexicalAttribute
 	Fixed   lexicalAttribute
 	Form    lexicalAttribute
-	Use     lexicalAttribute
 	Ref     schemaQNameAttribute
 	Type    schemaQNameAttribute
+	Use     attributeUseMode
 }
 
 type schemaComplexTypeSource struct {
@@ -534,7 +535,7 @@ func buildSemanticKind(n *schemaSyntaxNode, values *admittedValues) schemaSemant
 			Default: schemaLexicalAttributeSyntax(n, vocab.XSDAttrDefault),
 			Fixed:   schemaLexicalAttributeSyntax(n, vocab.XSDAttrFixed),
 			Form:    schemaLexicalAttributeSyntax(n, vocab.XSDAttrForm),
-			Use:     schemaLexicalAttributeSyntax(n, vocab.XSDAttrUse),
+			Use:     values.use,
 		}
 	case vocab.XSDElemComplexType:
 		return &schemaComplexTypeSource{

@@ -15,7 +15,7 @@ import (
 // table is the only substitution lookup the published schema retains.
 func (c *compiler) compileSubstitutions() error {
 	compilation := newSubstitutionCompilation(c)
-	if err := compilation.linkHeads(); err != nil {
+	if err := compilation.linkAffiliations(); err != nil {
 		return err
 	}
 	compilation.propagateInheritedTypes()
@@ -37,32 +37,32 @@ func (c *compiler) compileSubstitutions() error {
 type substitutionCompilation struct {
 	compiler     *compiler
 	elements     []elementDecl
-	children     [][]ElementID
+	members      [][]ElementID
 	indegree     []uint8
 	inheritsType []bool
-	members      []QName
+	elementNames []QName
 }
 
 func newSubstitutionCompilation(c *compiler) substitutionCompilation {
 	elements := c.elementCopies()
 	return substitutionCompilation{
 		compiler: c, elements: elements,
-		children: make([][]ElementID, len(elements)),
+		members:  make([][]ElementID, len(elements)),
 		indegree: make([]uint8, len(elements)), inheritsType: make([]bool, len(elements)),
-		members: sortedBuildQNames(&c.rt, c.elementComponents),
+		elementNames: sortedBuildQNames(&c.rt, c.elementComponents),
 	}
 }
 
-func (s *substitutionCompilation) linkHeads() error {
-	for _, member := range s.members {
-		if err := s.linkHead(member); err != nil {
+func (s *substitutionCompilation) linkAffiliations() error {
+	for _, name := range s.elementNames {
+		if err := s.linkAffiliation(name); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *substitutionCompilation) linkHead(memberQName QName) error {
+func (s *substitutionCompilation) linkAffiliation(memberQName QName) error {
 	raw := s.compiler.elementComponents[memberQName]
 	source, err := requiredSemanticSource[*schemaElementSource](raw.sourceNode())
 	if err != nil {
@@ -87,8 +87,8 @@ func (s *substitutionCompilation) linkHead(memberQName QName) error {
 	if !validElementID(head, len(s.elements)) {
 		return xsderrors.InternalInvariant("substitution head was not compiled", nil)
 	}
-	s.elements[member].SubstHead = head
-	s.children[head] = append(s.children[head], member)
+	s.elements[member].SubstitutionGroupAffiliation = head
+	s.members[head] = append(s.members[head], member)
 	s.indegree[member] = 1
 	return nil
 }
@@ -102,7 +102,7 @@ func (s *substitutionCompilation) propagateInheritedTypes() {
 	}
 	for next := 0; next < len(queue); next++ {
 		head := queue[next]
-		for _, member := range s.children[head] {
+		for _, member := range s.members[head] {
 			if s.inheritsType[member] {
 				s.elements[member].Type = s.elements[head].Type
 			}
@@ -113,7 +113,7 @@ func (s *substitutionCompilation) propagateInheritedTypes() {
 }
 
 func (s *substitutionCompilation) rejectCycles() error {
-	for _, memberQName := range s.members {
+	for _, memberQName := range s.elementNames {
 		member, ok := s.compiler.rt.GlobalElements[memberQName]
 		if !ok || s.indegree[member] == 0 {
 			continue
@@ -214,7 +214,7 @@ func substitutionCycleElement(start ElementID, elements []elementDecl) (ElementI
 		if !validElementID(current, len(elements)) {
 			return NoElement, xsderrors.InternalInvariant("substitution cycle references invalid element", nil)
 		}
-		current = elements[current].SubstHead
+		current = elements[current].SubstitutionGroupAffiliation
 	}
 	if !validElementID(current, len(elements)) {
 		return NoElement, xsderrors.InternalInvariant("substitution residual does not lead to a cycle", nil)

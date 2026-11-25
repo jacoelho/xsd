@@ -34,16 +34,16 @@ const (
 
 // elementDecl is the runtime record for one element declaration.
 type elementDecl struct {
-	ValueConstraint *valueConstraint
-	Identity        []IdentityConstraintID
-	Type            TypeID
-	Name            QName
-	SubstHead       ElementID
-	Nillable        bool
-	Abstract        bool
-	Block           DerivationMask
-	Final           DerivationMask
-	Scope           declarationScope
+	ValueConstraint              *valueConstraint
+	Identity                     []IdentityConstraintID
+	Type                         TypeID
+	Name                         QName
+	SubstitutionGroupAffiliation ElementID
+	Nillable                     bool
+	Abstract                     bool
+	Block                        DerivationMask
+	Final                        DerivationMask
+	Scope                        declarationScope
 }
 
 // elementDeclByID resolves an element declaration ID against an element table.
@@ -83,7 +83,7 @@ func validateElementDeclRuntime(names *nameTable, decl elementDecl, limits declR
 	if !validElementFinalMask(decl.Final) {
 		return newBuildDefect("element declaration final mask contains invalid derivation")
 	}
-	if decl.SubstHead != NoElement && !validElementID(decl.SubstHead, limits.ElementCount) {
+	if decl.SubstitutionGroupAffiliation != NoElement && !validElementID(decl.SubstitutionGroupAffiliation, limits.ElementCount) {
 		return newBuildDefect("element declaration references invalid substitution head")
 	}
 	return nil
