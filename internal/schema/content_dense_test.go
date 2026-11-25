@@ -175,9 +175,9 @@ func TestDenseDFAEffectiveSubstitutionReturnsActualMember(t *testing.T) {
 			elements := make([]elementDecl, 17)
 			for i, name := range expanded {
 				qname, _ := names.LookupQName("", name.Local)
-				elements[i] = elementDecl{Name: qname, Type: ComplexRef(0), SubstHead: NoElement}
+				elements[i] = elementDecl{Name: qname, Type: ComplexRef(0), SubstitutionGroupAffiliation: NoElement}
 			}
-			elements[16].SubstHead = 0
+			elements[16].SubstitutionGroupAffiliation = 0
 			elements[16].Abstract = exclusion == "abstract"
 			if exclusion == "blocked" {
 				elements[0].Block = derivationSubstitution

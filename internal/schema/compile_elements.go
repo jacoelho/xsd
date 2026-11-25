@@ -185,11 +185,11 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, id 
 		return elementDecl{}, nil, err
 	}
 	decl := elementDecl{
-		Name:      q,
-		Type:      properties.typ,
-		Nillable:  properties.nillable,
-		Abstract:  properties.abstract,
-		SubstHead: NoElement,
+		Name:                         q,
+		Type:                         properties.typ,
+		Nillable:                     properties.nillable,
+		Abstract:                     properties.abstract,
+		SubstitutionGroupAffiliation: NoElement,
 	}
 	if maskErr := applyElementDerivationMasks(ctx, n, &decl); maskErr != nil {
 		return elementDecl{}, nil, maskErr

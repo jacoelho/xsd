@@ -109,11 +109,11 @@ func TestSchemaBuildInstallsCorrelatedSubstitutionTables(t *testing.T) {
 		t.Fatal(err)
 	}
 	typ := ComplexRef(c.rt.AnyType)
-	head, err := c.registerGlobalElement(headName, elementDecl{Name: headName, Type: typ, SubstHead: NoElement})
+	head, err := c.registerGlobalElement(headName, elementDecl{Name: headName, Type: typ, SubstitutionGroupAffiliation: NoElement})
 	if err != nil {
 		t.Fatal(err)
 	}
-	member, err := c.registerGlobalElement(memberName, elementDecl{Name: memberName, Type: typ, SubstHead: head})
+	member, err := c.registerGlobalElement(memberName, elementDecl{Name: memberName, Type: typ, SubstitutionGroupAffiliation: head})
 	if err != nil {
 		t.Fatal(err)
 	}

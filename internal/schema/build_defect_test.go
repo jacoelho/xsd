@@ -93,7 +93,7 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 			name: "substitution head outside the element table",
 			corrupt: func(t *testing.T, rt *schemaBuild) {
 				t.Helper()
-				rt.Elements[buildDefectGlobalElement(t, rt, "member")].SubstHead = ElementID(outsideTable)
+				rt.Elements[buildDefectGlobalElement(t, rt, "member")].SubstitutionGroupAffiliation = ElementID(outsideTable)
 			},
 			defect: true,
 		},
