@@ -300,17 +300,9 @@ func placementAttributeRequirement(element string, placement schemaElementPlacem
 			requirement = elementAttributeRequirement{attr: vocab.XSDAttrRef, message: "attributeGroup use missing ref"}
 		}
 	case schemaPlacementSimpleContentDerivation:
-		message := "simpleContent extension missing base"
-		if element == vocab.XSDElemRestriction {
-			message = "simpleContent restriction missing base"
-		}
-		requirement = elementAttributeRequirement{attr: vocab.XSDAttrBase, message: message}
+		requirement = derivationBaseRequirement(element, "simpleContent restriction missing base", "simpleContent extension missing base")
 	case schemaPlacementComplexContentDerivation:
-		message := "complexContent extension missing base"
-		if element == vocab.XSDElemRestriction {
-			message = "complexContent restriction missing base"
-		}
-		requirement = elementAttributeRequirement{attr: vocab.XSDAttrBase, message: message}
+		requirement = derivationBaseRequirement(element, "complexContent restriction missing base", "complexContent extension missing base")
 	default:
 		return elementAttributeRequirement{}, false, xsderrors.InternalInvariant("schema element placement is unknown", nil)
 	}
@@ -319,6 +311,17 @@ func placementAttributeRequirement(element string, placement schemaElementPlacem
 	}
 	requirement.code = xsderrors.CodeSchemaReference
 	return requirement, true, nil
+}
+
+// derivationBaseRequirement is the base that derivation, the local name of an
+// xs:restriction or xs:extension, requires; its diagnostic is restriction for
+// an xs:restriction and extension for an xs:extension.
+func derivationBaseRequirement(derivation, restriction, extension string) elementAttributeRequirement {
+	message := extension
+	if derivation == vocab.XSDElemRestriction {
+		message = restriction
+	}
+	return elementAttributeRequirement{attr: vocab.XSDAttrBase, message: message}
 }
 
 // missingTopLevelNameMessage describes a top-level component named element
