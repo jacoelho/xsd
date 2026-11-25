@@ -23,6 +23,7 @@ import (
 // through a local variable assigned in the same package. Parameters are not
 // followed into callers.
 func TestInternalInvariantMessagesCarryNoErrorText(t *testing.T) {
+	t.Parallel()
 	root := repoRoot(t)
 	dirs := internalInvariantCallerDirs(t, root)
 	if len(dirs) == 0 {
@@ -38,6 +39,7 @@ func TestInternalInvariantMessagesCarryNoErrorText(t *testing.T) {
 }
 
 func TestInternalInvariantErrorTextLintFixtures(t *testing.T) {
+	t.Parallel()
 	const header = `package fixture
 
 import (
@@ -71,6 +73,7 @@ func (*readerError) Error() string { return "reader" }
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			fset := token.NewFileSet()
 			file, err := parser.ParseFile(fset, "fixture.go", header+tt.body, 0)
 			if err != nil {

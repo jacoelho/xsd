@@ -16,6 +16,7 @@ import (
 // topology is deliberately unexported so callers can only obtain a sealed
 // Schema through the package's compile entrypoint.
 func TestSchemaBuildIsPrivate(t *testing.T) {
+	t.Parallel()
 	root := repoRoot(t)
 	dir := filepath.Join(root, "internal", "schema")
 	entries, err := os.ReadDir(dir)

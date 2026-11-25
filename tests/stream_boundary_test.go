@@ -27,6 +27,7 @@ const xmlStreamImport = "github.com/jacoelho/xsd/internal/xmlstream"
 // copies of reference-bearing containers, including slices.Clone of them, do
 // not.
 func TestXMLStreamBorrowedValuesStayEphemeral(t *testing.T) {
+	t.Parallel()
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	packages := collectXMLStreamPackages(t, root, fset)

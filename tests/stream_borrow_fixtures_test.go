@@ -9,6 +9,7 @@ import (
 )
 
 func TestXMLStreamBorrowedProvenance(t *testing.T) {
+	t.Parallel()
 	const source = `package fixture
 import (
  "bytes"

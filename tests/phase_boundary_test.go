@@ -37,6 +37,7 @@ func TestInternalImplementationPackagesExist(t *testing.T) {
 }
 
 func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
+	t.Parallel()
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	var rootFiles []*ast.File
@@ -90,6 +91,7 @@ func TestRootCompileHasSingleInternalExecutionEdge(t *testing.T) {
 }
 
 func TestValidationFacadeOwnsSessionConstruction(t *testing.T) {
+	t.Parallel()
 	root := repoRoot(t)
 	fset := token.NewFileSet()
 	internal := make([]*ast.File, 0)

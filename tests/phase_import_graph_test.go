@@ -87,6 +87,7 @@ func TestLibraryPackagesAreReflectionFree(t *testing.T) {
 }
 
 func TestSchemaSourceIOOwnership(t *testing.T) {
+	t.Parallel()
 	const sourceImport = "github.com/jacoelho/xsd/internal/source"
 	root := repoRoot(t)
 	sourceDir := filepath.Join(root, "internal", "source") + string(filepath.Separator)
@@ -306,6 +307,7 @@ func TestFormatPackageImportGraph(t *testing.T) {
 }
 
 func TestPublicLibraryPackageSurface(t *testing.T) {
+	t.Parallel()
 	packages := listPackages(t, "./...")
 	allowed := map[string]bool{
 		"github.com/jacoelho/xsd":           true,

@@ -10,6 +10,7 @@ import (
 )
 
 func TestExternalModuleUsesPublicSchemaAPI(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	writeExternalSmokeFile(t, filepath.Join(dir, "go.mod"), `module external-api-smoke
 

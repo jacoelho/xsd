@@ -17,6 +17,7 @@ import (
 )
 
 func TestMeasuredPhasesHaveObservations(t *testing.T) {
+	t.Parallel()
 	dir := testDir(t)
 	inv := loadInventory(t, dir)
 	obs := loadObservations(t, dir, &inv)
@@ -26,6 +27,7 @@ func TestMeasuredPhasesHaveObservations(t *testing.T) {
 }
 
 func TestObservedDifferencesAreDiagnosed(t *testing.T) {
+	t.Parallel()
 	dir := testDir(t)
 	inv := loadInventory(t, dir)
 	obs := loadObservations(t, dir, &inv)
@@ -40,6 +42,7 @@ func TestObservedDifferencesAreDiagnosed(t *testing.T) {
 }
 
 func TestCorpusDirectoriesHoldOnlyListedFiles(t *testing.T) {
+	t.Parallel()
 	dir := testDir(t)
 	inv := loadInventory(t, dir)
 	want := append(inv.ShardPaths(), inv.ObservationPaths()...)
