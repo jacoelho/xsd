@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # deploy-pages lists the run's artifacts, and a listing made right after the
+  # upload in the same job can miss it ("Found 0 artifact(s)"), so the upload
+  # and the deployment run in separate jobs.
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,6 +42,21 @@ jobs:
         with:
           path: web
 
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      # The Pages service intermittently answers "Deployment failed, try again
+      # later." for a valid artifact; one retry follows that answer.
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      - name: Retry deploy to GitHub Pages
+        id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
