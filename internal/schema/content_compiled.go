@@ -855,7 +855,7 @@ func (row *compiledModelRowRead) denseCandidate(name RuntimeName) []compiledMode
 	if pos < 0 {
 		return nil
 	}
-	return row.Edges[pos : pos+1]
+	return row.Edges[pos : pos+1 : len(row.Edges)]
 }
 
 func completePublishedDFAContent(st ContentState, model *compiledModelRead) ContentCompletionStatus {
@@ -876,7 +876,7 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 		if !ok {
 			return ContentTransition{}, ContentTransitionNoMatch
 		}
-		next, match, status := rt.takeFirstPublishedDFAEdge(st, model, row.Edges[pos:pos+1], in)
+		next, match, status := rt.takeFirstPublishedDFAEdge(st, model, row.Edges[pos:pos+1:len(row.Edges)], in)
 		if status != ContentTransitionNoMatch {
 			return newContentTransition(st, next, match), status
 		}
@@ -929,7 +929,7 @@ func (rt *Schema) nextPublishedRunDFAContent(st ContentState, model *compiledMod
 		if !ok {
 			return ContentTransition{}, ContentTransitionNoMatch
 		}
-		next, match, status := rt.takeFirstPublishedDFAEdge(st, model, row.Edges[pos-int(start):pos-int(start)+1], in)
+		next, match, status := rt.takeFirstPublishedDFAEdge(st, model, row.Edges[pos-int(start):pos-int(start)+1:len(row.Edges)], in)
 		if status != ContentTransitionNoMatch {
 			return newContentTransition(st, next, match), status
 		}
