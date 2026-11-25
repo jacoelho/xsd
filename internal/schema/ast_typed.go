@@ -399,7 +399,7 @@ func admitStart(n *schemaSyntaxNode, placement schemaElementPlacement, parent *t
 	if parent.content == childContentAnnotationPayload {
 		return admitAnnotationEnvelopeStart(n, attrs)
 	}
-	return admitXSDChildStart(n, parent.name, placement, attrs)
+	return admitXSDChildStart(n, placement, attrs)
 }
 
 // admitChildContent checks the schema-namespace child n against the content
@@ -479,11 +479,11 @@ func admitAnnotationEnvelopeStart(n *schemaSyntaxNode, attrs startTagAttributes)
 // minOccurs exceeds maxOccurs and whether an attribute declaration is named
 // xmlns, is decided here, so those violations precede every later child in
 // document order.
-func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaElementPlacement, attrs startTagAttributes) error {
+func admitXSDChildStart(n *schemaSyntaxNode, placement schemaElementPlacement, attrs startTagAttributes) error {
 	if err := checkSchemaAttributesSyntax(n, placement, attrs); err != nil {
 		return err
 	}
-	if err := checkRequiredSchemaAttributes(n, parent, placement); err != nil {
+	if err := checkRequiredSchemaAttributes(n, placement); err != nil {
 		return err
 	}
 	if err := checkValueConstraintAttributes(n, attrs.values.use); err != nil {
