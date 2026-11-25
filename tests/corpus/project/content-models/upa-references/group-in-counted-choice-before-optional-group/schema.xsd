@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:group name="D"><xs:sequence><xs:element name="d"/></xs:sequence></xs:group>
+<xs:element name="root"><xs:complexType><xs:sequence><xs:choice minOccurs="2" maxOccurs="2"><xs:element name="c" minOccurs="3" maxOccurs="unbounded"/><xs:group ref="D"/></xs:choice><xs:group ref="D" minOccurs="0"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

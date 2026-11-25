@@ -37491,6 +37491,147 @@
       ]
     },
     {
+      "id": "project/content-models/upa-references/group-in-counted-choice-before-optional-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next d may be the choice's reference to group D or the optional reference to D after it; each reference to a group holds a particle of its own.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/group-in-counted-choice-before-optional-group"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/group-in-counted-choice-before-optional-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/group-in-counted-choice-before-optional-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next element of another namespace may be the choice's reference to group W or the optional reference to W after it; each reference to a group holds a wildcard particle of its own.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next h or m may be the choice's reference to head h or the optional reference to h after it; two references to one substitution group head are two particles.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
       "id": "project/content-models/upa-references/group-element-in-two-branches-before-overlap",
       "expectedSource": "project",
       "source": {

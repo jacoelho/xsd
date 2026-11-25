@@ -6445,6 +6445,10 @@ project/content-models/upa-references/group-element-in-two-branches-before-overl
 project/content-models/upa-references/group-element-in-two-branches-before-overlap	schema	libxml2	schema-invalid	schema.xsd:3: element complexType: Schemas parser error : local complex type: The content model is not determinist.␊WXS schema schema.xsd failed to compile
 project/content-models/upa-references/group-element-in-two-branches-before-overlap	schema	xerces	schema-invalid	schema.xsd:3:41: cos-nonambig: zz and zz (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
 project/content-models/upa-references/group-element-in-two-branches-before-overlap	schema	xmlschema	schema-valid	
+project/content-models/upa-references/group-in-counted-choice-before-optional-group	schema	dotnet	schema-valid	
+project/content-models/upa-references/group-in-counted-choice-before-optional-group	schema	libxml2	schema-valid	
+project/content-models/upa-references/group-in-counted-choice-before-optional-group	schema	xerces	schema-invalid	schema.xsd:3:41: cos-nonambig: d and d (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/upa-references/group-in-counted-choice-before-optional-group	schema	xmlschema	schema-valid	
 project/content-models/upa-references/group-wildcard-twice-in-choice	schema	dotnet	schema-valid	
 project/content-models/upa-references/group-wildcard-twice-in-choice	schema	libxml2	schema-valid	
 project/content-models/upa-references/group-wildcard-twice-in-choice	schema	xerces	schema-invalid	schema.xsd:3:41: cos-nonambig: WC[##other:""] and WC[##other:""] (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
@@ -6453,6 +6457,14 @@ project/content-models/upa-references/one-particle-in-counted-sequence	schema	do
 project/content-models/upa-references/one-particle-in-counted-sequence	schema	libxml2	schema-valid	
 project/content-models/upa-references/one-particle-in-counted-sequence	schema	xerces	schema-valid	
 project/content-models/upa-references/one-particle-in-counted-sequence	schema	xmlschema	schema-valid	
+project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head	schema	dotnet	schema-valid	
+project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head	schema	libxml2	schema-valid	
+project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head	schema	xerces	schema-invalid	schema.xsd:3:41: cos-nonambig: h and h (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head	schema	xmlschema	schema-valid	
+project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group	schema	dotnet	schema-valid	
+project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group	schema	libxml2	schema-valid	
+project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group	schema	xerces	schema-invalid	schema.xsd:3:41: cos-nonambig: WC[##other:""] and WC[##other:""] (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group	schema	xmlschema	schema-valid	
 project/content-models/upa-scope/addB194-occurrences-collapsed	schema	dotnet	schema-valid	
 project/content-models/upa-scope/addB194-occurrences-collapsed	schema	libxml2	schema-valid	warning: schema.xsd:2: namespace warning : xmlns: URI rfagbypsLBwfcvpjqnekzhwpmrxvdsdylfnsdvxwLBiantuyukpmijseeuqopeemzw is not absolute␊hema' xmlns='rfagbypsLBwfcvpjqnekzhwpmrxvdsdylfnsdvxwLBiantuyukpmijseeuqopeemzw'␊                                                                               ^
 project/content-models/upa-scope/addB194-occurrences-collapsed	schema	xerces	schema-valid	
