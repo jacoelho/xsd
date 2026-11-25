@@ -1231,9 +1231,6 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 		particle := particleAt(i)
 		name, needsCheck := c.particleUPAName(particle)
 		if needsCheck {
-			if c.matchesNoItem(particle) {
-				continue
-			}
 			return true, nil
 		}
 		for j := i + 1; j < count; j++ {
@@ -1257,8 +1254,8 @@ func (c *contentModelCompiler) matchesNoItem(p contentParticle) bool {
 	return ok && model.Kind == modelChoice && len(model.Particles) == 0
 }
 
-// withoutEmptyChoices returns the elements of s whose particles are not
-// choices without branches, so the pairwise checks compare none of those. It
+// withoutEmptyChoices returns the edges of s whose particles are not choices
+// without branches, so the row checks compare none of those. It
 // returns s itself when s holds none, and otherwise a copy, which the charge
 // for s bounds.
 func withoutEmptyChoices[E any](c *contentModelCompiler, s []E, particle func(E) contentParticle) []E {
@@ -1275,9 +1272,13 @@ func withoutEmptyChoices[E any](c *contentModelCompiler, s []E, particle func(E)
 	return out
 }
 
+// particleUPAName returns the name of particle when it is an element
+// declaration without substitution members, and whether particle needs the
+// pairwise check instead. A choice without branches needs none and has no
+// name.
 func (c *contentModelCompiler) particleUPAName(particle contentParticle) (QName, bool) {
 	if particle.Kind != particleElement || c.rt.Substitutions.HasMembers(particle.Element) {
-		return QName{}, true
+		return QName{}, !c.matchesNoItem(particle)
 	}
 	name, ok := c.rt.ElementName(particle.Element)
 	return name, !ok
@@ -1288,7 +1289,7 @@ func (c *contentModelCompiler) particlePairNeedsUPACheck(name QName, next conten
 		return false, err
 	}
 	nextName, needsCheck := c.particleUPAName(next)
-	return needsCheck && !c.matchesNoItem(next) || nextName == name, nil
+	return needsCheck || nextName == name, nil
 }
 
 func singleParticle(p contentParticle) contentParticle {
@@ -1341,8 +1342,10 @@ func (c *contentModelCompiler) checkPairwiseUPA(particles []contentParticle) err
 	if !needsCheck {
 		return nil
 	}
-	particles = withoutEmptyChoices(c, particles, func(p contentParticle) contentParticle { return p })
 	for i, p := range particles {
+		if c.matchesNoItem(p) {
+			continue
+		}
 		if err := c.checkParticleAgainstFollowingUPA(p, particles[i+1:]); err != nil {
 			return err
 		}
@@ -1352,6 +1355,9 @@ func (c *contentModelCompiler) checkPairwiseUPA(particles []contentParticle) err
 
 func (c *contentModelCompiler) checkParticleAgainstFollowingUPA(particle contentParticle, following []contentParticle) error {
 	for _, next := range following {
+		if c.matchesNoItem(next) {
+			continue
+		}
 		if err := c.work.spend(1); err != nil {
 			return err
 		}
