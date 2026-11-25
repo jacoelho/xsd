@@ -459,8 +459,8 @@ At a start tag:
    (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
    and `xs:pattern` its integer and uint32 cap, its mode, and its regular
    expression with the `MaxSchemaPatternRetainedBytes` charge
-   (`admitFacetValue`); for the `fixed` of a facet its boolean form
-   (`admitParsedAttributeValue`); for `xpath` the path grammar and the
+   (`admitFacetValue`); for the `fixed` of a facet its boolean form and for
+   `use` its mode (`admitParsedAttributeValue`); for `xpath` the path grammar and the
    prefix bindings of its name tests, branch by branch from the left
    (`admitIdentityXPath`); the lexical form and prefix binding of a QName; and
    anyURI syntax;
@@ -522,7 +522,9 @@ child orders (`childOrderFor`) own where an element may appear; the placement
 of a component (`schemaElementPlacementOf`) selects its attribute rules and
 says nothing about whether its parent admits it. `schemaElementAttributeAllowed`
 and `misplacedSchemaAttributeError` own the attributes an element may have,
-`checkRequiredSchemaAttributes` the ones it must have,
+`checkRequiredSchemaAttributes` the ones it must have (in its placement,
+`placementAttributeRequirement`, and in every placement,
+`elementAttributeRequirements`),
 `checkValueConstraintAttributes` the ones that exclude each other, and
 `checkSchemaAttributeValueSyntax` the lexical form of a value other than the
 ones below.
@@ -530,7 +532,9 @@ ones below.
 The tag stores these admitted values in the typed source record, and
 compilation reads them without parsing again: the resolved names of QName
 attributes (`admitSchemaQNameAttribute`), the occurrence of a particle
-(`occurrenceAdmission`), and from a facet's value and `fixed` its size, its
+(`occurrenceAdmission`), the mode of an attribute's `use`, which the tag's
+own rules on `default` and `xmlns` also read (`admitParsedAttributeValue`),
+and from a facet's value and `fixed` its size, its
 whiteSpace mode, its compiled pattern and its fixed flag (`admitFacetValue`,
 `admitParsedAttributeValue`). Patterns are compiled through `schemaPatterns`,
 which the compiler owns and lends to start-tag admission while the set loads:

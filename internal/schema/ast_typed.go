@@ -486,7 +486,7 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaEl
 	if err := checkRequiredSchemaAttributes(n, parent, placement); err != nil {
 		return err
 	}
-	if err := checkValueConstraintAttributes(n); err != nil {
+	if err := checkValueConstraintAttributes(n, attrs.values.use); err != nil {
 		return err
 	}
 	occurs, err := attrs.values.occurrence.complete()
@@ -494,7 +494,7 @@ func admitXSDChildStart(n *schemaSyntaxNode, parent xml.Name, placement schemaEl
 		return withSchemaCompileLocation(n, err)
 	}
 	attrs.values.occurs = occurs
-	return checkAttributeDeclarationName(n)
+	return checkAttributeDeclarationName(n, attrs.values.use)
 }
 
 func (s *typedSchemaParseState) end(line, col int) error {

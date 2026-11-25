@@ -509,17 +509,6 @@ func (c *compiler) validateAttributeDeclName(n *schemaNode, q QName) error {
 	return nil
 }
 
-func parseAttributeUseModeChecked(n *schemaNode, modeSource lexicalAttribute) (attributeUseMode, error) {
-	if !modeSource.Present {
-		return attributeUseOptional, nil
-	}
-	parsed, err := parseAttributeUseMode(modeSource.Value)
-	if err != nil {
-		return attributeUseOptional, withSchemaCompileLocation(n, admittedValueInvariant(err))
-	}
-	return parsed, nil
-}
-
 func validateAttributeUseValueConstraintAtNode(n *schemaNode, hasDefault, refHasFixed bool) error {
 	if err := validateAttributeUseValueConstraintAdmission(attributeUseValueConstraintAdmission{
 		HasDefault:             hasDefault,

@@ -253,10 +253,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 	if err != nil {
 		return err
 	}
-	mode, err := parseAttributeUseModeChecked(child, overrides.mode)
-	if err != nil {
-		return err
-	}
+	mode := overrides.mode
 	if mode == attributeUseProhibited {
 		name, admissionErr := b.compiler.admitAttributeProhibition(b.ctx, child)
 		if admissionErr != nil {
@@ -477,7 +474,7 @@ func (c *compiler) allocateAttributeUseID() (uint32, error) {
 type attributeUseOverrides struct {
 	defaultAttr lexicalAttribute
 	fixedAttr   lexicalAttribute
-	mode        lexicalAttribute
+	mode        attributeUseMode
 }
 
 func readAttributeUseOverrides(n *schemaNode) (attributeUseOverrides, error) {
