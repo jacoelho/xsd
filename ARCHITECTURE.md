@@ -555,8 +555,8 @@ or field, after every syntax diagnostic. The compiler keeps the paths once per
 node, so every identity constraint compiled from the node, in each chameleon
 context, shares them; a missing admitted path is an internal invariant. The other
 attribute values that are single keywords or short lists (booleans, `form`,
-`use`, derivation sets, `processContents`, wildcard namespaces,
-`targetNamespace`) stay lexical in the record and are parsed again with the
+derivation sets, `processContents`, wildcard namespaces, `targetNamespace`)
+stay lexical in the record and are parsed again with the
 same allocation-free parser where compilation uses them; a failure there is an
 internal invariant (`admittedValueInvariant`), not a second schema diagnostic.
 

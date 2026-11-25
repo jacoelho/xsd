@@ -270,19 +270,20 @@ func TestAttributeUseModeIsAdmittedAtTheTag(t *testing.T) {
 
 	tests := []struct {
 		value   string
+		start   attributeUseMode
 		want    attributeUseMode
 		wantMsg string
 	}{
-		{value: "optional", want: attributeUseOptional},
-		{value: "required", want: attributeUseRequired},
-		{value: "prohibited", want: attributeUseProhibited},
+		{value: "optional", start: attributeUseRequired, want: attributeUseOptional},
+		{value: "required", start: attributeUseProhibited, want: attributeUseRequired},
+		{value: "prohibited", start: attributeUseOptional, want: attributeUseProhibited},
 		{value: "sometimes", wantMsg: "invalid attribute use sometimes"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
 			t.Parallel()
 
-			values := admittedValues{use: attributeUseProhibited}
+			values := admittedValues{use: tt.start}
 			err := admitParsedAttributeValue("attribute", testAttr("use", tt.value), startTagAttributes{values: &values})
 			if tt.wantMsg != "" {
 				diagnostic, ok := errors.AsType[*xsderrors.Error](err)
