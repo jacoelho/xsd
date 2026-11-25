@@ -1049,7 +1049,9 @@ The `Makefile` is the executable source of target names and commands. Its target
 graph preserves these ownership rules:
 
 - Library, race, lint, static-analysis, fuzz, and benchmark gates address the
-  owning Go packages directly.
+  owning Go packages directly. The lint target also checks
+  `.github/workflows` with zizmor through `uvx`, so it needs uv and, until
+  zizmor is cached, access to PyPI.
 - The 32-bit target runs the library tests as linux/386 on linux hosts, the
   only hosts that execute them, and vets the linux/386 build elsewhere.
 - WASM build/test targets own the Go/JavaScript bridge and matching Go runtime

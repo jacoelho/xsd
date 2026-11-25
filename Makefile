@@ -4,6 +4,7 @@ MAKEFLAGS+=-r -R
 BIN := $(CURDIR)/bin
 STATICCHECK_VERSION := v0.8.2
 GOLANGCI_LINT_VERSION := v2.15.0
+ZIZMOR_VERSION := 1.33.1
 BENCHSTAT_VERSION := v0.0.0-20260112171951-5abaabe9f1bd
 export GOBIN := $(BIN)
 
@@ -107,8 +108,12 @@ lint-config: $(BIN)/golangci-lint
 	$(BIN)/golangci-lint config verify
 
 .PHONY: lint
-lint: lint-config
+lint: lint-config lint-workflows
 	$(BIN)/golangci-lint run
+
+.PHONY: lint-workflows
+lint-workflows:
+	uvx zizmor@$(ZIZMOR_VERSION) --offline .github/workflows
 
 $(BIN)/golangci-lint: go.mod .golangci.yml Makefile | $(BIN)
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)

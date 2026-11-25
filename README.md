@@ -373,6 +373,10 @@ npm exec --prefix web/js -- playwright install chromium
 make browser-test
 ```
 
+`make lint` also checks the GitHub Actions workflows with zizmor, which it runs
+through `uvx`, so it needs [uv](https://docs.astral.sh/uv/) installed and, the
+first time, access to PyPI.
+
 ## Benchmarks
 
 These results compare this library with libxml2's `xmllint --stream`, measured
