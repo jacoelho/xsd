@@ -828,14 +828,8 @@ func (c *contentModelCompiler) executionGroup(parent modelKind, p contentParticl
 func (c *contentModelCompiler) executionParticle(p contentParticle) (contentParticle, error) {
 	for p.Kind == particleModel {
 		child, flattened, err := c.executionSingleton(p)
-		if err != nil {
+		if err != nil || !flattened {
 			return p, err
-		}
-		if !flattened {
-			if c.optionalChoiceWithoutBranches(p) {
-				p.Occurs = occurrence{}
-			}
-			return p, nil
 		}
 		p = child
 	}
@@ -946,7 +940,8 @@ func (a *directModelAdmission) admit(particle contentParticle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if !c.directParticle(particle) {
+	particle, ok := c.directParticle(particle)
+	if !ok {
 		a.supported = false
 		return false, nil
 	}
@@ -960,8 +955,18 @@ func (a *directModelAdmission) admit(particle contentParticle) (bool, error) {
 	return true, nil
 }
 
-func (c *contentModelCompiler) directParticle(particle contentParticle) bool {
-	return particle.Kind == particleElement || particle.Kind == particleWildcard || c.matchesNoItem(particle)
+// directParticle returns particle as direct compilation takes it, and whether
+// it takes it: an element, a wildcard or a choice without branches, which is
+// absent when it may occur zero times (choiceWithoutBranches).
+func (c *contentModelCompiler) directParticle(particle contentParticle) (contentParticle, bool) {
+	if particle.Kind != particleModel {
+		return particle, particle.Kind == particleElement || particle.Kind == particleWildcard
+	}
+	empty, optional := c.choiceWithoutBranches(particle)
+	if optional {
+		particle.Occurs = occurrence{}
+	}
+	return particle, empty
 }
 
 func unadmittedDirectParticle() error {
@@ -1013,7 +1018,8 @@ type directSequenceSpan struct {
 }
 
 func (b *directSequenceCompilation) addParticle(particle contentParticle) error {
-	if !b.compiler.directParticle(particle) {
+	particle, ok := b.compiler.directParticle(particle)
+	if !ok {
 		return unadmittedDirectParticle()
 	}
 	if particle.Occurs.IsAbsent() {
@@ -1139,7 +1145,8 @@ type directChoiceCompilation struct {
 }
 
 func (b *directChoiceCompilation) addParticle(particle contentParticle) error {
-	if !b.compiler.directParticle(particle) {
+	particle, ok := b.compiler.directParticle(particle)
+	if !ok {
 		return unadmittedDirectParticle()
 	}
 	if particle.Occurs.IsAbsent() {
@@ -1294,24 +1301,25 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 // no item (I-042 of docs/spec/INTERPRETATIONS.md) and so overlaps no particle
 // (I-052): Unique Particle Attribution compares it with none.
 func (c *contentModelCompiler) matchesNoItem(p contentParticle) bool {
-	if p.Kind != particleModel {
-		return false
-	}
-	model, ok := contentModelByID(c.rt.Models, p.Model)
-	return ok && model.Kind == modelChoice && len(model.Particles) == 0
+	empty, _ := c.choiceWithoutBranches(p)
+	return empty
 }
 
-// optionalChoiceWithoutBranches reports whether p is a choice without
-// branches that may occur zero times. It contributes only the empty sequence,
-// and omitting it leaves the language and every Unique Particle Attribution
-// verdict unchanged (I-052 of docs/spec/INTERPRETATIONS.md), so direct
-// compilation and automaton construction omit it.
-func (c *contentModelCompiler) optionalChoiceWithoutBranches(p contentParticle) bool {
+// choiceWithoutBranches reports whether p is a choice without branches, and
+// whether it may also occur zero times. Such an optional choice contributes
+// only the empty sequence, and omitting it leaves the language and every
+// Unique Particle Attribution verdict unchanged (I-052 of
+// docs/spec/INTERPRETATIONS.md), so direct compilation and automaton
+// construction omit it.
+func (c *contentModelCompiler) choiceWithoutBranches(p contentParticle) (empty, optional bool) {
 	if p.Kind != particleModel {
-		return false
+		return false, false
 	}
 	model, ok := contentModelByID(c.rt.Models, p.Model)
-	return ok && model.Kind == modelChoice && len(model.Particles) == 0 && (p.Occurs.Min == 0 || model.Occurs.Min == 0)
+	if !ok || model.Kind != modelChoice || len(model.Particles) != 0 {
+		return false, false
+	}
+	return true, p.Occurs.Min == 0 || model.Occurs.Min == 0
 }
 
 // withoutEmptyChoices returns the edges of s whose particles are not choices
@@ -1794,7 +1802,7 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 		}
 		node = b.leaf(p)
 	case particleModel:
-		if b.c.optionalChoiceWithoutBranches(p) {
+		if _, optional := b.c.choiceWithoutBranches(p); optional {
 			return dfaNode{Nullable: true}, nil
 		}
 		child, err := b.modelNode(p.Model)
