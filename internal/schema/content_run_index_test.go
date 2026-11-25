@@ -23,6 +23,7 @@ func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 		}
 		b.WriteString(`<xs:element name="c" type="xs:string" minOccurs="0" maxOccurs="3"/>`)
 	}
+	wildcardNamespaces := []string{"urn:w1", "urn:w2"}
 	for _, test := range []struct {
 		name    string
 		content func(*strings.Builder)
@@ -78,7 +79,12 @@ func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 				`<xs:element name="root"><xs:complexType><xs:sequence>`)
 			test.content(&b)
 			b.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
-			rt, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(b.String()))})
+			sources := []source.Source{source.Bytes("schema.xsd", []byte(b.String()))}
+			for _, namespace := range wildcardNamespaces {
+				sources = append(sources, source.Bytes(namespace+".xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="`+namespace+`">`+
+					`<xs:element name="c" type="xs:string"/><xs:element name="e0" type="xs:string"/></xs:schema>`)))
+			}
+			rt, err := Compile(Options{}, sources)
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
@@ -90,8 +96,15 @@ func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 				}
 				inputs = append(inputs, ContentInput{Name: RuntimeName{Known: true, Name: name, Local: local}})
 			}
-			for _, namespace := range []string{"urn:w1", "urn:w2"} {
+			for _, namespace := range wildcardNamespaces {
 				inputs = append(inputs, ContentInput{Name: RuntimeName{NS: namespace, Local: "any"}})
+				for _, local := range []string{"c", "e0"} {
+					name, ok := rt.LookupQName(namespace, local)
+					if !ok {
+						t.Fatalf("LookupQName(%q, %q) is unknown", namespace, local)
+					}
+					inputs = append(inputs, ContentInput{Name: RuntimeName{NS: namespace, Known: true, Name: name, Local: local}})
+				}
 			}
 			indexed := 0
 			for id := range rt.program.CompiledModels {
