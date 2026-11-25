@@ -310,20 +310,21 @@ into per-model caches. The direct check skips two kinds of model: one that
 reaches a repeated choice with a non-unit particle (`modelNeedsRuntimeSplitSeen`),
 and a sequence in which a wildcard continuing a member meets a following
 member that is a wildcard with the same namespaces
-(`sequenceHasWildcardEquivalentOverlap`). The row checks of automaton
-construction own the Unique Particle Attribution of those models, on the
-source rows (`checkUPA`) and on the determinized rows
-(`checkCompiledRowsUPA`), and they also check every other model automaton
-construction compiles. Both checks and determinization
+(`sequenceHasWildcardEquivalentOverlap`). The row checks of whichever table
+`compileContentModel` builds own the Unique Particle Attribution of those
+models: the rows of a direct table (`checkCompiledRowsUPA`), or the source
+rows (`checkUPA`) and determinized rows of an automaton. They check every
+other model it compiles too. Both checks and determinization
 (`checkSharedTermUPA`) compare positions, not terms, as
 [I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks) requires,
 and treat a choice without branches as an element declaration that no item
 matches, as
 [I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off)
 requires: `matchesNoItem` and `choiceWithoutBranches` decide the
-particle for every pairwise check, direct compilation (`directSequenceCompilation`)
-and automaton construction (`choiceNode`), and no published table holds an
-edge for it. Unique Particle
+particle for every pairwise check and needs-check (`particleUPAName`),
+`executionModel` its root form, direct compilation
+(`directSequenceCompilation`) and automaton construction
+(`choiceWithoutBranchesNode`), and no published table holds an edge for it. Unique Particle
 Attribution applies to the content models of complex types ([I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)): the direct
 check and automaton construction (`compileContentModels`) visit, in source-ID
 order, the root model of each complex type and every model it reaches through

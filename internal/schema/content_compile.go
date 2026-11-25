@@ -62,19 +62,22 @@ type dfaNode struct {
 // dfaBuilder builds the counted source automaton of one content model and
 // determinizes it. positions holds the particle of each position: an element,
 // a wildcard, or, for a choice without branches, a model particle naming the
-// choice (choiceNode); emptyChoices reports whether any position is one.
+// choice (choiceWithoutBranchesNode); emptyChoices reports whether any
+// position is one. repeatedGroups counts the repeating groups that enclose
+// the particle being built.
 type dfaBuilder struct {
-	c            *contentModelCompiler
-	states       map[string]uint32
-	positions    []contentParticle
-	rows         []dfaSourceRow
-	queue        []string
-	rowEntries   []dfaStateEntry
-	key          []byte
-	follow       followTable
-	limit        int
-	counters     uint32
-	emptyChoices bool
+	c              *contentModelCompiler
+	states         map[string]uint32
+	positions      []contentParticle
+	rows           []dfaSourceRow
+	queue          []string
+	rowEntries     []dfaStateEntry
+	key            []byte
+	follow         followTable
+	limit          int
+	repeatedGroups int
+	counters       uint32
+	emptyChoices   bool
 }
 
 // cachedID caches an ID assigned on first use. known distinguishes the
@@ -89,9 +92,9 @@ type cachedID struct {
 // model, whose record the compiled table and the published table both hold,
 // and one per row, edge and xs:all term. The rows of a direct sequence share
 // one run of edges, so each of its edges counts once. A root model's rows and
-// edges are its published ones, and the rows and edges withoutEmptyChoiceEdges
-// removes stay charged, so the charge also bounds the tables publication
-// keeps. A nested model that compileContentModels compiles on its
+// edges are its published ones, and the rows and edges that
+// withoutEmptyChoiceEdges and directSequenceCompilation.reachable remove stay
+// charged, so the charge also bounds the tables publication keeps. A nested model that compileContentModels compiles on its
 // own keeps no table but is charged for its rows and edges all the same: its
 // Unique Particle Attribution check and determinization read them while it
 // compiles, so this over-count is intended. typeLabel names the complex type a
@@ -759,7 +762,10 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 // never copied into the models that refer to it: execution reads the
 // language-preserving splice of same-compositor 1..1 groups through
 // executionParticles. A model whose splice is one particle becomes a model of
-// that particle as executionParticle reduces it.
+// that particle as executionParticle reduces it. A model whose splice is
+// empty becomes empty content when it matches the empty sequence, and
+// otherwise, being a choice without branches, a choice that occurs once (I-052
+// of docs/spec/INTERPRETATIONS.md).
 func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
 	if model.Kind != modelSequence && model.Kind != modelChoice {
 		return model, nil
@@ -771,8 +777,17 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 		count++
 		return count < 2, nil
 	})
-	if err != nil || count != 1 {
+	if err != nil {
 		return model, err
+	}
+	switch {
+	case count == 0 && (model.Kind == modelSequence || model.Occurs.Min == 0):
+		return contentModelNode{Kind: modelEmpty}, nil
+	case count == 0:
+		model.Occurs = occurrence{Min: 1, Max: 1}
+		return model, nil
+	case count != 1:
+		return model, nil
 	}
 	if first, err = c.executionParticle(first); err != nil {
 		return model, err
@@ -1064,9 +1079,9 @@ func (b *directSequenceCompilation) addEdge(particle contentParticle, row compil
 }
 
 // addBlockingEdge adds a required choice without branches as a required
-// element no item matches, whose rows after it take part in the row checks.
-// Its count changes no comparison in a sequence (I-052 of
-// docs/spec/INTERPRETATIONS.md), so its row has no counter.
+// element no item matches, with a row without a counter (I-052 of
+// docs/spec/INTERPRETATIONS.md); the rows after it take part in the row
+// checks.
 func (b *directSequenceCompilation) addBlockingEdge(particle contentParticle) error {
 	if b.blockedAt < 0 {
 		b.blockedAt = len(b.edges)
@@ -1282,16 +1297,28 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 	particleAt func(index int) contentParticle,
 ) (bool, error) {
 	for i := range count {
-		particle := particleAt(i)
-		name, needsCheck := c.particleUPAName(particle)
-		if needsCheck {
+		name, comparison := c.particleUPAName(particleAt(i))
+		if comparison == upaPairwise {
 			return true, nil
 		}
-		for j := i + 1; j < count; j++ {
-			needsCheck, err := c.particlePairNeedsUPACheck(name, particleAt(j))
-			if err != nil || needsCheck {
-				return needsCheck, err
-			}
+		if comparison == upaNone {
+			continue
+		}
+		needsCheck, err := c.followingNeedUPACheck(name, i+1, count, particleAt)
+		if err != nil || needsCheck {
+			return needsCheck, err
+		}
+	}
+	return false, nil
+}
+
+// followingNeedUPACheck reports whether a particle of the set from index from
+// on needs the pairwise check against an element named name.
+func (c *contentModelCompiler) followingNeedUPACheck(name QName, from, count int, particleAt func(index int) contentParticle) (bool, error) {
+	for j := from; j < count; j++ {
+		needsCheck, err := c.particlePairNeedsUPACheck(name, particleAt(j))
+		if err != nil || needsCheck {
+			return needsCheck, err
 		}
 	}
 	return false, nil
@@ -1306,11 +1333,8 @@ func (c *contentModelCompiler) matchesNoItem(p contentParticle) bool {
 }
 
 // choiceWithoutBranches reports whether p is a choice without branches, and
-// whether it may also occur zero times. Such an optional choice contributes
-// only the empty sequence, and omitting it leaves the language and every
-// Unique Particle Attribution verdict unchanged (I-052 of
-// docs/spec/INTERPRETATIONS.md), so direct compilation and automaton
-// construction omit it.
+// whether it may also occur zero times, so that direct compilation and
+// automaton construction omit it (I-052 of docs/spec/INTERPRETATIONS.md).
 func (c *contentModelCompiler) choiceWithoutBranches(p contentParticle) (empty, optional bool) {
 	if p.Kind != particleModel {
 		return false, false
@@ -1340,24 +1364,43 @@ func withoutEmptyChoices[E any](c *contentModelCompiler, s []E, particle func(E)
 	return out
 }
 
+// upaComparison is how the needs-check compares a particle with the others of
+// a set.
+type upaComparison uint8
+
+const (
+	// upaByName compares the particle's element name.
+	upaByName upaComparison = iota
+	// upaPairwise needs the pairwise check.
+	upaPairwise
+	// upaNone compares the particle with no other: a choice without branches
+	// overlaps no particle (I-052 of docs/spec/INTERPRETATIONS.md).
+	upaNone
+)
+
 // particleUPAName returns the name of particle when it is an element
-// declaration without substitution members, and whether particle needs the
-// pairwise check instead. A choice without branches needs none and has no
-// name.
-func (c *contentModelCompiler) particleUPAName(particle contentParticle) (QName, bool) {
+// declaration without substitution members, and how the needs-check compares
+// it.
+func (c *contentModelCompiler) particleUPAName(particle contentParticle) (QName, upaComparison) {
 	if particle.Kind != particleElement || c.rt.Substitutions.HasMembers(particle.Element) {
-		return QName{}, !c.matchesNoItem(particle)
+		if c.matchesNoItem(particle) {
+			return QName{}, upaNone
+		}
+		return QName{}, upaPairwise
 	}
 	name, ok := c.rt.ElementName(particle.Element)
-	return name, !ok
+	if !ok {
+		return QName{}, upaPairwise
+	}
+	return name, upaByName
 }
 
 func (c *contentModelCompiler) particlePairNeedsUPACheck(name QName, next contentParticle) (bool, error) {
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
-	nextName, needsCheck := c.particleUPAName(next)
-	return needsCheck || nextName == name, nil
+	nextName, comparison := c.particleUPAName(next)
+	return comparison == upaPairwise || (comparison == upaByName && nextName == name), nil
 }
 
 func singleParticle(p contentParticle) contentParticle {
@@ -1662,6 +1705,10 @@ func (b *dfaBuilder) groupNode(id contentModelID, model contentModelNode) (dfaNo
 		node dfaNode
 		err  error
 	)
+	if model.Occurs.Repeats() {
+		b.repeatedGroups++
+		defer func() { b.repeatedGroups-- }()
+	}
 	switch model.Kind {
 	case modelEmpty:
 		node.Nullable = true
@@ -1743,17 +1790,17 @@ func (b *dfaBuilder) choiceNode(id contentModelID, particles []contentParticle) 
 	if node.Nullable || len(node.First) != 0 {
 		return node, nil
 	}
+	return b.choiceWithoutBranchesNode(id)
+}
+
+// choiceWithoutBranchesNode gives a choice without branches a position of its
+// own (I-052 of docs/spec/INTERPRETATIONS.md) with a transition of its own
+// (dfaTransitionKey). compileDeterministicModel removes its edges before
+// validation can take them.
+func (b *dfaBuilder) choiceWithoutBranchesNode(id contentModelID) (dfaNode, error) {
 	if err := b.c.work.spend(2); err != nil {
 		return dfaNode{}, err
 	}
-	// A choice without branches matches no item (I-042 of
-	// docs/spec/INTERPRETATIONS.md), yet Unique Particle Attribution treats it
-	// as an element declaration no item matches (I-052): its position has an
-	// edge like an element's and a transition of its own (dfaTransitionKey),
-	// which overlaps no particle, so determinization and both row checks reach
-	// the states after it.
-	// compileDeterministicModel removes those edges before validation can
-	// take them.
 	b.emptyChoices = true
 	return b.leaf(modelParticle(id, occurrence{Min: 1, Max: 1})), nil
 }
@@ -1802,10 +1849,14 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 		}
 		node = b.leaf(p)
 	case particleModel:
-		if _, optional := b.c.choiceWithoutBranches(p); optional {
+		empty, optional := b.c.choiceWithoutBranches(p)
+		switch {
+		case optional:
 			return dfaNode{Nullable: true}, nil
+		case empty && b.repeatedGroups == 0:
+			return b.choiceWithoutBranchesNode(p.Model)
 		}
-		child, err := b.modelNode(p.Model)
+		child, err := b.particleModelNode(p)
 		if err != nil {
 			return dfaNode{}, err
 		}
@@ -1814,6 +1865,14 @@ func (b *dfaBuilder) particleNode(p contentParticle) (dfaNode, error) {
 		return dfaNode{}, xsderrors.InternalInvariant("content model particle has unknown kind", nil)
 	}
 	return b.repeat(node, p.Occurs)
+}
+
+func (b *dfaBuilder) particleModelNode(p contentParticle) (dfaNode, error) {
+	if p.Occurs.Repeats() {
+		b.repeatedGroups++
+		defer func() { b.repeatedGroups-- }()
+	}
+	return b.modelNode(p.Model)
 }
 
 func (b *dfaBuilder) leaf(p contentParticle) dfaNode {

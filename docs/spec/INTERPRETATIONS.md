@@ -2997,13 +2997,21 @@ An empty choice that may occur zero times adds only the empty sequence.
 Removing it leaves the language unchanged and every comparison unchanged: a
 path through it maps to one without it that reaches the same positions with
 the same counts, and a path without it is already one with it occurring zero
-times. Direct compilation and the automaton omit it. A required empty choice
-in a sequence of elements and wildcards ends the content any item reaches.
-Its count changes no comparison there, because only the choice itself would
-follow its own repetitions, so the direct table gives it one row without a
-counter and publishes the rows before it. In a choice of such particles it is
-a branch no item takes. In an automaton its count is kept, as its element
-twin's is.
+times. Direct compilation and the automaton omit it.
+
+A required empty choice keeps its count only under a repeated group. Without
+one, every count of it lands on the same position, which overlaps no
+particle, and the positions that follow its last repetition are the same
+whatever the count, so it compares like one occurrence. Under a repeated
+group its repetitions may be one or several repetitions of that group, which
+leave the group's counter at different values, as in the counted case below.
+So the direct table gives a required empty choice in a sequence of elements
+and wildcards one row without a counter, publishes only the rows before it,
+which are all any item reaches, and in a choice of such particles makes it a
+branch no item takes; the automaton gives it one occurrence unless a group
+around it repeats. A content model with no particle left but empty choices
+is empty content when it may occur zero times, and otherwise one choice
+without branches.
 
 The rule holds for occurrence ranges too. In
 `<xs:sequence><xs:choice minOccurs="2" maxOccurs="2"><xs:choice minOccurs="3" maxOccurs="unbounded"/><xs:element name="d"/></xs:choice><xs:element name="d" minOccurs="0"/></xs:sequence>`
