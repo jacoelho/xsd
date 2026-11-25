@@ -14,6 +14,7 @@ import (
 )
 
 func TestManifestCorpusClosure(t *testing.T) {
+	t.Parallel()
 	dir := testDir(t)
 	m := loadInventory(t, dir)
 	if err := validateManifestCorpus(dir, m); err != nil {

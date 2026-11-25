@@ -34,6 +34,7 @@ var publishedElementIDProducers = []string{
 }
 
 func TestOnlyParticleProjectionProducesPublishedElementIDs(t *testing.T) {
+	t.Parallel()
 	dir := filepath.Join(repoRoot(t), "internal", "schema")
 	entries, err := os.ReadDir(dir)
 	if err != nil {

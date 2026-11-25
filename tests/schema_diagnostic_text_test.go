@@ -33,6 +33,7 @@ const (
 // contract proof; this guard only keeps new call sites from bypassing the
 // quoting helpers by accident.
 func TestSchemaDiagnosticsQuoteSchemaText(t *testing.T) {
+	t.Parallel()
 	root := repoRoot(t)
 	dir := filepath.Join(root, "internal", "schema")
 	entries, err := os.ReadDir(dir)
@@ -62,6 +63,7 @@ func TestSchemaDiagnosticsQuoteSchemaText(t *testing.T) {
 }
 
 func TestSchemaDiagnosticLintFixtures(t *testing.T) {
+	t.Parallel()
 	const header = `package schema
 
 import (

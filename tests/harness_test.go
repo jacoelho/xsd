@@ -17,6 +17,7 @@ import (
 )
 
 func TestHarness(t *testing.T) {
+	t.Parallel()
 	dir := testDir(t)
 	m := loadInventory(t, dir)
 	unsupported := readUnsupportedAllowlist(t, filepath.Join(dir, "unsupported.txt"))
