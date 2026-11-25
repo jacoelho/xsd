@@ -253,11 +253,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 	if err != nil {
 		return err
 	}
-	mode, err := parseAttributeUseModeChecked(child, overrides.mode)
-	if err != nil {
-		return err
-	}
-	if mode == attributeUseProhibited {
+	if overrides.mode == attributeUseProhibited {
 		name, admissionErr := b.compiler.admitAttributeProhibition(b.ctx, child)
 		if admissionErr != nil {
 			return admissionErr
@@ -265,7 +261,7 @@ func (b *attributeUseCompilation) addAttribute(child *schemaNode) error {
 		b.addProhibition(name)
 		return nil
 	}
-	use, err := b.compiler.compileAttributeUse(b.ctx, child, mode, overrides)
+	use, err := b.compiler.compileAttributeUse(b.ctx, child, overrides)
 	if err != nil {
 		return err
 	}
@@ -443,7 +439,7 @@ type attributeUseBase struct {
 
 // Source admission consumes prohibitions before this boundary; a returned use
 // owns validated constraints and a component identity.
-func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, mode attributeUseMode, overrides attributeUseOverrides) (attributeUse, error) {
+func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, overrides attributeUseOverrides) (attributeUse, error) {
 	base, err := c.compileAttributeUseBase(ctx, n)
 	if err != nil {
 		return attributeUse{}, err
@@ -452,7 +448,7 @@ func (c *compiler) compileAttributeUse(ctx *schemaSetDocument, n *schemaNode, mo
 	if err = validateAttributeUseValueConstraintAtNode(n, overrides.defaultAttr.Present, base.refFixed != nil); err != nil {
 		return attributeUse{}, err
 	}
-	use.Required = mode == attributeUseRequired
+	use.Required = overrides.mode == attributeUseRequired
 	if err = c.validateAttributeUseOverrides(n, &use, base, overrides); err != nil {
 		return attributeUse{}, err
 	}
@@ -477,7 +473,7 @@ func (c *compiler) allocateAttributeUseID() (uint32, error) {
 type attributeUseOverrides struct {
 	defaultAttr lexicalAttribute
 	fixedAttr   lexicalAttribute
-	mode        lexicalAttribute
+	mode        attributeUseMode
 }
 
 func readAttributeUseOverrides(n *schemaNode) (attributeUseOverrides, error) {

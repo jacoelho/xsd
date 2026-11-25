@@ -84,22 +84,22 @@ func buildSubstitutionTable(
 	if limit := substitutionClosureLimit(maxClosureEntries); forest.total > limit {
 		return substitutionTable{}, substitutionClosureLimitError{Limit: limit}
 	}
-	edges, err := validateSubstitutionEdges(rt, elements, forest.parents, work)
+	edges, err := validateSubstitutionEdges(rt, elements, forest.affiliations, work)
 	if err != nil {
 		return substitutionTable{}, err
 	}
-	counts := substitutionAncestorCounts(forest.parents)
+	counts := substitutionAncestorCounts(forest.affiliations)
 	spans, entries, next := allocateSubstitutionSpans(counts, forest.total)
-	populateSubstitutionEntries(entries, next, elements, forest.parents, edges)
+	populateSubstitutionEntries(entries, next, elements, forest.affiliations, edges)
 	return newSubstitutionTable(spans, entries, func(a, b QName) int {
 		return compareQNameText(names, a, b)
 	}), nil
 }
 
-func substitutionAncestorCounts(parents []ElementID) []int {
-	counts := make([]int, len(parents))
-	for member := range parents {
-		for head := parents[member]; head != NoElement; head = parents[head] {
+func substitutionAncestorCounts(affiliations []ElementID) []int {
+	counts := make([]int, len(affiliations))
+	for member := range affiliations {
+		for head := affiliations[member]; head != NoElement; head = affiliations[head] {
 			counts[head]++
 		}
 	}
@@ -122,14 +122,14 @@ func populateSubstitutionEntries(
 	entries []substitutionEntry,
 	next []int,
 	elements []elementDecl,
-	parents []ElementID,
+	affiliations []ElementID,
 	edges []substitutionEdge,
 ) {
 	for member := range elements {
 		memberID := ElementID(member)
 		memberDecl := elements[member]
 		var methods, blocks DerivationMask
-		for current, head := memberID, parents[member]; head != NoElement; current, head = head, parents[head] {
+		for current, head := memberID, affiliations[member]; head != NoElement; current, head = head, affiliations[head] {
 			methods |= edges[current].methods
 			blocks |= edges[current].blocks
 			pos := next[head]
@@ -349,8 +349,8 @@ func (t substitutionTable) spanNameOrderIsPermutation(span substitutionSpan, see
 }
 
 type substitutionForest struct {
-	parents []ElementID
-	total   int
+	affiliations []ElementID
+	total        int
 }
 
 func validateSubstitutionForest(
@@ -361,14 +361,14 @@ func validateSubstitutionForest(
 	if names == nil {
 		return substitutionForest{}, newBuildDefect("substitution table requires name table")
 	}
-	parents, hasHeads, err := validateSubstitutionParents(names, elements, globals)
+	affiliations, hasAffiliations, err := validateSubstitutionAffiliations(names, elements, globals)
 	if err != nil {
 		return substitutionForest{}, err
 	}
-	if !hasHeads {
+	if !hasAffiliations {
 		return substitutionForest{}, nil
 	}
-	depth, err := substitutionForestDepths(parents)
+	depth, err := substitutionForestDepths(affiliations)
 	if err != nil {
 		return substitutionForest{}, err
 	}
@@ -376,40 +376,40 @@ func validateSubstitutionForest(
 	if err != nil {
 		return substitutionForest{}, err
 	}
-	return substitutionForest{parents: parents, total: total}, nil
+	return substitutionForest{affiliations: affiliations, total: total}, nil
 }
 
-func validateSubstitutionParents(
+func validateSubstitutionAffiliations(
 	names *nameTable,
 	elements []elementDecl,
 	globals map[QName]ElementID,
 ) ([]ElementID, bool, error) {
-	parents := make([]ElementID, len(elements))
-	for i := range parents {
-		parents[i] = NoElement
+	affiliations := make([]ElementID, len(elements))
+	for i := range affiliations {
+		affiliations[i] = NoElement
 	}
-	hasHeads := false
+	hasAffiliations := false
 	for index, member := range elements {
-		parent, err := validateSubstitutionParent(names, elements, globals, index, member)
+		head, err := validateSubstitutionAffiliation(names, elements, globals, index, member)
 		if err != nil {
 			return nil, false, err
 		}
-		if parent != NoElement {
-			hasHeads = true
-			parents[index] = parent
+		if head != NoElement {
+			hasAffiliations = true
+			affiliations[index] = head
 		}
 	}
-	return parents, hasHeads, nil
+	return affiliations, hasAffiliations, nil
 }
 
-func validateSubstitutionParent(
+func validateSubstitutionAffiliation(
 	names *nameTable,
 	elements []elementDecl,
 	globals map[QName]ElementID,
 	index int,
 	member elementDecl,
 ) (ElementID, error) {
-	if member.SubstHead == NoElement {
+	if member.SubstitutionGroupAffiliation == NoElement {
 		return NoElement, nil
 	}
 	memberID, ok := elementIndexID(index)
@@ -423,45 +423,45 @@ func validateSubstitutionParent(
 	if !ok || globalMember != memberID {
 		return NoElement, newBuildDefect("substitution member is not a global element")
 	}
-	if !validSubstitutionElementID(elements, member.SubstHead) {
+	if !validSubstitutionElementID(elements, member.SubstitutionGroupAffiliation) {
 		return NoElement, newBuildDefect("element declaration references invalid substitution head")
 	}
-	head := elements[member.SubstHead]
+	head := elements[member.SubstitutionGroupAffiliation]
 	if !names.ValidQName(head.Name) {
 		return NoElement, newBuildDefect("substitution head name is invalid")
 	}
 	globalHead, ok := globals[head.Name]
-	if !ok || globalHead != member.SubstHead {
+	if !ok || globalHead != member.SubstitutionGroupAffiliation {
 		return NoElement, newBuildDefect("substitution head is not a global element")
 	}
-	return member.SubstHead, nil
+	return member.SubstitutionGroupAffiliation, nil
 }
 
-func substitutionForestDepths(parents []ElementID) ([]int, error) {
-	state := make([]uint8, len(parents))
-	depth := make([]int, len(parents))
-	path := make([]ElementID, 0, len(parents))
-	for start := range parents {
+func substitutionForestDepths(affiliations []ElementID) ([]int, error) {
+	state := make([]uint8, len(affiliations))
+	depth := make([]int, len(affiliations))
+	path := make([]ElementID, 0, len(affiliations))
+	for start := range affiliations {
 		if state[start] == 2 {
 			continue
 		}
 		var err error
-		path, err = traceSubstitutionPath(ElementID(start), parents, state, path[:0])
+		path, err = traceSubstitutionPath(ElementID(start), affiliations, state, path[:0])
 		if err != nil {
 			return nil, err
 		}
-		completeSubstitutionPath(path, parents, state, depth)
+		completeSubstitutionPath(path, affiliations, state, depth)
 	}
 	return depth, nil
 }
 
 func traceSubstitutionPath(
 	start ElementID,
-	parents []ElementID,
+	affiliations []ElementID,
 	state []uint8,
 	path []ElementID,
 ) ([]ElementID, error) {
-	for current := start; current != NoElement && state[current] != 2; current = parents[current] {
+	for current := start; current != NoElement && state[current] != 2; current = affiliations[current] {
 		if state[current] == 1 {
 			return nil, substitutionCycleError{Element: current}
 		}
@@ -471,10 +471,10 @@ func traceSubstitutionPath(
 	return path, nil
 }
 
-func completeSubstitutionPath(path, parents []ElementID, state []uint8, depth []int) {
+func completeSubstitutionPath(path, affiliations []ElementID, state []uint8, depth []int) {
 	for _, current := range slices.Backward(path) {
-		if parent := parents[current]; parent != NoElement {
-			depth[current] = depth[parent] + 1
+		if head := affiliations[current]; head != NoElement {
+			depth[current] = depth[head] + 1
 		}
 		state[current] = 2
 	}
@@ -499,12 +499,12 @@ type substitutionEdge struct {
 func validateSubstitutionEdges(
 	rt *schemaBuild,
 	elements []elementDecl,
-	parents []ElementID,
+	affiliations []ElementID,
 	work func(int) error,
 ) ([]substitutionEdge, error) {
 	edges := make([]substitutionEdge, len(elements))
 	var memberWalk unionMemberWalk
-	for member, head := range parents {
+	for member, head := range affiliations {
 		if head == NoElement {
 			continue
 		}

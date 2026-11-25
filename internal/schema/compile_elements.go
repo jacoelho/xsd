@@ -185,11 +185,11 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, id 
 		return elementDecl{}, nil, err
 	}
 	decl := elementDecl{
-		Name:      q,
-		Type:      properties.typ,
-		Nillable:  properties.nillable,
-		Abstract:  properties.abstract,
-		SubstHead: NoElement,
+		Name:                         q,
+		Type:                         properties.typ,
+		Nillable:                     properties.nillable,
+		Abstract:                     properties.abstract,
+		SubstitutionGroupAffiliation: NoElement,
 	}
 	if maskErr := applyElementDerivationMasks(ctx, n, &decl); maskErr != nil {
 		return elementDecl{}, nil, maskErr
@@ -298,11 +298,7 @@ func (c *compiler) compileElementTypeAttribute(ctx *schemaSetDocument, n *schema
 	if c.typeQNameKnown(typeQName) {
 		return c.resolveTypeQName(typeQName)
 	}
-	if !c.typeQNameMayBeUnavailable(typeQName) {
-		missingErr := schemaComponentMissingError(schemaComponentType, c.rt.formatName(typeQName))
-		return TypeID{}, withSchemaCompileLocation(n, missingErr)
-	}
-	missing, err := c.missingSimpleType()
+	missing, err := c.unresolvedTypeReference(n, typeQName, schemaComponentType)
 	if err != nil {
 		return TypeID{}, err
 	}

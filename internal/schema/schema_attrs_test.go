@@ -217,8 +217,6 @@ func TestSchemaAttributeValueSyntax(t *testing.T) {
 		{element: "schema", attr: "elementFormDefault", value: "qualified"},
 		{element: "schema", attr: "elementFormDefault", value: "local", wantCode: invalidAttribute, wantMsg: `invalid "elementFormDefault" value "local"`},
 		{element: "schema", attr: "attributeFormDefault", value: "local", wantCode: invalidAttribute, wantMsg: `invalid "attributeFormDefault" value "local"`},
-		{element: "attribute", attr: "use", value: "prohibited"},
-		{element: "attribute", attr: "use", value: "sometimes", wantCode: invalidAttribute, wantMsg: "invalid attribute use sometimes"},
 		{element: "any", attr: "processContents", value: "skip"},
 		{element: "any", attr: "processContents", value: "open", wantCode: invalidAttribute, wantMsg: "invalid processContents"},
 		{element: "anyAttribute", attr: "processContents", value: "open", wantCode: invalidAttribute, wantMsg: "invalid processContents"},
@@ -262,6 +260,40 @@ func TestSchemaAttributeValueSyntax(t *testing.T) {
 			}
 			if diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != tt.wantCode || diagnostic.Message() != tt.wantMsg {
 				t.Fatalf("diagnostic = (%s, %s, %q), want (%s, %s, %q)", diagnostic.Category(), diagnostic.Code(), diagnostic.Message(), xsderrors.CategorySchemaCompile, tt.wantCode, tt.wantMsg)
+			}
+		})
+	}
+}
+
+func TestAttributeUseModeIsAdmittedAtTheTag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		value   string
+		start   attributeUseMode
+		want    attributeUseMode
+		wantMsg string
+	}{
+		{value: "optional", start: attributeUseRequired, want: attributeUseOptional},
+		{value: "required", start: attributeUseProhibited, want: attributeUseRequired},
+		{value: "prohibited", start: attributeUseOptional, want: attributeUseProhibited},
+		{value: "sometimes", wantMsg: `invalid attribute use "sometimes"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			t.Parallel()
+
+			values := admittedValues{use: tt.start}
+			err := admitParsedAttributeValue("attribute", testAttr("use", tt.value), startTagAttributes{values: &values})
+			if tt.wantMsg != "" {
+				diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+				if !ok || diagnostic.Code() != xsderrors.CodeSchemaInvalidAttribute || diagnostic.Message() != tt.wantMsg {
+					t.Fatalf("admission error = %v, want %s %q", err, xsderrors.CodeSchemaInvalidAttribute, tt.wantMsg)
+				}
+				return
+			}
+			if err != nil || values.use != tt.want {
+				t.Fatalf("admitted use = %v, %v, want %v", values.use, err, tt.want)
 			}
 		})
 	}

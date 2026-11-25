@@ -327,7 +327,7 @@ func localAttributeFixture() fixture {
 			invalidID(key),
 			attributeViolation("name is no NCName", invalidAttribute, "schema component name must be NCName").at(key).setting(`name="1x"`),
 			unboundPrefix(key, "type"),
-			attributeViolation("use is no use", invalidAttribute, "invalid attribute use x").at(key).setting(`use="x"`),
+			attributeViolation("use is no use", invalidAttribute, `invalid attribute use "x"`).at(key).setting(`use="x"`),
 			attributeViolation("form is no form", invalidAttribute, `invalid attribute form "x"`).at(key).setting(`form="x"`),
 			requiredAttribute("no name and no ref", reference, "attribute missing name or ref").at(key).dropping("name"),
 			textInside(key, "attribute"),
@@ -365,7 +365,7 @@ func attributeReferenceFixture() fixture {
 			attributeViolation("type on a reference", invalidAttribute, `attribute ref cannot have attribute "type"`).at(key).setting(`type="xs:string"`),
 			attributeViolation("form on a reference", invalidAttribute, `attribute ref cannot have attribute "form"`).at(key).setting(`form="qualified"`),
 			unboundPrefix(key, "ref"),
-			attributeViolation("use is no use", invalidAttribute, "invalid attribute use x").at(key).setting(`use="x"`),
+			attributeViolation("use is no use", invalidAttribute, `invalid attribute use "x"`).at(key).setting(`use="x"`),
 			excludedAttributes("default with fixed", "attribute cannot have both default and fixed").at(key).setting(`default="a"`, `fixed="b"`),
 			excludedAttributes("default on a required reference", "required attribute cannot have default").at(key).setting(`use="required"`, `default="a"`),
 			compileViolation("unresolved ref", reference, "unknown attribute").at(key).setting(`ref="missing"`),
@@ -571,7 +571,7 @@ func contentDerivationFixture() fixture {
 
 			earlierText(use, "extension"),
 			unknownAttribute(use, "attribute"),
-			attributeViolation("use is no use", invalidAttribute, "invalid attribute use x").at(use).setting(`use="x"`),
+			attributeViolation("use is no use", invalidAttribute, `invalid attribute use "x"`).at(use).setting(`use="x"`),
 			requiredAttribute("attribute has no name and no ref", reference, "attribute missing name or ref").at(use).dropping("name"),
 		},
 	}
@@ -838,7 +838,7 @@ func prohibitedXmlnsAttributeFixture() fixture {
 			xmlnsName("use required", `use="required"`).at(key),
 			xmlnsName("no use").at(key).dropping("use"),
 			excludedAttributes("default on the prohibited attribute", "prohibited attribute cannot have default").at(key).setting(`use="prohibited"`, `default="a"`),
-			attributeViolation("use is no use", invalidAttribute, "invalid attribute use x").at(key).setting(`use="x"`),
+			attributeViolation("use is no use", invalidAttribute, `invalid attribute use "x"`).at(key).setting(`use="x"`),
 		},
 	}
 }

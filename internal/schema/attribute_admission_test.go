@@ -21,7 +21,7 @@ func TestParseAttributeUseMode(t *testing.T) {
 		{name: "optional", mode: "optional", want: attributeUseOptional},
 		{name: "required", mode: "required", want: attributeUseRequired},
 		{name: "prohibited", mode: "prohibited", want: attributeUseProhibited},
-		{name: "invalid", mode: "bad", wantErr: "invalid attribute use bad"},
+		{name: "invalid", mode: "bad", wantErr: `invalid attribute use "bad"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

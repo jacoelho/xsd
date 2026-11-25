@@ -98,13 +98,17 @@ func admitXPathAttribute(n *schemaSyntaxNode, value string, admitted startTagAtt
 
 // admitParsedAttributeValue admits attr, an attribute of the XSD element
 // named element, into admitted when its value is parsed at the tag: an
-// occurrence bound, a facet value, or the fixed of a facet, which may precede
-// or follow the facet's value.
+// occurrence bound, an attribute use mode, a facet value, or the fixed of a
+// facet, which may precede or follow the facet's value.
 func admitParsedAttributeValue(element string, attr schemaAttribute, admitted startTagAttributes) error {
 	values := admitted.values
 	switch attr.Name.Local {
 	case vocab.XSDAttrMinOccurs, vocab.XSDAttrMaxOccurs:
 		return values.occurrence.admitAttribute(attr.Name.Local, attr.Value)
+	case vocab.XSDAttrUse:
+		use, err := parseAttributeUseMode(attr.Value)
+		values.use = use
+		return invalidAttributeError(err)
 	case vocab.XSDAttrValue:
 		facet, err := admitFacetValue(element, attr.Value, admitted.patterns)
 		facet.fixed = values.facet.fixed

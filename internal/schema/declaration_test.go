@@ -95,9 +95,9 @@ func TestValidateElementDeclRuntime(t *testing.T) {
 		{
 			name: "invalid substitution head",
 			decl: elementDecl{
-				Name:      validName,
-				Type:      SimpleRef(0),
-				SubstHead: 1,
+				Name:                         validName,
+				Type:                         SimpleRef(0),
+				SubstitutionGroupAffiliation: 1,
 			},
 			wantErr: "element declaration references invalid substitution head",
 		},
