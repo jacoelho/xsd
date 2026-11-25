@@ -832,12 +832,12 @@ func (c *contentModelCompiler) executionParticle(p contentParticle) (contentPart
 			return p, err
 		}
 		if !flattened {
-			break
+			if c.optionalChoiceWithoutBranches(p) {
+				p.Occurs = occurrence{}
+			}
+			return p, nil
 		}
 		p = child
-	}
-	if c.optionalChoiceWithoutBranches(p) {
-		p.Occurs = occurrence{}
 	}
 	return p, nil
 }
