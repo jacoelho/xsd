@@ -10,7 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/source"
 )
 
-func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
+func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 	t.Parallel()
 
 	optional := func(b *strings.Builder, wildcardNamespace string) {
@@ -48,6 +48,26 @@ func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
 			},
 			kind: publishedDFARunDense,
 		},
+		{
+			name: "repeated choice of names and wildcards",
+			content: func(b *strings.Builder) {
+				b.WriteString(`<xs:choice minOccurs="0" maxOccurs="3">`)
+				optional(b, "urn:w1")
+				b.WriteString(`<xs:any namespace="urn:w2" processContents="lax"/></xs:choice>`)
+			},
+			kind: publishedDFAMap,
+		},
+		{
+			name: "repeated choice of sixteen names",
+			content: func(b *strings.Builder) {
+				b.WriteString(`<xs:choice minOccurs="2" maxOccurs="3"><xs:element ref="head"/>`)
+				for i := range 15 {
+					fmt.Fprintf(b, `<xs:element name="f%d" type="xs:string"/>`, i)
+				}
+				b.WriteString(`</xs:choice>`)
+			},
+			kind: publishedDFADense,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -63,7 +83,7 @@ func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
 				t.Fatalf("Compile() error = %v", err)
 			}
 			inputs := []ContentInput{{Name: RuntimeName{}}}
-			for _, local := range []string{"head", "member", "e0", "e4", "e8", "c", "x", "f0", "f8", "root"} {
+			for _, local := range []string{"head", "member", "e0", "e4", "e8", "c", "x", "f0", "f8", "f14", "root"} {
 				name, ok := rt.LookupQName("", local)
 				if !ok {
 					continue
