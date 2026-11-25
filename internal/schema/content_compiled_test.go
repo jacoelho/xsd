@@ -490,22 +490,28 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 	model := contentModelID(4)
 	child := ElementID(3)
 	childName := QName{Namespace: emptyNamespaceID, Local: 1}
+	dense := []uint32{uint32(childName.Namespace), uint32(childName.Local), 1}
 	tests := []struct {
-		name       string
-		rowIndexes map[contentModelID]map[int]publishedDFAIndex
+		name  string
+		index *publishedDFAIndex
+		kind  publishedDFAIndexKind
 	}{
 		{name: "linear"},
-		{
-			name: "indexed",
-			rowIndexes: map[contentModelID]map[int]publishedDFAIndex{
-				model: {0: {nameToEdge: map[QName]uint32{childName: 0}}},
-			},
-		},
+		{name: "indexed", index: &publishedDFAIndex{nameToEdge: map[QName]uint32{childName: 0}}, kind: publishedDFAMap},
+		{name: "dense", index: &publishedDFAIndex{data: dense}, kind: publishedDFADense},
+		{name: "run", index: &publishedDFAIndex{nameToEdge: map[QName]uint32{childName: 0}, data: []uint32{0}}, kind: publishedDFARun},
+		{name: "dense run", index: &publishedDFAIndex{data: dense}, kind: publishedDFARunDense},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			var rowIndexes map[contentModelID]map[int]publishedDFAIndex
+			var rowIndexKinds map[contentModelID]map[int]publishedDFAIndexKind
+			if tc.index != nil {
+				rowIndexes = map[contentModelID]map[int]publishedDFAIndex{model: {0: *tc.index}}
+				rowIndexKinds = map[contentModelID]map[int]publishedDFAIndexKind{model: {0: tc.kind}}
+			}
 			rt := publishedContentSchema(contentSchemaFixture{
 				models: map[contentModelID]compiledModel{
 					model: {
@@ -521,7 +527,8 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 						},
 					},
 				},
-				rowIndexes: tc.rowIndexes,
+				rowIndexes:    rowIndexes,
+				rowIndexKinds: rowIndexKinds,
 			})
 			st := ContentState{model: model, present: true}
 			transition, status := rt.NextContent(st, ContentInput{
@@ -637,6 +644,9 @@ type contentSchemaFixture struct {
 	// rowIndexes replaces the index of the named rows after compilation's
 	// indexing, so a fixture can index a row below the index threshold.
 	rowIndexes map[contentModelID]map[int]publishedDFAIndex
+	// rowIndexKinds gives the kind of a row in rowIndexes; a row it omits is
+	// map-indexed.
+	rowIndexKinds map[contentModelID]map[int]publishedDFAIndexKind
 }
 
 func publishedContentSchema(s contentSchemaFixture) *Schema {
@@ -667,7 +677,11 @@ func publishedContentSchema(s contentSchemaFixture) *Schema {
 	for id, rows := range s.rowIndexes {
 		for row, index := range rows {
 			models[id].Rows[row].index = index
-			models[id].Rows[row].indexKind = publishedDFAMap
+			kind, ok := s.rowIndexKinds[id][row]
+			if !ok {
+				kind = publishedDFAMap
+			}
+			models[id].Rows[row].indexKind = kind
 		}
 	}
 

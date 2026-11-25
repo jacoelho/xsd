@@ -10,7 +10,7 @@ import (
 	"github.com/jacoelho/xsd/internal/source"
 )
 
-func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
+func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 	t.Parallel()
 
 	optional := func(b *strings.Builder, wildcardNamespace string) {
@@ -23,6 +23,7 @@ func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
 		}
 		b.WriteString(`<xs:element name="c" type="xs:string" minOccurs="0" maxOccurs="3"/>`)
 	}
+	wildcardNamespaces := []string{"urn:w1", "urn:w2"}
 	for _, test := range []struct {
 		name    string
 		content func(*strings.Builder)
@@ -48,6 +49,26 @@ func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
 			},
 			kind: publishedDFARunDense,
 		},
+		{
+			name: "repeated choice of names and wildcards",
+			content: func(b *strings.Builder) {
+				b.WriteString(`<xs:choice minOccurs="0" maxOccurs="3">`)
+				optional(b, "urn:w1")
+				b.WriteString(`<xs:any namespace="urn:w2" processContents="lax"/></xs:choice>`)
+			},
+			kind: publishedDFAMap,
+		},
+		{
+			name: "repeated choice of sixteen names",
+			content: func(b *strings.Builder) {
+				b.WriteString(`<xs:choice minOccurs="2" maxOccurs="3"><xs:element ref="head"/>`)
+				for i := range 15 {
+					fmt.Fprintf(b, `<xs:element name="f%d" type="xs:string"/>`, i)
+				}
+				b.WriteString(`</xs:choice>`)
+			},
+			kind: publishedDFADense,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -58,20 +79,32 @@ func TestRunIndexedRowsDispatchAsLinearScan(t *testing.T) {
 				`<xs:element name="root"><xs:complexType><xs:sequence>`)
 			test.content(&b)
 			b.WriteString(`</xs:sequence></xs:complexType></xs:element></xs:schema>`)
-			rt, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(b.String()))})
+			sources := []source.Source{source.Bytes("schema.xsd", []byte(b.String()))}
+			for _, namespace := range wildcardNamespaces {
+				sources = append(sources, source.Bytes(namespace+".xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="`+namespace+`">`+
+					`<xs:element name="c" type="xs:string"/><xs:element name="e0" type="xs:string"/></xs:schema>`)))
+			}
+			rt, err := Compile(Options{}, sources)
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
 			inputs := []ContentInput{{Name: RuntimeName{}}}
-			for _, local := range []string{"head", "member", "e0", "e4", "e8", "c", "x", "f0", "f8", "root"} {
+			for _, local := range []string{"head", "member", "e0", "e4", "e8", "c", "x", "f0", "f8", "f14", "root"} {
 				name, ok := rt.LookupQName("", local)
 				if !ok {
 					continue
 				}
 				inputs = append(inputs, ContentInput{Name: RuntimeName{Known: true, Name: name, Local: local}})
 			}
-			for _, namespace := range []string{"urn:w1", "urn:w2"} {
+			for _, namespace := range wildcardNamespaces {
 				inputs = append(inputs, ContentInput{Name: RuntimeName{NS: namespace, Local: "any"}})
+				for _, local := range []string{"c", "e0"} {
+					name, ok := rt.LookupQName(namespace, local)
+					if !ok {
+						t.Fatalf("LookupQName(%q, %q) is unknown", namespace, local)
+					}
+					inputs = append(inputs, ContentInput{Name: RuntimeName{NS: namespace, Known: true, Name: name, Local: local}})
+				}
 			}
 			indexed := 0
 			for id := range rt.program.CompiledModels {

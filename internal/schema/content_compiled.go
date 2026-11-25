@@ -829,55 +829,33 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 		return ContentTransition{}, ContentTransitionInvalid
 	}
 	row := &model.Rows[st.state]
+	edges := row.Edges
 	switch row.indexKind {
 	case publishedDFAMap:
 		return rt.nextPublishedIndexedDFAContent(st, model, row, row.index, in)
 	case publishedDFARun:
 		return rt.nextPublishedRunDFAContent(st, model, row, in)
 	case publishedDFARunDense:
-		return rt.nextPublishedRunDenseDFAContent(st, model, row, in)
+		edges = row.runDenseCandidate(in.Name)
 	case publishedDFADense:
-		return rt.nextPublishedDenseDFAContent(st, model, row, in)
+		edges = row.denseCandidate(in.Name)
 	case publishedDFALinear:
 	}
-	for _, edge := range row.Edges {
-		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
-		if !valid {
-			return ContentTransition{}, ContentTransitionInvalid
-		}
-		if match.kind == ContentMatchInvalid {
-			continue
-		}
-		next, ok := nextPublishedDFAState(st, model, edge)
-		if !ok {
-			continue
-		}
-		return newContentTransition(st, next, match), contentTransitionMatched
-	}
-	return ContentTransition{}, ContentTransitionNoMatch
+	next, match, status := rt.takeFirstPublishedDFAEdge(st, model, edges, in)
+	return newContentTransition(st, next, match), status
 }
 
-func (rt *Schema) nextPublishedDenseDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	if !in.Name.Known {
-		return ContentTransition{}, ContentTransitionNoMatch
+// denseCandidate returns the edge that name selects through the row's dense
+// index, or none.
+func (row *compiledModelRowRead) denseCandidate(name RuntimeName) []compiledModelEdgeRead {
+	if !name.Known {
+		return nil
 	}
-	pos := row.index.denseEdge(in.Name.Name)
+	pos := row.index.denseEdge(name.Name)
 	if pos < 0 {
-		return ContentTransition{}, ContentTransitionNoMatch
+		return nil
 	}
-	edge := row.Edges[pos]
-	match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
-	if !valid {
-		return ContentTransition{}, ContentTransitionInvalid
-	}
-	if match.kind == ContentMatchInvalid {
-		return ContentTransition{}, ContentTransitionNoMatch
-	}
-	next, ok := nextPublishedDFAState(st, model, edge)
-	if !ok {
-		return ContentTransition{}, ContentTransitionNoMatch
-	}
-	return newContentTransition(st, next, match), contentTransitionMatched
+	return row.Edges[pos : pos+1 : len(row.Edges)]
 }
 
 func completePublishedDFAContent(st ContentState, model *compiledModelRead) ContentCompletionStatus {
@@ -898,19 +876,10 @@ func (rt *Schema) nextPublishedIndexedDFAContent(st ContentState, model *compile
 		if !ok {
 			return ContentTransition{}, ContentTransitionNoMatch
 		}
-		edge := row.Edges[pos]
-		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
-		if !valid {
-			return ContentTransition{}, ContentTransitionInvalid
+		next, match, status := rt.takeFirstPublishedDFAEdge(st, model, row.Edges[pos:pos+1:len(row.Edges)], in)
+		if status != ContentTransitionNoMatch {
+			return newContentTransition(st, next, match), status
 		}
-		if match.kind == ContentMatchInvalid {
-			continue
-		}
-		next, ok := nextPublishedDFAState(st, model, edge)
-		if !ok {
-			continue
-		}
-		return newContentTransition(st, next, match), contentTransitionMatched
 	}
 }
 
@@ -930,17 +899,17 @@ func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishe
 	return &publishedDFACandidates{wildcards: idx.data, element: element}
 }
 
-// nextPublishedRunDenseDFAContent dispatches a row whose edges are a window of
-// its model's run through the run's dense index.
-func (rt *Schema) nextPublishedRunDenseDFAContent(st ContentState, model *compiledModelRead, row *compiledModelRowRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	if !in.Name.Known {
-		return ContentTransition{}, ContentTransitionNoMatch
+// runDenseCandidate returns the edge that name selects through the dense
+// index of the run that the row's edges are a window of, or none.
+func (row *compiledModelRowRead) runDenseCandidate(name RuntimeName) []compiledModelEdgeRead {
+	if !name.Known {
+		return nil
 	}
-	edge := row.index.denseEdge(in.Name.Name) - int(row.Edges[0].To-1)
+	edge := row.index.denseEdge(name.Name) - int(row.Edges[0].To-1)
 	if edge < 0 || edge >= len(row.Edges) {
-		return ContentTransition{}, ContentTransitionNoMatch
+		return nil
 	}
-	return rt.takePublishedDFAEdge(st, model, row.Edges[edge], in)
+	return row.Edges[edge : edge+1]
 }
 
 // nextPublishedRunDFAContent dispatches a row whose edges are the run
@@ -960,28 +929,32 @@ func (rt *Schema) nextPublishedRunDFAContent(st ContentState, model *compiledMod
 		if !ok {
 			return ContentTransition{}, ContentTransitionNoMatch
 		}
-		transition, status := rt.takePublishedDFAEdge(st, model, row.Edges[pos-int(start)], in)
+		next, match, status := rt.takeFirstPublishedDFAEdge(st, model, row.Edges[pos-int(start):pos-int(start)+1:len(row.Edges)], in)
 		if status != ContentTransitionNoMatch {
-			return transition, status
+			return newContentTransition(st, next, match), status
 		}
 	}
 }
 
-// takePublishedDFAEdge reports the transition of edge for in, or no match when
-// edge does not take in.
-func (rt *Schema) takePublishedDFAEdge(st ContentState, model *compiledModelRead, edge compiledModelEdgeRead, in ContentInput) (ContentTransition, ContentTransitionStatus) {
-	match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
-	if !valid {
-		return ContentTransition{}, ContentTransitionInvalid
+// takeFirstPublishedDFAEdge returns the state that the first of edges to take
+// in moves st to, the match it selects for in, and a matched status. Any other
+// status comes with a zero state and match.
+func (rt *Schema) takeFirstPublishedDFAEdge(st ContentState, model *compiledModelRead, edges []compiledModelEdgeRead, in ContentInput) (ContentState, contentMatch, ContentTransitionStatus) {
+	for _, edge := range edges {
+		match, valid := rt.matchPublishedDirectParticle(edge.Particle, in)
+		if !valid {
+			return ContentState{}, contentMatch{}, ContentTransitionInvalid
+		}
+		if match.kind == ContentMatchInvalid {
+			continue
+		}
+		next, ok := nextPublishedDFAState(st, model, edge)
+		if !ok {
+			continue
+		}
+		return next, match, contentTransitionMatched
 	}
-	if match.kind == ContentMatchInvalid {
-		return ContentTransition{}, ContentTransitionNoMatch
-	}
-	next, ok := nextPublishedDFAState(st, model, edge)
-	if !ok {
-		return ContentTransition{}, ContentTransitionNoMatch
-	}
-	return newContentTransition(st, next, match), contentTransitionMatched
+	return ContentState{}, contentMatch{}, ContentTransitionNoMatch
 }
 
 // runElement returns the run position from start to end of the element edge
