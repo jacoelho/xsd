@@ -1,0 +1,4 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xs:element name="d"/>
+<xs:element name="root"><xs:complexType><xs:sequence><xs:sequence minOccurs="2" maxOccurs="2"><xs:element ref="d" maxOccurs="unbounded"/><xs:element name="e" minOccurs="0"/></xs:sequence><xs:element name="f"/></xs:sequence></xs:complexType></xs:element>
+</xs:schema>

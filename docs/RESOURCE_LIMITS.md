@@ -98,7 +98,8 @@ type's root model, and charges each record of every model it compiles one step
 before allocating it, including the nested models it compiles on their own and
 keeps no table for, whose rows their Unique Particle Attribution check
 reads: a row, an edge, an `xs:all` term and an entry of a name index. The
-rows of a sequence compiled directly to a table are windows of one run of
+rows and edges that determinization or a directly compiled sequence builds
+and no item reaches stay charged after compilation removes them. The rows of a sequence compiled directly to a table are windows of one run of
 edges, and its rows that take at least eight edges share one name
 index of the run, so a sequence of optional elements holds one edge and about
 one index entry per element, not one per element and row. When the run has

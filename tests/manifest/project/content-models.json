@@ -36714,6 +36714,1278 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "Two overlapping element particles follow a required empty choice, which matches nothing, so no item reaches them; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/nested-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "The required empty choice that cuts off the overlapping particles is nested in a choice inside a sequence.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/nested-empty-choice-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/nested-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/nested-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "The required empty choice and the overlapping particles after it are in a named model group that the content model references.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/repeated-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An unbounded empty choice with minOccurs 1 still matches nothing and cuts off the overlapping particles after it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/repeated-empty-choice-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/repeated-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/repeated-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-after-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "The overlapping particles come before the required empty choice, so items reach them although no sequence completes.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-after-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-after-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "cos-nonambig in XML Schema Part 1"
+        },
+        "errorCode": "schema.content_model"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-after-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/optional-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "An empty choice with minOccurs 0 is satisfied by absence, so the overlapping particles after it are reached.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/optional-empty-choice-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/optional-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "cos-nonambig in XML Schema Part 1"
+        },
+        "errorCode": "schema.content_model"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/optional-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/zero-occurrence-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "An element particle with minOccurs and maxOccurs 0 corresponds to no component, so the overlapping particles after it are reached.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/zero-occurrence-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/zero-occurrence-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "cos-nonambig in XML Schema Part 1"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/zero-occurrence-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/reachable-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "Control: the overlapping particles start the sequence.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/reachable-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/reachable-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "cos-nonambig in XML Schema Part 1"
+        },
+        "errorCode": "schema.content_model"
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/reachable-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group"
+        ],
+        "description": "Control: a single element particle after a required empty choice overlaps nothing.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-element"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "clause": "cos-nonambig in XML Schema Part 1"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-element/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-between-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "A required empty choice between two overlapping element particles leaves no path from one to the other, so they never validate adjacent items.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-between-overlap"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-between-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-052"
+          },
+          "dotnet": {
+            "record": "I-052"
+          },
+          "xmlschema": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-between-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An optional element particle follows a required empty choice and overlaps the element in a choice repeated exactly twice, which only the content-model automaton compares; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-twice-repeated-choice-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An optional element particle follows a required empty choice and overlaps the element in a choice repeated at most twice, which only the content-model automaton compares; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-repeated-choice-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "An element particle with a counted range follows a required empty choice and overlaps the element in a following repeated choice, which only the content-model automaton compares; Unique Particle Attribution still compares them.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/required-empty-choice-before-counted-range-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "Six repetitions of an empty choice may be one or two repetitions of the choice that holds it, so the next d may be that choice's element or the optional d after it; for Unique Particle Attribution the empty choice counts like an element declaration.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-052"
+          },
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-element-before-optional-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "The element twin of counted-empty-choice-before-optional-overlap: six c may be one or two repetitions of the choice that holds them, so the next d may be that choice's element or the optional d after it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-element-before-optional-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-element-before-optional-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-052"
+          },
+          "xmlschema": {
+            "record": "I-052"
+          },
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-element-before-optional-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "Each reference to a group whose choice has no branches holds an empty choice of its own, and an empty choice overlaps no particle, itself included, so no item reaches both c particles.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "differences": {
+          "xerces": {
+            "record": "I-052"
+          },
+          "dotnet": {
+            "record": "I-052"
+          },
+          "xmlschema": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-in-two-branches-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "The two references to a group whose choice has no branches are branches of one choice; an empty choice overlaps no particle, itself included.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/group-ref-empty-choice-twice-in-choice/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "counted-empty-choice-before-optional-overlap with references to one global element: the two references are two particles, so the next d after six repetitions of the empty choice may be either.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-052"
+          },
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-empty-choice-before-optional-global-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next d may be the choice's reference to d or the optional reference after it; two references to one global element are two particles.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/global-element-in-counted-choice-before-optional-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/group-in-counted-choice-before-optional-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next d may be the choice's reference to group D or the optional reference to D after it; each reference to a group holds a particle of its own.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/group-in-counted-choice-before-optional-group"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/group-in-counted-choice-before-optional-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/group-in-counted-choice-before-optional-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next element of another namespace may be the choice's reference to group W or the optional reference to W after it; each reference to a group holds a wildcard particle of its own.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/wildcard-group-in-counted-choice-before-optional-group/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Six c may be one or two repetitions of the choice that holds them, so the next h or m may be the choice's reference to head h or the optional reference to h after it; two references to one substitution group head are two particles.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/substitution-head-in-counted-choice-before-optional-head/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/group-element-in-two-branches-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Each reference to group G holds a zz particle of its own, so a first zz may be either branch's, as may the c after it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/group-element-in-two-branches-before-overlap"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/group-element-in-two-branches-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/group-element-in-two-branches-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/group-wildcard-twice-in-choice",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "Each reference to group W holds a wildcard particle of its own, so an element of another namespace may be either branch's.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/group-wildcard-twice-in-choice"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/group-wildcard-twice-in-choice/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "dotnet": {
+            "record": "I-028"
+          },
+          "xmlschema": {
+            "record": "I-028"
+          },
+          "libxml2": {
+            "record": "I-028"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/group-wildcard-twice-in-choice/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-references/one-particle-in-counted-sequence",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks"
+        ],
+        "description": "A second d may continue the first repetition of the inner sequence or start its second, but either way the one reference to d validates it.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/content-models/upa-references/one-particle-in-counted-sequence"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-references/one-particle-in-counted-sequence/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-028--content-model-checks",
+          "clause": "I-028 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-references/one-particle-in-counted-sequence/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "A required empty choice repeated two or three times precedes an optional c and a required c; for Unique Particle Attribution the empty choice counts like an element declaration, so the two c compete whatever its count.",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap",
+        "package": "schema"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/counted-optional-empty-choice-after-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "An empty choice that may occur up to 20000 times after a required a matches no item, so the content is exactly one a.",
+        "sourceFile": "tests/corpus/project/content-models/counted-optional-empty-choice-after-element/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "a-twice",
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a-twice.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a-twice.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/counted-required-empty-choice-after-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "An empty choice required 20000 times after a required a matches no item, so no content is complete.",
+        "sourceFile": "tests/corpus/project/content-models/counted-required-empty-choice-after-element/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/counted-required-empty-choice-after-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/counted-required-empty-choice-after-element/a.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-042"
+            },
+            "xerces": {
+              "record": "I-042"
+            },
+            "xmlschema": {
+              "record": "I-042"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-after-element/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-after-element/a.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/counted-required-empty-choice-branch",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A choice between c and an empty choice required twice: the empty-choice branch matches nothing, not even empty content, so only c is valid content.",
+        "sourceFile": "tests/corpus/project/content-models/counted-required-empty-choice-branch/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/counted-required-empty-choice-branch/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "c",
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/c.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/empty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-042"
+            },
+            "xmlschema": {
+              "record": "I-042"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/empty.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }

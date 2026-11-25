@@ -73,7 +73,7 @@ var particleListReaders = map[string]string{
 	"contentModelAnalysis.modelTermCountRange": "callees sequenceCountRange and choiceCountRange charge each particle through ParticleCountRange",
 
 	"contentModelCompiler.particlesNeedUPACheck":                    "callee particleSetNeedsUPACheck charges each pair it reads",
-	"contentModelCompiler.checkPairwiseUPA":                         "particlesNeedUPACheck and checkParticleAgainstFollowingUPA charge each pair",
+	"contentModelCompiler.checkPairwiseUPA":                         "charges each choice without branches it skips; particlesNeedUPACheck and checkParticleAgainstFollowingUPA charge each pair",
 	"contentModelCompiler.checkParticleAgainstFollowingUPA":         "charges each following particle it reads",
 	"contentModelCompiler.wildcardCandidateOverlaps":                "charges each following member it reads",
 	"dfaBuilder.sequenceNode":                                       "callee particleNode charges each particle",

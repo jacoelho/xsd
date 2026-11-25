@@ -54,6 +54,12 @@ func (o occurrence) IsExactlyOne() bool {
 	return o.Min == 1 && o.Max == 1 && !o.Unbounded
 }
 
+// Repeats reports whether the occurrence range admits more than one
+// occurrence.
+func (o occurrence) Repeats() bool {
+	return o.Unbounded || o.Max > 1
+}
+
 // contentModelNode is a runtime content-model tree node.
 type contentModelNode struct {
 	Particles []contentParticle

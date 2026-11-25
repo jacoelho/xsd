@@ -99,16 +99,23 @@ type dfaDeterministicRow struct {
 	Accept bool
 }
 
+// dfaTransitionSet is one transition of the row being built: the
+// configurations its source edges reach, and the particle and source position
+// of the first edge that joined it.
 type dfaTransitionSet struct {
 	Configs  []dfaConfig
 	Particle contentParticle
-	Key      particleTermKey
+	Pos      int
+	Key      dfaTransitionKey
 }
 
-type particleTermKey struct {
-	Element  ElementID
-	Wildcard WildcardID
-	Kind     particleKind
+// dfaTransitionKey identifies the transition a source edge joins: its kind
+// and the ID of the element declaration or wildcard it references, so the
+// edges of one term share a transition, or, for the position of a choice
+// without branches, the position, so no two such positions share one.
+type dfaTransitionKey struct {
+	ID   uint32
+	Kind particleKind
 }
 
 func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, error) {
@@ -131,12 +138,67 @@ func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, err
 	if err := b.c.checkCompiledRowsUPA(rows); err != nil {
 		return compiledModel{}, err
 	}
+	if b.emptyChoices {
+		rows, startID = withoutEmptyChoiceEdges(rows, startID)
+	}
 	return compiledModel{
 		Kind:  compiledModelDFA,
 		Rows:  rows,
 		Start: startID,
 		Empty: rows[startID].Accept,
 	}, nil
+}
+
+// withoutEmptyChoiceEdges removes, in place, the edges of the positions of
+// choices without branches, which no item takes, and the rows only those
+// edges reach, renumbering the rest in order, and returns the start's new
+// number. The removed rows and edges stay charged to the retained budget:
+// determinization built them and the Unique Particle Attribution checks read
+// them.
+func withoutEmptyChoiceEdges(rows []compiledModelRow, start uint32) ([]compiledModelRow, uint32) {
+	reached := rowsReachedByItems(rows, start)
+	number := make([]uint32, len(rows))
+	var next uint32
+	for state := range rows {
+		if reached[state] {
+			number[state] = next
+			next++
+		}
+	}
+	kept := rows[:0]
+	for state, row := range rows {
+		if !reached[state] {
+			continue
+		}
+		row.Edges = slices.DeleteFunc(row.Edges, func(edge compiledModelEdge) bool {
+			return edge.Particle.Kind == particleModel
+		})
+		for i := range row.Edges {
+			row.Edges[i].To = number[row.Edges[i].To]
+		}
+		kept = append(kept, row)
+	}
+	clear(rows[len(kept):])
+	return kept, number[start]
+}
+
+// rowsReachedByItems reports which rows edges other than those of choices
+// without branches reach from start.
+func rowsReachedByItems(rows []compiledModelRow, start uint32) []bool {
+	reached := make([]bool, len(rows))
+	reached[start] = true
+	queue := []uint32{start}
+	for len(queue) != 0 {
+		state := queue[0]
+		queue = queue[1:]
+		for _, edge := range rows[state].Edges {
+			if edge.Particle.Kind != particleModel && !reached[edge.To] {
+				reached[edge.To] = true
+				queue = append(queue, edge.To)
+			}
+		}
+	}
+	return reached
 }
 
 // deterministicModelCompilation determinizes one counted source automaton.
@@ -148,7 +210,7 @@ func (b *dfaBuilder) compileDeterministicModel(start uint32) (compiledModel, err
 type deterministicModelCompilation struct {
 	builder    *dfaBuilder
 	states     map[string]uint32
-	groupIndex map[particleTermKey]int
+	groupIndex map[dfaTransitionKey]int
 	caps       []uint32
 	keys       []string
 	rows       []dfaDeterministicRow
@@ -167,7 +229,7 @@ func newDeterministicModelCompilation(b *dfaBuilder, caps []uint32) (*determinis
 	return &deterministicModelCompilation{
 		builder:    b,
 		states:     make(map[string]uint32),
-		groupIndex: make(map[particleTermKey]int),
+		groupIndex: make(map[dfaTransitionKey]int),
 		caps:       caps,
 		vectors:    vectors,
 		counters:   make([]uint32, b.counters),
@@ -318,7 +380,7 @@ func (c *deterministicModelCompilation) deterministicRow(configs []dfaConfig, st
 		return compiledModelRow{}, err
 	}
 	slices.SortFunc(c.groups, func(a, b dfaTransitionSet) int {
-		return compareParticleTermKey(a.Key, b.Key)
+		return compareDFATransitionKey(a.Key, b.Key)
 	})
 	if len(c.groups) != 0 {
 		row.Edges = make([]compiledModelEdge, 0, len(c.groups))
@@ -385,9 +447,14 @@ func (c *deterministicModelCompilation) collectEdge(edge dfaSourceEdge, counters
 	if err != nil {
 		return err
 	}
-	group, err := c.group(edge.Particle)
+	group, err := c.group(edge)
 	if err != nil {
 		return err
+	}
+	if group.Pos != edge.Pos {
+		if err := c.checkSharedTermUPA(group.Particle, edge.Particle); err != nil {
+			return err
+		}
 	}
 	group.Configs = append(group.Configs, dfaConfig{State: edge.To, Counters: next})
 	return nil
@@ -401,10 +468,29 @@ func (c *deterministicModelCompilation) applyActions(counters []uint32, actions 
 	return c.vectors.intern(c.counters)
 }
 
-// group returns the transition set of p's term in the row being built. The
-// first particle to reach a term is the particle of its edge.
-func (c *deterministicModelCompilation) group(p contentParticle) (*dfaTransitionSet, error) {
-	key, err := particleTermKeyOf(p)
+// checkSharedTermUPA reports the Unique Particle Attribution violation of a,
+// the particle of a transition, and b, the particle of an edge from another
+// position that joins it: one configuration set reaches both positions, and
+// they consume the same items. The source rows compare only the positions of
+// one source state whose counting guards are not complementary, and the
+// determinized rows only transitions of different terms, so two kinds of pair
+// are seen only here: positions of two source states that share a term, and
+// positions of one source state whose complementary guards both hold under
+// different configurations of the set, as in (c{3,}|ref d){2}, ref d?. Edges
+// of one position under different counter values share its transition without
+// competing.
+func (c *deterministicModelCompilation) checkSharedTermUPA(a, b contentParticle) error {
+	particles, overlap, err := c.builder.c.particlesOverlap(a, b)
+	if err != nil || !overlap {
+		return err
+	}
+	return c.builder.c.upaError(particles)
+}
+
+// group returns the transition that edge joins in the row being built. The
+// first edge to reach a transition gives its particle and position.
+func (c *deterministicModelCompilation) group(edge dfaSourceEdge) (*dfaTransitionSet, error) {
+	key, err := dfaTransitionKeyOf(edge.Particle, edge.Pos)
 	if err != nil {
 		return nil, err
 	}
@@ -415,9 +501,9 @@ func (c *deterministicModelCompilation) group(p contentParticle) (*dfaTransition
 	c.groupIndex[key] = i
 	if i < cap(c.groups) {
 		c.groups = c.groups[:i+1]
-		c.groups[i] = dfaTransitionSet{Configs: c.groups[i].Configs[:0], Particle: p, Key: key}
+		c.groups[i] = dfaTransitionSet{Configs: c.groups[i].Configs[:0], Particle: edge.Particle, Pos: edge.Pos, Key: key}
 	} else {
-		c.groups = append(c.groups, dfaTransitionSet{Particle: p, Key: key})
+		c.groups = append(c.groups, dfaTransitionSet{Particle: edge.Particle, Pos: edge.Pos, Key: key})
 	}
 	return &c.groups[i], nil
 }
@@ -533,27 +619,25 @@ func applyDFAActions(counters, caps []uint32, actions []compiledAction) error {
 	return nil
 }
 
-func particleTermKeyOf(p contentParticle) (particleTermKey, error) {
+func dfaTransitionKeyOf(p contentParticle, pos int) (dfaTransitionKey, error) {
 	switch p.Kind {
 	case particleElement:
-		return particleTermKey{Kind: p.Kind, Element: p.Element}, nil
+		return dfaTransitionKey{Kind: p.Kind, ID: uint32(p.Element)}, nil
 	case particleWildcard:
-		return particleTermKey{Kind: p.Kind, Wildcard: p.Wildcard}, nil
+		return dfaTransitionKey{Kind: p.Kind, ID: uint32(p.Wildcard)}, nil
 	case particleModel:
-		return particleTermKey{Kind: p.Kind, Element: p.Element, Wildcard: p.Wildcard}, nil
+		id, err := checkedSchemaUint32(pos, "content model DFA position limit exceeded")
+		return dfaTransitionKey{Kind: p.Kind, ID: id}, err
 	default:
-		return particleTermKey{}, xsderrors.InternalInvariant("content model DFA edge particle has unknown kind", nil)
+		return dfaTransitionKey{}, xsderrors.InternalInvariant("content model DFA edge particle has unknown kind", nil)
 	}
 }
 
-func compareParticleTermKey(a, b particleTermKey) int {
+func compareDFATransitionKey(a, b dfaTransitionKey) int {
 	if n := cmp.Compare(a.Kind, b.Kind); n != 0 {
 		return n
 	}
-	if n := cmp.Compare(a.Element, b.Element); n != 0 {
-		return n
-	}
-	return cmp.Compare(a.Wildcard, b.Wildcard)
+	return cmp.Compare(a.ID, b.ID)
 }
 
 func countingException(a, b dfaSourceEdge) bool {

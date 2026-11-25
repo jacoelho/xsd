@@ -159,7 +159,7 @@ func TestContentModelStepsReportUnknownKindsAsInternalInvariant(t *testing.T) {
 			return appendParticle(&work, nil, &model, unknown)
 		}(),
 		"DFA edge": func() error {
-			_, err := particleTermKeyOf(unknown)
+			_, err := dfaTransitionKeyOf(unknown, 0)
 			return err
 		}(),
 		"emptiability of an optional particle": func() error {

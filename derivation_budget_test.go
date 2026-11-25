@@ -167,6 +167,20 @@ func fanOutSchema(n, refs int) string {
 	return b.String()
 }
 
+func TestChoiceWithoutBranchesBesideWildcardsChargesEachPairRead(t *testing.T) {
+	t.Parallel()
+	const wildcards, choices = 50, 1000
+	var b strings.Builder
+	b.WriteString(`<xs:schema ` + xsNS + `><xs:element name="root"><xs:complexType><xs:choice>`)
+	for i := range wildcards {
+		fmt.Fprintf(&b, `<xs:any namespace="urn:w%d" processContents="skip"/>`, i)
+	}
+	b.WriteString(strings.Repeat(`<xs:choice/>`, choices))
+	b.WriteString(`</xs:choice></xs:complexType></xs:element></xs:schema>`)
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: wildcards * choices}, xsd.Bytes("w.xsd", []byte(b.String())))
+	expectNamedLimit(t, err, "MaxContentModelAnalysisSteps")
+}
+
 func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {
 	const analysis = "MaxContentModelAnalysisSteps"
 	t.Run("doubling groups at default", func(t *testing.T) {
