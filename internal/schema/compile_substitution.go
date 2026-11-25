@@ -232,27 +232,6 @@ func elementUsesSubstitutionType(n *schemaNode, source *schemaElementSource) boo
 	return source.SubstitutionGroup.Lexical.Present
 }
 
-func (c *compiler) resolveTypeQName(q QName) (TypeID, bool, error) {
-	if typ, ok := c.rt.GlobalTypes[q]; ok {
-		return typ, true, nil
-	}
-	if _, ok := c.simpleComponents[q]; ok {
-		id, err := c.compileSimpleByQName(q)
-		if err != nil {
-			return TypeID{}, true, err
-		}
-		return SimpleRef(id), true, nil
-	}
-	if _, ok := c.complexComponents[q]; ok {
-		id, err := c.reserveNamedComplexType(q)
-		if err != nil {
-			return TypeID{}, true, err
-		}
-		return ComplexRef(id), true, nil
-	}
-	return TypeID{}, false, nil
-}
-
 func (c *compiler) typeQNameKnown(q QName) bool {
 	return c.simpleTypeQNameKnown(q) || c.complexTypeQNameKnown(q)
 }
