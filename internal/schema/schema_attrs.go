@@ -437,6 +437,9 @@ func misplacedReferenceAttribute(element, attr string) string {
 	return ""
 }
 
+// schemaElementAttributeAllowed reports whether the XSD element named element
+// may have the unqualified attribute attr in some placement;
+// misplacedSchemaAttributeError narrows it to the element's placement.
 func schemaElementAttributeAllowed(element, attr string) bool {
 	switch element {
 	case vocab.XSDElemSchema, vocab.XSDElemInclude, vocab.XSDElemImport, vocab.XSDElemAppinfo, vocab.XSDElemDocumentation:
@@ -478,8 +481,9 @@ func schemaElementAttributeAllowed(element, attr string) bool {
 // element gives it: a boolean, a form, a derivation set, a wildcard namespace
 // list, a processContents mode, or a
 // namespace name that cannot be empty. An attribute with none of these forms
-// passes. Start-tag admission decides these violations; compilation parses the
-// admitted value with the same parsers.
+// passes. Start-tag admission decides these violations. The typed source
+// record keeps these values lexical, and compilation parses the admitted value
+// again with the same parsers.
 func checkSchemaAttributeValueSyntax(element, attr, value string) error {
 	if rule, ok := derivationAttrRuleOf(element, attr); ok {
 		_, err := parseDerivationSet(value, rule.Label, rule.Allowed)

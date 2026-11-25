@@ -198,7 +198,12 @@ func TestNilEngineNormalizesOptionsBeforeSchemaCheck(t *testing.T) {
 	err := engine.ValidateWithOptions(strings.NewReader(`<root/>`), xsd.ValidateOptions{MaxErrors: -1})
 	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationOption)
 	err = engine.Validate(strings.NewReader(`<root/>`))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationSession)
+	session, err := engine.NewSession(xsd.ValidateOptions{MaxErrors: -1})
+	if session != nil {
+		t.Fatal("NewSession() on a nil engine returned a session")
+	}
+	expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationOption)
 }
 
 type sessionPoolPanicReader struct{}

@@ -54,7 +54,7 @@ The package graph follows capability ownership:
 | `internal/lex`, `internal/vocab`, `internal/uriref`, `xsderrors` | Shared lexical facts, vocabulary, URI-reference semantics, and structured errors |
 | `internal/valuebench` | Value-program benchmarks over the `internal/value` interface; no production code |
 | `internal/corpus` | Conformance corpus file layout and grammar for tests and tools: inventory shards, observation rows and profile; read through `fs.FS` by `LoadInventory` and `LoadObservations` and formatted by `FormatRows` and `FormatProfile`; imported by no library package |
-| `tests/internal/compilework` | Test-only command that compiles one schema through the root facade and reports the least analysis and dependency limits under which compilation ends other than at that limit, and whether it compiles or is rejected; built with coverage counters by `TestContentModelCompileWorkGrowsWithChargedSteps` in `tests/content_model_compile_work_test.go`, `TestAttributeDerivationAuditDoesWorkInProportionToChargedSteps` in `tests/attribute_use_audit_work_test.go`, and `TestTypesSharingAnAttributeGroupReadItsSetOnce` in `tests/shared_attribute_group_work_test.go`. It is the one internal package that imports the facade: the depguard rule `internal-must-not-import-facade` exempts it by path, and no library package imports it |
+| `tests/internal/compilework` | Test-only command that compiles one schema through the root facade and reports the least analysis and dependency limits under which compilation ends other than at that limit, and whether it compiles or is rejected; built with coverage counters by `tests/content_model_compile_work_test.go`, `tests/attribute_use_audit_work_test.go` and `tests/shared_attribute_group_work_test.go`. It is the one internal package that imports the facade: the depguard rule `internal-must-not-import-facade` exempts it by path, and no library package imports it |
 | Root `xsd` | Sources, options, engines, and sessions delegated to their owners |
 | CLI, WASM, browser, and local web adapters | Wire translation, product composition, and process lifecycle |
 
@@ -89,8 +89,8 @@ The principal state machines are deliberately linear or owner-local:
 | Owner | States and only legal progress | Failure/cleanup invariant |
 | --- | --- | --- |
 | Compiler | normalize -> load closed graph -> plan/index -> compile/finalize -> seal | No engine before publication; failed sealing does not consume the retryable build |
-| Engine session pool | normalize -> checkout or allocate -> validate -> reset -> retain or drop | At most one idle session; concurrent calls never wait; a panic drops the checked-out session |
-| Validation session | idle -> guarded document -> semantic or syntax-only processing -> reset -> idle | Overlap fails before input; every exit clears document references before releasing the guard |
+| Engine session pool | normalize -> checkout or allocate -> validate -> reset -> retain or drop | At most one idle session; concurrent calls never wait; a panic drops the checked-out session; a zero or nil `Engine` fails with `validation.session` after normalization |
+| Validation session | idle -> guarded document -> semantic or syntax-only processing -> reset -> idle | Overlap, and a zero or nil `Session`, fail with `validation.session` before input; every exit clears document references before releasing the guard |
 | Element start | prepared -> XML/namespace committed -> semantic commit | Fatal failure rolls back every staged owner; semantic stop retains only syntax state needed to finish parsing |
 | Schema source input | reading -> ended or failed -> finished (Finish or Discard) | One phase field; the frozen result is the only post-finish read; close failures join the read failure |
 | XML stream | reset -> borrowed token -> advance/invalidate -> EOF/error -> detach | Borrowed bytes never survive advance; only token-boundary EOF is success |
@@ -202,218 +202,57 @@ It parses `internal/source` inputs through `internal/xmlstream` into a closed
 graph before compiling; planning performs no I/O. `internal/value` owns builtin
 IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
-`MaxSchemaDependencySteps` bounds loading, planning and resolution;
-`MaxContentModelAnalysisSteps` bounds the content-model work `workBudgetKind`
-lists, and through that work the heap that automaton
-construction uses (derived bounds for row edges and state keys, a measured
-bound for counter vectors, and measured heap, in [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md);
-derivations in the Go docs of `deterministicRow` and `dfaCounterVectors`). That bound is per content model. `MaxSchemaDependencySteps`
-bounds the compiled tables retained across models (per-step bound in
-[RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): `contentModelCompiler` charges
-each model record, row, edge and `xs:all` term before allocating it (the
-rows and edges that `withoutEmptyChoiceEdges` and
-`directSequenceCompilation.reachable` remove stay charged), and
-`dfaRowIndexAnalysis` each name-index entry it installs. A direct sequence's
-rows are windows of one edge run (`compiledModel.Run`) and share one index of
-the run (`publishedDFARun`), so its tables grow linearly with its particles.
-`compileContentModels` keeps only the published form (`compiledModelRead`) of
-each root model validation can enter, built over published element IDs and
-indexed in the model's scope, the kind and the scalars of the form of every
-other root, and the kind of every other reached model, whose rows are still
-charged because its Unique Particle Attribution check reads them; publication takes every table without
-copying it; `sealSchemaProgram` adds dense indexes,
-which rewrite rows the build shares, only after the last step that can reject
-the build. Spent work is never refunded. Retained derived records
-are charged to `MaxSchemaDependencySteps` at their admission owner:
-`appendModelParticles` is the only append to retained model particles and
-charges one step per particle before allocating (the restriction normalizer
-builds transient comparison nodes that it charges to
-`MaxContentModelAnalysisSteps` and never retains); `addModel` (one step per record) and
-`completeModel` write the model table, and `completeModel` installs only
-particles already charged; `addAttributeUseSet` charges `len(Uses)` and
-`appendWildcard` charges `len(Namespaces)`. Admitted models and wildcards are
-immutable; `contentModelByID` and `wildcardByID` share them on read (see
-`appendWildcard`). Wildcard set operations take the budget they charge as a
-required argument (cost model in the `wildcard.go` comment on admitted namespace
-lists): UPA overlap, sequence wildcard equivalence and content
-restriction subset charge `MaxContentModelAnalysisSteps`; attribute-wildcard
-intersection, union and restriction subset charge `MaxSchemaDependencySteps`.
-The publication audit re-derives each attribute use set's wildcard exactly
-once, through `admittedWildcardWork`, uncharged because compilation charged
-the same comparison. A new retained table must charge in its admission function. Admission functions return unlocated budget errors. The
-builtin components are seeded before the caller's `MaxSchemaDependencySteps`
-budget is installed and spend none of it, so every dependency-limit failure
-has a schema document to locate it.
+`MaxSchemaDependencySteps` bounds loading, planning, resolution and every
+derived record compilation retains; `MaxContentModelAnalysisSteps` bounds the
+content-model work of the whole compilation (`workBudgetKind`), and through
+the work spent on one model the heap its automaton construction uses. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md) gives the
+bound per step; the doc comment of each admission function states what it
+charges. Spent work is never refunded, and the builtin components
+spend none of the caller's budget, so every dependency-limit failure has a
+schema document to locate it.
 
-The content model table holds declared components. Lowering drops zero-count
-particles and keeps every declared group as its own particle; xs:anyType's
-content is a 1..1 sequence holding its lax `##any` wildcard 0..unbounded,
-and a {content type}'s variety alone says whether it is mixed. Where a model
-group's occurrence is recorded is owned by `modelUse` and `compileCompositor`,
-and `appendModelParticles` admits a model particle only when the record it
-names has a unit occurrence. `applyModelGroupOccurrence` and
-`compileModelParticle` make the records that share another model's particles,
-and `chargedParticles` names the passes that read particles through it.
-`explicitContentEmpty` alone decides from the source whether a complex type's
-·effective content· is empty (Structures §3.4.2 complex content
-clauses 2.1.1 to 2.1.3); `compileExplicitContent` is the one entry point the
-direct, restriction and extension paths call, and returns the effective
-content with the variety it gives the {content type}, with no model for empty
-content, which mixed content stores as the synthetic empty sequence of clause
-2.1.4 (an empty model). `extensionContentType` alone
-builds an extension's {content type} (clause 3.2), and the publication audit
-`complexContentExtendsBase` checks the same three forms. Each reader that
-reduces a model owns one rule: the restriction normalizer
-(`compareNormalizedRestriction`) owns Particle Valid (Restriction) clause 2.2
-and decides pointlessness on the declared group; each comparison node it adds
-carries the count range of the group it stands for, which the count analysis
-reads for Particle Emptiable and the effective total range, and `emptyGroup`
-decides from that range whether a group left with no members matches only the
-empty sequence or nothing ([I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
-[I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice)). A group it finds
-pointless that way is only marked: its parent ignores it, and a derived
-{content type} particle so marked leaves nothing to compare and restricts only
-an emptiable base (`validatePointlessRestriction`), as W3C mgE014 expects.
-Each case of the Particle Valid (Restriction) table owns its own range rule
-(NameAndTypeOK, NSCompat and NSSubset compare the particles' own ranges;
-Recurse, RecurseLax and RecurseUnordered clause 1 the groups' ranges; MapAndSum
-clause 2 its product range; NSRecurseCheckCardinality clause 2 the group's
-effective total range), and no check compares the aggregate range of a
-content model. `validateEmptyContentRestriction` owns Derivation Valid
-(Restriction, Complex) clause 5.3 for an empty derived {content type}; the execution
-projection owns language-preserving reduction without copying: direct
-compilation walks the execution particles (`executionParticles`), which splice
-every 1..1 child group of the same compositor in place, charging one step per
-particle visited and stopping when compilation stops; `compileDirectModel`
-walks them once, through `directModelAdmission`, which owns the particle
-kinds direct compilation takes and its row count under
-`MaxContentModelStates`, and builds the table in a second walk under a budget
-of exactly the steps the first spent and no more rows than admission counted,
-both internal invariants, so no row is built or charged for a model automaton
-construction compiles; `executionModel`
-lifts a model whose walk yields one particle, as `executionParticle` reduces
-it, and otherwise hands the declared model to automaton construction, which
-walks nested groups as declared; `executionParticle` reduces singleton
-particles for direct compilation, and the projection recognizes lax-any
-content in that reduced form by the shape `builtin.go` defines for
-xs:anyType's content particle. The direct Unique
-Particle Attribution check (`checkContentModelUPA`) also reads nested groups as
-declared, through facts the content-model analysis owns:
-`lastParticles` alone decides which particles of a nested group can match its
-last element, and `ModelContinuations` computes the continuation set of each
-model once, holding each particle once, so a group referenced N times adds
-no copies. One rule (`memberContinuations`) decides which continuation sets
-a sequence member has, for both direct checks: Unique Particle Attribution
-iterates the shared sets, and the wildcard-equivalent overlap pass iterates
-only their wildcards, which `wildcardsOf` filters and charges once per model
-into per-model caches. The direct check skips two kinds of model: one that
-reaches a repeated choice with a non-unit particle (`modelNeedsRuntimeSplitSeen`),
-and a sequence in which a wildcard continuing a member meets a following
-member that is a wildcard with the same namespaces
-(`sequenceHasWildcardEquivalentOverlap`). The row checks of whichever table
-`compileContentModel` builds own the Unique Particle Attribution of those
-models: the rows of a direct table (`checkCompiledRowsUPA`), or the source
-rows (`checkUPA`) and determinized rows of an automaton. They check every
-other model it compiles too. Both checks and determinization
-(`checkSharedTermUPA`) compare positions, not terms, as
-[I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks) requires,
-and treat a choice without branches as an element declaration that no item
-matches, as
-[I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off)
-requires. The direct sequence check needs no rule of its own: such a
-choice's start set is empty, so `Overlap` reports no overlap, and
-`ParticleEmptiable` decides whether it ends the members a continuation
-reaches. `matchesNoItem` and `choiceWithoutBranches` decide the particle for
-the choice and row checks (`checkPairwiseUPA`, `withoutEmptyChoices`), the
-needs-check (`particleSetNeedsUPACheck`), `executionModel` its root form,
-direct compilation (`directSequenceCompilation`) and automaton construction
-(`choiceWithoutBranchesNode`), and no published table holds an edge for it. Unique Particle
-Attribution applies to the content models of complex types ([I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)): the direct
-check and automaton construction (`compileContentModels`) visit, in source-ID
-order, the root model of each complex type and every model it reaches through
-particles (`complexTypeReachableModels`), so a model no complex type reaches is
-neither checked nor compiled and spends no automaton work or
-`MaxContentModelStates` budget. The compiled table (`compiledContent`) holds
-the reached models with their source IDs, and publication enters only the
-roots of complex types that are not detached. Instance reachability decides
-what is detached: an instance names only global components (root, `xsi:type`,
-wildcard, substitution member), so a complex type or identity constraint no
-walk from them reaches is never assessed. `detachUnreachableComponents` owns
-that decision and charges no budget, because it reads only models
-`complexTypeReachableModels` already charged, and it runs before Unique
-Particle Attribution and automaton construction so the compiled tables can be
-built over published element IDs. The same walk reaches the
-simple types a published read can name: global types, global attribute
-types, a reached element's type, a reached complex type's text type and
-attribute-use types, and the base, list item and union members of a reached
-simple type. It reads each model, attribute-use set and simple type once, so
-an attribute group that many types share costs one read, not one per type. Publication keeps a detached type's ID and derivation record and a
-detached constraint's ID for keyref `refer` and diagnostics, but no content
-model, attribute uses or evaluation program. An unreached simple type keeps
-its ID, derivation record and value-program slot, but `Builder.SealKeeping`
-drops its value definition (facets, patterns, enumerations), and validating
-it reports `value.ErrMetadata`. The inline simple type of a source item that
-maps to no component, a zero-count element or a prohibited attribute, keeps
-nothing once checked, because no component can hold its ID:
-`compileUnheldSimpleType` drops it from the build and the value builder
-(`dropSimpleTypesFrom`, `value.Builder.Truncate`), moving a missing-type
-placeholder its compile created to the first dropped ID, without changing a verdict
-(`droppedSimpleTypeCharges`). Unreached element declarations
-are not published, and validation sees only published element IDs, which
-`publishedElements` owns. Every published holder of element IDs names
-declarations only by published IDs. `compileContentModels` builds the content
-table of each root validation can enter (`entersContent`, the same fact
-`enterContentModels` enters by) over published IDs, and keeps the kind and
-the scalars of the form of any other root; `dfaRowIndexAnalysis` indexes the
-tables in that numbering. A `publishedElementID` is an ID in the numbering a
-table was projected over: the published numbering for an entered root, and
-the identity for any other root, which `withoutTables` then reduces. Only
-`newCompiledParticleRead` and the constant `noPublishedElement` produce one
-(`tests/published_element_id_conversion_test.go`).
-`compiledContent` records the numbering its tables were built over, and
-publication rejects a build whose reachability no longer derives it, or an
-entered root whose tables compilation dropped. The global element map and the
-substitution table, which compilation reads in build IDs, are copied over
-published IDs at publication; the substitution table is at most
-`MaxSubstitutionClosureEntries` entries.
-`validateReachableHolders`, `validatePublishedIdentityConstraints`,
-`validatePublishedSimpleTypes`, `SealKeeping` and `publishedElements` reject a
-published holder that names a detached or unreached component. Unique
-Particle Attribution, restriction and automaton construction still cover
-unreached components, so reachability changes no verdict.
-Element Declarations Consistent still checks every model ([I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations)). The
-count analysis
-(`countRange`) represents a term that matches nothing, so such a member adds
-no alternative to a choice. `baseIsUrType` alone decides the ur-type
-exemption of Derivation Valid (Restriction, Complex) clauses 5.1 and 4.3, from
-the restriction's base type.
+Content-model checks follow
+[I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations),
+[I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks),
+[I-042](docs/spec/INTERPRETATIONS.md#i-042--empty-choice),
+[I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)
+and
+[I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off);
+the doc comments of the content-model functions own lowering, restriction,
+Unique Particle Attribution and automaton construction.
+
+Publication keeps only what an instance can reach. An instance names only
+global components (root, `xsi:type`, wildcard, substitution member), so a
+complex type or identity constraint no walk from them reaches is detached. A
+detached complex type keeps its ID and derivation record, and a detached
+identity constraint its ID, for keyref `refer` and diagnostics, but neither
+keeps a content model, attribute uses or evaluation program. An unreached simple type
+keeps its ID, derivation record and value-program slot, and validating it
+reports `value.ErrMetadata`. Unreached element declarations are not published,
+and every published holder names elements only by published IDs, so
+validation sees only published element IDs. Unique Particle Attribution,
+restriction and automaton construction still cover unreached components, so
+reachability changes no verdict. `detachUnreachableComponents` and
+`publishedElements` own the decision.
 
 Every diagnostic about schema document content carries the document path, line
 and column. Two other kinds carry less: a failure to obtain an explicit
 document (it cannot be opened or read, or exceeds `MaxSchemaSourceBytes`)
 carries its path only, and a failure about the source set (no sources, more
 than `MaxSchemaSources`, a source without a name) carries none; a referenced
-document that cannot be obtained is located at its reference. The component
-scope (`componentScope`, opened by `enterComponent`) is the compiler's locator:
-its leave fills the missing location of any diagnostic leaving a component from
-that component's node, so a failure is located at the innermost component being
-compiled, not at the referring site; a charge made at a reference before the
-scope opens keeps the reference location. The scope is opened to compile each
-component and again, by a compiler loop, for each check made on it after
-compilation, at the node `componentScope` names for each check; a content
-model's checks open it at the model's source, which `addModel` requires of
-every model but the builtin anyType model. Particles
-carry no source, so a content-model violation inside a referenced group is
+document that cannot be obtained is located at its reference. A failure is
+located at the innermost component being compiled, not at the referring site;
+a charge made at a reference before that component is entered keeps the
+reference location. A content-model violation inside a referenced group is
 located at the first model in compilation order whose check reaches it (see
 Rejected Alternatives). A `schema.limit` failure raised after loading and
-outside every component scope is set-wide: target-context planning locates it
-at the document being added or whose references it is walking, and
-`compileMappedSources` locates the rest, the work `locateSetWideLimit` lists,
-at the first explicit root document in plan order, which is
-by document name. Loading locates its dependency charge at the reference being
-resolved and a `MaxSchemaReferences` failure at the document whose references
-exceed it. Publication consumes the
-build only on success; `*schema.Schema` exposes only immutable derived reads.
+outside every component is set-wide: target-context planning locates it at
+the document being added or whose references it is walking, and the rest at
+the first explicit root document by name. Loading locates its dependency
+charge at the reference being resolved and a `MaxSchemaReferences` failure at
+the document whose references exceed it. `componentScope` owns locating.
+Publication consumes the build only on success; `*schema.Schema` exposes only
+immutable derived reads.
 
 Schema-document diagnostics have an order. A violation has one decision point,
 and a compilation reports the violation whose decision point comes first. Two
@@ -475,7 +314,7 @@ At a start tag:
 At an end tag:
 
 7. character data in the element;
-8. the children the element requires (`childOrderState.missingChild`).
+8. the children the element requires (`childOrderState.rejectMissingChild`).
 
 Malformed XML and the parse limits are reported where the reader meets them, in
 the same document order. Documents are read one at a time, explicit sources in
@@ -496,70 +335,28 @@ restriction (content-model analysis); and the XMLSchema-instance target
 namespace of an attribute declaration (chameleon namespace).
 
 Identity-constraint names are one schema-wide symbol space per target
-namespace (Structures §3.11.1). `declareAllIdentityConstraints` declares
-every constraint of every document context by expanded name, rejecting a
-duplicate name, before any component compiles; the compiler's declarations,
-the expanded name of each constraint ID, are the only record of the names
-until they are interned, and compilation only looks them up. A keyref `refer`
-therefore resolves against every name, whichever component holds the keyref or
-the referenced constraint. Declaration interns nothing: a constraint's name is
-interned by `nameIdentityConstraint`, the only writer of the constraint's
-interned name and of the published global identity constraints, when the
-element holding it compiles, or before global elements compile
-(`nameAllIdentityConstraints`), and its selector and field names when it
-compiles. A constraint is named once its interned name is set. Every name therefore takes its name ID in compilation order, which
-is not only a diagnostic concern: the dense DFA index depends on the
-local-name IDs of a content-model row's elements (`addDenseDFAIndexes`).
-An anonymous type interns no name; the type declaration's scope, checked at
-publication by `typeOwnership`, decides whether it has one. `MaxSchemaNames`
-(`nameTable`) therefore does not count anonymous types, and
-`MaxSchemaInstantiatedNodes` (schema loading) bounds them, since each takes at
-least one source node occurrence of its own.
+namespace (Structures §3.11.1). Every constraint of every document context is
+declared by expanded name, rejecting a duplicate name, before any component
+compiles (`declareAllIdentityConstraints`), so a keyref `refer` resolves
+against every name, whichever component holds the keyref or the referenced
+constraint. Every component name takes its name ID in compilation order.
+`MaxSchemaNames` does not count anonymous types, which intern no name;
+`MaxSchemaInstantiatedNodes` bounds them, since each takes at least one source
+node occurrence of its own.
 
 Each rule has one owner: one function, called at the tag that decides it,
-whose product the tag's typed source record stores and compilation reads. The
-child orders (`childOrderFor`) own where an element may appear; the placement
-of a component (`schemaElementPlacementOf`) selects its attribute rules and
-says nothing about whether its parent admits it. `schemaElementAttributeAllowed`
-and `misplacedSchemaAttributeError` own the attributes an element may have,
-`checkRequiredSchemaAttributes` the ones it must have (in its placement,
-`placementAttributeRequirement`, and in every placement,
-`elementAttributeRequirements`),
-`checkValueConstraintAttributes` the ones that exclude each other, and
-`checkSchemaAttributeValueSyntax` the lexical form of a value other than the
-ones below.
-
-The tag stores these admitted values in the typed source record, and
-compilation reads them without parsing again: the resolved names of QName
-attributes (`admitSchemaQNameAttribute`), the occurrence of a particle
-(`occurrenceAdmission`), the mode of an attribute's `use`, which the tag's
-own rules on `default` and `xmlns` also read (`admitParsedAttributeValue`),
-and from a facet's value and `fixed` its size, its
-whiteSpace mode, its compiled pattern and its fixed flag (`admitFacetValue`,
-`admitParsedAttributeValue`). Patterns are compiled through `schemaPatterns`,
-which the compiler owns and lends to start-tag admission while the set loads:
-each distinct pattern text is compiled once, at the first facet that names it
-in document load order, and charged against `MaxSchemaPatternRetainedBytes`
-before it is kept, so a breach is reported at that facet's start tag.
-A selector or field path is parsed once, by `admitIdentityXPath` at its start
-tag: prefixes resolve against that tag's namespace scope and an unprefixed
-name test has no namespace whatever the including target namespace. The tag
-owns every syntax and prefix diagnostic of every path, and stores the form of
-each branch with its name tests bound but not interned
-(`identityXPathSyntax`); the parsed document stays immutable. The compiler
-builds the interned paths from it the first time the node compiles
-(`compiler.identityPaths`), after the keyref `refer`, so path names take name
-IDs in compilation order, as every other component name does, and a
+whose product the tag's typed source record stores and compilation reads.
+Compilation reads resolved QNames, occurrences, `use` modes and facet values
+as admitted, and parses the other single-keyword and short-list values again
+with the same parsers. Each distinct pattern text is compiled once, at the
+first facet that names it in document load order, and charged against
+`MaxSchemaPatternRetainedBytes` before it is kept, so a breach is reported at
+that facet's start tag. A selector or field path is parsed once, at its start
+tag: prefixes resolve against that tag's namespace scope, and an unprefixed
+name test has no namespace whatever the including target namespace. Path
+names are interned when the identity constraint compiles, so a
 `MaxSchemaNames` breach on a path name is a compile diagnostic at the selector
-or field, after every syntax diagnostic. The compiler keeps the paths once per
-node, so every identity constraint compiled from the node, in each chameleon
-context, shares them; a missing admitted path is an internal invariant. The other
-attribute values that are single keywords or short lists (booleans, `form`,
-derivation sets, `processContents`, wildcard namespaces, `targetNamespace`)
-stay lexical in the record and are parsed again with the
-same allocation-free parser where compilation uses them; a failure there is an
-internal invariant (`admittedValueInvariant`), not a second schema diagnostic.
-
+or field, after every syntax diagnostic.
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
 surface plus `Compile`, `CompileMappedSources`, `NormalizeOptions`,
@@ -607,9 +404,7 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   `Complete`, `SealKeeping`) and supplies its construction limits.
   `SealKeeping` keeps every type's ID but drops the definition of each type
   the compiler did not reach, after checking that no kept type's base, list
-  item or union member is dropped; the dropped record's variety is one no
-  `TypeSpec` can carry, so every evaluation switch rejects it without a check
-  on the per-value type lookup. Enumeration and
+  item or union member is dropped. Enumeration and
   value-constraint literals (`Builder.Validate`) and instance values have the
   same value semantics. A bound literal is admitted by
   `Builder.AdmitBoundLiteral`: base value-space membership, or, for a
@@ -620,23 +415,17 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   valid-restriction clauses against inherited bounds and the
   lower-versus-upper and fixed-facet checks belong to `Builder.Complete`'s
   restriction derivation, located at the simple type.
-  One order (`compareAtomic`) and one equality (`equalAtomic`) relate two
-  values of a primitive wherever they are related: an instance value against
-  a bound, enumeration, fixed values, identity constraints, a literal against
-  the base's bounds, an exclusive restatement, a bound under a fixed base
-  bound, the opposite-side restriction clauses, and the effective
-  lower-versus-upper check. The order never separates equal values, and two
-  values it ranks equal are equal, except durations equal only in order
-  (Duration equality and order in `docs/spec/INTERPRETATIONS.md`). The doc
-  comment of `atomicValue` names the owner of each primitive's order,
-  equality and enumeration key and states what a value type may hold. An
-  `xs:time` value is its timezone-normalized time of day, so `24:00:00` is
-  `00:00:00` (I-045 and I-047 in `docs/spec/INTERPRETATIONS.md`). One
-  relation needs more than the two values: the same-side restriction clause
-  orders `xs:time` bounds by un-wrapped time. The day that the hour 24 or a
-  timezone offset moves a bound to is a fact of the bound
-  facet (`boundValue`), not of the value, and `compareDerivationBounds` is
-  its only reader. Restriction derivation returns the effective facet
+  One order and one equality relate two values of a primitive wherever they
+  are related: an instance value against a bound, enumeration, fixed values
+  and identity constraints, and a literal in restriction derivation. The order
+  never separates equal values, and two values it ranks equal are equal,
+  except durations equal only in order (Duration equality and order in
+  `docs/spec/INTERPRETATIONS.md`); `atomicValue` names the owner of each
+  primitive's order, equality and enumeration key. An `xs:time` value is its
+  timezone-normalized time of day, so `24:00:00` is `00:00:00` (I-045 and
+  I-047 in `docs/spec/INTERPRETATIONS.md`), except that the same-side
+  restriction clause orders `xs:time` bounds by un-wrapped time
+  (`compareDerivationBounds`). Restriction derivation returns the effective facet
   program, and the compiler does not reconstruct that merge. `FacetAllowed`
   is the only facet-applicability rule for schema admission, value
   construction, and diagnostics.
@@ -908,8 +697,7 @@ instance validation, and formatting share one `Reader` contract:
   `Config.SkipOrdinaryAttrValues` fails with `ErrAttrValueSkipped` instead of
   reading as empty; `NewAttr` builds owned values without a reader cache.
   `Attr.RawValue` is a borrowed, current-token-only view guarded by
-  `TestXMLStreamBorrowedValuesStayEphemeral`
-  (`tests/stream_boundary_test.go`).
+  `tests/stream_boundary_test.go`.
 - Comment mode is chosen per consumer: validation uses `CommentModeDiscard`,
   schema parsing `CommentModeBoundedDiscard`, formatting `CommentModeEmit`.
 - `Context` values are immutable and outlive frame close and `Reset`; consumers
@@ -1203,15 +991,16 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/harness_test.go` (`checkDiagnosticLocations`) | Every compile diagnostic of a corpus case, and every validation or unsupported diagnostic of an instance run, carries a path and a line; a compile pass that reports outside a component scope fails the corpus |
 | `tests/oracle_observations_test.go` with `tests/oracle-backlog.txt` | Every measured corpus case, a project case or a W3C case whose effective expectation overrides the W3C one (`corpus.Case.Measured`), has an observation row for every provider and phase, as the `tests/README.md` Corpus Contract defines measured, and no other rows. Every row whose validity differs from the project expectation has a `differences` entry citing an interpretation record or anchored row that lists the case and names the provider; only cases listed in the backlog are exempt, and a listed case that is unknown or has every difference owned fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
+| `tests/architecture_names_test.go` | Every code span of this file shaped like a Go name (a mixed-case identifier or a selector ending in one) is declared at package level by some Go file of the module (a function, method, type, constant, variable, or field or method of a declared type), unless the test lists it as a name the module does not declare, and a listed name that is declared or no longer named fails as stale. It checks only that a name exists, in any package and under any build constraint, not that the sentence about it is true or that it is the declaration meant |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
 | `tests/stream_boundary_test.go` | Structural borrowed-type restrictions and intraprocedural retention checks, including raw byte fields and aliases erased to interfaces |
 | `tests/schema_build_boundary_test.go` | Compiler topology mutation has one owner |
 | `tests/internal_invariant_cause_test.go` | In every package that imports `xsderrors`, type-checked for the host platform, no operand of an error type reaches an `xsderrors.InternalInvariant` message, directly, through a call such as `err.Error()` or `fmt.Sprintf`, through concatenation, or through a variable assigned in the same package; parameters are not followed into callers, so the error is passed as the cause |
 | `tests/schema_audit_classifier_test.go` and `internal/schema/build_defect_test.go` | The publication audit (`schema_validate.go`, `schema_publish.go`, the content-model table audit, NOTATION use and published simple-type reachability) builds no internal invariant with a cause and returns a callee's failure as it is only when the callee is another audit function or returns only diagnostics, so every other callee failure goes through `auditError`; corrupt build state (particle or identity kind, wildcard derivation, out-of-range base or substitution head, a derivation cycle, short availability table, DFA counter slots, final masks outside their domain, NOTATION use of an unknown type) is reported as `internal.invariant` at publication or by the compile rule check, carrying the build defect where a defect-returning check sees it first; a plain error reaching the publication entry is `internal.invariant` |
-| `tests/published_element_id_conversion_test.go` | In the non-test files of `internal/schema`, only `newCompiledParticleRead` and the `noPublishedElement` constant produce a `publishedElementID` by conversion, constant expression, arithmetic, increment, decrement, arithmetic assignment or generic instantiation with that type, each function and each constant or variable specification checked separately. It does not see the zero value (a variable declared without a value, or a composite literal omitting the field), a conversion inside a generic function's body, or reflection and unsafe, so it bounds rather than proves which IDs a table holds. Tests convert freely to build corrupt tables. It does not check that the translation itself is correct; `TestUnreachedElementDeclarationsDoNotChangeValidation` compares validation against the schema without unreached declarations |
-| `internal/schema/wildcard_work_external_test.go` with `internal/schema/wildcard_test.go` | The external test compiles interleaved namespace lists of 511 to 1,024 namespaces and requires at least 256 more steps of the owning budget when the lists are compared than when they are held apart, for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction. `TestWildcardSetOperationsChargeEveryNamespaceVisited` requires each set operation to charge at least its visit count on lists of unequal length: overlap and intersection the shorter in-range run, subset the subset list, union both lists, intersection with `##other` the finite list, equality the list. Neither covers a consumer that passes a budget that does not charge, attribute-wildcard union through compilation, or sequence wildcard equivalence |
-| `TestCompiledContentTablesChargeEveryRowEdgeAndIndexEntry` in `internal/schema/content_table_budget_external_test.go`, `TestCompileRootContentModelChargesItsRecordRowsEdgesAndTerms` in `internal/schema/content_compile_budget_test.go` and `TestIndexedRowsDispatchAsLinearScan` in `internal/schema/content_run_index_test.go` | A compiled model needs exactly two steps for its record plus one per row, edge and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, with and without repeated names, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edges, `xs:all` terms and name-index entries of the two tables, so a direct sequence's index grows with its names, not its rows. For one schema per index kind (map, dense, run, dense run), every row of that kind returns the transition and status a linear scan of its edges returns, at every state with counts 0 to 3, for unknown names, the schema's element names and known names in its wildcard namespaces. `TestCompileRootContentModelChargesOnlyAutomatonTablesWhenDirectCompilationDoesNotApply` requires a sequence or choice holding a group that direct compilation cannot splice to need exactly the records of its automaton table, `TestCompileDirectModelDeclinesWithinThreeStepsPerParticleAndNoRetainedSteps` requires direct compilation to decline it within three analysis steps per particle and no `MaxSchemaDependencySteps`, and `TestDirectBuildRejectsWhatItsAdmissionDidNotCount` requires a direct build to fail with an internal invariant when its walk or rows exceed what admission counted |
+| `tests/published_element_id_conversion_test.go` | In the non-test files of `internal/schema`, only `newCompiledParticleRead` and the `noPublishedElement` constant produce a `publishedElementID` by conversion, constant expression, arithmetic, increment, decrement, arithmetic assignment or generic instantiation with that type, each function and each constant or variable specification checked separately. It does not see the zero value (a variable declared without a value, or a composite literal omitting the field), a conversion inside a generic function's body, or reflection and unsafe, so it bounds rather than proves which IDs a table holds. Tests convert freely to build corrupt tables. It does not check that the translation itself is correct; `unreached_element_declarations_test.go` compares validation against the schema without unreached declarations |
+| `internal/schema/wildcard_work_external_test.go` with `internal/schema/wildcard_test.go` | The external test compiles interleaved namespace lists of 511 to 1,024 namespaces and requires at least 256 more steps of the owning budget when the lists are compared than when they are held apart, for UPA overlap, an element-wildcard restriction, an attribute-wildcard intersection and an attribute-wildcard restriction. `internal/schema/wildcard_test.go` requires each set operation to charge at least its visit count on lists of unequal length: overlap and intersection the shorter in-range run, subset the subset list, union both lists, intersection with `##other` the finite list, equality the list. Neither covers a consumer that passes a budget that does not charge, attribute-wildcard union through compilation, or sequence wildcard equivalence |
+| `internal/schema/content_table_budget_external_test.go`, `internal/schema/content_compile_budget_test.go` and `internal/schema/content_run_index_test.go` | A compiled model needs exactly two steps for its record plus one per row, edge and `xs:all` term; pairs of one-type schemas that differ only in one compiled table (optional against required sequence, with and without repeated names, repeated against single choice, `xs:all` against sequence) differ in their least `MaxSchemaDependencySteps` by exactly the rows, edges, `xs:all` terms and name-index entries of the two tables, so a direct sequence's index grows with its names, not its rows. For one schema per index kind (map, dense, run, dense run), every row of that kind returns the transition and status a linear scan of its edges returns, at every state with counts 0 to 3, for unknown names, the schema's element names and known names in its wildcard namespaces. `content_compile_budget_test.go` also requires a sequence or choice holding a group that direct compilation cannot splice to need exactly the records of its automaton table, direct compilation to decline it within three analysis steps per particle and no `MaxSchemaDependencySteps`, and a direct build to fail with an internal invariant when its walk or rows exceed what admission counted |
 | `content_model_language_test.go` | Content-model execution accepts exactly the language of the particle tree. Generated schemas of sequences, choices, `xs:all`, unqualified and qualified local elements, substitution-group references, wildcards with every namespace-constraint form, occurrence ranges including 0 and unbounded, named groups and complex extension are compiled through the facade, and every word, up to some length, whose proper prefixes some word of instance items continues to a valid sequence, and random walks along such prefixes, validates exactly when an independent matcher built on partial derivatives of the particle tree accepts it; an invalid instance must fail with a validation diagnostic. A search that visits every configuration of that matcher once decides Unique Particle Attribution: a model the compiler rejects with a UPA violation must have a word whose last item two particles can consume, and an accepted model must have none. The matcher gives each choice without branches a leaf that consumes an item of its own, which no instance holds, so the search treats it as an element declaration no instance item matches, as [I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off) requires. A named group may be referenced more than once, and each reference has leaves and empty-choice items of its own, as [I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks) requires |
 | `content_model_cost_test.go` | A choice without branches costs no more than its element twin. Content models from the oracle's generator, which then also makes content that is a choice without branches, several of them in one choice beside many distinct elements, and counts up to 20,000 on them with and without repeated groups around them, compile within the least `MaxContentModelStates`, `MaxContentModelAnalysisSteps` and `MaxSchemaDependencySteps` at which the same model compiles with one fresh element declaration added to each such choice; the least values are bisected. A twin that does not compile within 2^22 of each limit, or that Unique Particle Attribution rejects, is skipped |
 | `internal/schema/derivation_reference_test.go` | On generated simple and complex type graphs (restriction and list chains, unions with and without facets, complex extension and restriction, simple-content extension, block masks), the compile-time walk `deriveTypeMask`, the published derivation index and `substitutionTypeBlocks` agree for every pair with a reference walk of Type Derivation OK and Substitution Group OK (Transitive) clause 2.3; cyclic graphs are outside it |
@@ -1637,13 +1426,11 @@ graph preserves these ownership rules:
   particle. The precision limit is that a violation inside a referenced group
   is located at the first model, in source-ID order, whose check reaches it;
   types compile before groups, so a referring type in another document than
-  the group can be named
-  (`TestUPAInsideReferencedGroupNamesTheLowestEnclosingModel`). The root of a
+  the group can be named (`compile_diagnostic_location_test.go`). The root of a
   group referenced as a type's whole content with a non-unit occurrence is a
   record of its own located at the reference (`applyModelGroupOccurrence`),
   so the location depends on the occurrence when no model with a lower ID
-  reaches the group
-  (`TestUPAInsideGroupIsLocatedAtTheFirstModelInSourceOrderThatReachesIt`). A
+  reaches the group (`compile_diagnostic_location_test.go`). A
   root that wraps the reference as the one particle of a 1..1 sequence naming
   the group's own model was rejected: the group's model is then reached and
   compiled on its own as well, which raises analysis and dependency steps, and
@@ -1791,6 +1578,11 @@ graph preserves these ownership rules:
 - A global or unbounded session pool was rejected: schema ownership and
   retained memory would become implicit. One idle slot per engine reuses the
   sequential path without blocking concurrent calls.
+- Reporting a zero or nil `Engine` or `Session` as `internal.invariant` was
+  rejected: only a caller can produce one, and `internal.invariant` reports a
+  defect of this module. Panicking on it was rejected too, because every other
+  failure of a validation call is a returned diagnostic. It is
+  `validation.session`, the code for a receiver that cannot run the call.
 - Containing a failed-selection subtree was rejected: it hid descendant facet,
   identity, and IDREF diagnostics that Xerces reports, and needed a third
   element mode. Lax assessment reuses the anyType and lax-wildcard paths.
@@ -1811,7 +1603,7 @@ graph preserves these ownership rules:
   flag checked before the base-depth window) was not adopted: in serialized
   n=10 runs it cut 5.5% from rows with one `@id` field among 16 attributes but
   cost 1.7% when an `@*` field disabled it and 0.7% on
-  `IdentityCPUDisparateFieldNames`; a name map or sorted slice would only add
+  `BenchmarkIdentityCPUDisparateFieldNames`; a name map or sorted slice would only add
   lookup cost, and per-name windows need a second name-keyed index. Reopen for
   a workload where unmatched attribute names dominate identity cost.
 - Replacing published selector-path records with a scalar registration
@@ -1886,8 +1678,8 @@ graph preserves these ownership rules:
 
 ### Public API, Browser And Tooling
 
-- Command import edges are an explicit allowlist enforced by `TestCmdImportEdges`
-  in `tests/phase_import_graph_test.go` (host and `GOOS=js GOARCH=wasm`):
+- Command import edges are an explicit allowlist enforced by
+  `tests/phase_import_graph_test.go` (host and `GOOS=js GOARCH=wasm`):
   `cmd/wasmxsd` imports the root package, `xsderrors`, `internal/format`, and
   `internal/validate`; `cmd/xmllint` imports the root package and `xsderrors`;
   `cmd/xsdweb` imports no repository package. A new command fails the test until

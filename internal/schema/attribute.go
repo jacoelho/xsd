@@ -636,11 +636,11 @@ func validateAttributeWildcardExtensionUnion(rt *schemaBuild, state attributeUse
 	return nil
 }
 
-// admittedWildcardWork charges nothing. Re-deriving a use set's wildcard
-// repeats the subset or union comparison that finishRestriction or
-// finishExtension charged to MaxSchemaDependencySteps when the set was
-// compiled, and the equality check after a union visits no more namespaces
-// than the union merged.
+// admittedWildcardWork charges nothing. The publication audit re-derives each
+// use set's wildcard once, repeating the subset or union comparison that
+// finishRestriction or finishExtension charged to MaxSchemaDependencySteps
+// when the set was compiled, and the equality check after a union visits no
+// more namespaces than the union merged.
 func admittedWildcardWork(int) error {
 	return nil
 }

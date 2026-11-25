@@ -3,6 +3,7 @@ package xsd_test
 import (
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -39,22 +40,42 @@ func TestDiagnosticsTypesRemainPublic(t *testing.T) {
 	}
 }
 
-func TestZeroAndNilValidationReceiversReturnPublicErrors(t *testing.T) {
-	var zero xsd.Engine
-	err := zero.Validate(strings.NewReader(`<root/>`))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	assertPublicErrorTree(t, err)
-
+func TestUncreatedValidationReceiversReportCallerMisuse(t *testing.T) {
+	var zeroEngine xsd.Engine
+	var zeroSession xsd.Session
 	var nilEngine *xsd.Engine
-	err = nilEngine.Validate(strings.NewReader(`<root/>`))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	assertPublicErrorTree(t, err)
-
 	var nilSession *xsd.Session
-	err = nilSession.Validate(strings.NewReader(`<root/>`))
-	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
-	assertPublicErrorTree(t, err)
+	tests := []struct {
+		name     string
+		validate func(io.Reader) error
+	}{
+		{name: "zero engine", validate: zeroEngine.Validate},
+		{name: "nil engine", validate: nilEngine.Validate},
+		{name: "zero session", validate: zeroSession.Validate},
+		{name: "nil session", validate: nilSession.Validate},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			read := false
+			err := test.validate(readerFunc(func([]byte) (int, error) {
+				read = true
+				return 0, io.EOF
+			}))
+			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationSession)
+			assertPublicErrorTree(t, err)
+			if xsderrors.IsConclusiveValidation(err) {
+				t.Fatalf("receiver misuse %v is a conclusive validation result", err)
+			}
+			if read {
+				t.Fatal("receiver misuse read the document")
+			}
+		})
+	}
 }
+
+type readerFunc func([]byte) (int, error)
+
+func (f readerFunc) Read(p []byte) (int, error) { return f(p) }
 
 func TestPublicAggregateErrorsDoNotExposeInternalDiagnostics(t *testing.T) {
 	engine, err := xsd.Compile(xsd.Bytes("schema.xsd", []byte(`

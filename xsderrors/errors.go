@@ -96,12 +96,16 @@ const (
 	CodeValidationNil       Code = "validation.nil"
 	CodeValidationIdentity  Code = "validation.identity"
 	CodeValidationOption    Code = "validation.option"
-	CodeValidationSession   Code = "validation.session"
-	CodeValidationLimit     Code = "validation.limit"
-	CodeFormatXML           Code = "format.xml"
-	CodeFormatOption        Code = "format.option"
-	CodeFormatLimit         Code = "format.limit"
-	CodeInternalInvariant   Code = "internal.invariant"
+	// CodeValidationSession reports a receiver that cannot run the call: a
+	// Session already validating another document, or an Engine or Session
+	// that Compile or Engine.NewSession did not create. The document was not
+	// read. It is inconclusive, never a validity result.
+	CodeValidationSession Code = "validation.session"
+	CodeValidationLimit   Code = "validation.limit"
+	CodeFormatXML         Code = "format.xml"
+	CodeFormatOption      Code = "format.option"
+	CodeFormatLimit       Code = "format.limit"
+	CodeInternalInvariant Code = "internal.invariant"
 )
 
 // Error is an immutable structured diagnostic returned by compile, validation,

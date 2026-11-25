@@ -255,8 +255,10 @@ func explicitContentEmpty(modelNode *schemaNode) (bool, error) {
 // complex type definition or nil, and returns its ·effective content· with the
 // {content type} variety it gives under the ·effective mixed· of mixedKind
 // (Structures §3.4.2 complex content clauses 1 and 2), its model compiled
-// for use. It also returns the occurrence of the model's particle, which a
-// term's record does not carry.
+// for use, and no model when the effective content is empty. It also returns
+// the occurrence of the model's particle, which a term's record does not
+// carry. It is the one compilation of explicit content that the direct,
+// restriction and extension paths call.
 func (c *compiler) compileExplicitContent(ctx *schemaSetDocument, owner ComplexTypeID, modelNode *schemaNode, mixedKind complexContentVariety, use modelUse) (effectiveContent, occurrence, error) {
 	content := effectiveContent{model: noContentModel, variety: contentElementOnly}
 	var occurs occurrence

@@ -194,6 +194,15 @@ func (c *contentModelCompiler) forType(typ complexTypeLabel) contentModelCompile
 	return typed
 }
 
+// checkContentModelUPA checks the Unique Particle Attribution of the model id
+// directly, reading nested groups as declared. It leaves to the row checks of
+// the table compileContentModel builds a model that reaches a repeated choice
+// with a non-unit particle (modelNeedsRuntimeSplitSeen) and a sequence with a
+// wildcard-equivalent overlap (sequenceHasWildcardEquivalentOverlap): the rows
+// of a direct table (checkCompiledRowsUPA), or the source rows (checkUPA) and
+// determinized rows (checkSharedTermUPA) of an automaton. Those row checks run
+// on every other compiled model too. Every check compares positions, not
+// terms (I-028 of docs/spec/INTERPRETATIONS.md).
 func (c *contentModelCompiler) checkContentModelUPA(id contentModelID, seen []uint64, tag uint64) error {
 	if err := c.work.spend(1); err != nil {
 		return err
@@ -765,7 +774,8 @@ func normalizeSingleParticleModel(model contentModelNode) contentModelNode {
 // that particle as executionParticle reduces it. A model whose splice is
 // empty becomes empty content when it matches the empty sequence, and
 // otherwise, being a choice without branches, a choice that occurs once (I-052
-// of docs/spec/INTERPRETATIONS.md).
+// of docs/spec/INTERPRETATIONS.md). Any other model is returned as declared,
+// and automaton construction walks its nested groups as declared.
 func (c *contentModelCompiler) executionModel(model contentModelNode) (contentModelNode, error) {
 	if model.Kind != modelSequence && model.Kind != modelChoice {
 		return model, nil
@@ -796,6 +806,9 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 	return normalizeSingleParticleModel(single), nil
 }
 
+// executionParticles yields the particles of model with every 1..1 child
+// group of the same compositor spliced in place, without copying, charging
+// one step per particle it visits. It stops when yield does.
 func (c *contentModelCompiler) executionParticles(model contentModelNode, yield func(contentParticle) (bool, error)) error {
 	_, err := c.yieldExecutionParticles(model, yield)
 	return err
@@ -1313,7 +1326,10 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 
 // matchesNoItem reports whether p is a choice without branches, which matches
 // no item (I-042 of docs/spec/INTERPRETATIONS.md) and so overlaps no particle
-// (I-052): Unique Particle Attribution compares it with none.
+// (I-052): Unique Particle Attribution compares it with none. The direct
+// sequence check needs no such test: the choice has no start particles, so
+// Overlap finds none, and ParticleEmptiable decides whether it ends the
+// members a continuation reaches.
 func (c *contentModelCompiler) matchesNoItem(p contentParticle) bool {
 	empty, _ := c.choiceWithoutBranches(p)
 	return empty

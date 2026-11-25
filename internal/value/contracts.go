@@ -73,7 +73,8 @@ const (
 	// Union identifies a choice among member value spaces.
 	Union
 	// varietyDiscarded marks a sealed type SealKeeping did not keep. No
-	// TypeSpec can carry it, and every variety switch rejects it.
+	// TypeSpec can carry it, and every variety switch rejects it, so the
+	// per-value type lookup needs no check of its own.
 	varietyDiscarded
 )
 

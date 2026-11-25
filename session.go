@@ -52,6 +52,8 @@ type ValidateOptions struct {
 // Copies of a Session refer to the same reusable state. Concurrent use of one
 // session, including through copies, fails with CodeValidationSession. Use
 // Engine.Validate or separately constructed sessions for concurrent validation.
+// Only Engine.NewSession creates a usable Session: a zero or nil Session
+// fails with xsderrors.CodeValidationSession.
 type Session struct {
 	session *validate.Session
 }

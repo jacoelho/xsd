@@ -19,16 +19,17 @@ type SessionPool struct {
 	idle atomic.Pointer[session]
 }
 
-// NewSessionPool creates an automatic validation-session owner for rt. A nil
-// runtime is retained so callers can preserve option-error precedence before
-// the owner reports its missing-schema invariant.
+// NewSessionPool creates an automatic validation-session owner for the
+// compiled schema rt.
 func NewSessionPool(rt *xsdSchema.Schema) *SessionPool {
 	return &SessionPool{rt: rt}
 }
 
 // Validate validates one document with options and returns ordinary-call
 // scratch to the single idle slot after reset. Options are normalized before
-// the schema or idle-session state is inspected. A panic skips reset and
+// the pool or idle-session state is inspected, so a nil pool, which only a
+// zero or nil public Engine produces, reports an option error first and
+// otherwise [xsderrors.CodeValidationSession]. A panic skips reset and
 // publication, so poisoned scratch is never reused; when the slot is already
 // full the reset scratch is dropped.
 func (p *SessionPool) Validate(r io.Reader, opts Options) error {
@@ -36,8 +37,8 @@ func (p *SessionPool) Validate(r io.Reader, opts Options) error {
 	if err != nil {
 		return err
 	}
-	if p == nil || p.rt == nil {
-		return xsderrors.InternalInvariant("nil validation schema", nil)
+	if err = p.check(); err != nil {
+		return err
 	}
 
 	scratch := p.idle.Swap(nil)
@@ -61,12 +62,25 @@ func (p *SessionPool) NewSession(opts Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	if p == nil || p.rt == nil {
-		return nil, xsderrors.InternalInvariant("nil validation schema", nil)
+	if err := p.check(); err != nil {
+		return nil, err
 	}
 	result := new(Session)
 	initializeSession(&result.session, p.rt, limits)
 	return result, nil
+}
+
+// check separates caller misuse from a library defect: only a zero or nil
+// public Engine yields a nil pool, while NewSessionPool is only ever given a
+// compiled schema.
+func (p *SessionPool) check() error {
+	if p == nil {
+		return xsderrors.Validation(xsderrors.CodeValidationSession, msgEngineNotCompiled, nil)
+	}
+	if p.rt == nil {
+		return xsderrors.InternalInvariant("validation session pool has no schema", nil)
+	}
+	return nil
 }
 
 // setLimits is the only writer of a session's limits and of the identity

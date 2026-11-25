@@ -81,7 +81,7 @@ type childRule struct {
 // selects it when the element starts, and childOrderState admits each child as it
 // starts, so a misplaced, repeated or unknown child is the violation at its
 // own start tag. A missing required child is the violation at the parent's
-// end tag, the earliest point it is known; see childOrderState.missingChild.
+// end tag, the earliest point it is known; see childOrderState.rejectMissingChild.
 type childOrder struct {
 	// Label names the parent in the diagnostic of a child no rule matches.
 	Label string

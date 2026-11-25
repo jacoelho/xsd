@@ -49,7 +49,7 @@ func initializeSession(s *session, rt *xsdSchema.Schema, limits Limits) {
 // reuse.
 func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
-		return (*session)(nil).validate(r)
+		return xsderrors.Validation(xsderrors.CodeValidationSession, msgSessionNotCreated, nil)
 	}
 	if !s.inUse.CompareAndSwap(false, true) {
 		return xsderrors.Validation(xsderrors.CodeValidationSession, msgSessionInUse, nil)
