@@ -126,9 +126,6 @@ const (
 )
 
 func (s *session) validate(r io.Reader) error {
-	if s == nil {
-		return xsderrors.InternalInvariant("nil validation session", nil)
-	}
 	// The reader owns borrowed token lifetimes; detach before any caller guard is released.
 	defer s.reader.Detach()
 	if s.rt == nil {

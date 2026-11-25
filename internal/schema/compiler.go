@@ -373,6 +373,10 @@ func (c *compiler) completeComponentDefinitions() error {
 	return nil
 }
 
+// finalizeCompiledGlobals runs the checks and compilation that need every
+// component. detachUnreachableComponents runs before Unique Particle
+// Attribution and automaton construction, so that compiled tables can name
+// element declarations by their published IDs.
 func (c *compiler) finalizeCompiledGlobals() error {
 	if err := c.completeComponentDefinitions(); err != nil {
 		return err

@@ -37,8 +37,8 @@ func (p *SessionPool) Validate(r io.Reader, opts Options) error {
 	if err != nil {
 		return err
 	}
-	if err = p.check(); err != nil {
-		return err
+	if p == nil || p.rt == nil {
+		return p.unusable()
 	}
 
 	scratch := p.idle.Swap(nil)
@@ -62,25 +62,22 @@ func (p *SessionPool) NewSession(opts Options) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := p.check(); err != nil {
-		return nil, err
+	if p == nil || p.rt == nil {
+		return nil, p.unusable()
 	}
 	result := new(Session)
 	initializeSession(&result.session, p.rt, limits)
 	return result, nil
 }
 
-// check separates caller misuse from a library defect: only a zero or nil
-// public Engine yields a nil pool, while NewSessionPool is only ever given a
-// compiled schema.
-func (p *SessionPool) check() error {
+// unusable reports why p cannot validate, separating caller misuse from a
+// library defect: only a zero or nil public Engine yields a nil pool, while
+// NewSessionPool is only ever given a compiled schema.
+func (p *SessionPool) unusable() error {
 	if p == nil {
 		return xsderrors.Validation(xsderrors.CodeValidationSession, msgEngineNotCompiled, nil)
 	}
-	if p.rt == nil {
-		return xsderrors.InternalInvariant("validation session pool has no schema", nil)
-	}
-	return nil
+	return xsderrors.InternalInvariant("validation session pool has no schema", nil)
 }
 
 // setLimits is the only writer of a session's limits and of the identity
