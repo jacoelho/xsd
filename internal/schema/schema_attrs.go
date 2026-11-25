@@ -122,10 +122,9 @@ func misplacedSchemaAttributeError(n *schemaSyntaxNode, attr string, placement s
 }
 
 // checkRequiredSchemaAttributes returns the error for n, an XSD element in
-// placement, when it lacks an attribute its
-// placement requires (placementAttributeRequirement) or one its element
-// requires in every placement (elementAttributeRequirements), in that order,
-// or nil.
+// placement, when it lacks an attribute its placement requires
+// (placementAttributeRequirement) or one its element requires in every
+// placement (elementAttributeRequirements), in that order, or nil.
 func checkRequiredSchemaAttributes(n *schemaSyntaxNode, placement schemaElementPlacement) error {
 	requirement, required, err := placementAttributeRequirement(n.Name.Local, placement)
 	if err != nil {
@@ -229,11 +228,10 @@ func checkElementRequiredAttributes(n *schemaSyntaxNode) error {
 }
 
 func (r elementAttributeRequirement) missingError(n *schemaSyntaxNode) error {
-	message := r.message
 	if r.facetLabelled {
-		message = facetLabel(n.Name.Local) + message
+		return schemaCompileAt(n, r.code, facetLabel(n.Name.Local)+r.message)
 	}
-	return schemaCompileAt(n, r.code, message)
+	return schemaCompileAt(n, r.code, r.message)
 }
 
 func (r elementAttributeRequirement) satisfiedBy(n *schemaSyntaxNode) bool {
