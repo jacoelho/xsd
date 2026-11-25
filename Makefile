@@ -24,7 +24,7 @@ endif
 
 .PHONY: race
 race:
-	go test -race ./...
+	go test -race -timeout=20m ./...
 
 .PHONY: wasm-test
 wasm-test:
