@@ -132,7 +132,7 @@ func checkRequiredSchemaAttributes(n *schemaSyntaxNode, placement schemaElementP
 		return withSchemaCompileLocation(n, err)
 	}
 	if required && !requirement.satisfiedBy(n) {
-		return schemaCompileAt(n, requirement.code, requirement.message)
+		return requirement.missingError(n)
 	}
 	return checkElementRequiredAttributes(n)
 }
@@ -179,12 +179,15 @@ func checkAttributeDeclarationName(n *schemaSyntaxNode, use attributeUseMode) er
 
 // elementAttributeRequirement is an attribute that an XSD element requires,
 // with the diagnostic of its absence; when alternative is set, either
-// attribute satisfies it.
+// attribute satisfies it. When facetLabelled is set, the diagnostic is message
+// after the facet's label, so one requirement serves every facet and builds
+// its text only when the attribute is missing.
 type elementAttributeRequirement struct {
-	attr        string
-	alternative string
-	message     string
-	code        xsderrors.Code
+	attr          string
+	alternative   string
+	message       string
+	code          xsderrors.Code
+	facetLabelled bool
 }
 
 var (
@@ -208,25 +211,29 @@ var (
 	fieldAttributeRequirements = []elementAttributeRequirement{
 		{attr: vocab.XSDAttrXPath, message: `"field" missing xpath`, code: xsderrors.CodeSchemaIdentity},
 	}
+	facetAttributeRequirements = []elementAttributeRequirement{
+		{attr: vocab.XSDAttrValue, message: " missing value", code: xsderrors.CodeSchemaFacet, facetLabelled: true},
+	}
 )
 
 // checkElementRequiredAttributes returns the error for the first attribute,
 // in requirement order, that n lacks and its element requires in every
 // placement, or nil.
 func checkElementRequiredAttributes(n *schemaSyntaxNode) error {
-	element := n.Name.Local
-	if isFacetLocal(element) {
-		if _, ok := n.attr(vocab.XSDAttrValue); !ok {
-			return schemaCompileAt(n, xsderrors.CodeSchemaFacet, facetLabel(element)+" missing value")
-		}
-		return nil
-	}
-	for _, requirement := range elementAttributeRequirements(element) {
+	for _, requirement := range elementAttributeRequirements(n.Name.Local) {
 		if !requirement.satisfiedBy(n) {
-			return schemaCompileAt(n, requirement.code, requirement.message)
+			return requirement.missingError(n)
 		}
 	}
 	return nil
+}
+
+func (r elementAttributeRequirement) missingError(n *schemaSyntaxNode) error {
+	message := r.message
+	if r.facetLabelled {
+		message = facetLabel(n.Name.Local) + message
+	}
+	return schemaCompileAt(n, r.code, message)
 }
 
 func (r elementAttributeRequirement) satisfiedBy(n *schemaSyntaxNode) bool {
@@ -254,6 +261,9 @@ func elementAttributeRequirements(element string) []elementAttributeRequirement 
 		return selectorAttributeRequirements
 	case vocab.XSDElemField:
 		return fieldAttributeRequirements
+	}
+	if isFacetLocal(element) {
+		return facetAttributeRequirements
 	}
 	return nil
 }
