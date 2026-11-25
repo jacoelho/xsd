@@ -147,3 +147,43 @@ func componentPrefix(kind string) string {
 		panic("unknown component chain kind")
 	}
 }
+
+func TestEachElementTypeReferenceCostsOneDependencyStep(t *testing.T) {
+	t.Parallel()
+
+	const elements = 16
+	schema := func(typeAttribute string) string {
+		var b strings.Builder
+		b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="S"><xs:restriction base="xs:string"/></xs:simpleType>
+  <xs:complexType name="C"/>`)
+		for i := range elements {
+			fmt.Fprintf(&b, `<xs:element name="e%d"%s/>`, i, typeAttribute)
+		}
+		b.WriteString(`</xs:schema>`)
+		return b.String()
+	}
+	untyped := minimumDependencySteps(t, schema(""))
+	for _, typeName := range []string{"xs:string", "S", "C"} {
+		t.Run(typeName, func(t *testing.T) {
+			t.Parallel()
+			typed := minimumDependencySteps(t, schema(` type="`+typeName+`"`))
+			if typed-untyped != elements {
+				t.Fatalf("minimum dependency steps for %d elements: untyped = %d, typed = %d, want typed = untyped + %d", elements, untyped, typed, elements)
+			}
+		})
+	}
+}
+
+func minimumDependencySteps(t *testing.T, schema string) int {
+	t.Helper()
+	for budget := 1; budget <= 1024; budget++ {
+		_, err := Compile(Options{MaxSchemaDependencySteps: budget}, []source.Source{source.Bytes("s.xsd", []byte(schema))})
+		if err == nil {
+			return budget
+		}
+		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
+	}
+	t.Fatal("schema did not compile within 1024 dependency steps")
+	return 0
+}

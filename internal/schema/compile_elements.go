@@ -295,8 +295,19 @@ func (c *compiler) compileElementTypeAttribute(ctx *schemaSetDocument, n *schema
 	if err != nil {
 		return TypeID{}, err
 	}
-	if c.typeQNameKnown(typeQName) {
-		return c.resolveTypeQName(typeQName)
+	switch {
+	case c.simpleTypeQNameKnown(typeQName):
+		id, compileErr := c.compileSimpleByQName(typeQName)
+		if compileErr != nil {
+			return TypeID{}, withSchemaCompileLocation(n, compileErr)
+		}
+		return SimpleRef(id), nil
+	case c.complexTypeQNameKnown(typeQName):
+		id, reserveErr := c.reserveNamedComplexType(typeQName)
+		if reserveErr != nil {
+			return TypeID{}, withSchemaCompileLocation(n, reserveErr)
+		}
+		return ComplexRef(id), nil
 	}
 	missing, err := c.unresolvedTypeReference(n, typeQName, schemaComponentType)
 	if err != nil {
