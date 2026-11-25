@@ -26,6 +26,8 @@ const (
 	msgElementOnlyText                = "non-whitespace character data is not allowed because the content type is element-only"
 	msgAbstractElement                = "the element declaration is abstract; use a concrete substitution-group member"
 	msgSessionInUse                   = "validation session is already in use"
+	msgEngineNotCompiled              = "validation engine was not created by Compile or CompileWithOptions"
+	msgSessionNotCreated              = "validation session was not created by Engine.NewSession"
 	msgReaderNil                      = "instance reader is nil"
 	msgInstanceUTF8                   = "instance documents must be UTF-8"
 	msgExternalEntity                 = "external or undeclared entity resolution is not supported"

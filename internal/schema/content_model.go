@@ -60,7 +60,11 @@ func (o occurrence) Repeats() bool {
 	return o.Unbounded || o.Max > 1
 }
 
-// contentModelNode is a runtime content-model tree node.
+// contentModelNode is a model group of the model table as declared: lowering
+// drops absent particles (occurrence.IsAbsent) and keeps every declared group
+// as a particle of its own, and executionModel derives what compilation
+// executes. It records no mixed flag: the {content type} variety alone says
+// whether content is mixed.
 type contentModelNode struct {
 	Particles []contentParticle
 	Occurs    occurrence

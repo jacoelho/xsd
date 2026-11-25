@@ -152,3 +152,13 @@ func (r *blockingReader) Read(dst []byte) (int, error) {
 	r.data = r.data[n:]
 	return n, nil
 }
+
+func TestSessionPoolWithoutSchemaIsAnInternalInvariant(t *testing.T) {
+	p := NewSessionPool(nil)
+	requireCode(t, p.Validate(strings.NewReader(`<root/>`), Options{}), xsderrors.CodeInternalInvariant)
+	session, err := p.NewSession(Options{})
+	if session != nil {
+		t.Fatal("NewSession() returned a session from a pool without a schema")
+	}
+	requireCode(t, err, xsderrors.CodeInternalInvariant)
+}

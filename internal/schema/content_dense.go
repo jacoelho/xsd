@@ -41,9 +41,11 @@ func mayUseDenseDFA(row *compiledModelRowRead) bool {
 	return len(row.Edges) >= denseDFAMinEdges && row.indexKind == publishedDFAMap && len(row.index.data) == 0
 }
 
+// addDenseDFAIndexes gives rows dense name indexes while budget lasts.
 // Conversion follows mandatory publication and visits models/rows in source
 // order. Exhaustion stops the phase; the remaining rows keep their complete
-// map indexes.
+// map indexes. A dense index spans the local-name IDs of a row's elements, so
+// which rows get one depends on the compilation order that assigns name IDs.
 func addDenseDFAIndexes(models []compiledModelRead, budget *denseIndexBudget) {
 	for i := range models {
 		if !budget.spend(1) {

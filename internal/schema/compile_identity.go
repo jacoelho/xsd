@@ -231,7 +231,9 @@ func (c *compiler) identityPaths(n *schemaNode, syntax identityConstraintSyntax)
 	return paths, nil
 }
 
-// identityXPathOf returns the path the selector or field n admitted.
+// identityXPathOf returns the path the selector or field n admitted. Every
+// selector and field admits one at its start tag, so a missing path is an
+// internal invariant.
 func identityXPathOf(n *schemaNode) (identityXPathSyntax, error) {
 	source, err := requiredSemanticSource[*schemaIdentityXPathSource](n)
 	if err != nil {

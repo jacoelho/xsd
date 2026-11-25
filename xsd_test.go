@@ -1657,7 +1657,7 @@ func TestNewSessionRejectsMissingEngineState(t *testing.T) {
 			if session != nil {
 				t.Fatal("NewSession() returned a session without compiled engine state")
 			}
-			expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+			expectCategoryCode(t, err, xsderrors.CategoryValidation, xsderrors.CodeValidationSession)
 		})
 	}
 }

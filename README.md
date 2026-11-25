@@ -283,7 +283,8 @@ func validateDocuments(engine *xsd.Engine, docs []string) error {
 
 A session is not safe for concurrent use. Copies of a session share its state,
 and overlapping calls fail with `xsderrors.CodeValidationSession` before the
-second call reads its input. Use `Engine.Validate` or separate sessions for
+second call reads its input. A zero or nil `Engine` or `Session`, one that
+`Compile` or `NewSession` did not create, fails with the same code. Use `Engine.Validate` or separate sessions for
 concurrent work. Discard a session to release its buffers.
 
 ## Set resource limits

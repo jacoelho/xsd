@@ -357,7 +357,8 @@ func (c *compiler) enterContentModel(id contentModelID) (componentScope, error) 
 }
 
 // compileContentModels compiles every model reached from a complex type, in
-// source-ID order and in the scope of its owner. A nested model is compiled on
+// source-ID order and in the scope of its owner, which also locates the
+// projection and indexing of a root. A nested model is compiled on
 // its own as well as in its ancestors' rows, so a violation or limit inside a
 // group stops compilation at the first model, in source order, holding it.
 // Only a root model validation can enter (entersContent) can be published, so
@@ -604,6 +605,10 @@ func (c *compiler) checkModelUPA(upa *contentModelUPACheck, reached reachedModel
 	return upa.checkModel(reached.id, c.complexTypeLabel(reached.complexType))
 }
 
+// checkCompiledElementDeclarationsConsistent checks Element Declarations
+// Consistent on every model of the table, whether or not a complex type
+// reaches it, unlike Unique Particle Attribution and automaton construction
+// (complexTypeReachableModels).
 func (c *compiler) checkCompiledElementDeclarationsConsistent() error {
 	checker := newElementDeclarationConsistencyChecker(&c.rt, c.contentWork.spend)
 	for id := range c.rt.Models {

@@ -224,7 +224,9 @@ func (c *compiler) reserveIdentity(name ExpandedName, source *schemaNode) (Ident
 }
 
 // nameIdentityConstraint interns the name of the declared constraint id, if
-// it is still unnamed, and registers it as a global identity constraint.
+// it is still unnamed, and registers it as a global identity constraint. It is
+// the only code that interns a constraint's name or registers one in
+// GlobalIdentities, and a constraint is named once its Name is set.
 func (c *compiler) nameIdentityConstraint(id IdentityConstraintID) error {
 	if c.rt.Identities[id].Name != noQName() {
 		return nil

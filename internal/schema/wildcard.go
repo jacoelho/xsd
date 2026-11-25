@@ -257,7 +257,11 @@ func normalizeNamespaceList(namespaces []namespaceID) []namespaceID {
 // lists exactly when the lists are equal. Membership of one namespace is one
 // binary search, and a list compared with ##other, which rejects at most two
 // namespaces, visits at most three; callers do these once per item they have
-// already charged, a name, a particle pair or an attribute use.
+// already charged, a name, a particle pair or an attribute use. Unique
+// Particle Attribution overlap, sequence wildcard equivalence and content
+// restriction subset pass MaxContentModelAnalysisSteps work; attribute-wildcard
+// intersection, union and restriction subset pass MaxSchemaDependencySteps
+// work (SpendWildcardWork).
 
 // wildcardNamespaceEqual reports whether two wildcards represent the same
 // namespace set, ignoring process contents.

@@ -49,7 +49,7 @@ func initializeSession(s *session, rt *xsdSchema.Schema, limits Limits) {
 // reuse.
 func (s *Session) Validate(r io.Reader) error {
 	if s == nil {
-		return (*session)(nil).validate(r)
+		return xsderrors.Validation(xsderrors.CodeValidationSession, msgSessionNotCreated, nil)
 	}
 	if !s.inUse.CompareAndSwap(false, true) {
 		return xsderrors.Validation(xsderrors.CodeValidationSession, msgSessionInUse, nil)
@@ -126,13 +126,10 @@ const (
 )
 
 func (s *session) validate(r io.Reader) error {
-	if s == nil {
-		return xsderrors.InternalInvariant("nil validation session", nil)
-	}
 	// The reader owns borrowed token lifetimes; detach before any caller guard is released.
 	defer s.reader.Detach()
 	if s.rt == nil {
-		return xsderrors.InternalInvariant("nil validation session", nil)
+		return xsderrors.InternalInvariant("validation session has no schema", nil)
 	}
 	// Every entry starts a fresh document account, including after a document
 	// that failed mid-stream.
