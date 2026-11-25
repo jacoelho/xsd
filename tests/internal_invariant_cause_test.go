@@ -73,6 +73,7 @@ func (*readerError) Error() string { return "reader" }
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			fset := token.NewFileSet()
 			file, err := parser.ParseFile(fset, "fixture.go", header+tt.body, 0)
 			if err != nil {
