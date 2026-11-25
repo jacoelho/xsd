@@ -320,10 +320,13 @@ other model it compiles too. Both checks and determinization
 and treat a choice without branches as an element declaration that no item
 matches, as
 [I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off)
-requires: `matchesNoItem` and `choiceWithoutBranches` decide the
-particle for every pairwise check and needs-check (`particleSetNeedsUPACheck`),
-`executionModel` its root form, direct compilation
-(`directSequenceCompilation`) and automaton construction
+requires. The direct sequence check needs no rule of its own: such a
+choice's start set is empty, so `Overlap` reports no overlap, and
+`ParticleEmptiable` decides whether it ends the members a continuation
+reaches. `matchesNoItem` and `choiceWithoutBranches` decide the particle for
+the choice and row checks (`checkPairwiseUPA`, `withoutEmptyChoices`), the
+needs-check (`particleSetNeedsUPACheck`), `executionModel` its root form,
+direct compilation (`directSequenceCompilation`) and automaton construction
 (`choiceWithoutBranchesNode`), and no published table holds an edge for it. Unique Particle
 Attribution applies to the content models of complex types ([I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)): the direct
 check and automaton construction (`compileContentModels`) visit, in source-ID

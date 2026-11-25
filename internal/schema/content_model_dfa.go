@@ -472,10 +472,13 @@ func (c *deterministicModelCompilation) applyActions(counters []uint32, actions 
 // the particle of a transition, and b, the particle of an edge from another
 // position that joins it: one configuration set reaches both positions, and
 // they consume the same items. The source rows compare only the positions of
-// one source state, and the determinized rows only transitions of different
-// terms, so a pair from two source states that share a term is seen only
-// here. Edges of one position under different counter values share its
-// transition without competing.
+// one source state whose counting guards are not complementary, and the
+// determinized rows only transitions of different terms, so two kinds of pair
+// are seen only here: positions of two source states that share a term, and
+// positions of one source state whose complementary guards both hold under
+// different configurations of the set, as in (c{3,}|ref d){2}, ref d?. Edges
+// of one position under different counter values share its transition without
+// competing.
 func (c *deterministicModelCompilation) checkSharedTermUPA(a, b contentParticle) error {
 	particles, overlap, err := c.builder.c.particlesOverlap(a, b)
 	if err != nil || !overlap {

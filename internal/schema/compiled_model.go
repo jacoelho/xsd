@@ -83,10 +83,9 @@ type compiledAllTerm struct {
 }
 
 // sameCompiledParticle reports whether two compiled particles reference the
-// same runtime term. occurrence and nested model IDs are intentionally ignored:
-// compiled transitions contain direct element or wildcard particles.
+// same term. The occurrence range is not part of the term.
 func sameCompiledParticle(a, b contentParticle) bool {
-	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard
+	return a.Kind == b.Kind && a.Element == b.Element && a.Wildcard == b.Wildcard && a.Model == b.Model
 }
 
 const compiledDFARowIndexMinEdges = 8

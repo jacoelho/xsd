@@ -87,19 +87,19 @@ type cachedID struct {
 	known bool
 }
 
-// contentModelCompiler charges compilation work to work and each record of
-// a compiled table to retained before allocating it: two units per compiled
-// model, whose record the compiled table and the published table both hold,
-// and one per row, edge and xs:all term. The rows of a direct sequence share
-// one run of edges, so each of its edges counts once. A root model's rows and
-// edges are its published ones, and the rows and edges that
-// withoutEmptyChoiceEdges and directSequenceCompilation.reachable remove stay
-// charged, so the charge also bounds the tables publication keeps. A nested model that compileContentModels compiles on its
-// own keeps no table but is charged for its rows and edges all the same: its
-// Unique Particle Attribution check and determinization read them while it
-// compiles, so this over-count is intended. typeLabel names the complex type a
-// Unique Particle Attribution violation is reported against; forType sets it
-// on a copy made for one model.
+// contentModelCompiler charges compilation work to work and each record of a
+// compiled table to retained before allocating it: two units per compiled
+// model, whose record the compiled table and the published table both hold, and
+// one per row, edge and xs:all term. The rows of a direct sequence share one
+// run of edges, so each of its edges counts once. A root model's rows and edges
+// are its published ones, and the rows and edges that withoutEmptyChoiceEdges
+// and directSequenceCompilation.reachable remove stay charged, so the charge
+// also bounds the tables publication keeps. A nested model that
+// compileContentModels compiles on its own keeps no table but is charged for
+// its rows and edges all the same: its Unique Particle Attribution check and
+// determinization read them while it compiles, so this over-count is intended.
+// typeLabel names the complex type a Unique Particle Attribution violation is
+// reported against; forType sets it on a copy made for one model.
 type contentModelCompiler struct {
 	rt                    *schemaBuild
 	work                  *workBudget
@@ -875,12 +875,11 @@ func (c *contentModelCompiler) executionSingleton(p contentParticle) (contentPar
 }
 
 // compileDirectModel compiles a 1..1 sequence or choice whose execution
-// particles are all elements, wildcards and choices without branches to a
-// table without automaton construction. It walks the particles to decide that
-// before it builds or charges a row, so a model that automaton construction
-// compiles instead keeps no direct rows and spends no MaxSchemaDependencySteps
-// on them. The
-// build walks the particles again under a budget of exactly the steps the
+// particles are all elements, wildcards and choices without branches to a table
+// without automaton construction. It walks the particles to decide that before
+// it builds or charges a row, so a model that automaton construction compiles
+// instead keeps no direct rows and spends no MaxSchemaDependencySteps on them.
+// The build walks the particles again under a budget of exactly the steps the
 // first walk spent, which the second walk, the same traversal, cannot exceed,
 // and builds no more rows than admission counted.
 func (c *contentModelCompiler) compileDirectModel(model contentModelNode) (compiledModel, bool, error) {
@@ -1061,7 +1060,7 @@ func (b *directSequenceCompilation) addEdge(particle contentParticle, row compil
 	if err := b.compiler.retained.spend(1); err != nil {
 		return err
 	}
-	repeats := particle.Occurs.Unbounded || particle.Occurs.Max > 1
+	repeats := particle.Occurs.Repeats()
 	edge := len(b.edges)
 	b.edges = append(b.edges, compiledModelEdge{Particle: singleParticle(particle), To: to})
 	start := edge + 1
@@ -1192,7 +1191,7 @@ func (b *directChoiceCompilation) appendParticleRow(particle contentParticle, ed
 	if err != nil {
 		return err
 	}
-	loops := !particle.Occurs.IsExactlyOne() && (particle.Occurs.Unbounded || particle.Occurs.Max > 1)
+	loops := particle.Occurs.Repeats()
 	references := 1
 	if loops {
 		references++
@@ -1909,7 +1908,7 @@ func (b *dfaBuilder) repeatMultiple(child dfaNode, occurs occurrence) (dfaNode, 
 	if err != nil {
 		return dfaNode{}, err
 	}
-	if occurs.Unbounded || occurs.Max > 1 {
+	if occurs.Repeats() {
 		if err := b.addRepeatLoopFollows(child, occurs, counter); err != nil {
 			return dfaNode{}, err
 		}
