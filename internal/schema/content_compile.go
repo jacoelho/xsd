@@ -808,7 +808,7 @@ func (c *contentModelCompiler) executionModel(model contentModelNode) (contentMo
 
 // executionParticles yields the particles of model with every 1..1 child
 // group of the same compositor spliced in place, without copying, charging
-// one step per particle it visits. It stops when yield does.
+// one step per particle it visits.
 func (c *contentModelCompiler) executionParticles(model contentModelNode, yield func(contentParticle) (bool, error)) error {
 	_, err := c.yieldExecutionParticles(model, yield)
 	return err

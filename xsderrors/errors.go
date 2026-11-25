@@ -98,7 +98,7 @@ const (
 	CodeValidationOption    Code = "validation.option"
 	// CodeValidationSession reports a receiver that cannot run the call: a
 	// Session already validating another document, or an Engine or Session
-	// that Compile or Engine.NewSession did not create. The document was not
+	// that Compile, CompileWithOptions or Engine.NewSession did not create. The document was not
 	// read. It is inconclusive, never a validity result.
 	CodeValidationSession Code = "validation.session"
 	CodeValidationLimit   Code = "validation.limit"

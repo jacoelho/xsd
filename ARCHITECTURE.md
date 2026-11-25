@@ -202,14 +202,18 @@ It parses `internal/source` inputs through `internal/xmlstream` into a closed
 graph before compiling; planning performs no I/O. `internal/value` owns builtin
 IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
-`MaxSchemaDependencySteps` bounds loading, planning, resolution and every
-derived record compilation retains; `MaxContentModelAnalysisSteps` bounds the
-content-model work of the whole compilation (`workBudgetKind`), and through
-the work spent on one model the heap its automaton construction uses. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md) gives the
-bound per step; the doc comment of each admission function states what it
-charges. Spent work is never refunded, and the builtin components
-spend none of the caller's budget, so every dependency-limit failure has a
-schema document to locate it.
+`workBudgetKind` lists the work of the two compilation budgets.
+`MaxSchemaDependencySteps` bounds loading, planning, registration and
+resolution, and the records compiled components retain: content-model
+particles and models, compiled content-model tables, attribute-use sets and
+wildcard namespaces. `MaxContentModelAnalysisSteps` bounds the content-model
+work of the whole compilation, and through the work spent on one model the
+heap its automaton construction uses. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)
+gives the bound per step. The admission comment above `appendWildcard`,
+`appendModelParticles` and `contentModelCompiler` state what is charged when a
+record is retained. Spent work is never refunded, and the builtin components
+spend none of the caller's `MaxSchemaDependencySteps`, so every
+dependency-limit failure has a schema document to locate it.
 
 Content-model checks follow
 [I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations),
@@ -218,10 +222,12 @@ Content-model checks follow
 [I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)
 and
 [I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off);
-the doc comments of the content-model functions own lowering, restriction,
-Unique Particle Attribution and automaton construction.
+the doc comments of `contentModelNode` (lowering), `validateContentRestriction`
+(restriction), `checkContentModelUPA` (Unique Particle Attribution) and
+`compileContentModels` (automaton construction) own the mechanisms.
 
-Publication keeps only what an instance can reach. An instance names only
+Publication keeps a content model, attribute uses or evaluation program only
+for what an instance can reach. An instance names only
 global components (root, `xsi:type`, wildcard, substitution member), so a
 complex type or identity constraint no walk from them reaches is detached. A
 detached complex type keeps its ID and derivation record, and a detached
@@ -250,7 +256,8 @@ outside every component is set-wide: target-context planning locates it at
 the document being added or whose references it is walking, and the rest at
 the first explicit root document by name. Loading locates its dependency
 charge at the reference being resolved and a `MaxSchemaReferences` failure at
-the document whose references exceed it. `componentScope` owns locating.
+the document whose references exceed it. `componentScope` locates the
+failures inside a component and `locateSetWideLimit` the set-wide ones.
 Publication consumes the build only on success; `*schema.Schema` exposes only
 immutable derived reads.
 
@@ -346,8 +353,8 @@ node occurrence of its own.
 
 Each rule has one owner: one function, called at the tag that decides it,
 whose product the tag's typed source record stores and compilation reads.
-Compilation reads resolved QNames, occurrences, `use` modes and facet values
-as admitted, and parses the other single-keyword and short-list values again
+Compilation reads resolved QNames, occurrences, `use` modes and a facet's
+size, whiteSpace mode, compiled pattern and fixed flag as admitted, and parses the other single-keyword and short-list values again
 with the same parsers. Each distinct pattern text is compiled once, at the
 first facet that names it in document load order, and charged against
 `MaxSchemaPatternRetainedBytes` before it is kept, so a breach is reported at
@@ -357,6 +364,7 @@ name test has no namespace whatever the including target namespace. Path
 names are interned when the identity constraint compiles, so a
 `MaxSchemaNames` breach on a path name is a compile diagnostic at the selector
 or field, after every syntax diagnostic.
+
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
 surface plus `Compile`, `CompileMappedSources`, `NormalizeOptions`,

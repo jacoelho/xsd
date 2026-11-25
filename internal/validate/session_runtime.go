@@ -129,7 +129,7 @@ func (s *session) validate(r io.Reader) error {
 	// The reader owns borrowed token lifetimes; detach before any caller guard is released.
 	defer s.reader.Detach()
 	if s.rt == nil {
-		return xsderrors.InternalInvariant("nil validation session", nil)
+		return xsderrors.InternalInvariant("validation session has no schema", nil)
 	}
 	// Every entry starts a fresh document account, including after a document
 	// that failed mid-stream.
