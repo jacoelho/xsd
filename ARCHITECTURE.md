@@ -211,7 +211,8 @@ derivations in the Go docs of `deterministicRow` and `dfaCounterVectors`). That 
 bounds the compiled tables retained across models (per-step bound in
 [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)): `contentModelCompiler` charges
 each model record, row, edge and `xs:all` term before allocating it (the
-rows and edges `withoutEmptyChoiceEdges` removes stay charged), and
+rows and edges that `withoutEmptyChoiceEdges` and
+`directSequenceCompilation.reachable` remove stay charged), and
 `dfaRowIndexAnalysis` each name-index entry it installs. A direct sequence's
 rows are windows of one edge run (`compiledModel.Run`) and share one index of
 the run (`publishedDFARun`), so its tables grow linearly with its particles.
@@ -313,22 +314,16 @@ member that is a wildcard with the same namespaces
 construction own the Unique Particle Attribution of those models, on the
 source rows (`checkUPA`) and on the determinized rows
 (`checkCompiledRowsUPA`), and they also check every other model automaton
-construction compiles. They compare positions, not terms, as
-[I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks) requires;
-each group reference holds its group's particles as positions of its own, and
-each element reference is one. Determinization merges the edges of one term
-into one transition (`dfaTransitionKey`), so when an edge from another
-position joins a transition, `checkSharedTermUPA` reports the pair, which
-neither row check sees; the edges of one position under different counter
-values share its transition without competing. Automaton
-construction gives each choice without branches a position whose edge names
-the choice (`choiceNode`) and a transition of its own, which overlaps no
-particle, itself included (`matchesNoItem`, which every pairwise check and
-its distinct-name fast path skip), so determinization and both row checks
-reach the states after it as they do for an element declaration, as
+construction compiles. Both checks and determinization
+(`checkSharedTermUPA`) compare positions, not terms, as
+[I-028](docs/spec/INTERPRETATIONS.md#i-028--content-model-checks) requires,
+and treat a choice without branches as an element declaration that no item
+matches, as
 [I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off)
-requires; `withoutEmptyChoiceEdges` removes those edges and the rows only
-they reach, in place, before validation can take them. Unique Particle
+requires: `matchesNoItem` and `optionalChoiceWithoutBranches` decide the
+particle for every pairwise check, direct compilation (`directSequenceCompilation`)
+and automaton construction (`choiceNode`), and no published table holds an
+edge for it. Unique Particle
 Attribution applies to the content models of complex types ([I-050](docs/spec/INTERPRETATIONS.md#i-050--unique-particle-attribution-applies-to-the-content-models-of-complex-types)): the direct
 check and automaton construction (`compileContentModels`) visit, in source-ID
 order, the root model of each complex type and every model it reaches through

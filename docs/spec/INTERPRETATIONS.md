@@ -2529,7 +2529,11 @@ Cases: `project/content-models/nested-empty-choice-required`,
 `project/content-models/pointless-groups/declared/base-seq-a-choice-seqofemptychoices`,
 `project/content-models/pointless-groups/declared/derived-seq-a-reqrepemptychoice-b`,
 `project/content-models/pointless-groups/declared/derived-seq-a-choiceofemptychoices-b`,
-`project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1`
+`project/content-models/pointless-groups/declared/derived-cho-ab-emptychoice1`,
+`project/content-models/counted-required-empty-choice-after-element`, where
+Xerces-J, .NET and xmlschema accept `a` alone,
+`project/content-models/counted-required-empty-choice-branch`, where Xerces-J
+and xmlschema accept empty content,
 and `project/content-models/pointless-groups/declared/base-seq-choice-emptychoice-elt`.
 In the last, a base choice of a required empty choice and `b` matches only
 `b`, so a restriction that leaves it out is invalid; Xerces-J, xmlschema and
@@ -2943,8 +2947,13 @@ including itself.
 **Status:** for particles that follow a required empty choice, decided by the
 [processor tie-break](#processor-tie-break): the specification text supports
 two readings, no adopted correction or accepted W3C test decides it, and the
-processors disagree, so Xerces-J's result applies. For particles on either
-side of a required empty choice, both readings agree, so the text decides.
+processors disagree, so Xerces-J's result applies, except where it follows
+from the epsilon reading of a required empty choice that
+[I-042](#i-042--empty-choice) rejects. That exception is
+`group-ref-empty-choice-in-two-branches-before-overlap`, where the epsilon
+reading lets the `c` after one reference compete with the `c` after the
+other, and the schema is valid. For particles on either side of a required
+empty choice, both readings agree, so the text decides.
 
 For Unique Particle Attribution, a choice without branches is an element
 declaration that no item matches. It matches no sequence of items
@@ -2983,6 +2992,18 @@ Particles on either side of a required empty choice, as in
 never compete, as they would not with a required element between them. No
 item passes the choice, so no attempt meets both, and the choice transcribes
 to no epsilon transition. The schema is valid under both readings.
+
+An empty choice that may occur zero times adds only the empty sequence.
+Removing it leaves the language unchanged and every comparison unchanged: a
+path through it maps to one without it that reaches the same positions with
+the same counts, and a path without it is already one with it occurring zero
+times. Direct compilation and the automaton omit it. A required empty choice
+in a sequence of elements and wildcards ends the content any item reaches.
+Its count changes no comparison there, because only the choice itself would
+follow its own repetitions, so the direct table gives it one row without a
+counter and publishes the rows before it. In a choice of such particles it is
+a branch no item takes. In an automaton its count is kept, as its element
+twin's is.
 
 The rule holds for occurrence ranges too. In
 `<xs:sequence><xs:choice minOccurs="2" maxOccurs="2"><xs:choice minOccurs="3" maxOccurs="unbounded"/><xs:element name="d"/></xs:choice><xs:element name="d" minOccurs="0"/></xs:sequence>`
@@ -3035,7 +3056,8 @@ Cases, `project/content-models/upa-unreachable/*`:
 each. So are `required-empty-choice-before-twice-repeated-choice-overlap`,
 `required-empty-choice-before-repeated-choice-overlap` and
 `required-empty-choice-before-counted-range-overlap`, whose overlap only the
-automaton compares, and libxml2 differs on each.
+automaton compares, and libxml2 differs on each, and
+`counted-required-empty-choice-before-overlap`, where libxml2 differs.
 `counted-empty-choice-before-optional-overlap` and
 `counted-empty-choice-before-optional-global-overlap` are invalid, and .NET
 and libxml2 differ; the element twin `counted-element-before-optional-overlap`

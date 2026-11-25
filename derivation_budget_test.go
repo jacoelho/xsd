@@ -167,44 +167,129 @@ func fanOutSchema(n, refs int) string {
 	return b.String()
 }
 
-func TestChoiceWithoutBranchesCostsNoMoreAnalysisThanADistinctElement(t *testing.T) {
+func TestChoiceWithoutBranchesCostsNoMoreThanAChoiceOfADistinctElement(t *testing.T) {
 	t.Parallel()
-	wide := func(open, branch, closing string) string {
-		var b strings.Builder
-		b.WriteString(`<xs:schema ` + xsNS + `><xs:element name="root"><xs:complexType>` + open)
-		for i := range 300 {
-			fmt.Fprintf(&b, `<xs:element name="e%d"/>`, i)
+	root := func(content string) string {
+		return `<xs:schema ` + xsNS + `><xs:element name="root"><xs:complexType>` + content + `</xs:complexType></xs:element></xs:schema>`
+	}
+	wide := func(open, closing string) func(string) string {
+		return func(particle string) string {
+			var b strings.Builder
+			b.WriteString(open)
+			for i := range 300 {
+				fmt.Fprintf(&b, `<xs:element name="e%d"/>`, i)
+			}
+			return root(b.String() + particle + closing)
 		}
-		b.WriteString(branch + closing + `</xs:complexType></xs:element></xs:schema>`)
-		return b.String()
 	}
-	for _, test := range []struct{ name, open, branch, closing string }{
-		{name: "direct choice", open: `<xs:choice>`, branch: `%s`, closing: `</xs:choice>`},
-		{name: "repeated choice", open: `<xs:choice maxOccurs="unbounded">`, branch: `<xs:sequence>%s<xs:element name="z"/></xs:sequence>`, closing: `</xs:choice>`},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			compiles := func(schema string, limit int) bool {
-				_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: limit}, xsd.Bytes("wide.xsd", []byte(schema)))
-				return err == nil
+	shapes := []struct {
+		name   string
+		schema func(particle string) string
+	}{
+		{name: "in a choice", schema: wide(`<xs:choice>`, `</xs:choice>`)},
+		{name: "in a repeated choice", schema: func(particle string) string {
+			return wide(`<xs:choice maxOccurs="unbounded">`, `</xs:choice>`)(`<xs:sequence>` + particle + `<xs:element name="z"/></xs:sequence>`)
+		}},
+		{name: "after a required element", schema: func(particle string) string {
+			return root(`<xs:sequence><xs:element name="a"/>` + particle + `</xs:sequence>`)
+		}},
+		{name: "before a required element", schema: func(particle string) string {
+			return root(`<xs:sequence>` + particle + `<xs:element name="a"/></xs:sequence>`)
+		}},
+		{name: "after a choice", schema: func(particle string) string {
+			return root(`<xs:sequence><xs:choice><xs:element name="a"/><xs:element name="b"/></xs:choice>` + particle + `</xs:sequence>`)
+		}},
+		{name: "in a counted sequence", schema: func(particle string) string {
+			return root(`<xs:sequence minOccurs="0" maxOccurs="300"><xs:element name="a" minOccurs="0"/>` + particle + `</xs:sequence>`)
+		}},
+		{name: "in 60 types", schema: func(particle string) string {
+			var b strings.Builder
+			b.WriteString(`<xs:schema ` + xsNS + `>`)
+			for i := range 60 {
+				fmt.Fprintf(&b, `<xs:element name="r%d"><xs:complexType><xs:sequence><xs:element name="a"/>%s</xs:sequence></xs:complexType></xs:element>`, i, particle)
 			}
-			element := wide(test.open, fmt.Sprintf(test.branch, `<xs:element name="y"/>`), test.closing)
-			limit := 1 << 30
-			if !compiles(element, limit) {
-				t.Fatalf("the schema with a distinct element does not compile")
-			}
-			for low := 1; low < limit; {
-				if mid := low + (limit-low)/2; compiles(element, mid) {
-					limit = mid
-				} else {
-					low = mid + 1
-				}
-			}
-			if empty := wide(test.open, fmt.Sprintf(test.branch, `<xs:choice/>`), test.closing); !compiles(empty, limit) {
-				t.Fatalf("a choice without branches in place of a distinct element exceeds MaxContentModelAnalysisSteps %d", limit)
-			}
-		})
+			return b.String() + `</xs:schema>`
+		}},
 	}
+	occurrences := []struct{ name, attrs string }{
+		{name: "1..1"},
+		{name: "0..1", attrs: `minOccurs="0"`},
+		{name: "0..300", attrs: `minOccurs="0" maxOccurs="300"`},
+		{name: "0..10000", attrs: `minOccurs="0" maxOccurs="10000"`},
+		{name: "0..20000", attrs: `minOccurs="0" maxOccurs="20000"`},
+		{name: "3..unbounded", attrs: `minOccurs="3" maxOccurs="unbounded"`},
+		{name: "300..300", attrs: `minOccurs="300" maxOccurs="300"`},
+	}
+	limits := []struct {
+		name, names string
+		set         func(*xsd.CompileOptions, int)
+	}{
+		{name: "MaxContentModelStates", names: "content model DFA state limit", set: func(o *xsd.CompileOptions, n int) { o.MaxContentModelStates = n }},
+		{name: "MaxContentModelAnalysisSteps", names: "MaxContentModelAnalysisSteps", set: func(o *xsd.CompileOptions, n int) { o.MaxContentModelAnalysisSteps = n }},
+		{name: "MaxSchemaDependencySteps", names: "MaxSchemaDependencySteps", set: func(o *xsd.CompileOptions, n int) { o.MaxSchemaDependencySteps = n }},
+	}
+	const unlimited = 1 << 25
+	ample := xsd.CompileOptions{MaxContentModelStates: unlimited, MaxContentModelAnalysisSteps: unlimited, MaxSchemaDependencySteps: unlimited}
+	for _, shape := range shapes {
+		for _, occurs := range occurrences {
+			element := shape.schema(`<xs:choice ` + occurs.attrs + `><xs:element name="y"/></xs:choice>`)
+			empty := shape.schema(`<xs:choice ` + occurs.attrs + `/>`)
+			if _, err := xsd.CompileWithOptions(ample, xsd.Bytes("c.xsd", []byte(element))); err != nil {
+				t.Run(shape.name+"/"+occurs.name+"/beyond the element's limits", func(t *testing.T) {
+					t.Parallel()
+					expectSchemaLimit(t, err)
+					if _, err := xsd.CompileWithOptions(ample, xsd.Bytes("c.xsd", []byte(empty))); err != nil {
+						expectSchemaLimit(t, err)
+					}
+				})
+				continue
+			}
+			for _, limit := range limits {
+				t.Run(shape.name+"/"+occurs.name+"/"+limit.name, func(t *testing.T) {
+					t.Parallel()
+					compiles := func(schema string, n int) bool {
+						t.Helper()
+						opts := ample
+						limit.set(&opts, n)
+						_, err := xsd.CompileWithOptions(opts, xsd.Bytes("c.xsd", []byte(schema)))
+						if err == nil {
+							return true
+						}
+						x, ok := errors.AsType[*xsderrors.Error](err)
+						if !ok || x.Code() != xsderrors.CodeSchemaLimit || !strings.Contains(err.Error(), limit.names) {
+							t.Fatalf("compile with %s %d: %v", limit.name, n, err)
+						}
+						return false
+					}
+					least := unlimited
+					for low := 1; low < least; {
+						if mid := low + (least-low)/2; compiles(element, mid) {
+							least = mid
+						} else {
+							low = mid + 1
+						}
+					}
+					if !compiles(empty, least) {
+						t.Fatalf("a choice without branches in place of a choice of a distinct element exceeds %s %d", limit.name, least)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestChoiceWithoutBranchesBesideWildcardsChargesEachPairRead(t *testing.T) {
+	t.Parallel()
+	const wildcards, choices = 50, 1000
+	var b strings.Builder
+	b.WriteString(`<xs:schema ` + xsNS + `><xs:element name="root"><xs:complexType><xs:choice>`)
+	for i := range wildcards {
+		fmt.Fprintf(&b, `<xs:any namespace="urn:w%d" processContents="skip"/>`, i)
+	}
+	b.WriteString(strings.Repeat(`<xs:choice/>`, choices))
+	b.WriteString(`</xs:choice></xs:complexType></xs:element></xs:schema>`)
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxContentModelAnalysisSteps: wildcards * choices}, xsd.Bytes("w.xsd", []byte(b.String())))
+	expectNamedLimit(t, err, "MaxContentModelAnalysisSteps")
 }
 
 func TestExpandedGroupReferencesAreChargedToAnalysisBudget(t *testing.T) {

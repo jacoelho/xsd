@@ -2064,6 +2064,38 @@ project/content-models/contrasts-simple-content-mixed-lexical-invalid	schema	dot
 project/content-models/contrasts-simple-content-mixed-lexical-invalid	schema	libxml2	schema-invalid	schema.xsd:2: element complexType: Schemas parser error : Element '{http://www.w3.org/2001/XMLSchema}complexType', attribute 'mixed': 'yes' is not a valid value of the atomic type 'xs:boolean'.␊WXS schema schema.xsd failed to compile
 project/content-models/contrasts-simple-content-mixed-lexical-invalid	schema	xerces	schema-invalid	schema.xsd:2:50: s4s-att-invalid-value: Invalid attribute value for 'mixed' in element 'complexType'. Recorded reason: cvc-datatype-valid.1.2.1: 'yes' is not a valid value for 'boolean'.
 project/content-models/contrasts-simple-content-mixed-lexical-invalid	schema	xmlschema	schema-invalid	attribute mixed='yes': 'yes' is not a boolean value:␊␊Schema component:␊␊  <xs:complexType xmlns:xs="http://www.w3.org/2001/XMLSchema" mixed="yes"><xs:simpleContent><xs:extension base="xs:int" /></xs:simpleContent></xs:complexType>␊␊Path: /xs:schema/xs:element/xs:complexType␊␊Schema URL: schema.xsd
+project/content-models/counted-optional-empty-choice-after-element	a	dotnet	valid	
+project/content-models/counted-optional-empty-choice-after-element	a	libxml2	valid	
+project/content-models/counted-optional-empty-choice-after-element	a	xerces	valid	
+project/content-models/counted-optional-empty-choice-after-element	a	xmlschema	valid	
+project/content-models/counted-optional-empty-choice-after-element	a-twice	dotnet	invalid	a-twice.xml:1:12: The element 'root' has invalid child element 'a'.
+project/content-models/counted-optional-empty-choice-after-element	a-twice	libxml2	invalid	a-twice.xml:1: element a: Schemas validity error : Element 'a': This element is not expected.
+project/content-models/counted-optional-empty-choice-after-element	a-twice	xerces	invalid	a-twice.xml:1:15: cvc-complex-type.2.4.d: Invalid content was found starting with element 'a'. No child element is expected at this point.
+project/content-models/counted-optional-empty-choice-after-element	a-twice	xmlschema	invalid	line None: Unexpected child with tag 'a' at position 2. (path /root)
+project/content-models/counted-optional-empty-choice-after-element	schema	dotnet	schema-valid	
+project/content-models/counted-optional-empty-choice-after-element	schema	libxml2	schema-valid	
+project/content-models/counted-optional-empty-choice-after-element	schema	xerces	schema-valid	
+project/content-models/counted-optional-empty-choice-after-element	schema	xmlschema	schema-valid	
+project/content-models/counted-required-empty-choice-after-element	a	dotnet	valid	
+project/content-models/counted-required-empty-choice-after-element	a	libxml2	invalid	a.xml:1: element root: Schemas validity error : Element 'root': Missing child element(s).
+project/content-models/counted-required-empty-choice-after-element	a	xerces	valid	
+project/content-models/counted-required-empty-choice-after-element	a	xmlschema	valid	
+project/content-models/counted-required-empty-choice-after-element	schema	dotnet	schema-valid	warning: schema.xsd:2:77: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/counted-required-empty-choice-after-element	schema	libxml2	schema-valid	
+project/content-models/counted-required-empty-choice-after-element	schema	xerces	schema-valid	
+project/content-models/counted-required-empty-choice-after-element	schema	xmlschema	schema-valid	
+project/content-models/counted-required-empty-choice-branch	c	dotnet	valid	
+project/content-models/counted-required-empty-choice-branch	c	libxml2	valid	
+project/content-models/counted-required-empty-choice-branch	c	xerces	valid	
+project/content-models/counted-required-empty-choice-branch	c	xmlschema	valid	
+project/content-models/counted-required-empty-choice-branch	empty	dotnet	invalid	empty.xml:1:2: The element 'root' has incomplete content. List of possible elements expected: 'c'.
+project/content-models/counted-required-empty-choice-branch	empty	libxml2	invalid	empty.xml:1: element root: Schemas validity error : Element 'root': Missing child element(s). Expected is ( c ).
+project/content-models/counted-required-empty-choice-branch	empty	xerces	valid	
+project/content-models/counted-required-empty-choice-branch	empty	xmlschema	valid	
+project/content-models/counted-required-empty-choice-branch	schema	dotnet	schema-valid	warning: schema.xsd:2:75: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/counted-required-empty-choice-branch	schema	libxml2	schema-valid	
+project/content-models/counted-required-empty-choice-branch	schema	xerces	schema-valid	
+project/content-models/counted-required-empty-choice-branch	schema	xmlschema	schema-valid	
 project/content-models/dispatch-all-sequence-control	incomplete	dotnet	invalid	incomplete.xml:1:10: The element 'r' has incomplete content. List of possible elements expected: 'b'.
 project/content-models/dispatch-all-sequence-control	incomplete	libxml2	invalid	incomplete.xml:1: element r: Schemas validity error : Element 'r': Missing child element(s). Expected is ( b ).
 project/content-models/dispatch-all-sequence-control	incomplete	xerces	invalid	incomplete.xml:1:12: cvc-complex-type.2.4.b: The content of element 'r' is not complete. One of '{b}' is expected.
@@ -6497,6 +6529,10 @@ project/content-models/upa-unreachable/counted-empty-choice-before-optional-over
 project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap	schema	libxml2	schema-valid	
 project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap	schema	xerces	schema-invalid	schema.xsd:2:41: cos-nonambig: d and d (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
 project/content-models/upa-unreachable/counted-empty-choice-before-optional-overlap	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='d', occurs=[1, 1]) and XsdElement(name='d', occurs=[0, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:choice minOccurs="2" maxOccurs="2"><xs:choice minOccurs="3" maxOccurs="unbounded" /><xs:element name="d" /></xs:choice><xs:element name="d" minOccurs="0" /></xs:sequence>␊␊Path: /xs:schema/xs:element/xs:complexType/xs:sequence␊␊Schema URL: schema.xsd
+project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap	schema	dotnet	schema-invalid	schema.xsd:2:131: Multiple definition of element 'c' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence. | warning: schema.xsd:2:55: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
+project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap	schema	libxml2	schema-valid	
+project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap	schema	xerces	schema-invalid	schema.xsd:2:41: cos-nonambig: c and c (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.
+project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap	schema	xmlschema	schema-invalid	Unique Particle Attribution violation between XsdElement(name='c', occurs=[0, 1]) and XsdElement(name='c', occurs=[1, 1]):␊␊Schema component:␊␊  <xs:sequence xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:choice minOccurs="2" maxOccurs="3" /><xs:element name="c" minOccurs="0" /><xs:element name="c" /></xs:sequence>␊␊Path: /xs:schema/xs:element/xs:complexType/xs:sequence␊␊Schema URL: schema.xsd
 project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap	schema	dotnet	schema-invalid	schema.xsd:2:82: Multiple definition of element 'c' causes the content model to become ambiguous. A content model must be formed such that during validation of an element information item sequence, the particle contained directly, indirectly or implicitly therein with which to attempt to validate each item in the sequence in turn can be uniquely determined without examining the content or attributes of that item, and without any information about the items in the remainder of the sequence. | warning: schema.xsd:2:34: Empty choice cannot be satisfied if 'minOccurs' is not equal to 0.
 project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap	schema	libxml2	schema-valid	
 project/content-models/upa-unreachable/group-ref-empty-choice-before-overlap	schema	xerces	schema-invalid	schema.xsd:3:41: cos-nonambig: c and c (or elements from their substitution group) violate "Unique Particle Attribution". During validation against this schema, ambiguity would be created for those two particles.

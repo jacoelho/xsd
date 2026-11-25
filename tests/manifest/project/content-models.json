@@ -37615,6 +37615,236 @@
           "role": "principal"
         }
       ]
+    },
+    {
+      "id": "project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-nonambig",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off"
+        ],
+        "description": "A required empty choice repeated two or three times precedes an optional c and a required c; for Unique Particle Attribution the empty choice counts like an element declaration, so the two c compete whatever its count.",
+        "sourceFile": "tests/corpus/project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap",
+        "package": "schema"
+      },
+      "schema": {
+        "expected": "invalid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off",
+          "clause": "I-052 in docs/spec/INTERPRETATIONS.md"
+        },
+        "errorCode": "schema.content_model",
+        "differences": {
+          "libxml2": {
+            "record": "I-052"
+          }
+        }
+      },
+      "instances": [],
+      "files": [
+        {
+          "file": "corpus/project/content-models/upa-unreachable/counted-required-empty-choice-before-overlap/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/counted-optional-empty-choice-after-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "An empty choice that may occur up to 20000 times after a required a matches no item, so the content is exactly one a.",
+        "sourceFile": "tests/corpus/project/content-models/counted-optional-empty-choice-after-element/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "a-twice",
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a-twice.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/counted-optional-empty-choice-after-element/a-twice.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/counted-required-empty-choice-after-element",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "An empty choice required 20000 times after a required a matches no item, so no content is complete.",
+        "sourceFile": "tests/corpus/project/content-models/counted-required-empty-choice-after-element/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/counted-required-empty-choice-after-element/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "a",
+          "file": "corpus/project/content-models/counted-required-empty-choice-after-element/a.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          },
+          "differences": {
+            "dotnet": {
+              "record": "I-042"
+            },
+            "xerces": {
+              "record": "I-042"
+            },
+            "xmlschema": {
+              "record": "I-042"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-after-element/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-after-element/a.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/content-models/counted-required-empty-choice-branch",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-particle"
+        ],
+        "description": "A choice between c and an empty choice required twice: the empty-choice branch matches nothing, not even empty content, so only c is valid content.",
+        "sourceFile": "tests/corpus/project/content-models/counted-required-empty-choice-branch/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/content-models/counted-required-empty-choice-branch/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+          "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "c",
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/c.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "empty",
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/empty.xml",
+          "expected": "invalid",
+          "errorCode": "validation.content",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-model-group",
+            "clause": "cvc-model-group clause 2 in XML Schema Part 1"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-042"
+            },
+            "xmlschema": {
+              "record": "I-042"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/c.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/content-models/counted-required-empty-choice-branch/empty.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }
