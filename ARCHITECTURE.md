@@ -321,7 +321,7 @@ and treat a choice without branches as an element declaration that no item
 matches, as
 [I-052](docs/spec/INTERPRETATIONS.md#i-052--unique-particle-attribution-compares-particles-a-required-empty-choice-cuts-off)
 requires: `matchesNoItem` and `choiceWithoutBranches` decide the
-particle for every pairwise check and needs-check (`particleUPAName`),
+particle for every pairwise check and needs-check (`particleSetNeedsUPACheck`),
 `executionModel` its root form, direct compilation
 (`directSequenceCompilation`) and automaton construction
 (`choiceWithoutBranchesNode`), and no published table holds an edge for it. Unique Particle

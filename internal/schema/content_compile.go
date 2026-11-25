@@ -1297,28 +1297,16 @@ func (c *contentModelCompiler) particleSetNeedsUPACheck(
 	particleAt func(index int) contentParticle,
 ) (bool, error) {
 	for i := range count {
-		name, comparison := c.particleUPAName(particleAt(i))
-		if comparison == upaPairwise {
+		particle := particleAt(i)
+		name, needsCheck := c.particleUPAName(particle)
+		if needsCheck && !c.matchesNoItem(particle) {
 			return true, nil
 		}
-		if comparison == upaNone {
-			continue
-		}
-		needsCheck, err := c.followingNeedUPACheck(name, i+1, count, particleAt)
-		if err != nil || needsCheck {
-			return needsCheck, err
-		}
-	}
-	return false, nil
-}
-
-// followingNeedUPACheck reports whether a particle of the set from index from
-// on needs the pairwise check against an element named name.
-func (c *contentModelCompiler) followingNeedUPACheck(name QName, from, count int, particleAt func(index int) contentParticle) (bool, error) {
-	for j := from; j < count; j++ {
-		needsCheck, err := c.particlePairNeedsUPACheck(name, particleAt(j))
-		if err != nil || needsCheck {
-			return needsCheck, err
+		for j := i + 1; j < count; j++ {
+			needsCheck, err := c.particlePairNeedsUPACheck(name, particleAt(j))
+			if err != nil || needsCheck {
+				return needsCheck, err
+			}
 		}
 	}
 	return false, nil
@@ -1364,43 +1352,25 @@ func withoutEmptyChoices[E any](c *contentModelCompiler, s []E, particle func(E)
 	return out
 }
 
-// upaComparison is how the needs-check compares a particle with the others of
-// a set.
-type upaComparison uint8
-
-const (
-	// upaByName compares the particle's element name.
-	upaByName upaComparison = iota
-	// upaPairwise needs the pairwise check.
-	upaPairwise
-	// upaNone compares the particle with no other: a choice without branches
-	// overlaps no particle (I-052 of docs/spec/INTERPRETATIONS.md).
-	upaNone
-)
-
 // particleUPAName returns the name of particle when it is an element
-// declaration without substitution members, and how the needs-check compares
-// it.
-func (c *contentModelCompiler) particleUPAName(particle contentParticle) (QName, upaComparison) {
+// declaration without substitution members, and whether particle needs the
+// pairwise check instead. A choice without branches has no name, and the
+// needs-check compares it with no particle (I-052 of
+// docs/spec/INTERPRETATIONS.md).
+func (c *contentModelCompiler) particleUPAName(particle contentParticle) (QName, bool) {
 	if particle.Kind != particleElement || c.rt.Substitutions.HasMembers(particle.Element) {
-		if c.matchesNoItem(particle) {
-			return QName{}, upaNone
-		}
-		return QName{}, upaPairwise
+		return QName{}, true
 	}
 	name, ok := c.rt.ElementName(particle.Element)
-	if !ok {
-		return QName{}, upaPairwise
-	}
-	return name, upaByName
+	return name, !ok
 }
 
 func (c *contentModelCompiler) particlePairNeedsUPACheck(name QName, next contentParticle) (bool, error) {
 	if err := c.work.spend(1); err != nil {
 		return false, err
 	}
-	nextName, comparison := c.particleUPAName(next)
-	return comparison == upaPairwise || (comparison == upaByName && nextName == name), nil
+	nextName, needsCheck := c.particleUPAName(next)
+	return (needsCheck && !c.matchesNoItem(next)) || (!needsCheck && nextName == name), nil
 }
 
 func singleParticle(p contentParticle) contentParticle {
