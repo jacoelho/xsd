@@ -295,8 +295,8 @@ func (c *compiler) compileElementTypeAttribute(ctx *schemaSetDocument, n *schema
 	if err != nil {
 		return TypeID{}, err
 	}
-	if c.typeQNameKnown(typeQName) {
-		return c.resolveTypeQName(typeQName)
+	if typ, found, err := c.resolveTypeQName(typeQName); found || err != nil {
+		return typ, err
 	}
 	missing, err := c.unresolvedTypeReference(n, typeQName, schemaComponentType)
 	if err != nil {
