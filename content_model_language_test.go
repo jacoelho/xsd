@@ -626,17 +626,24 @@ func oracleInstance(word []oracleName) string {
 	return b.String()
 }
 
+// oracleGenerator generates content models. With costShapes it also
+// generates the shapes TestChoiceWithoutBranchesCostsNoMoreThanItsElementTwin
+// compares: content that is a choice without branches, several of them in a
+// choice, which may also hold many distinct elements, and counts up to 20,000
+// on them.
 type oracleGenerator struct {
-	rng    *rand.Rand
-	leaves int
-	groups int
-	named  []*oracleParticle
+	rng        *rand.Rand
+	costShapes bool
+	leaves     int
+	groups     int
+	named      []*oracleParticle
 }
 
 var (
-	oracleOccurrences = [][2]int{{1, 1}, {1, 1}, {0, 1}, {0, oracleUnbounded}, {1, oracleUnbounded}, {2, 3}, {0, 2}, {1, 3}, {2, 2}, {0, 0}, {3, oracleUnbounded}}
-	oracleConstraints = [][]string{{"##any"}, {"##other"}, {"##local"}, {"##targetNamespace"}, {"urn:u"}, {"##local", "urn:u"}, {"##targetNamespace", "urn:u"}}
-	oracleLocalNames  = []string{"a", "b", "c"}
+	oracleOccurrences      = [][2]int{{1, 1}, {1, 1}, {0, 1}, {0, oracleUnbounded}, {1, oracleUnbounded}, {2, 3}, {0, 2}, {1, 3}, {2, 2}, {0, 0}, {3, oracleUnbounded}}
+	oracleEmptyChoiceCosts = [][2]int{{1, 1}, {0, 1}, {2, 20_000}, {300, 300}, {20_000, 20_000}, {3, oracleUnbounded}, {0, 20_000}}
+	oracleConstraints      = [][]string{{"##any"}, {"##other"}, {"##local"}, {"##targetNamespace"}, {"urn:u"}, {"##local", "urn:u"}, {"##targetNamespace", "urn:u"}}
+	oracleLocalNames       = []string{"a", "b", "c"}
 )
 
 func (g *oracleGenerator) nextLeaf() int {
@@ -676,8 +683,21 @@ func (g *oracleGenerator) modelGroup(depth int) *oracleParticle {
 			p.children = append(p.children, g.element())
 		}
 	}
+	if g.costShapes && p.kind == oracleChoice && g.rng.IntN(3) == 0 {
+		if g.rng.IntN(2) == 0 {
+			for range 20 + g.rng.IntN(20) {
+				p.children = append(p.children, &oracleParticle{kind: oracleElement, namespace: oracleTargetNamespace, local: "w" + strconv.Itoa(g.leaves), min: 1, max: 1, leaf: g.nextLeaf()})
+			}
+		}
+		for range 1 + g.rng.IntN(3) {
+			p.children = append(p.children, g.choiceWithoutBranches())
+		}
+	}
 	if p.emptyChoice() {
 		p.leaf = g.nextLeaf()
+		if g.costShapes {
+			g.emptyChoiceCost(p)
+		}
 	}
 	if p.named {
 		g.named = append(g.named, p)
@@ -702,6 +722,18 @@ func (g *oracleGenerator) copyWithOwnLeaves(p *oracleParticle) *oracleParticle {
 	return &c
 }
 
+func (g *oracleGenerator) choiceWithoutBranches() *oracleParticle {
+	p := &oracleParticle{kind: oracleChoice, group: g.groups, leaf: g.nextLeaf()}
+	g.groups++
+	g.emptyChoiceCost(p)
+	return p
+}
+
+func (g *oracleGenerator) emptyChoiceCost(p *oracleParticle) {
+	o := oracleEmptyChoiceCosts[g.rng.IntN(len(oracleEmptyChoiceCosts))]
+	p.min, p.max = o[0], o[1]
+}
+
 func (g *oracleGenerator) allGroup() *oracleParticle {
 	p := &oracleParticle{kind: oracleAll, min: g.rng.IntN(2), max: 1}
 	for range g.rng.IntN(4) {
@@ -721,9 +753,11 @@ func (g *oracleGenerator) allGroup() *oracleParticle {
 // leaf has a bit of the leaf masks oracleConfiguration.step returns.
 func (g *oracleGenerator) model() *oracleModel {
 	for {
-		*g = oracleGenerator{rng: g.rng}
+		*g = oracleGenerator{rng: g.rng, costShapes: g.costShapes}
 		var base, extension *oracleParticle
 		switch n := g.rng.IntN(10); {
+		case g.costShapes && n < 1:
+			base = g.choiceWithoutBranches()
 		case n < 2:
 			base = g.allGroup()
 		case n < 4:
