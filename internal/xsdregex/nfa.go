@@ -3,7 +3,6 @@ package xsdregex
 import (
 	"math"
 	"math/bits"
-	"slices"
 )
 
 type instructionKind uint8
@@ -42,6 +41,7 @@ type fragment struct {
 
 type nfaCompiler struct {
 	counted  map[*node]bool
+	lengths  map[*node]matchLength
 	states   []instruction
 	counters []counter
 	regions  []counterRegion
@@ -127,7 +127,7 @@ func compileNFA(root *node, options compileLimits) (compiledNFA, error) {
 	if plan.unrolled <= 64 {
 		plan.counted = nil
 	}
-	c := nfaCompiler{limit: options.states, counted: plan.counted, counting: len(plan.counted) != 0}
+	c := nfaCompiler{limit: options.states, counted: plan.counted, lengths: plan.lengths, counting: len(plan.counted) != 0}
 	rootFragment, err := c.compile(root)
 	if err != nil {
 		return compiledNFA{}, err
@@ -588,7 +588,7 @@ func (c *nfaCompiler) compileCounter(current, child *node) (fragment, error) {
 	// so r{m,n} accepts what r{0,n} does, and a zero minimum lets every count
 	// be dominated.
 	minimum := current.min
-	if nullable(child) {
+	if c.lengths[child].min == 0 {
 		minimum = 0
 	}
 	id := int32(len(c.counters)) //nolint:gosec // counters are bounded by the state limit.
@@ -809,19 +809,4 @@ func saturatingMul(a, b uint64) uint64 {
 		return math.MaxUint64
 	}
 	return low
-}
-
-func nullable(current *node) bool {
-	switch current.kind {
-	case nodeEmpty:
-		return true
-	case nodeConcat:
-		return !slices.ContainsFunc(current.children, func(child *node) bool { return !nullable(child) })
-	case nodeAlt:
-		return len(current.children) == 0 || slices.ContainsFunc(current.children, nullable)
-	case nodeRepeat:
-		return current.min == 0 || slices.ContainsFunc(current.children, nullable)
-	case nodeSet:
-	}
-	return false
 }
