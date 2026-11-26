@@ -442,7 +442,7 @@ func TestCompileRuleChecksReportCorruptInputsAsInternalInvariantAndViolationsAsS
 // cyclicSimpleTypeFixture builds two simple types that reference each other,
 // which value.Builder admits when a facet literal's resolver completes the
 // second type while the first is in progress and the first is then completed
-// again. It returns the spec of a type that references other.
+// again.
 type cyclicSimpleTypeFixture func(other SimpleTypeID) value.TypeSpec
 
 type cyclicSimpleTypes struct {
