@@ -52,12 +52,11 @@ func (c *compiler) compileAbsentElement(ctx *schemaSetDocument, n *schemaNode) e
 			return err
 		}
 	}
-	identityNodes := identityConstraintNodes(n)
-	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)
+	identities, err := c.declaredIdentityConstraints(ctx, n)
 	if err != nil {
 		return err
 	}
-	return c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, NoElement)
+	return c.compileDeclaredIdentityConstraints(ctx, identities, NoElement)
 }
 
 func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *schemaNode) (ElementID, error) {
@@ -175,8 +174,7 @@ type pendingElementConstraint struct {
 }
 
 func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, id ElementID, q QName) (elementDecl, *valueConstraint, error) {
-	identityNodes := identityConstraintNodes(n)
-	identityIDs, err := c.declaredIdentityConstraints(ctx, identityNodes)
+	identities, err := c.declaredIdentityConstraints(ctx, n)
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
@@ -198,10 +196,10 @@ func (c *compiler) compileElementDecl(ctx *schemaSetDocument, n *schemaNode, id 
 	if err != nil {
 		return elementDecl{}, nil, err
 	}
-	if err := c.compileDeclaredIdentityConstraints(ctx, identityNodes, identityIDs, id); err != nil {
+	if err := c.compileDeclaredIdentityConstraints(ctx, identities, id); err != nil {
 		return elementDecl{}, nil, err
 	}
-	decl.Identity = identityIDs
+	decl.Identity = declaredIdentityConstraintIDs(identities)
 	return decl, constraint, nil
 }
 

@@ -93,14 +93,22 @@ func (c *compiler) nameAllIdentityConstraints() error {
 	return nil
 }
 
-// declaredIdentityConstraints returns the IDs declareAllIdentityConstraints
-// gave nodes in ctx, interning their names, as the element holding them
-// compiles.
-func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode) ([]IdentityConstraintID, error) {
+// declaredIdentityConstraint pairs an identity-constraint node with the ID
+// declareAllIdentityConstraints gave it.
+type declaredIdentityConstraint struct {
+	node *schemaNode
+	id   IdentityConstraintID
+}
+
+// declaredIdentityConstraints returns the identity constraints of element n
+// with the IDs declareAllIdentityConstraints gave them in ctx, interning their
+// names, as n compiles.
+func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, n *schemaNode) ([]declaredIdentityConstraint, error) {
+	nodes := identityConstraintNodes(n)
 	if len(nodes) == 0 {
 		return nil, nil
 	}
-	ids := make([]IdentityConstraintID, 0, len(nodes))
+	declared := make([]declaredIdentityConstraint, 0, len(nodes))
 	for _, node := range nodes {
 		id, ok := c.identityDeclared[nodeKey(ctx, node)]
 		if !ok {
@@ -109,22 +117,32 @@ func (c *compiler) declaredIdentityConstraints(ctx *schemaSetDocument, nodes []*
 		if err := c.nameIdentityConstraint(id); err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		declared = append(declared, declaredIdentityConstraint{node: node, id: id})
 	}
-	return ids, nil
+	return declared, nil
 }
 
-func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, nodes []*schemaNode, ids []IdentityConstraintID, declarer ElementID) error {
-	for i, node := range nodes {
-		id := ids[i]
-		ic, err := c.compileIdentityConstraint(ctx, node, c.rt.identityName(id))
+func (c *compiler) compileDeclaredIdentityConstraints(ctx *schemaSetDocument, declared []declaredIdentityConstraint, declarer ElementID) error {
+	for _, d := range declared {
+		ic, err := c.compileIdentityConstraint(ctx, d.node, c.rt.identityName(d.id))
 		if err != nil {
 			return err
 		}
 		ic.Declarer = declarer
-		c.completeIdentity(id, ic)
+		c.completeIdentity(d.id, ic)
 	}
 	return nil
+}
+
+func declaredIdentityConstraintIDs(declared []declaredIdentityConstraint) []IdentityConstraintID {
+	if len(declared) == 0 {
+		return nil
+	}
+	ids := make([]IdentityConstraintID, len(declared))
+	for i, d := range declared {
+		ids[i] = d.id
+	}
+	return ids
 }
 
 func (c *compiler) validateIdentityReferences() error {
