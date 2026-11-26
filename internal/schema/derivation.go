@@ -986,7 +986,7 @@ func nextSimpleBaseDerivation(
 		return simpleBaseDerivationStep{id: next, found: true, valid: true}, nil
 	}
 	if cycle.repeats(next) {
-		return simpleBaseDerivationStep{}, newBuildDefect("simple type derivation graph is cyclic")
+		return simpleBaseDerivationStep{}, errSimpleDerivationCycle
 	}
 	if err := work(1); err != nil {
 		return simpleBaseDerivationStep{}, err
@@ -1038,7 +1038,7 @@ func simpleTypeUnionDerivationMask(
 		work:  work,
 		limit: limit,
 		stack: make([]simpleTypeDerivationFrame, 0, min(limit, 1_024)),
-		seen:  make(map[[2]SimpleTypeID]bool),
+		seen:  make(map[[2]SimpleTypeID]derivationPairState),
 	}
 	search.push(derived, base)
 	for len(search.stack) != 0 {
@@ -1053,13 +1053,25 @@ func simpleTypeUnionDerivationMask(
 	return 0, false, nil
 }
 
+// simpleTypeUnionDerivationSearch is a depth-first search over (derived, base)
+// pairs. seen records each entered pair: a searched pair is not derived and is
+// not searched again, and reaching a pair that is still being searched means
+// the derivation graph has a cycle, which only corrupt build state can hold.
 type simpleTypeUnionDerivationSearch struct {
 	rt    *schemaBuild
 	work  func(int) error
-	seen  map[[2]SimpleTypeID]bool
+	seen  map[[2]SimpleTypeID]derivationPairState
 	stack []simpleTypeDerivationFrame
 	limit int
 }
+
+type derivationPairState uint8
+
+const (
+	derivationPairUnseen derivationPairState = iota
+	derivationPairSearching
+	derivationPairSearched
+)
 
 func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	if err := s.work(3); err != nil {
@@ -1081,9 +1093,9 @@ func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	}
 	if frame.next == memberCount {
 		frame.next++
-		found, continued := s.visitBase(frame, types.derived)
-		if found || continued {
-			return found, nil
+		found, continued, err := s.visitBase(frame, types.derived)
+		if found || continued || err != nil {
+			return found, err
 		}
 	}
 	s.pop(last)
@@ -1126,14 +1138,18 @@ func (s *simpleTypeUnionDerivationSearch) enter(
 		return false, nil
 	}
 	pair := [2]SimpleTypeID{frame.derived, frame.base}
-	if s.seen[pair] {
+	switch s.seen[pair] {
+	case derivationPairSearched:
 		s.pop(last)
 		return true, nil
+	case derivationPairSearching:
+		return true, errSimpleDerivationCycle
+	case derivationPairUnseen:
 	}
 	if err := s.work(1); err != nil {
 		return false, err
 	}
-	s.seen[pair] = true
+	s.seen[pair] = derivationPairSearching
 	frame.entered = true
 	return false, nil
 }
@@ -1159,8 +1175,12 @@ func (s *simpleTypeUnionDerivationSearch) visitMember(
 	if frame.derived == member {
 		return true, nil
 	}
-	if s.seen[[2]SimpleTypeID{frame.derived, member}] {
+	switch s.seen[[2]SimpleTypeID{frame.derived, member}] {
+	case derivationPairSearched:
 		return false, nil
+	case derivationPairSearching:
+		return false, errSimpleDerivationCycle
+	case derivationPairUnseen:
 	}
 	s.push(frame.derived, member)
 	return false, nil
@@ -1169,18 +1189,25 @@ func (s *simpleTypeUnionDerivationSearch) visitMember(
 func (s *simpleTypeUnionDerivationSearch) visitBase(
 	frame *simpleTypeDerivationFrame,
 	derived simpleTypeDerivation,
-) (found, handled bool) {
-	if derived.Base == NoSimpleType || derived.Base == frame.derived {
-		return false, false
+) (found, handled bool, err error) {
+	if derived.Base == NoSimpleType {
+		return false, false, nil
+	}
+	if derived.Base == frame.derived {
+		return false, false, errSimpleDerivationCycle
 	}
 	if derived.Base == frame.base {
-		return true, true
+		return true, true, nil
 	}
-	if s.seen[[2]SimpleTypeID{derived.Base, frame.base}] {
-		return false, true
+	switch s.seen[[2]SimpleTypeID{derived.Base, frame.base}] {
+	case derivationPairSearched:
+		return false, true, nil
+	case derivationPairSearching:
+		return false, true, errSimpleDerivationCycle
+	case derivationPairUnseen:
 	}
 	s.push(derived.Base, frame.base)
-	return false, true
+	return false, true, nil
 }
 
 func (s *simpleTypeUnionDerivationSearch) push(derived, base SimpleTypeID) {
@@ -1188,6 +1215,9 @@ func (s *simpleTypeUnionDerivationSearch) push(derived, base SimpleTypeID) {
 }
 
 func (s *simpleTypeUnionDerivationSearch) pop(last int) {
+	if frame := s.stack[last]; frame.entered {
+		s.seen[[2]SimpleTypeID{frame.derived, frame.base}] = derivationPairSearched
+	}
 	s.stack = s.stack[:last]
 }
 

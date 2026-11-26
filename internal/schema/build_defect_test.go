@@ -362,25 +362,33 @@ func TestDerivationWalksReportMissingTypesAndCyclesAsBuildDefects(t *testing.T) 
 			}
 		})
 	}
-	simpleCorruptions := map[string]func(rt *schemaBuild, derived, base SimpleTypeID){
-		"intact": func(*schemaBuild, SimpleTypeID, SimpleTypeID) {},
+	t.Run("simple derivation/intact", func(t *testing.T) {
+		t.Parallel()
+		c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
+		derived := buildDefectSimpleType(t, &c.rt, "ShortCode")
+		_, found, err := simpleTypeDerivationMaskOf(&c.rt, derived, builtinSimpleTypeIDOf(t, &c.rt, "boolean"), unboundedTypeDerivationWork)
+		if err != nil || found {
+			t.Fatalf("derivation = %v, %v, want not derived and no error", found, err)
+		}
+	})
+	boolean := value.BuiltinType(value.PrimitiveBoolean)
+	baseCycle := cyclicSimpleTypeFixture(qnameRestrictionSpec)
+	memberCycle := cyclicSimpleTypeFixture(func(other SimpleTypeID) value.TypeSpec { return unionFixtureSpec(other) })
+	simpleCycles := map[string]struct {
+		fixture cyclicSimpleTypeFixture
+		walk    func(cycle cyclicSimpleTypes) (SimpleTypeID, SimpleTypeID)
+	}{
+		"base chain cycle to an atomic base": {baseCycle, func(c cyclicSimpleTypes) (SimpleTypeID, SimpleTypeID) { return c.first, boolean }},
+		"base chain cycle to a union base":   {baseCycle, func(c cyclicSimpleTypes) (SimpleTypeID, SimpleTypeID) { return c.first, c.union }},
+		"union member cycle in the base":     {memberCycle, func(c cyclicSimpleTypes) (SimpleTypeID, SimpleTypeID) { return boolean, c.first }},
 	}
-	for name, corrupt := range simpleCorruptions {
+	for name, tc := range simpleCycles {
 		t.Run("simple derivation/"+name, func(t *testing.T) {
 			t.Parallel()
-			c, _ := newEmptyComplexTypePublicationCompiler(t, buildDefectSchema)
-			derived, base := buildDefectSimpleType(t, &c.rt, "ShortCode"), buildDefectSimpleType(t, &c.rt, "Code")
-			corrupt(&c.rt, derived, base)
-			offChain := builtinSimpleTypeIDOf(t, &c.rt, "boolean")
-			_, found, err := simpleTypeDerivationMaskOf(&c.rt, derived, offChain, unboundedTypeDerivationWork)
-			if name == "intact" {
-				if err != nil || found {
-					t.Fatalf("derivation = %v, %v, want not derived and no error", found, err)
-				}
-				return
-			}
-			if !isBuildDefect(err) {
-				t.Fatalf("walk error = %v, want a build defect", err)
+			cycle := tc.fixture.build(t)
+			derived, base := tc.walk(cycle)
+			if _, _, err := simpleTypeDerivationMaskOf(cycle.rt, derived, base, unboundedTypeDerivationWork); !errors.Is(err, errSimpleDerivationCycle) {
+				t.Fatalf("walk error = %v, want %v", err, errSimpleDerivationCycle)
 			}
 		})
 	}
@@ -429,4 +437,65 @@ func TestCompileRuleChecksReportCorruptInputsAsInternalInvariantAndViolationsAsS
 			expectDiagnostic(t, tt.err, tt.category, tt.code)
 		})
 	}
+}
+
+// cyclicSimpleTypeFixture builds two simple types that reference each other,
+// which value.Builder admits when a facet literal's resolver completes the
+// second type while the first is in progress and the first is then completed
+// again. It returns the spec of a type that references other.
+type cyclicSimpleTypeFixture func(other SimpleTypeID) value.TypeSpec
+
+type cyclicSimpleTypes struct {
+	rt                   *schemaBuild
+	first, second, union SimpleTypeID
+}
+
+func (f cyclicSimpleTypeFixture) build(t *testing.T) cyclicSimpleTypes {
+	t.Helper()
+	b := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+	var ids [3]SimpleTypeID
+	for i := range ids {
+		id, err := b.Reserve()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids[i] = id
+	}
+	first, second, union := ids[0], ids[1], ids[2]
+	var nestedErr error
+	parentErr := b.Complete(first, value.TypeSpec{
+		Base:      value.BuiltinType(value.PrimitiveQName),
+		ListItem:  value.NoType,
+		Primitive: value.PrimitiveQName,
+		Facets: value.FacetSpec{
+			Present: value.FacetEnumeration,
+			Enumeration: []value.LiteralSpec{{
+				Type:    value.NoType,
+				Lexical: "p:item",
+				Resolver: value.Resolver{QName: func(string) (value.ExpandedName, bool) {
+					nestedErr = b.Complete(second, f(first))
+					return value.ExpandedName{}, false
+				}},
+			}},
+		},
+	})
+	if parentErr == nil || nestedErr != nil {
+		t.Fatalf("parent failure = %v, nested completion = %v", parentErr, nestedErr)
+	}
+	if err := b.Complete(first, f(second)); err != nil {
+		t.Fatalf("retry first = %v", err)
+	}
+	if err := b.Complete(union, unionFixtureSpec(value.BuiltinType(value.PrimitiveBoolean))); err != nil {
+		t.Fatalf("complete union = %v", err)
+	}
+	rt := &schemaBuild{SimpleTypes: make([]simpleType, union+1), valueBuilder: b}
+	return cyclicSimpleTypes{rt: rt, first: first, second: second, union: union}
+}
+
+func qnameRestrictionSpec(base SimpleTypeID) value.TypeSpec {
+	return value.TypeSpec{Base: base, ListItem: value.NoType, Primitive: value.PrimitiveQName}
+}
+
+func unionFixtureSpec(members ...SimpleTypeID) value.TypeSpec {
+	return value.TypeSpec{Base: value.NoType, ListItem: value.NoType, Variety: value.Union, Union: members}
 }
