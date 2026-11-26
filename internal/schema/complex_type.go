@@ -348,47 +348,58 @@ func validateComplexTypeExtensionRuntime(rt *schemaBuild, base, derived complexT
 
 // Extension after restriction must retain the attribute obligations of the
 // ancestor whose base is anyType (cos-ct-extends 1.5). Intermediate restrictions
-// can be discarded by the required two-step reconstruction; they are not anchors.
+// can be discarded by the required two-step reconstruction; their uses are not
+// retained.
 func validateComplexExtensionAttributeAncestry(rt *schemaBuild, derived complexTypeMetadata) error {
 	if derived.Derivation != derivationKindExtension {
 		return nil
 	}
-	anchor, restricted, err := complexExtensionAttributeAnchor(rt, derived.Base)
-	if err != nil {
+	retained, err := retainedAncestorAttributeUses(rt, derived.Base)
+	if err != nil || len(retained) == 0 {
 		return err
 	}
-	if !restricted {
-		return nil
-	}
-	return validateExtensionAnchorAttributes(rt, anchor.Attrs, derived.Attrs)
+	return validateRetainedAncestorAttributes(rt, retained, derived.Attrs)
 }
 
-func complexExtensionAttributeAnchor(rt *schemaBuild, base TypeID) (*complexTypeMetadata, bool, error) {
+// retainedAncestorAttributeUses returns the attribute uses of the ancestor of
+// base whose base is anyType when a restriction lies on the path to it, and
+// none otherwise.
+func retainedAncestorAttributeUses(rt *schemaBuild, base TypeID) ([]attributeUse, error) {
 	current := base
 	restricted := false
 	for range len(rt.ComplexTypes) {
-		id, isComplex := current.Complex()
-		if !isComplex || id == rt.AnyType {
-			return nil, false, nil
+		id, ok := derivedComplexType(rt, current)
+		if !ok {
+			return nil, nil
 		}
 		if err := rt.spendTypeDerivationWork(1); err != nil {
-			return nil, false, err
+			return nil, err
 		}
 		// Base references are admitted before derivation checks.
 		ancestor := &rt.ComplexTypes[id]
-		if ancestor.Base == ComplexRef(rt.AnyType) {
-			return ancestor, restricted, nil
+		if ancestor.Base != ComplexRef(rt.AnyType) {
+			restricted = restricted || ancestor.Derivation == derivationKindRestriction
+			current = ancestor.Base
+			continue
 		}
-		restricted = restricted || ancestor.Derivation == derivationKindRestriction
-		current = ancestor.Base
+		if restricted {
+			return rt.AttributeUseSets[ancestor.Attrs].Uses, nil
+		}
+		return nil, nil
 	}
-	return nil, false, newBuildDefect("extension ancestry contains a cycle")
+	return nil, newBuildDefect("extension ancestry contains a cycle")
 }
 
-func validateExtensionAnchorAttributes(rt *schemaBuild, anchorID, derivedID attributeUseSetID) error {
-	anchor := rt.AttributeUseSets[anchorID]
+// derivedComplexType returns the complex type t names unless t is a simple
+// type or anyType.
+func derivedComplexType(rt *schemaBuild, t TypeID) (ComplexTypeID, bool) {
+	id, isComplex := t.Complex()
+	return id, isComplex && id != rt.AnyType
+}
+
+func validateRetainedAncestorAttributes(rt *schemaBuild, retained []attributeUse, derivedID attributeUseSetID) error {
 	derived := rt.AttributeUseSets[derivedID]
-	for _, use := range anchor.Uses {
+	for _, use := range retained {
 		if err := rt.spendTypeDerivationWork(1); err != nil {
 			return err
 		}
