@@ -11,7 +11,7 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *testing.T) {
+func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndAbortedStart(t *testing.T) {
 	t.Parallel()
 
 	// ".//." is dispatched through activeByConstraint and matches the scope
@@ -20,7 +20,7 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	evaluation := fixture.evaluation
 	constraint := evaluation.selections[0].constraint
 	constraints := evaluation.scopes[0].constraints
-	rootName := xsdSchema.RuntimeName{Known: true, Name: fixture.elemName}
+	rootName := fixture.elemName
 	// Hits are sorted by scope, not deduplicated, so a leaked registration
 	// shows as an extra hit. The raw append order is not contractual.
 	requireHits := func(step string, depth int, scopes ...int) {
@@ -73,24 +73,20 @@ func TestIdentityScopeDispatchIndexUnregistersNestedReuseAndPartialAbort(t *test
 	requireRegistrations("after reused close", 1)
 
 	if err := evaluation.beginStart(); err != nil {
-		t.Fatalf("beginStart(partial scope): %v", err)
+		t.Fatalf("beginStart(aborted scope): %v", err)
 	}
-	partial, ok := xsdSchema.ElementIdentityConstraintIDs([][]xsdSchema.IdentityConstraintID{{constraint, xsdSchema.NoIdentityConstraint}}, 0)
-	if !ok {
-		t.Fatal("constructing partial scope constraints failed")
-	}
-	evaluation.scopes = append(evaluation.scopes, identityScope{depth: 2, constraints: partial})
-	if err := evaluation.registerIdentityScope(1); err == nil {
-		t.Fatal("register partial scope succeeded, want metadata error")
+	evaluation.scopes = append(evaluation.scopes, identityScope{depth: 2, constraints: constraints})
+	if err := evaluation.registerIdentityScope(1); err != nil {
+		t.Fatalf("register aborted scope: %v", err)
 	}
 	evaluation.path = []xsdSchema.RuntimeName{rootName, rootName}
-	requireHits("partial registration", 2, 0, 1)
+	requireHits("aborted scope registration", 2, 0, 1)
 	evaluation.abortStart()
 	if len(evaluation.scopes) != 1 {
-		t.Fatalf("scopes after partial abort = %d, want parent only", len(evaluation.scopes))
+		t.Fatalf("scopes after abort = %d, want parent only", len(evaluation.scopes))
 	}
-	requireHits("after partial abort", 1, 0)
-	requireRegistrations("after partial abort", 1)
+	requireHits("after abort", 1, 0)
+	requireRegistrations("after abort", 1)
 
 	// A failed keyref report leaves the scope registered and dispatchable. The
 	// next close, after recovery accepts the report, removes that scope.

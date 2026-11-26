@@ -28,15 +28,15 @@ func TestRetainedBytesChargesSharedRangeArrayOnce(t *testing.T) {
 	}
 }
 
-func TestRetainedBytesCountsClosures(t *testing.T) {
+func TestRetainedBytesCountsClosureBitsets(t *testing.T) {
 	t.Parallel()
 	p := mustCompile(t, `(a?){1,15}b`)
-	if p.linear != nil || len(p.closures) == 0 {
-		t.Fatalf("pattern is not on the NFA path with precomputed closures (linear=%v, closures=%d)", p.linear != nil, len(p.closures))
+	if p.mode != modeBitset || len(p.closureBits) == 0 {
+		t.Fatalf("pattern is not in bitset mode with closure bitsets (mode=%d, words=%d)", p.mode, len(p.closureBits))
 	}
 	floor := uint64(instructionBytes*len(p.states) + len(p.source))
 	if got := p.RetainedBytes(); got <= floor {
-		t.Fatalf("RetainedBytes = %d, want > %d: closures must be counted", got, floor)
+		t.Fatalf("RetainedBytes = %d, want > %d: closure bitsets must be counted", got, floor)
 	}
 }
 

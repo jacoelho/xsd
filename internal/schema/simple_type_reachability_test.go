@@ -119,16 +119,25 @@ func TestSimpleTypesNamedThroughOneEdgeKeepTheirValueDefinition(t *testing.T) {
 func zeroCountSimpleTypes(t *testing.T, build *schemaBuild) []SimpleTypeID {
 	t.Helper()
 	var ids []SimpleTypeID
-	for i, typ := range build.SimpleTypes {
-		spec := typ.ValueSpec
-		if len(spec.Facets.Enumeration) > 0 && slices.Contains([]string{"x", "y"}, spec.Facets.Enumeration[0].Lexical) {
-			ids = append(ids, SimpleTypeID(i)) // #nosec G115 -- i indexes the simple-type table.
+	for i := range build.SimpleTypes {
+		id := SimpleTypeID(i) // #nosec G115 -- i indexes the simple-type table.
+		if buildTypeView(t, build, id).HasEnumeration {
+			ids = append(ids, id)
 		}
 	}
 	if len(ids) != 2 {
 		t.Fatalf("zero-count simple types = %v, want z2's attribute type and z3's text type", ids)
 	}
 	return ids
+}
+
+func buildTypeView(t *testing.T, build *schemaBuild, id SimpleTypeID) value.TypeView {
+	t.Helper()
+	view, ok := build.valueBuilder.TypeView(id)
+	if !ok {
+		t.Fatalf("simple type %d has no value definition", id)
+	}
+	return view
 }
 
 func TestUnreachedSimpleTypesPublishNoValueDefinition(t *testing.T) {
@@ -155,7 +164,7 @@ func TestZeroCountElementKeepsNoInlineSimpleType(t *testing.T) {
 	if got, want := len(withInline.SimpleTypes), len(withoutInline.SimpleTypes); got != want {
 		t.Fatalf("simple types with z1 and z4 = %d, want %d as without them: their inline types and z4's list item are dropped", got, want)
 	}
-	if got, want := withInline.valueBuilder.UserTypeCount(), withoutInline.valueBuilder.UserTypeCount(); got != want {
+	if got, want := userTypeCount(withInline.valueBuilder), userTypeCount(withoutInline.valueBuilder); got != want {
 		t.Fatalf("value types with z1 and z4 = %d, want %d as without them", got, want)
 	}
 }
@@ -174,7 +183,7 @@ func TestProhibitedAttributeKeepsNoInlineSimpleType(t *testing.T) {
 	if got, want := len(withInline.SimpleTypes), len(withoutInline.SimpleTypes); got != want {
 		t.Fatalf("simple types with p's inline list = %d, want %d as without it: the list and its item are dropped", got, want)
 	}
-	if got, want := withInline.valueBuilder.UserTypeCount(), withoutInline.valueBuilder.UserTypeCount(); got != want {
+	if got, want := userTypeCount(withInline.valueBuilder), userTypeCount(withoutInline.valueBuilder); got != want {
 		t.Fatalf("value types with p's inline list = %d, want %d as without it", got, want)
 	}
 }
@@ -195,7 +204,7 @@ func TestZeroCountInlineTypeCreatingTheMissingTypeKeepsOnlyThePlaceholder(t *tes
 		t.Fatalf("simple types with z = %d, want %d as without z: z's inline list is dropped and the placeholder it created is kept", got, want)
 	}
 	g := build.Attributes[build.GlobalAttributes[mustBuildQName(t, build, "g")]].Type
-	item := build.SimpleTypes[g].ValueSpec.ListItem
+	item := buildTypeView(t, build, g).ListItem
 	if !validSimpleTypeID(item, len(build.SimpleTypes)) || !build.SimpleTypes[item].Missing {
 		t.Fatalf("g's list item = %d of %d simple types, want the missing-type placeholder", item, len(build.SimpleTypes))
 	}
@@ -246,15 +255,15 @@ func TestPublicationRejectsAReadNamingAnUnreachedSimpleType(t *testing.T) {
 		}},
 		{name: "base of a reached type", message: "sealing the value program: type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
-			return build.SimpleTypes[buildGlobalSimpleType(t, build, "T")].ValueSpec.Base
+			return buildTypeView(t, build, buildGlobalSimpleType(t, build, "T")).Base
 		}},
 		{name: "list item of a reached type", message: "sealing the value program: type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
-			return build.SimpleTypes[buildGlobalSimpleType(t, build, "L")].ValueSpec.ListItem
+			return buildTypeView(t, build, buildGlobalSimpleType(t, build, "L")).ListItem
 		}},
 		{name: "union member of a reached type", message: "sealing the value program: type", holder: func(t *testing.T, build *schemaBuild) SimpleTypeID {
 			t.Helper()
-			return build.SimpleTypes[buildGlobalSimpleType(t, build, "U")].ValueSpec.Union[1]
+			return buildTypeView(t, build, buildGlobalSimpleType(t, build, "U")).Union[1]
 		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

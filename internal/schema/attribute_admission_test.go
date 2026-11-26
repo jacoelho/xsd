@@ -153,7 +153,7 @@ func TestDefaultAndFixedTogetherRejectedAtTheirSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" + tt.body + "\n</xs:schema>"
-			_, err := Compile(Options{}, []source.Source{source.Bytes("constraints.xsd", []byte(schema))})
+			_, err := compileSources(Options{}, []source.Source{source.Bytes("constraints.xsd", []byte(schema))})
 			issue, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok {
 				t.Fatalf("Compile() error = %T %[1]v, want structured diagnostic", err)

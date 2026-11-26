@@ -156,7 +156,7 @@ func TestValidateBytesNMTokensListChargesEveryItem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, ok := BuiltinTypeID("NMTOKENS")
+	id, ok := builtinTypeID("NMTOKENS")
 	if !ok {
 		t.Fatal("missing NMTOKENS builtin")
 	}
@@ -237,7 +237,7 @@ func TestValidateNMTokensListItemDepth(t *testing.T) {
 				{name: "custom", id: custom, want: tc.custom},
 			} {
 				t.Run(list.name, func(t *testing.T) {
-					assertListDepthValidation(t, p, list.id, tc.input, 16<<20, listDepthResult{selected: NoType, err: list.want})
+					assertListDepthValidation(t, p, list.id, tc.input, 16<<20, listDepthResult{member: NoType, err: list.want})
 				})
 			}
 		})
@@ -294,18 +294,20 @@ func TestValidateNMTokensUnionItemDepth(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			selected := builtinString
+			member := builtinString
 			if tc.wantList {
-				selected = list
+				member = list
 			}
-			assertListDepthValidation(t, p, id, tc.input, tc.work, listDepthResult{selected: selected, err: tc.want})
+			assertListDepthValidation(t, p, id, tc.input, tc.work, listDepthResult{member: member, err: tc.want})
 		})
 	}
 }
 
+// listDepthResult names the union member whose value an accepted input must
+// equal, or NoType when id is not a union.
 type listDepthResult struct {
-	selected TypeID
-	err      error
+	member TypeID
+	err    error
 }
 
 func assertListDepthValidation(t *testing.T, p *Program, id TypeID, input string, work uint64, want listDepthResult) {
@@ -326,14 +328,27 @@ func assertListDepthValidation(t *testing.T, p *Program, id TypeID, input string
 		{name: "projected bytes", validate: func() (Value, error) {
 			return p.ValidateBytes(id, []byte(input), Resolver{}, NeedCanonical, EvaluationLimits{Work: work, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil)
 		}},
+		{name: "identity bytes", validate: func() (Value, error) {
+			return p.ValidateBytes(id, []byte(input), Resolver{}, NeedIdentity, EvaluationLimits{Work: work, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil)
+		}},
 	} {
 		t.Run(entry.name, func(t *testing.T) {
 			got, err := entry.validate()
 			if !errors.Is(err, want.err) {
 				t.Fatalf("validation of %q error = %v, want %v", input, err, want.err)
 			}
-			if err == nil && (got.Type() != id || got.SelectedType() != want.selected) {
-				t.Fatalf("result type = %d, selected = %d; want type %d, selected %d", got.Type(), got.SelectedType(), id, want.selected)
+			if err != nil {
+				return
+			}
+			if got.Type() != id {
+				t.Fatalf("result type = %d; want %d", got.Type(), id)
+			}
+			if want.member == NoType || !got.HasIdentity() {
+				return
+			}
+			member, memberErr := p.Validate(want.member, input, Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil)
+			if memberErr != nil || got.IdentityKey() != member.IdentityKey() {
+				t.Fatalf("union identity = %q; want member %d identity %q, %v", got.IdentityKey(), want.member, member.IdentityKey(), memberErr)
 			}
 		})
 	}
@@ -589,23 +604,29 @@ func TestValidateBytesUnionPreservesSelectionAndProjections(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		lexical  string
-		selected TypeID
+		identity string
 		ids      string
 	}{
-		{lexical: "true", selected: builtinBoolean},
-		{lexical: "item", selected: builtinID, ids: "item"},
-		{lexical: "two words", selected: builtinString},
-		{lexical: "\t item  ", selected: builtinID, ids: "item"},
+		{lexical: "true", identity: PrimitiveIdentityKey(PrimitiveBoolean, "true")},
+		{lexical: "item", identity: PrimitiveIdentityKey(PrimitiveString, "item"), ids: "item"},
+		{lexical: "two words", identity: PrimitiveIdentityKey(PrimitiveString, "two words")},
+		{lexical: "\t item  ", identity: PrimitiveIdentityKey(PrimitiveString, "item"), ids: "item"},
 	} {
 		t.Run(tc.lexical, func(t *testing.T) {
-			raw := []byte(tc.lexical)
-			v, err := p.ValidateBytes(id, raw, Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			clear(raw)
-			if v.Type() != id || v.SelectedType() != tc.selected || v.IDs() != tc.ids {
-				t.Fatalf("union result = type %d, selected %d, IDs %q; want %d, %d, %q", v.Type(), v.SelectedType(), v.IDs(), id, tc.selected, tc.ids)
+			for _, needs := range []Needs{0, NeedIdentity} {
+				raw := []byte(tc.lexical)
+				v, err := p.ValidateBytes(id, raw, Resolver{}, needs, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				clear(raw)
+				identity := ""
+				if needs != 0 {
+					identity = tc.identity
+				}
+				if v.Type() != id || v.IdentityKey() != identity || v.IDs() != tc.ids {
+					t.Fatalf("needs %d: union result = type %d, identity %q, IDs %q; want %d, %q, %q", needs, v.Type(), v.IdentityKey(), v.IDs(), id, identity, tc.ids)
+				}
 			}
 		})
 	}
@@ -779,8 +800,8 @@ func TestValidateBytesUnionRetainsIDREFSelectionAndProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Type() != id || v.SelectedType() != builtinIDREF || v.IDRefs() != "ref" {
-		t.Fatalf("union value = type %d, selected %d, IDRefs %q; want type %d, selected %d, IDRefs %q", v.Type(), v.SelectedType(), v.IDRefs(), id, builtinIDREF, "ref")
+	if v.Type() != id || v.IDRefs() != "ref" {
+		t.Fatalf("union value = type %d, IDRefs %q; want type %d, IDRefs %q", v.Type(), v.IDRefs(), id, "ref")
 	}
 }
 
@@ -892,7 +913,7 @@ func assertNumericByteCases(t *testing.T, program *Program, id TypeID, cases []n
 			}
 			continue
 		}
-		if err != nil || got.Type() != id || got.SelectedType() != NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+		if err != nil || got.Type() != id || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
 			t.Fatalf("ValidateBytes(%q) = %#v, %v", test.input, got, err)
 		}
 	}
@@ -990,7 +1011,7 @@ func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
 			for _, tc := range test.cases {
 				got, err := program.ValidateBytes(id, []byte(tc.input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
 				if tc.message == "" {
-					if err != nil || got.Type() != id || got.SelectedType() != NoType || got.CanonicalText() != "" || got.IdentityKey() != "" {
+					if err != nil || got.Type() != id || got.CanonicalText() != "" || got.IdentityKey() != "" {
 						t.Fatalf("ValidateBytes(%q) = %#v, %v", tc.input, got, err)
 					}
 				} else {
@@ -1001,13 +1022,18 @@ func TestRawDecimalAdmittedBoundFallbacks(t *testing.T) {
 						t.Fatalf("ValidateBytes(%q) error %v lacks facet classification", tc.input, err)
 					}
 				}
-				selected, unionErr := program.ValidateBytes(union, []byte(tc.input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
-				want := id
-				if tc.message != "" {
-					want = BuiltinType(PrimitiveString)
+				unprojected, unionErr := program.ValidateBytes(union, []byte(tc.input), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
+				if unionErr != nil || unprojected.Type() != union {
+					t.Fatalf("union ValidateBytes(%q) type=%d, error=%v; want %d", tc.input, unprojected.Type(), unionErr, union)
 				}
-				if unionErr != nil || selected.Type() != union || selected.SelectedType() != want {
-					t.Fatalf("union ValidateBytes(%q) type/selection=%d/%d, error=%v; want %d/%d", tc.input, selected.Type(), selected.SelectedType(), unionErr, union, want)
+				member := id
+				if tc.message != "" {
+					member = BuiltinType(PrimitiveString)
+				}
+				want, memberErr := program.ValidateBytes(member, []byte(tc.input), Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
+				projected, unionErr := program.ValidateBytes(union, []byte(tc.input), Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, &scratch)
+				if memberErr != nil || unionErr != nil || projected.IdentityKey() != want.IdentityKey() {
+					t.Fatalf("union ValidateBytes(%q) identity=%q, error=%v; want member %d identity %q, %v", tc.input, projected.IdentityKey(), unionErr, member, want.IdentityKey(), memberErr)
 				}
 			}
 		})
@@ -1078,8 +1104,8 @@ func TestRawPrimitiveTokenValidationReuse(t *testing.T) {
 		}
 		for _, text := range tc.valid {
 			got, err := program.ValidateBytes(id, []byte(text), Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: sequentialPatternTotal}, &scratch)
-			if err != nil || got.Type() != id || got.SelectedType() != NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
-				t.Fatalf("primitive %d %q: type/selected/canonical %d/%d/%q, %v", tc.kind, text, got.Type(), got.SelectedType(), got.CanonicalText(), err)
+			if err != nil || got.Type() != id || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+				t.Fatalf("primitive %d %q: type/canonical %d/%q, %v", tc.kind, text, got.Type(), got.CanonicalText(), err)
 			}
 		}
 	}
@@ -1122,8 +1148,8 @@ func TestUnprojectedStringByteResultAndWorkContract(t *testing.T) {
 				if err != nil {
 					t.Fatalf("%s: %v", test.name, err)
 				}
-				if got.Type() != typ.id || got.SelectedType() != NoType {
-					t.Fatalf("%s: type=%d selected=%d; want %d/%d", test.name, got.Type(), got.SelectedType(), typ.id, NoType)
+				if got.Type() != typ.id {
+					t.Fatalf("%s: type=%d; want %d", test.name, got.Type(), typ.id)
 				}
 				if got.CanonicalText() != test.canonical || got.IdentityKey() != test.key || got.HasIdentity() != test.identity {
 					t.Fatalf("%s: canonical=%q identity=%q present=%v; want %q/%q/%v", test.name, got.CanonicalText(), got.IdentityKey(), got.HasIdentity(), test.canonical, test.key, test.identity)

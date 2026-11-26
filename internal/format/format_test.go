@@ -213,9 +213,9 @@ func TestMaxBytesWriterAccountsActualBytesBeforeNextLimit(t *testing.T) {
 
 func TestFormatXMLIndentsElements(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root><item id="1"><name>A &amp; B</name></item><empty/></root>`)
+	err := XMLWithOptions(&out, `<root><item id="1"><name>A &amp; B</name></item><empty/></root>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<root>
@@ -225,22 +225,22 @@ func TestFormatXMLIndentsElements(t *testing.T) {
   <empty></empty>
 </root>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
 func TestFormatXMLPreservesWhitespaceOnlyText(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root><v> </v></root>`)
+	err := XMLWithOptions(&out, `<root><v> </v></root>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<root>
   <v> </v>
 </root>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
@@ -248,13 +248,13 @@ func TestFormatXMLRejectsXML11WithoutInternalCause(t *testing.T) {
 	t.Parallel()
 
 	var out strings.Builder
-	err := XML(&out, `<?xml version="1.1"?><root/>`)
+	err := XMLWithOptions(&out, `<?xml version="1.1"?><root/>`, Options{})
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok || diagnostic.Code() != xsderrors.CodeUnsupportedXMLVersion {
-		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeUnsupportedXMLVersion)
+		t.Fatalf("XMLWithOptions() error = %v, want %q", err, xsderrors.CodeUnsupportedXMLVersion)
 	}
 	if diagnostic.Cause() != nil {
-		t.Fatalf("XML() XML 1.1 cause = %T, want nil", diagnostic.Cause())
+		t.Fatalf("XMLWithOptions() XML 1.1 cause = %T, want nil", diagnostic.Cause())
 	}
 }
 
@@ -283,13 +283,13 @@ func TestFormatXMLRejectsUnsupportedFeatures(t *testing.T) {
 			t.Parallel()
 
 			var out strings.Builder
-			err := XML(&out, tt.input)
+			err := XMLWithOptions(&out, tt.input, Options{})
 			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok || diagnostic.Code() != tt.code {
-				t.Fatalf("XML() error = %v, want %q", err, tt.code)
+				t.Fatalf("XMLWithOptions() error = %v, want %q", err, tt.code)
 			}
 			if diagnostic.Line() != tt.line || diagnostic.Column() != tt.column {
-				t.Fatalf("XML() location = %d:%d, want %d:%d", diagnostic.Line(), diagnostic.Column(), tt.line, tt.column)
+				t.Fatalf("XMLWithOptions() location = %d:%d, want %d:%d", diagnostic.Line(), diagnostic.Column(), tt.line, tt.column)
 			}
 		})
 	}
@@ -329,42 +329,42 @@ func TestFormatXMLKeepsLineBreakOnlyLeafTextInline(t *testing.T) {
 	t.Parallel()
 
 	var out strings.Builder
-	if err := XML(&out, "<root><v>\n</v></root>"); err != nil {
-		t.Fatalf("XML() error = %v", err)
+	if err := XMLWithOptions(&out, "<root><v>\n</v></root>", Options{}); err != nil {
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	const want = "<root>\n  <v>&#xA;</v>\n</root>"
 	if out.String() != want {
-		t.Fatalf("XML() = %q, want %q", out.String(), want)
+		t.Fatalf("XMLWithOptions() = %q, want %q", out.String(), want)
 	}
 }
 
 func TestFormatXMLDoesNotIndentMixedContent(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<p><b>bold</b>tail</p>`)
+	err := XMLWithOptions(&out, `<p><b>bold</b>tail</p>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<p><b>bold</b>tail</p>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLPreservesInlineWhitespaceBetweenElements(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<p><b>bold</b> <i>it</i></p>`)
+	err := XMLWithOptions(&out, `<p><b>bold</b> <i>it</i></p>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<p><b>bold</b> <i>it</i></p>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLReindentsLineBreakWhitespaceBetweenElements(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, "<root>\n<a></a>\n<b></b>\n</root>")
+	err := XMLWithOptions(&out, "<root>\n<a></a>\n<b></b>\n</root>", Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<root>
@@ -372,65 +372,65 @@ func TestFormatXMLReindentsLineBreakWhitespaceBetweenElements(t *testing.T) {
   <b></b>
 </root>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
 func TestFormatXMLPreservesSpaceWhitespaceBetweenElements(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root> <a></a> </root>`)
+	err := XMLWithOptions(&out, `<root> <a></a> </root>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<root> <a></a> </root>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
 func TestFormatXMLPreservesXMLSpace(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root xml:space="preserve"> <a> x </a> </root>`)
+	err := XMLWithOptions(&out, `<root xml:space="preserve"> <a> x </a> </root>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<root xml:space="preserve"> <a> x </a> </root>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLUsesLexicalXMLSpaceBeforeNamespaceAdmission(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, "<root xml:space=\"preserve\">\n  <a/>\n</root>")
+	err := XMLWithOptions(&out, "<root xml:space=\"preserve\">\n  <a/>\n</root>", Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	const want = "<root xml:space=\"preserve\">&#xA;  <a></a>&#xA;</root>"
 	if out.String() != want {
-		t.Fatalf("XML() = %q, want %q", out.String(), want)
+		t.Fatalf("XMLWithOptions() = %q, want %q", out.String(), want)
 	}
 }
 
 func TestFormatXMLEscapesAttributeWhitespace(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root a="x&#10;y&#13;z&#9;w"/>`)
+	err := XMLWithOptions(&out, `<root a="x&#10;y&#13;z&#9;w"/>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<root a="x&#10;y&#13;z&#9;w"></root>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLEscapesAttributePredefinedEntities(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root a="&amp;&lt;&quot;"/>`)
+	err := XMLWithOptions(&out, `<root a="&amp;&lt;&quot;"/>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<root a="&amp;&lt;&quot;"></root>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
@@ -466,11 +466,11 @@ func TestFormatXMLNormalizesAttributeSourceSpans(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var out strings.Builder
-			if err := XML(&out, tt.input); err != nil {
-				t.Fatalf("XML() error = %v", err)
+			if err := XMLWithOptions(&out, tt.input, Options{}); err != nil {
+				t.Fatalf("XMLWithOptions() error = %v", err)
 			}
 			if out.String() != tt.want {
-				t.Fatalf("XML() = %q, want %q", out.String(), tt.want)
+				t.Fatalf("XMLWithOptions() = %q, want %q", out.String(), tt.want)
 			}
 		})
 	}
@@ -478,28 +478,29 @@ func TestFormatXMLNormalizesAttributeSourceSpans(t *testing.T) {
 
 func TestFormatXMLPreservesNamespaceDeclarations(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<?xml version="1.0"?>
-<x:books xmlns:x="urn:books"><book id="bk001"/></x:books>`)
+	err := XMLWithOptions(&out, `<?xml version="1.0"?>
+<x:books xmlns:x="urn:books"><book id="bk001"/></x:books>`, Options{})
+
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<x:books xmlns:x="urn:books">
   <book id="bk001"></book>
 </x:books>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
 func TestFormatXMLStripsUTF8BOM(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, "\xef\xbb\xbf<root/>")
+	err := XMLWithOptions(&out, "\xef\xbb\xbf<root/>", Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<root></root>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
@@ -508,31 +509,31 @@ func TestFormatXMLHandlesBareCRText(t *testing.T) {
 	var out strings.Builder
 	var err error
 	go func() {
-		err = XML(&out, "<root>a\rb</root>")
+		err = XMLWithOptions(&out, "<root>a\rb</root>", Options{})
 		close(done)
 	}()
 
 	select {
 	case <-done:
 	case <-time.After(time.Second):
-		t.Fatal("XML() timed out")
+		t.Fatal("XMLWithOptions() timed out")
 	}
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<root>a&#xA;b</root>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLNormalizesCRLFTextWithoutDuplicatingCR(t *testing.T) {
 	var out strings.Builder
-	if err := XML(&out, "<root>a\r\nb</root>"); err != nil {
-		t.Fatalf("XML() error = %v", err)
+	if err := XMLWithOptions(&out, "<root>a\r\nb</root>", Options{}); err != nil {
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	const want = "<root>a&#xA;b</root>"
 	if out.String() != want {
-		t.Fatalf("XML() = %q, want %q", out.String(), want)
+		t.Fatalf("XMLWithOptions() = %q, want %q", out.String(), want)
 	}
 	var decoded struct {
 		Text string `xml:",chardata"`
@@ -547,12 +548,12 @@ func TestFormatXMLNormalizesCRLFTextWithoutDuplicatingCR(t *testing.T) {
 
 func TestFormatXMLNormalizesCDATALineEndings(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, "<root><![CDATA[a\rb]]></root>")
+	err := XMLWithOptions(&out, "<root><![CDATA[a\rb]]></root>", Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != "<root><![CDATA[a\nb]]></root>" {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
@@ -560,12 +561,12 @@ func TestFormatXMLPreservesLargeCDATASourceSpans(t *testing.T) {
 	content := strings.Repeat("x", 64*1024+17)
 	input := "<root><![CDATA[" + content + "]]></root>"
 	var out strings.Builder
-	if err := XML(&out, input); err != nil {
-		t.Fatalf("XML() error = %v", err)
+	if err := XMLWithOptions(&out, input, Options{}); err != nil {
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	want := "<root><![CDATA[" + content + "]]></root>"
 	if out.String() != want {
-		t.Fatalf("XML() length = %d, want %d", out.Len(), len(want))
+		t.Fatalf("XMLWithOptions() length = %d, want %d", out.Len(), len(want))
 	}
 }
 
@@ -573,31 +574,31 @@ func TestFormatXMLDecodesEntityAtInputBufferBoundary(t *testing.T) {
 	value := strings.Repeat("x", 64*1024-32) + "&amp;y"
 	input := `<root value="` + value + `"/>`
 	var out strings.Builder
-	if err := XML(&out, input); err != nil {
-		t.Fatalf("XML() error = %v", err)
+	if err := XMLWithOptions(&out, input, Options{}); err != nil {
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	want := `<root value="` + strings.Repeat("x", 64*1024-32) + `&amp;y"></root>`
 	if out.String() != want {
-		t.Fatalf("XML() output mismatch at entity boundary")
+		t.Fatalf("XMLWithOptions() output mismatch at entity boundary")
 	}
 }
 
 func TestFormatXMLNormalizesCommentAndProcessingInstructionLineEndings(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, "<root><!--a\rb--><?p a\r\nb?></root>")
+	err := XMLWithOptions(&out, "<root><!--a\rb--><?p a\r\nb?></root>", Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != "<root><!--a\nb--><?p a\nb?></root>" {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLPreservesProcessingInstructions(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="style.xsl"?><root><?pi data?><v>1</v></root><?tail?>`)
+	err := XMLWithOptions(&out, `<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="style.xsl"?><root><?pi data?><v>1</v></root><?tail?>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<?xml-stylesheet type="text/xsl" href="style.xsl"?>
@@ -607,7 +608,7 @@ func TestFormatXMLPreservesProcessingInstructions(t *testing.T) {
 </root>
 <?tail?>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
@@ -627,12 +628,12 @@ func TestFormatXMLRejectsMalformedProcessingInstructions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out strings.Builder
-			err := XML(&out, tt.input)
+			err := XMLWithOptions(&out, tt.input, Options{})
 			if err == nil {
-				t.Fatal("XML() succeeded")
+				t.Fatal("XMLWithOptions() succeeded")
 			}
 			if !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("XML() error = %v, want %q", err, tt.want)
+				t.Fatalf("XMLWithOptions() error = %v, want %q", err, tt.want)
 			}
 		})
 	}
@@ -640,46 +641,46 @@ func TestFormatXMLRejectsMalformedProcessingInstructions(t *testing.T) {
 
 func TestFormatXMLRejectsDuplicateAttributes(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root a="1" a="2"/>`)
+	err := XMLWithOptions(&out, `<root a="1" a="2"/>`, Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), "duplicate attribute") {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
 func TestFormatXMLRejectsExpandedDuplicateAttributes(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root xmlns:a="urn:x" xmlns:b="urn:x" a:id="1" b:id="2"/>`)
+	err := XMLWithOptions(&out, `<root xmlns:a="urn:x" xmlns:b="urn:x" a:id="1" b:id="2"/>`, Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), `duplicate attribute "{urn:x}id"`) {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
 func TestFormatXMLKeepsRelativeNamespaceAttributeDistinctFromDeclaration(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root xmlns:p="xmlns" p:value="v"/>`)
+	err := XMLWithOptions(&out, `<root xmlns:p="xmlns" p:value="v"/>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	const want = `<root xmlns:p="xmlns" p:value="v"></root>`
 	if out.String() != want {
-		t.Fatalf("XML() = %q, want %q", out.String(), want)
+		t.Fatalf("XMLWithOptions() = %q, want %q", out.String(), want)
 	}
 }
 
 func TestFormatXMLRejectsDuplicateNamespaceDeclarations(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root xmlns:a="urn:x" xmlns:a="urn:y"/>`)
+	err := XMLWithOptions(&out, `<root xmlns:a="urn:x" xmlns:a="urn:y"/>`, Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), "duplicate attribute") {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
@@ -695,23 +696,23 @@ func TestFormatXMLRejectsLargeDuplicateAttributes(t *testing.T) {
 	}
 	input.WriteString(` a39="dup"/>`)
 	var out strings.Builder
-	err := XML(&out, input.String())
+	err := XMLWithOptions(&out, input.String(), Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), `duplicate attribute "a39"`) {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
 func TestFormatXMLRejectsUnboundAttributePrefix(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root p:id="1"/>`)
+	err := XMLWithOptions(&out, `<root p:id="1"/>`, Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), `unbound namespace prefix "p"`) {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
@@ -723,12 +724,12 @@ func TestFormatXMLRejectsCDATAOutsideRoot(t *testing.T) {
 	} {
 		t.Run(input, func(t *testing.T) {
 			var out strings.Builder
-			err := XML(&out, input)
+			err := XMLWithOptions(&out, input, Options{})
 			if err == nil {
-				t.Fatal("XML() succeeded")
+				t.Fatal("XMLWithOptions() succeeded")
 			}
 			if !strings.Contains(err.Error(), "CDATA section outside root element") {
-				t.Fatalf("XML() error = %v", err)
+				t.Fatalf("XMLWithOptions() error = %v", err)
 			}
 		})
 	}
@@ -747,12 +748,12 @@ func TestFormatXMLRejectsMalformedComments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out strings.Builder
-			err := XML(&out, tt.input)
+			err := XMLWithOptions(&out, tt.input, Options{})
 			if err == nil {
-				t.Fatal("XML() succeeded")
+				t.Fatal("XMLWithOptions() succeeded")
 			}
 			if !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("XML() error = %v, want %q", err, tt.want)
+				t.Fatalf("XMLWithOptions() error = %v, want %q", err, tt.want)
 			}
 		})
 	}
@@ -760,12 +761,12 @@ func TestFormatXMLRejectsMalformedComments(t *testing.T) {
 
 func TestFormatXMLRejectsTextOutsideRoot(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root/>text`)
+	err := XMLWithOptions(&out, `<root/>text`, Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), "text outside root element") {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
@@ -775,18 +776,18 @@ func TestFormatXMLRejectsEmptyAndUnclosedDocuments(t *testing.T) {
 		input string
 		want  string
 	}{
-		{name: "empty", input: "", want: "XML document is empty"},
+		{name: "empty", input: "", want: "XML document has no root element"},
 		{name: "unclosed", input: "<root>", want: "unexpected EOF before end element </root>"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out strings.Builder
-			err := XML(&out, tt.input)
+			err := XMLWithOptions(&out, tt.input, Options{})
 			if err == nil {
-				t.Fatal("XML() succeeded")
+				t.Fatal("XMLWithOptions() succeeded")
 			}
 			if !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("XML() error = %v, want %q", err, tt.want)
+				t.Fatalf("XMLWithOptions() error = %v, want %q", err, tt.want)
 			}
 		})
 	}
@@ -796,13 +797,13 @@ func TestFormatXMLLocatesEmptyDocumentAtFirstLineAndColumn(t *testing.T) {
 	t.Parallel()
 
 	var out strings.Builder
-	err := XML(&out, "")
+	err := XMLWithOptions(&out, "", Options{})
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
-		t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeFormatXML)
+		t.Fatalf("XMLWithOptions() error = %v, want %q", err, xsderrors.CodeFormatXML)
 	}
 	if diagnostic.Line() != 1 || diagnostic.Column() != 1 {
-		t.Fatalf("XML() location = %d:%d, want 1:1", diagnostic.Line(), diagnostic.Column())
+		t.Fatalf("XMLWithOptions() location = %d:%d, want 1:1", diagnostic.Line(), diagnostic.Column())
 	}
 }
 
@@ -812,13 +813,13 @@ func TestFormatXMLRejectsTruncatedTrailingMarkup(t *testing.T) {
 		t.Run(suffix, func(t *testing.T) {
 			t.Parallel()
 			var out strings.Builder
-			err := XML(&out, `<root/>`+suffix)
+			err := XMLWithOptions(&out, `<root/>`+suffix, Options{})
 			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
-				t.Fatalf("XML() error = %v, want %q", err, xsderrors.CodeFormatXML)
+				t.Fatalf("XMLWithOptions() error = %v, want %q", err, xsderrors.CodeFormatXML)
 			}
 			if out.Len() != 0 {
-				t.Fatalf("XML() wrote %q before rejecting input", out.String())
+				t.Fatalf("XMLWithOptions() wrote %q before rejecting input", out.String())
 			}
 		})
 	}
@@ -903,8 +904,8 @@ func TestFormatXMLReportsEveryOutputLimitWithoutLocation(t *testing.T) {
 
 	const input = "<?pi data?>\n<root a=\"x &amp; y\">\n  <item>text &#x263A;</item>\n  <!-- c -->\n</root>"
 	var full strings.Builder
-	if err := XML(&full, input); err != nil {
-		t.Fatalf("XML() error = %v", err)
+	if err := XMLWithOptions(&full, input, Options{}); err != nil {
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	for limit := int64(1); limit < int64(full.Len()); limit++ {
 		var out strings.Builder
@@ -950,9 +951,9 @@ func TestFormatRenderReportsUnreadableTapeAsInternalInvariant(t *testing.T) {
 }
 
 func TestFormatXMLRejectsShortWriteWithoutWriterError(t *testing.T) {
-	err := XML(shortNilWriter{}, `<root/>`)
+	err := XMLWithOptions(shortNilWriter{}, `<root/>`, Options{})
 	if !errors.Is(err, io.ErrShortWrite) {
-		t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
+		t.Fatalf("XMLWithOptions() error = %v, want %v", err, io.ErrShortWrite)
 	}
 }
 
@@ -984,12 +985,12 @@ func TestFormatXMLRejectsInvalidWriterCounts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := XML(test.write, `<root/>`)
+			err := XMLWithOptions(test.write, `<root/>`, Options{})
 			if !errors.Is(err, io.ErrShortWrite) {
-				t.Fatalf("XML() error = %v, want %v", err, io.ErrShortWrite)
+				t.Fatalf("XMLWithOptions() error = %v, want %v", err, io.ErrShortWrite)
 			}
 			if errors.Is(err, writeErr) != test.wantCause {
-				t.Fatalf("XML() error = %v, write cause present = %t, want %t", err, errors.Is(err, writeErr), test.wantCause)
+				t.Fatalf("XMLWithOptions() error = %v, write cause present = %t, want %t", err, errors.Is(err, writeErr), test.wantCause)
 			}
 		})
 	}
@@ -1051,17 +1052,17 @@ func TestFormatXMLReturnsEveryWriterFailureUnchanged(t *testing.T) {
 			t.Parallel()
 
 			w, counter := shape.writer(0)
-			if err := XML(w, input); err != nil {
-				t.Fatalf("XML() error = %v", err)
+			if err := XMLWithOptions(w, input, Options{}); err != nil {
+				t.Fatalf("XMLWithOptions() error = %v", err)
 			}
 			for n := 1; n <= counter.calls; n++ {
 				w, _ := shape.writer(n)
-				err := XML(w, input)
+				err := XMLWithOptions(w, input, Options{})
 				if !errors.Is(err, writeErr) {
-					t.Fatalf("XML() failing write %d of %d: error = %v, want %v", n, counter.calls, err, writeErr)
+					t.Fatalf("XMLWithOptions() failing write %d of %d: error = %v, want %v", n, counter.calls, err, writeErr)
 				}
 				if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok {
-					t.Fatalf("XML() failing write %d of %d: diagnostic %q, want the writer error", n, counter.calls, diagnostic.Code())
+					t.Fatalf("XMLWithOptions() failing write %d of %d: diagnostic %q, want the writer error", n, counter.calls, diagnostic.Code())
 				}
 			}
 		})
@@ -1176,25 +1177,25 @@ func TestFormatXMLRejectsExcessiveDepth(t *testing.T) {
 	}
 
 	var out strings.Builder
-	err := XML(&out, input.String())
+	err := XMLWithOptions(&out, input.String(), Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 	if !strings.Contains(err.Error(), "MaxDepth") {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 }
 
 func TestFormatXMLReportsLine(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, "<root>\n  <a></root>")
+	err := XMLWithOptions(&out, "<root>\n  <a></root>", Options{})
 	if err == nil {
-		t.Fatal("XML() succeeded")
+		t.Fatal("XMLWithOptions() succeeded")
 	}
 
 	var xerr *xsderrors.Error
 	if !errors.As(err, &xerr) {
-		t.Fatalf("XML() error type = %T, want *xsderrors.Error", err)
+		t.Fatalf("XMLWithOptions() error type = %T, want *xsderrors.Error", err)
 	}
 	if xerr.Line() != 2 {
 		t.Fatalf("Line = %d, want 2", xerr.Line())
@@ -1204,32 +1205,32 @@ func TestFormatXMLReportsLine(t *testing.T) {
 func TestFormatXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
 	t.Parallel()
 	var out strings.Builder
-	err := XML(&out, "<root>\nabcdefgh\x01</root>")
+	err := XMLWithOptions(&out, "<root>\nabcdefgh\x01</root>", Options{})
 	var xerr *xsderrors.Error
 	if !errors.As(err, &xerr) {
-		t.Fatalf("XML() error = %T %v, want *xsderrors.Error", err, err)
+		t.Fatalf("XMLWithOptions() error = %T %v, want *xsderrors.Error", err, err)
 	}
 	if xerr.Line() != 2 || xerr.Column() != 9 {
-		t.Fatalf("XML() location = %d:%d, want 2:9", xerr.Line(), xerr.Column())
+		t.Fatalf("XMLWithOptions() location = %d:%d, want 2:9", xerr.Line(), xerr.Column())
 	}
 }
 
 func TestFormatXMLPreservesText(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root>  keep  </root>`)
+	err := XMLWithOptions(&out, `<root>  keep  </root>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 	if out.String() != `<root>  keep  </root>` {
-		t.Fatalf("XML() = %q", out.String())
+		t.Fatalf("XMLWithOptions() = %q", out.String())
 	}
 }
 
 func TestFormatXMLPreservesComments(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<root><!-- note --><v>1</v></root>`)
+	err := XMLWithOptions(&out, `<root><!-- note --><v>1</v></root>`, Options{})
 	if err != nil {
-		t.Fatalf("XML() error = %v", err)
+		t.Fatalf("XMLWithOptions() error = %v", err)
 	}
 
 	const want = `<root>
@@ -1237,7 +1238,7 @@ func TestFormatXMLPreservesComments(t *testing.T) {
   <v>1</v>
 </root>`
 	if out.String() != want {
-		t.Fatalf("XML() =\n%s\nwant\n%s", out.String(), want)
+		t.Fatalf("XMLWithOptions() =\n%s\nwant\n%s", out.String(), want)
 	}
 }
 
@@ -1250,12 +1251,12 @@ func TestFormatXMLKeepsCommentOnlyContentInline(t *testing.T) {
 	} {
 		t.Run(input, func(t *testing.T) {
 			var out strings.Builder
-			err := XML(&out, input)
+			err := XMLWithOptions(&out, input, Options{})
 			if err != nil {
-				t.Fatalf("XML() error = %v", err)
+				t.Fatalf("XMLWithOptions() error = %v", err)
 			}
 			if out.String() != input {
-				t.Fatalf("XML() = %q, want %q", out.String(), input)
+				t.Fatalf("XMLWithOptions() = %q, want %q", out.String(), input)
 			}
 		})
 	}
@@ -1264,7 +1265,7 @@ func TestFormatXMLKeepsCommentOnlyContentInline(t *testing.T) {
 func TestFormatXMLRejectsReferencesOutsideRoot(t *testing.T) {
 	for _, input := range []string{`&#32;<root/>`, `<root/>&#x20;`, " \t&#9;\n<root/>"} {
 		var out strings.Builder
-		err := XML(&out, input)
+		err := XMLWithOptions(&out, input, Options{})
 		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 		if !ok || diagnostic.Code() != xsderrors.CodeFormatXML || out.Len() != 0 {
 			t.Fatalf("XML(%q) = %v, output %q; want format.xml and no output", input, err, out.String())
@@ -1274,25 +1275,25 @@ func TestFormatXMLRejectsReferencesOutsideRoot(t *testing.T) {
 
 func TestFormatXMLPreservesInnerReferences(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, " \r\n<root>&#32;x&amp;y<![CDATA[&#32;]]></root>\t")
+	err := XMLWithOptions(&out, " \r\n<root>&#32;x&amp;y<![CDATA[&#32;]]></root>\t", Options{})
 	const want = `<root> x&amp;y<![CDATA[&#32;]]></root>`
 	if err != nil || out.String() != want {
-		t.Fatalf("XML() = %v, output %q; want %q", err, out.String(), want)
+		t.Fatalf("XMLWithOptions() = %v, output %q; want %q", err, out.String(), want)
 	}
 }
 
 func TestFormatXMLRejectsEmptyEntityReferenceWithoutOutput(t *testing.T) {
 	var out strings.Builder
-	err := XML(&out, `<r>&;</r>`)
+	err := XMLWithOptions(&out, `<r>&;</r>`, Options{})
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok || diagnostic.Code() != xsderrors.CodeFormatXML {
-		t.Fatalf("XML() error = %v, want format.xml", err)
+		t.Fatalf("XMLWithOptions() error = %v, want format.xml", err)
 	}
 	if err == nil {
-		t.Fatal("XML() accepted empty entity reference")
+		t.Fatal("XMLWithOptions() accepted empty entity reference")
 	}
 	if out.Len() != 0 {
-		t.Fatalf("XML() wrote %q before rejecting malformed entity", out.String())
+		t.Fatalf("XMLWithOptions() wrote %q before rejecting malformed entity", out.String())
 	}
 }
 
@@ -1308,5 +1309,14 @@ func TestFormatUnreachableReaderStatesKeepTheReaderError(t *testing.T) {
 		if !ok || diagnostic.Code() != xsderrors.CodeInternalInvariant || !errors.Is(err, cause) {
 			t.Errorf("%s: error = %v, want an internal invariant wrapping the reader error", name, err)
 		}
+	}
+}
+
+func TestReaderErrorMapsReaderMisuseToInternalInvariant(t *testing.T) {
+	var reader xmlstream.Reader
+	err := readerError(&reader, reader.Complete(), Options{})
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category() != xsderrors.CategoryInternal || diagnostic.Code() != xsderrors.CodeInternalInvariant {
+		t.Fatalf("error = %v, want internal.invariant", err)
 	}
 }

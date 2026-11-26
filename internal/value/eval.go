@@ -20,12 +20,12 @@ type Value struct {
 	identity string
 	// projection holds the xs:ID projection followed by the xs:IDREF
 	// projection; idsLength splits them. A list or union value can carry both.
-	projection   string
-	typeID       TypeID
-	selected     TypeID
-	idsLength    uint32
-	identityKind PrimitiveKind
-	flags        valueFlags
+	projection        string
+	identityTextBytes int
+	typeID            TypeID
+	idsLength         uint32
+	identityKind      PrimitiveKind
+	flags             valueFlags
 }
 
 // NewUntypedValue constructs the lexical value used by mixed-content default
@@ -33,7 +33,7 @@ type Value struct {
 // not an XSD simple type, but it still needs the same immutable value carrier
 // at the schema/validation boundary.
 func NewUntypedValue(lexical string) Value {
-	return Value{typeID: NoType, selected: NoType, canonical: lexical}
+	return Value{typeID: NoType, canonical: lexical}
 }
 
 type valueFlags uint8
@@ -50,12 +50,11 @@ const (
 // retaining the complete tagged payload in every published result made scalar
 // and list values unnecessarily large.
 //
-// typeID keeps the requested type through list and union evaluation;
-// selected records immediate union selection separately. Rejected: publishing
-// the requested type ID only at the result entrypoint, because matched
-// measurements regressed base64 enumeration construction while retained value
-// sizes stayed unchanged. This does not reject other ways to remove redundant
-// type transport.
+// typeID keeps the requested type through list and union evaluation.
+// Rejected: publishing the requested type ID only at the result entrypoint,
+// because matched measurements regressed base64 enumeration construction while
+// retained value sizes stayed unchanged. This does not reject other ways to
+// remove redundant type transport.
 type parsedValue struct {
 	canonical          string
 	identity           string
@@ -63,8 +62,8 @@ type parsedValue struct {
 	idrefs             string
 	items              []parsedValue
 	atom               atomicValue
+	canonicalTextBytes int
 	typeID             TypeID
-	selected           TypeID
 	count              uint32
 	isList             bool
 	listQualifiedNames bool
@@ -107,10 +106,6 @@ type lexicalValue struct {
 // Type returns the type program ID that accepted the value.
 func (v Value) Type() TypeID { return v.typeID }
 
-// SelectedType returns the union member that accepted v, or NoType for a
-// non-union value.
-func (v Value) SelectedType() TypeID { return v.selected }
-
 // CanonicalText returns the canonical lexical projection when requested.
 func (v Value) CanonicalText() string { return v.canonical }
 
@@ -119,6 +114,10 @@ func (v Value) HasQualifiedNames() bool { return v.flags&valueQualifiedNames != 
 
 // HasIdentity reports whether the value-space identity projection was requested.
 func (v Value) HasIdentity() bool { return v.flags&valueHasIdentity != 0 }
+
+// IdentityTextBytes returns the byte length of v's canonical text when
+// HasIdentity is true, and 0 otherwise.
+func (v Value) IdentityTextBytes() int { return v.identityTextBytes }
 
 // IdentityKey serializes the value-space identity projection when requested.
 func (v Value) IdentityKey() string {
@@ -396,35 +395,35 @@ func (p *Program) validateBorrowedBytes(id TypeID, lexical []byte, resolver Reso
 		if err := budget.charge(lexicalLength(len(lexical))); err != nil {
 			return Value{}, err
 		}
-		return Value{typeID: id, selected: NoType}, nil
+		return Value{typeID: id}, nil
 	}
 	if id == NoType || needs != 0 {
 		return p.validateValueWithBudget(id, string(lexical), &evaluationRequest{
 			resolver: resolver, needs: needs, scratch: scratch, budget: budget, admitted: true,
 		})
 	}
-	selected, handled, err := p.evalBytes(id, lexical, scratch, budget, 0)
+	handled, err := p.evalBytes(id, lexical, scratch, budget, 0)
 	if err != nil {
 		return Value{}, describeValueFailure(p, id, lexical, nil, err)
 	}
 	if handled {
-		return Value{typeID: id, selected: selected}, nil
+		return Value{typeID: id}, nil
 	}
 	return p.validateValueWithBudget(id, string(lexical), &evaluationRequest{
 		resolver: resolver, needs: needs, scratch: scratch, budget: budget, admitted: true,
 	})
 }
 
-func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
+func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (bool, error) {
 	if err := budget.charge(lexicalLength(len(lexical))); err != nil {
-		return NoType, true, err
+		return true, err
 	}
 	if p.maxDepth != 0 && depth >= int(p.maxDepth) {
-		return NoType, true, ErrLimit
+		return true, ErrLimit
 	}
 	t, ok := p.typeDef(id)
 	if !ok {
-		return NoType, true, ErrMetadata
+		return true, ErrMetadata
 	}
 	switch t.variety { //nolint:exhaustive // default rejects varietyDiscarded.
 	case Atomic:
@@ -434,36 +433,36 @@ func (p *Program) evalBytes(id TypeID, lexical []byte, scratch *Scratch, budget 
 	case List:
 		return p.evalListBytes(t, lexical, budget, depth)
 	default:
-		return NoType, true, ErrMetadata
+		return true, ErrMetadata
 	}
 }
 
-func (p *Program) evalListBytes(t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (TypeID, bool, error) {
+func (p *Program) evalListBytes(t *typeDef, lexical []byte, budget *evaluationBudget, depth int) (bool, error) {
 	if t.facets.raw.kind != rawPlanNMTokens {
-		return NoType, false, nil
+		return false, nil
 	}
-	return NoType, true, p.scanNMTokensListBytes(t, lexical, budget, depth)
+	return true, p.scanNMTokensListBytes(t, lexical, budget, depth)
 }
 
-func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (TypeID, bool, error) {
+func (p *Program) evalUnionBytes(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget, depth int) (bool, error) {
 	if t.carriers != 0 || t.facets.present != 0 || hasXMLWhitespaceBytes(lexical) {
-		return NoType, false, nil
+		return false, nil
 	}
 	var last, unsupported error
 	for _, member := range t.union {
-		_, handled, err := p.evalBytes(member, lexical, scratch, budget, depth+1)
+		handled, err := p.evalBytes(member, lexical, scratch, budget, depth+1)
 		if !handled {
-			return NoType, false, nil
+			return false, nil
 		}
 		if err == nil {
-			return member, true, nil
+			return true, nil
 		}
 		if unionTerminalError(err) {
-			return NoType, true, err
+			return true, err
 		}
 		last, unsupported = rememberUnionError(err, last, unsupported)
 	}
-	return NoType, true, unionFailure(last, unsupported)
+	return true, unionFailure(last, unsupported)
 }
 
 // evaluationBudget is private to one top-level value evaluation. Its limits are
@@ -603,23 +602,23 @@ func lexicalLength(length int) uint64 {
 	return uint64(length)
 }
 
-func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget) (TypeID, bool, error) {
+func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget) (bool, error) {
 	// Raw validation is entered after internal/xmlstream has admitted the
 	// document's UTF-8 and XML 1.0 character set. Rechecking every byte here
 	// would turn the borrowed fast path into a second XML scanner, especially
 	// for long string attributes.
 	if t.carriers != 0 {
-		return NoType, false, nil
+		return false, nil
 	}
 	switch t.facets.raw.kind {
 	case rawPlanString:
-		return NoType, true, nil
+		return true, nil
 	case rawPlanBoolean, rawPlanPrimitive:
 		return validatePrimitiveBytesFastPath(t, lexical)
 	case rawPlanInteger:
-		return NoType, true, validateRawIntegerBytes(&t.facets, t.whitespace, lexical)
+		return true, validateRawIntegerBytes(&t.facets, t.whitespace, lexical)
 	case rawPlanStringEnumeration:
-		return NoType, true, validateStringEnumBytes(&t.facets, lexical)
+		return true, validateStringEnumBytes(&t.facets, lexical)
 	case rawPlanTextFacets:
 		return validateTextFacetsBytesPath(t, lexical, scratch, budget)
 	case rawPlanNone, rawPlanDecimal, rawPlanNMTokens:
@@ -629,30 +628,29 @@ func validateAtomicBytesFast(t *typeDef, lexical []byte, scratch *Scratch, budge
 	return validateDecimalBytesFallback(t, lexical)
 }
 
-func validatePrimitiveBytesFastPath(t *typeDef, lexical []byte) (TypeID, bool, error) {
+func validatePrimitiveBytesFastPath(t *typeDef, lexical []byte) (bool, error) {
 	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
-		return NoType, false, nil
+		return false, nil
 	}
-	handled, err := validatePrimitiveBytesFast(t, lexical)
-	return NoType, handled, err
+	return validatePrimitiveBytesFast(t, lexical)
 }
 
-func validateTextFacetsBytesPath(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget) (TypeID, bool, error) {
+func validateTextFacetsBytesPath(t *typeDef, lexical []byte, scratch *Scratch, budget *evaluationBudget) (bool, error) {
 	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
-		return NoType, false, nil
+		return false, nil
 	}
-	return NoType, true, validateTextFacetsBytes(&t.facets, lexical, scratch, budget)
+	return true, validateTextFacetsBytes(&t.facets, lexical, scratch, budget)
 }
 
-func validateDecimalBytesFallback(t *typeDef, lexical []byte) (TypeID, bool, error) {
+func validateDecimalBytesFallback(t *typeDef, lexical []byte) (bool, error) {
 	if t.whitespace != WhitespacePreserve && hasXMLWhitespaceBytes(lexical) {
-		return NoType, false, nil
+		return false, nil
 	}
 	handled, err := tryRawDecimalBytes(t, lexical)
 	if handled || err != nil {
-		return NoType, true, err
+		return true, err
 	}
-	return NoType, false, nil
+	return false, nil
 }
 
 func tryRawDecimalBytes(t *typeDef, lexical []byte) (bool, error) {
@@ -1000,13 +998,14 @@ func validatePlainString(id TypeID, t *typeDef, lexical string, request *evaluat
 			return Value{}, true, err
 		}
 	}
-	out := Value{typeID: id, selected: NoType}
+	out := Value{typeID: id}
 	if request.needs.Has(NeedCanonical) {
 		out.canonical = lexical
 	}
 	if request.needs.Has(NeedIdentity) {
 		out.identity = lexical
 		out.identityKind = PrimitiveString
+		out.identityTextBytes = len(lexical)
 		out.flags |= valueHasIdentity
 	}
 	return out, true, nil
@@ -1028,17 +1027,18 @@ func (p *Program) validateUnprojectedName(id TypeID, t *typeDef, lexical string,
 	if err := parseNameAtomic(&name, t.primitive, normalize(lexical, t.whitespace), request.resolver); err != nil {
 		return Value{}, describeValueFailure(p, id, lexical, nil, err)
 	}
-	return Value{typeID: id, selected: NoType, flags: valueQualifiedNames}, nil
+	return Value{typeID: id, flags: valueQualifiedNames}, nil
 }
 
 func projectValue(v *parsedValue, needs Needs) Value {
-	out := Value{typeID: v.typeID, selected: v.selected}
+	out := Value{typeID: v.typeID}
 	if needs.Has(NeedCanonical) {
 		out.canonical = v.canonical
 	}
 	if needs.Has(NeedIdentity) {
 		out.identity = v.identity
 		out.identityKind = v.atom.kind
+		out.identityTextBytes = v.textBytes()
 		out.flags |= valueHasIdentity
 	}
 	if v.isList {
@@ -1048,6 +1048,15 @@ func projectValue(v *parsedValue, needs Needs) Value {
 		out.flags |= valueQualifiedNames
 	}
 	return out
+}
+
+// textBytes is the byte length of the canonical text. A list's canonical text
+// is built only on request, so the list builder keeps its length.
+func (v *parsedValue) textBytes() int {
+	if v.isList {
+		return v.canonicalTextBytes
+	}
+	return len(v.canonical)
 }
 
 func (v *parsedValue) hasQualifiedNames() bool {
@@ -1137,7 +1146,7 @@ func evalAtomic(id TypeID, t *typeDef, normalized string, options evalOptions, v
 	parseNeeds := primitiveNeeds(t, options.needs)
 	// Reset the whole result: unions reuse one parsedValue across member
 	// attempts, and a failed member must leave no payload behind.
-	*value = parsedValue{typeID: id, selected: NoType}
+	*value = parsedValue{typeID: id}
 	if err := parseAtomic(value, t, normalized, options.resolver, parseNeeds); err != nil {
 		return err
 	}
@@ -1194,7 +1203,7 @@ type listValueBuilder struct {
 func (p *Program) newListValueBuilder(id TypeID, t *typeDef, normalized string, options evalOptions) (listValueBuilder, error) {
 	itemLimit := max(options.listItemLimit, t.facets.enumItemLimit)
 	b := listValueBuilder{
-		value: parsedValue{typeID: id, selected: NoType, isList: true},
+		value: parsedValue{typeID: id, isList: true},
 		needs: options.needs,
 	}
 	if item, ok := p.typeDef(t.listItem); ok && item.variety == Atomic {
@@ -1259,6 +1268,10 @@ func (b *listValueBuilder) appendCanonical(text string) {
 }
 
 func (b *listValueBuilder) appendIdentity(item parsedValue) {
+	if b.value.count > 1 {
+		b.value.canonicalTextBytes++
+	}
+	b.value.canonicalTextBytes += item.textBytes()
 	appendPrimitiveIdentityItem(&b.identity, item.atom.kind, item.identity, &b.identityLength)
 }
 
@@ -1307,7 +1320,6 @@ func (p *Program) evalUnion(id TypeID, t *typeDef, normalized string, options ev
 		memberNormalized, err := p.eval(member, normalized, childOptions, out)
 		if err == nil {
 			out.typeID = id
-			out.selected = member
 			return memberNormalized, nil
 		}
 		if unionTerminalError(err) {

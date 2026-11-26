@@ -423,29 +423,29 @@ func TestCallerReaderFailuresAreValidationRead(t *testing.T) {
 	for _, test := range rows {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			session, err := engine.NewSession(xsd.ValidateOptions{})
-			if err != nil {
-				t.Fatal(err)
+			session, newErr := engine.NewSession(xsd.ValidateOptions{})
+			if newErr != nil {
+				t.Fatal(newErr)
 			}
-			err = session.Validate(test.reader())
+			verr := session.Validate(test.reader())
 			if test.code == "" {
-				if err != nil {
-					t.Fatalf("Validate() = %v, want nil", err)
+				if verr != nil {
+					t.Fatalf("Validate() = %v, want nil", verr)
 				}
 			} else {
-				expectCategoryCode(t, err, xsderrors.CategoryValidation, test.code)
-				if test.code == xsderrors.CodeValidationRead && xsderrors.IsConclusiveValidation(err) {
-					t.Fatalf("read failure is conclusive: %v", err)
+				expectCategoryCode(t, verr, xsderrors.CategoryValidation, test.code)
+				if test.code == xsderrors.CodeValidationRead && xsderrors.IsConclusiveValidation(verr) {
+					t.Fatalf("read failure is conclusive: %v", verr)
 				}
-				if test.cause != nil && !errors.Is(err, test.cause) {
-					t.Fatalf("Validate() = %v, want cause %v", err, test.cause)
+				if test.cause != nil && !errors.Is(verr, test.cause) {
+					t.Fatalf("Validate() = %v, want cause %v", verr, test.cause)
 				}
-				if x, _ := errors.AsType[*xsderrors.Error](err); test.line && x.Line() == 0 {
-					t.Fatalf("Line() = 0, want a mid-document position: %v", err)
+				if x, _ := errors.AsType[*xsderrors.Error](verr); test.line && x.Line() == 0 {
+					t.Fatalf("Line() = 0, want a mid-document position: %v", verr)
 				}
 			}
-			if err := session.Validate(strings.NewReader("<r/>")); err != nil {
-				t.Fatalf("session after failure: %v", err)
+			if verr := session.Validate(strings.NewReader("<r/>")); verr != nil {
+				t.Fatalf("session after failure: %v", verr)
 			}
 		})
 	}
@@ -458,13 +458,25 @@ func TestCallerReaderFailuresAreValidationRead(t *testing.T) {
 		opts xsd.ValidateOptions
 		doc  string
 	}{
-		{"instance bytes", xsd.ValidateOptions{MaxInstanceBytes: 10}, "<r>" + strings.Repeat("x", 100) + "</r>"},
-		{"token bytes", xsd.ValidateOptions{MaxInstanceTokenBytes: 1024}, `<r a="` + strings.Repeat("x", 4096) + `"/>`},
-		{"depth", xsd.ValidateOptions{MaxInstanceDepth: 2}, "<r><r><r/></r></r>"},
-		{"dtd", xsd.ValidateOptions{}, "<!DOCTYPE r><r/>"},
+		{"instance bytes", xsd.ValidateOptions{MaxInstanceBytes: 10}, "\n\n<r>" + strings.Repeat("x", 100) + "</r>"},
+		{"token bytes", xsd.ValidateOptions{MaxInstanceTokenBytes: 1024}, "\n\n" + `<r a="` + strings.Repeat("x", 4096) + `"/>`},
+		{"depth", xsd.ValidateOptions{MaxInstanceDepth: 2}, "\n\n<r><r><r/></r></r>"},
+		{"dtd", xsd.ValidateOptions{}, "\n\n<!DOCTYPE r><r/>"},
 		{"utf-16", xsd.ValidateOptions{}, "\xff\xfe<\x00r\x00/\x00>\x00"},
-		{"entity", xsd.ValidateOptions{}, "<r>&e;</r>"},
+		{"entity", xsd.ValidateOptions{}, "\n\n<r>&e;</r>"},
 		{"xml version", xsd.ValidateOptions{}, `<?xml version="1.1"?><r/>`},
+	}
+	const previewData = "<r>"
+	longData := previewData + strings.Repeat("a", 200000)
+	controlSession, err := engine.NewSession(xsd.ValidateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	controlErr := controlSession.Validate(&failAfterReader{data: longData, err: errors.New("plain")})
+	expectCategoryCode(t, controlErr, xsderrors.CategoryValidation, xsderrors.CodeValidationRead)
+	control, ok := errors.AsType[*xsderrors.Error](controlErr)
+	if !ok || control.Column() <= len(previewData) {
+		t.Fatalf("control = %v, want a read failure past the reset preview", controlErr)
 	}
 	for _, kind := range innerKinds {
 		inner := func() error {
@@ -479,7 +491,7 @@ func TestCallerReaderFailuresAreValidationRead(t *testing.T) {
 			return err
 		}()
 		for _, wrapped := range []bool{false, true} {
-			for _, position := range []string{"first read", "after root start"} {
+			for _, position := range []string{"first read", "after root start", "after reset preview"} {
 				name := fmt.Sprintf("inner %s/wrapped=%v/%s", kind.name, wrapped, position)
 				t.Run(name, func(t *testing.T) {
 					t.Parallel()
@@ -490,6 +502,9 @@ func TestCallerReaderFailuresAreValidationRead(t *testing.T) {
 					data := ""
 					if position == "after root start" {
 						data = "<r>"
+					}
+					if position == "after reset preview" {
+						data = longData
 					}
 					session, err := engine.NewSession(xsd.ValidateOptions{})
 					if err != nil {
@@ -505,6 +520,12 @@ func TestCallerReaderFailuresAreValidationRead(t *testing.T) {
 					}
 					if n := len(xsderrors.Flatten(err)); n != 1 {
 						t.Fatalf("Validate() reported %d diagnostics, want 1: %v", n, err)
+					}
+					if position == "after reset preview" {
+						x, ok := errors.AsType[*xsderrors.Error](err)
+						if !ok || x.Line() != control.Line() || x.Column() != control.Column() {
+							t.Fatalf("Validate() = %v, want position %d:%d of a plain read error", err, control.Line(), control.Column())
+						}
 					}
 					for _, defaulted := range []string{"=67108864", "=4194304", "=256 exceeded"} {
 						if strings.Contains(err.Error(), defaulted) {

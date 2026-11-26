@@ -10,10 +10,10 @@ import (
 )
 
 // compileFacetChildren admits source facet syntax and records one local facet
-// step in ValueSpec. value.Builder admits each bound and enumeration literal
+// step in the draft's value specification. value.Builder admits each bound and enumeration literal
 // against the base (AdmitBoundLiteral, Validate); effective inheritance, bound
 // ordering, and fixed-facet derivation are owned by value.Builder.Complete.
-func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleType, base SimpleTypeID) error {
+func (c *compiler) compileFacetChildren(parent *schemaNode, st *simpleTypeDraft, base SimpleTypeID) error {
 	state := compiledFacetState{unavailable: c.rt.simpleTypeUnavailable[base]}
 	for child := range parent.xsdChildren() {
 		if !isFacetLocal(child.local) {
@@ -51,20 +51,20 @@ type compiledFacetState struct {
 	unavailable bool
 }
 
-func (s *compiledFacetState) apply(st *simpleType) {
+func (s *compiledFacetState) apply(st *simpleTypeDraft) {
 	if len(s.valueEnumeration) != 0 {
-		st.ValueSpec.Facets.Enumeration = slices.Clone(s.valueEnumeration)
-		st.ValueSpec.Facets.Present |= valuepkg.FacetEnumeration
+		st.spec.Facets.Enumeration = slices.Clone(s.valueEnumeration)
+		st.spec.Facets.Present |= valuepkg.FacetEnumeration
 	}
 	if len(s.valuePatterns) != 0 {
 		// Patterns declared by one restriction step form one OR group. The
 		// value builder intersects groups inherited through the base chain.
-		st.ValueSpec.Facets.Patterns = append(st.ValueSpec.Facets.Patterns, slices.Clone(s.valuePatterns))
-		st.ValueSpec.Facets.Present |= valuepkg.FacetPattern
+		st.spec.Facets.Patterns = append(st.spec.Facets.Patterns, slices.Clone(s.valuePatterns))
+		st.spec.Facets.Present |= valuepkg.FacetPattern
 	}
 }
 
-func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState) error {
+func (c *compiler) compileFacetChild(child *schemaNode, st *simpleTypeDraft, base SimpleTypeID, state *compiledFacetState) error {
 	flag, err := validateFacetChildSource(child, st)
 	if err != nil {
 		return err
@@ -80,12 +80,12 @@ func (c *compiler) compileFacetChild(child *schemaNode, st *simpleType, base Sim
 // validateFacetChildSource returns the facet child declares after checking
 // that the base type admits it. A facet the restriction repeats was rejected
 // at its start tag; see childOrderState.acceptFacet.
-func validateFacetChildSource(child *schemaNode, st *simpleType) (valuepkg.FacetMask, error) {
+func validateFacetChildSource(child *schemaNode, st *simpleTypeDraft) (valuepkg.FacetMask, error) {
 	if _, err := requiredSemanticSource[*schemaFacetSource](child); err != nil {
 		return 0, err
 	}
 	mask, err := validateFacetSource(facetSource{
-		Local: child.local, Variety: st.ValueSpec.Variety, Primitive: st.ValueSpec.Primitive,
+		Local: child.local, Variety: st.spec.Variety, Primitive: st.spec.Primitive,
 	})
 	if err != nil {
 		return 0, withSchemaCompileLocation(child, err)
@@ -93,7 +93,7 @@ func validateFacetChildSource(child *schemaNode, st *simpleType) (valuepkg.Facet
 	return mask, nil
 }
 
-func (c *compiler) compileFacetValue(child *schemaNode, st *simpleType, base SimpleTypeID, state *compiledFacetState, facet facetInput) error {
+func (c *compiler) compileFacetValue(child *schemaNode, st *simpleTypeDraft, base SimpleTypeID, state *compiledFacetState, facet facetInput) error {
 	switch facet.flag {
 	case valuepkg.FacetLength, valuepkg.FacetMinLength, valuepkg.FacetMaxLength, valuepkg.FacetTotalDigits, valuepkg.FacetFractionDigits:
 		compileSizeFacet(st, facet)
@@ -149,32 +149,32 @@ func facetAttrs(n *schemaNode, flag valuepkg.FacetMask) (facetInput, error) {
 	return facetInput{value: value, parsed: source.Parsed, flag: flag, fixed: source.Parsed.fixed}, nil
 }
 
-func compileSizeFacet(st *simpleType, facet facetInput) {
-	setValueCardinalityFacet(&st.ValueSpec.Facets, facet.flag, facet.parsed.size)
+func compileSizeFacet(st *simpleTypeDraft, facet facetInput) {
+	setValueCardinalityFacet(&st.spec.Facets, facet.flag, facet.parsed.size)
 	if facet.fixed {
-		st.ValueSpec.Facets.Fixed |= facet.flag
+		st.spec.Facets.Fixed |= facet.flag
 	}
 }
 
 // compileBoundFacet admits an ordered-bound literal against its base. Ordered
 // primitives have no QName or NOTATION values, so the literal carries no name
 // resolver.
-func (c *compiler) compileBoundFacet(child *schemaNode, st *simpleType, base SimpleTypeID, facet facetInput, state *compiledFacetState) error {
+func (c *compiler) compileBoundFacet(child *schemaNode, st *simpleTypeDraft, base SimpleTypeID, facet facetInput, state *compiledFacetState) error {
 	if state.unavailable {
 		return nil
 	}
 	if err := c.ensureValueBuilder().AdmitBoundLiteral(base, facet.flag, facet.value); err != nil {
 		return withSchemaCompileLocation(child, c.facetValueError(facet.value, err))
 	}
-	setValueBoundFacet(&st.ValueSpec.Facets, facet, valuepkg.LiteralSpec{Lexical: facet.value, Type: base})
+	setValueBoundFacet(&st.spec.Facets, facet, valuepkg.LiteralSpec{Lexical: facet.value, Type: base})
 	return nil
 }
 
-func compileWhitespaceFacet(st *simpleType, facet facetInput) {
-	st.ValueSpec.Whitespace = facet.parsed.whitespace
-	st.ValueSpec.WhitespacePresent = true
+func compileWhitespaceFacet(st *simpleTypeDraft, facet facetInput) {
+	st.spec.Whitespace = facet.parsed.whitespace
+	st.spec.WhitespacePresent = true
 	if facet.fixed {
-		st.ValueSpec.Facets.Fixed |= valuepkg.FacetWhiteSpace
+		st.spec.Facets.Fixed |= valuepkg.FacetWhiteSpace
 	}
 }
 

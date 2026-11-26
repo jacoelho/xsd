@@ -48,7 +48,7 @@ func TestSchemaXMLNamespaceWellFormedness(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("malformed.xsd", []byte(test.schema))})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("malformed.xsd", []byte(test.schema))})
 			var schemaErr *xsderrors.Error
 			if !errors.As(err, &schemaErr) {
 				t.Fatalf("Compile() error = %v, want structured schema error", err)
@@ -69,7 +69,7 @@ func TestCompileRejectsTruncatedTrailingMarkup(t *testing.T) {
 	for _, suffix := range []string{`</`, `</xs:schema `, `<next `} {
 		t.Run(suffix, func(t *testing.T) {
 			t.Parallel()
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{
 				source.Bytes("malformed.xsd", []byte(schema+suffix)),
 			})
 			diagnostic, ok := errors.AsType[*xsderrors.Error](err)
@@ -83,7 +83,7 @@ func TestCompileRejectsTruncatedTrailingMarkup(t *testing.T) {
 func TestSchemaXMLUsesBufferedCharacterFailurePosition(t *testing.T) {
 	t.Parallel()
 	schema := "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\nabcdefgh\x01</xs:schema>"
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("malformed.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("malformed.xsd", []byte(schema))})
 	var xerr *xsderrors.Error
 	if !errors.As(err, &xerr) {
 		t.Fatalf("Compile() error = %T %v, want *xsderrors.Error", err, err)
@@ -107,7 +107,7 @@ func TestSchemaXMLDeclarationClassificationDoesNotDependOnPreviewLength(t *testi
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			schema := `<?xml` + strings.Repeat(" ", 70<<10) + test.content + `?><xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 			var schemaErr *xsderrors.Error
 			if !errors.As(err, &schemaErr) || schemaErr.Code() != test.code {
 				t.Fatalf("Compile() error = %v, want %q", err, test.code)
@@ -124,11 +124,11 @@ func TestSchemaAttributeDatatypeWhitespaceIsCollapsed(t *testing.T) {
 	  <xs:complexType name="T"><xs:sequence><xs:any processContents=" lax "/><xs:element name="child" form=" unqualified "/></xs:sequence><xs:attribute name="a" use=" required "/></xs:complexType>
 	  <xs:element name="root" type="T"/>
 	</xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace=" "/>`))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace=" "/>`))})
 	var schemaErr *xsderrors.Error
 	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaInvalidAttribute {
 		t.Fatalf("Compile(whitespace targetNamespace) error = %v, want %q", err, xsderrors.CodeSchemaInvalidAttribute)
@@ -141,7 +141,7 @@ func TestSchemaFacetControlValuesApplyDatatypeWhitespace(t *testing.T) {
   <xs:simpleType name="Decimal"><xs:restriction base="xs:decimal"><xs:fractionDigits value="&#x9;2&#xA;"/></xs:restriction></xs:simpleType>
   <xs:simpleType name="Collapsed"><xs:restriction base="xs:string"><xs:whiteSpace value=" collapse "/></xs:restriction></xs:simpleType>
 </xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -156,7 +156,7 @@ func TestSchemaLexicalAttributesPreserveCharacterReferenceWhitespace(t *testing.
   <xs:element name="default" type="PatternTab" default="a&#x9;b"/>
   <xs:element name="fixed" type="PatternTab" fixed="a&#x9;b"/>
 </xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -173,7 +173,7 @@ func TestSchemaDocumentationLanguageAppliesDatatypeWhitespace(t *testing.T) {
 	const schema = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation><xs:documentation xml:lang=" en-US ">text</xs:documentation></xs:annotation>
 </xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -191,7 +191,7 @@ func TestSchemaGraphAnyURIsAreCollapsed(t *testing.T) {
 		return source.Bytes(location, []byte(doc)).WithResolver(resolver), nil
 	}
 	root := source.Bytes("root.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace=" urn:b " schemaLocation=" imported.xsd "/></xs:schema>`)).WithResolver(resolver)
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{root}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -236,7 +236,7 @@ func TestSchemaGraphAnyURIsFailBeforeResolution(t *testing.T) {
 				return source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
 			})
 			root := source.Bytes("root.xsd", []byte(test.schema)).WithResolver(resolver)
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{root})
 			if called {
 				t.Fatal("resolver called before URI lexical validation")
 			}
@@ -258,7 +258,7 @@ func TestResolvedSchemaTargetNamespaceAnyURIIsValidated(t *testing.T) {
 		return source.Bytes(location, []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="%zz"/>`)), nil
 	})
 	root := source.Bytes("root.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace="urn:child" schemaLocation="child.xsd"/></xs:schema>`)).WithResolver(resolver)
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{root})
 	if called != 1 {
 		t.Fatalf("resolver calls = %d, want 1", called)
 	}
@@ -276,7 +276,7 @@ func TestSchemaAnyURIAttributesAreValidated(t *testing.T) {
 		`<xs:complexType name="t"><xs:anyAttribute namespace="urn:a %zz"/></xs:complexType>`,
 	}
 	for _, body := range tests {
-		_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		var schemaErr *xsderrors.Error
 		if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaInvalidAttribute {
 			t.Fatalf("Compile(%s) error = %v, want %q", body, err, xsderrors.CodeSchemaInvalidAttribute)
@@ -291,7 +291,7 @@ func TestSchemaExtendedAnyURIAttributesAreAccepted(t *testing.T) {
 		<xs:complexType name="t"><xs:anyAttribute namespace="urn:a^b"/></xs:complexType>
 		<xs:element name="e" xml:base="a^b"/>
 	</xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -306,7 +306,7 @@ func TestResolverReceivesExtendedSchemaReferences(t *testing.T) {
 		}
 		return source.Bytes("child.xsd", []byte(child)), nil
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
 	})
 
@@ -345,7 +345,7 @@ func TestSchemaGraphXMLBaseAppliesAnyURIWhitespace(t *testing.T) {
 				return source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
 			})
 			root := source.Bytes(test.parent, []byte(test.root)).WithResolver(resolver)
-			if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root}); err != nil {
+			if _, err := compileSources(xsdSchema.Options{}, []source.Source{root}); err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
 			if gotBase != wantBase {
@@ -357,7 +357,7 @@ func TestSchemaGraphXMLBaseAppliesAnyURIWhitespace(t *testing.T) {
 
 func TestSchemaGraphAllowsUnavailableXMLBaseWithoutReferences(t *testing.T) {
 	root := source.Bytes("urn:opaque:root", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="relative/"/>`))
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{root}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -485,7 +485,7 @@ func TestChameleonReferenceChecksUseEachTargetContext(t *testing.T) {
 				}
 				roots[i] = source.Bytes(name, []byte(root)).WithResolver(resolver)
 			}
-			rt, err := xsdSchema.Compile(xsdSchema.Options{}, roots)
+			rt, err := compileSources(xsdSchema.Options{}, roots)
 			if test.failsAt == "" {
 				if err != nil {
 					t.Fatalf("Compile() error = %v", err)

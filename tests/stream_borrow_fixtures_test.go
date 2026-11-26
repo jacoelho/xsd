@@ -24,7 +24,7 @@ func dataField(tok *xmlstream.Token) {
  state.data = tok.Data // want field store
 }
 func directiveField(tok *xmlstream.Token) {
- state.data = tok.Directive // want field store
+ state.data = tok.Content // want field store
 }
 func erasedAlias(tok *xmlstream.Token) {
  value := any(tok)

@@ -414,8 +414,8 @@ func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 	t.Parallel()
 
 	const (
-		baseType    SimpleTypeID = 1
-		derivedType SimpleTypeID = 2
+		baseType    = fixtureRoot
+		derivedType = fixtureRestriction
 	)
 	one := occurrence{Min: 1, Max: 1}
 	name := QName{Namespace: emptyNamespaceID, Local: 1}
@@ -429,11 +429,7 @@ func TestContentRestrictionUsesFixedValueIdentity(t *testing.T) {
 			{Type: SimpleRef(baseType), Fixed: valueConstraintIdentity(t, "decimal", "5.0"), Scope: declarationScopeNonGlobal},
 			{Type: SimpleRef(derivedType), Fixed: valueConstraintIdentity(t, "integer", "5"), Scope: declarationScopeNonGlobal},
 		},
-		simpleDerivations: []simpleTypeDerivation{
-			{},
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-			{Base: baseType, Variety: valuepkg.Atomic},
-		},
+		simpleDerivations: restrictionFixtureTypes(),
 	}
 	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
 		t.Fatalf("ValidateContentRestriction() error = %v", err)
@@ -457,10 +453,10 @@ func TestContentRestrictionRequiresLocalIdentitySubset(t *testing.T) {
 		},
 		elements: []QName{name, name},
 		elementRestrictions: []particleRestrictionElement{
-			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{1, 2})},
-			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{2})},
+			{Type: SimpleRef(fixtureRoot), Scope: declarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{1, 2})},
+			{Type: SimpleRef(fixtureRoot), Scope: declarationScopeNonGlobal, Identities: borrowedIdentityConstraintIDs([]IdentityConstraintID{2})},
 		},
-		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
+		simpleDerivations: restrictionFixtureTypes(),
 	}
 	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build())); err != nil {
 		t.Fatalf("ValidateContentRestriction(subset) error = %v", err)
@@ -483,10 +479,10 @@ func TestContentRestrictionHonorsWorkBudget(t *testing.T) {
 		},
 		elements: []QName{name, name},
 		elementRestrictions: []particleRestrictionElement{
-			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
-			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(fixtureRoot), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(fixtureRoot), Scope: declarationScopeNonGlobal},
 		},
-		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
+		simpleDerivations: restrictionFixtureTypes(),
 	}
 	budgetExceeded := errors.New("content work exceeded")
 	remaining := 2
@@ -511,17 +507,16 @@ func TestContentRestrictionChargesTypeDerivation(t *testing.T) {
 	t.Parallel()
 
 	const depth = 32
-	derivations := make([]simpleTypeDerivation, depth)
-	derivations[0] = simpleTypeDerivation{Base: NoSimpleType, Variety: valuepkg.Atomic}
-	for id := 1; id < depth; id++ {
-		derivations[id] = simpleTypeDerivation{Base: SimpleTypeID(id - 1), Variety: valuepkg.Atomic}
+	derivations := map[SimpleTypeID]simpleTypeDerivation{userSimpleType(0): {Base: NoSimpleType, Variety: valuepkg.Atomic}}
+	for i := SimpleTypeID(1); i < depth; i++ {
+		derivations[userSimpleType(i)] = simpleTypeDerivation{Base: userSimpleType(i - 1), Variety: valuepkg.Atomic}
 	}
 	name := QName{Namespace: emptyNamespaceID, Local: 1}
 	rt := contentRestrictionFixture{
 		elements: []QName{name, name},
 		elementRestrictions: []particleRestrictionElement{
-			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
-			{Type: SimpleRef(depth - 1), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(userSimpleType(0)), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(userSimpleType(depth - 1)), Scope: declarationScopeNonGlobal},
 		},
 		simpleDerivations: derivations,
 	}
@@ -558,10 +553,10 @@ func TestContentRestrictionRejectsInvalidElementScope(t *testing.T) {
 		},
 		elements: []QName{name, name},
 		elementRestrictions: []particleRestrictionElement{
-			{Type: SimpleRef(0), Scope: declarationScopeNonGlobal},
-			{Type: SimpleRef(0), Scope: declarationScopeInvalid},
+			{Type: SimpleRef(fixtureRoot), Scope: declarationScopeNonGlobal},
+			{Type: SimpleRef(fixtureRoot), Scope: declarationScopeInvalid},
 		},
-		simpleDerivations: []simpleTypeDerivation{{Base: NoSimpleType, Variety: valuepkg.Atomic}},
+		simpleDerivations: restrictionFixtureTypes(),
 	}
 	err := validateContentRestriction(rt.build(), 0, 1, unlimitedContentModelWork, unlimitedContentModelAnalysis(rt.build()))
 	if !isBuildDefect(err) || !strings.Contains(err.Error(), "invalid scope") {
@@ -626,7 +621,7 @@ type contentRestrictionFixture struct {
 	elements            []QName
 	elementRestrictions []particleRestrictionElement
 	complexDerivations  []complexTypeDerivation
-	simpleDerivations   []simpleTypeDerivation
+	simpleDerivations   map[SimpleTypeID]simpleTypeDerivation
 	anyType             ComplexTypeID
 }
 

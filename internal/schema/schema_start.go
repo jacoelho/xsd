@@ -16,10 +16,10 @@ func (rt *Schema) AnyType() TypeID {
 // GlobalElement returns the global element declaration for name, the
 // declaration root selection and lax assessment use.
 func (rt *Schema) GlobalElement(name RuntimeName) (ElementID, ElementStartInfo, bool) {
-	if !name.Known {
+	if !name.known {
 		return NoElement, ElementStartInfo{}, false
 	}
-	id, ok := rt.program.GlobalElements[name.Name]
+	id, ok := rt.program.GlobalElements[name.name]
 	if !ok {
 		return NoElement, ElementStartInfo{}, false
 	}

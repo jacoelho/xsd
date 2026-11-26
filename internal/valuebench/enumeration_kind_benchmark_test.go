@@ -25,9 +25,9 @@ type enumerationKind struct {
 func enumerationKinds(tb testing.TB) []enumerationKind {
 	tb.Helper()
 	builtin := func(local string) valuepkg.TypeID {
-		id, ok := valuepkg.BuiltinTypeID(local)
+		id, ok := builtinTypeID(local)
 		if !ok {
-			tb.Fatalf("BuiltinTypeID(%q) missing", local)
+			tb.Fatalf("builtinTypeID(%q) missing", local)
 		}
 		return id
 	}

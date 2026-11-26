@@ -204,9 +204,12 @@ const (
 )
 
 type identityFieldValue struct {
-	value    string
-	state    identityFieldState
-	nillable bool
+	value string
+	// textBytes is the canonical text length of the value, the measure of
+	// MaxIdentityTupleBytes; value is its identity key, not that text.
+	textBytes int
+	state     identityFieldState
+	nillable  bool
 }
 
 // identityFieldMatch identifies one active identity field selected by element
@@ -285,10 +288,7 @@ func (s *identityState) markScopeInvalid(index int) {
 }
 
 // reserveEntry reserves one identity entry against global identity limits.
-func (s *identityState) reserveEntry(ctx startContext, key string, limits identityLimits) error {
-	if limits.TupleBytes > 0 && int64(len(key)) > limits.TupleBytes {
-		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", int64(len(key)), limits.TupleBytes))
-	}
+func (s *identityState) reserveEntry(ctx startContext, limits identityLimits) error {
 	if limits.Entries > 0 && s.entries >= limits.Entries {
 		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity entry", "MaxIdentityEntries", int64(s.entries)+1, int64(limits.Entries)))
 	}
@@ -425,6 +425,7 @@ func (s *identityState) captureField(fieldIndex int, captured identityFieldValue
 		}
 		s.rememberField(fieldIndex)
 		field.value = captured.value
+		field.textBytes = captured.textBytes
 		field.state = captured.state
 		return false, nil
 	case identityFieldPresent, identityFieldNilled:
@@ -433,6 +434,7 @@ func (s *identityState) captureField(fieldIndex int, captured identityFieldValue
 		}
 		s.rememberField(fieldIndex)
 		field.value = ""
+		field.textBytes = 0
 		field.state = identityFieldInvalid
 		return true, nil
 	case identityFieldInvalid:
@@ -497,6 +499,7 @@ func (s *identityState) invalidateFields(matches []identityFieldMatch) error {
 		s.rememberField(fieldIndex)
 		field := &s.fieldValues[fieldIndex]
 		field.value = ""
+		field.textBytes = 0
 		field.state = identityFieldInvalid
 		s.markScopeInvalid(sel.scope)
 	}
@@ -684,7 +687,7 @@ func (s *identityState) publishIdentityKey(ctx startContext, rt *xsdSchema.Schem
 		return validation(startContext{Path: sel.pathString(ctx), Line: ctx.Line, Column: ctx.Column}, xsderrors.CodeValidationIdentity, identityDuplicateMessage(rt, sel.constraint, ctx.retainedPathString(prev.path)))
 	}
 	// Replacing a descendant slot publishes a distinct local identity fact.
-	if err := s.reserveEntry(ctx, key, limits); err != nil {
+	if err := s.reserveEntry(ctx, limits); err != nil {
 		return err
 	}
 	if table == nil {
@@ -710,7 +713,7 @@ func (s *identityState) publishIdentityKeyRef(ctx startContext, scope *identityS
 // appendIdentityKeyRef retains ref, located at sel, for resolution when its
 // scope closes.
 func (s *identityState) appendIdentityKeyRef(ctx startContext, scope *identityScope, ref identityTupleRef, sel identitySelection, limits identityLimits) error {
-	if err := s.reserveEntry(ctx, ref.key, limits); err != nil {
+	if err := s.reserveEntry(ctx, limits); err != nil {
 		return err
 	}
 	if scope.refs == nil {
@@ -765,22 +768,34 @@ func (s *identityState) truncateFieldValues() {
 	s.fieldValues = s.fieldValues[:n]
 }
 
+// checkIdentityTextBytes enforces MaxIdentityTupleBytes, the one rule that
+// measures an identity entry by the canonical text of its values.
+func checkIdentityTextBytes(ctx startContext, textBytes int64, limits identityLimits) error {
+	if limits.TupleBytes > 0 && textBytes > limits.TupleBytes {
+		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", textBytes, limits.TupleBytes))
+	}
+	return nil
+}
+
 func identityTupleKey(ctx startContext, fields []identityFieldValue, limits identityLimits) (string, error) {
-	size := int64(0)
+	textBytes := int64(0)
+	encodedBytes := int64(0)
 	for i, field := range fields {
 		if i > 0 {
-			size++
+			textBytes++
+			encodedBytes++
 		}
-		size += int64(len(field.value))
-		if limits.TupleBytes > 0 && size > limits.TupleBytes {
-			return "", validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", size, limits.TupleBytes))
-		}
+		textBytes += int64(field.textBytes)
+		encodedBytes += int64(len(field.value))
+	}
+	if err := checkIdentityTextBytes(ctx, textBytes, limits); err != nil {
+		return "", err
 	}
 	if len(fields) == 1 {
 		return fields[0].value, nil
 	}
 	var b strings.Builder
-	b.Grow(int(size))
+	b.Grow(int(encodedBytes))
 	for i, field := range fields {
 		if i > 0 {
 			b.WriteByte('\x1f')

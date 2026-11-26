@@ -33,12 +33,8 @@ const (
 
 // Options controls schema compilation resource limits.
 type Options struct {
-	MaxSchemaDepth      int
-	MaxSchemaAttributes int
-	// MaxSchemaTokenBytes caps the bytes the schema XML reader holds for one
-	// token (names, attribute values, PI and text payload, construction
-	// scratch), measured lexically, and the character data accumulated in
-	// one element across text tokens. It also scales literal evaluation work.
+	MaxSchemaDepth                int
+	MaxSchemaAttributes           int
 	MaxSchemaTokenBytes           int64
 	MaxSchemaSourceBytes          int64
 	MaxSchemaSources              int

@@ -407,59 +407,42 @@ func validateMissingSimpleType(rt *schemaValidation) error {
 
 func missingSimpleTypeID(rt *schemaValidation) (SimpleTypeID, error) {
 	missingName, hasMissingName := rt.build.Names.LookupQName(vocab.EmptyNamespaceURI, missingSimpleTypeLocalName())
+	sentinel := missingSimpleType(missingName)
+	expected := sentinel.decl
+	expected.Scope = declarationScopeNonGlobal
 	missingID := NoSimpleType
 	for i := range rt.build.SimpleTypes {
 		st := rt.build.SimpleTypes[i]
 		if !st.Missing {
 			continue
 		}
-		expected := missingSimpleType(missingName, value.AnySimpleTypeID)
-		expected.Scope = declarationScopeNonGlobal
-		if missingID != NoSimpleType || !hasMissingName || st.Name != missingName || !intrinsicSimpleTypeEqual(st, expected) {
+		id := SimpleTypeID(i) // #nosec G115 -- i indexes the simple-type table.
+		if missingID != NoSimpleType || !hasMissingName || st != expected ||
+			!completedAsIntrinsic(rt.build.valueBuilder, id, sentinel.spec) {
 			return NoSimpleType, xsderrors.InternalInvariant("missing simple type sentinel is invalid", nil)
 		}
-		missingID = SimpleTypeID(i)
+		missingID = id
 	}
 	return missingID, nil
 }
 
-// intrinsicSimpleTypeEqual compares a declaration with an intrinsic
-// definition field by field. A test guard over the struct field sets fails when
-// simpleType or its value specification gains a field this does not compare.
-func intrinsicSimpleTypeEqual(got, want simpleType) bool {
-	return got.Name == want.Name && got.Final == want.Final && got.Missing == want.Missing &&
-		got.Scope == want.Scope && got.unionContainsList == want.unionContainsList &&
-		got.unionHasFacets == want.unionHasFacets && intrinsicTypeSpecEqual(got.ValueSpec, want.ValueSpec)
-}
-
-// intrinsicTypeSpecEqual compares facet-free, member-free specifications.
-// Intrinsic definitions have neither, so any union member or facet on either
-// side is a difference.
-func intrinsicTypeSpecEqual(got, want value.TypeSpec) bool {
-	return len(got.Union) == 0 && len(want.Union) == 0 &&
-		facetSpecEmpty(got.Facets) && facetSpecEmpty(want.Facets) &&
-		got.Base == want.Base && got.ListItem == want.ListItem && got.Variety == want.Variety &&
-		got.Primitive == want.Primitive && got.Whitespace == want.Whitespace &&
-		got.WhitespacePresent == want.WhitespacePresent && got.Builtin == want.Builtin
-}
-
-func facetSpecEmpty(f value.FacetSpec) bool {
-	var none value.CardinalityFacet
-	return len(f.Patterns) == 0 && len(f.Enumeration) == 0 &&
-		boundFacetEmpty(f.MinInclusive) && boundFacetEmpty(f.MaxExclusive) &&
-		boundFacetEmpty(f.MinExclusive) && boundFacetEmpty(f.MaxInclusive) &&
-		f.MinLength == none && f.FractionDigits == none && f.TotalDigits == none &&
-		f.MaxLength == none && f.Length == none && f.Present == 0 && f.Fixed == 0
-}
-
-func boundFacetEmpty(b value.BoundFacet) bool {
-	return !b.Present && b.Lexical == "" && b.Type == 0 &&
-		b.Resolver.QName == nil && b.Resolver.Notation == nil
+// completedAsIntrinsic reports whether the value record of id has the
+// structure of the facet-free, member-free intrinsic specification want and
+// no enumeration. TypeView exposes no other facet, so the audit cannot see one.
+func completedAsIntrinsic(builder *value.Builder, id SimpleTypeID, want value.TypeSpec) bool {
+	view, ok := builder.TypeView(id)
+	return ok && len(view.Union) == 0 && len(want.Union) == 0 && !view.HasEnumeration &&
+		view.Base == want.Base && view.ListItem == want.ListItem && view.Variety == want.Variety &&
+		view.Primitive == want.Primitive && view.Whitespace == want.Whitespace && view.Builtin == want.Builtin
 }
 
 func validateMissingSimpleTypeReferences(rt *schemaValidation, missingID SimpleTypeID) error {
-	for _, st := range rt.build.SimpleTypes {
-		if !st.Missing && st.ValueSpec.Base == missingID {
+	for i, st := range rt.build.SimpleTypes {
+		view, ok := rt.build.valueBuilder.TypeView(SimpleTypeID(i)) // #nosec G115 -- i indexes the simple-type table.
+		if !ok {
+			return xsderrors.InternalInvariant("simple type has no value definition", nil)
+		}
+		if !st.Missing && view.Base == missingID {
 			return xsderrors.InternalInvariant("missing simple type sentinel has invalid type reference", nil)
 		}
 	}
@@ -522,17 +505,11 @@ func validateBuiltinSchemaLocationType(rt *schemaValidation) error {
 	if !validSimpleTypeID(builtinSchemaLocationTypeID, len(rt.build.SimpleTypes)) {
 		return xsderrors.InternalInvariant("intrinsic schemaLocation type is missing", nil)
 	}
-	list := rt.build.SimpleTypes[builtinSchemaLocationTypeID]
 	name, ok := rt.build.Names.LookupQName(vocab.XSINamespaceURI, "$schemaLocation")
-	if !ok || list.Name != name || list.Scope != declarationScopeNonGlobal || list.Final != 0 || list.Missing ||
-		!intrinsicTypeSpecEqual(list.ValueSpec, builtinSchemaLocationTypeSpec()) {
+	if !ok || rt.build.SimpleTypes[builtinSchemaLocationTypeID] != (simpleType{Name: name, Scope: declarationScopeNonGlobal}) {
 		return xsderrors.InternalInvariant("intrinsic schemaLocation type differs from its definition", nil)
 	}
-	view, ok := rt.build.valueBuilder.TypeView(builtinSchemaLocationTypeID)
-	if !ok || view.Variety != value.List || view.Primitive != value.PrimitiveString ||
-		view.Base != value.AnySimpleTypeID || view.ListItem != value.BuiltinType(value.PrimitiveAnyURI) ||
-		view.Whitespace != value.WhitespaceCollapse || view.Builtin != value.BuiltinNone ||
-		len(view.Union) != 0 || view.HasEnumeration {
+	if !completedAsIntrinsic(rt.build.valueBuilder, builtinSchemaLocationTypeID, builtinSchemaLocationTypeSpec()) {
 		return xsderrors.InternalInvariant("intrinsic schemaLocation value metadata differs from its definition", nil)
 	}
 	return nil
@@ -667,10 +644,6 @@ func validateSimpleType(rt *schemaValidation, id SimpleTypeID, st simpleType) er
 	}
 	if _, ok := rt.build.valueBuilder.InputRequirements(id); !ok {
 		return xsderrors.InternalInvariant("simple type has no admitted value definition", nil)
-	}
-	constrained, ok := rt.build.valueBuilder.UnionHasFacets(id)
-	if !ok || constrained != st.unionHasFacets {
-		return xsderrors.InternalInvariant("simple type union facets differ from value definition", nil)
 	}
 	return validateNotationConstructorUses(rt.build, id)
 }
@@ -858,22 +831,6 @@ func validateValueConstraintRuntime(rt *schemaValidation, vc *valueConstraint, e
 		return auditError(label, err)
 	}
 	return nil
-}
-
-// ValueConstraintSimpleType returns compiler-owned value-constraint metadata.
-func (rt *schemaBuild) ValueConstraintSimpleType(id SimpleTypeID) (valueConstraintSimpleType, bool) {
-	if rt.valueBuilder == nil {
-		return valueConstraintSimpleType{}, false
-	}
-	view, ok := rt.valueBuilder.TypeView(id)
-	if !ok {
-		return valueConstraintSimpleType{}, false
-	}
-	return valueConstraintSimpleType{
-		Union: view.Union, ListItem: view.ListItem,
-		Variety: view.Variety, Primitive: view.Primitive,
-		HasEnumeration: view.HasEnumeration,
-	}, true
 }
 
 // ValueConstraintComplexType returns compiler-owned value-constraint metadata.

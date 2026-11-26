@@ -190,16 +190,6 @@ func BuiltinType(kind PrimitiveKind) TypeID {
 	return NoType
 }
 
-// BuiltinTypeID returns a fixed builtin ID by its XSD local name.
-func BuiltinTypeID(local string) (TypeID, bool) {
-	for id, meta := range builtinMetadata {
-		if meta.name == local {
-			return TypeID(id), true
-		}
-	}
-	return NoType, false
-}
-
 // BuiltinTypeName returns the fixed local name for id.
 func BuiltinTypeName(id TypeID) (string, bool) {
 	if id >= BuiltinTypeCount {

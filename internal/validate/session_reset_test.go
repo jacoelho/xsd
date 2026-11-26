@@ -16,7 +16,7 @@ import (
 )
 
 func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
-	valueSchema, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	valueSchema, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:IDREFS"/>
 </xs:schema>`))})
@@ -54,7 +54,7 @@ func TestSessionIdentityLimitsAreNotRecoverable(t *testing.T) {
 		})
 	}
 
-	scopeSchema, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	scopeSchema, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:complexType>
@@ -89,7 +89,7 @@ func assertSingleIdentityLimit(t *testing.T, err error, message string) {
 }
 
 func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`))})
@@ -123,7 +123,7 @@ func TestSessionDoesNotResetCallerBufferedReader(t *testing.T) {
 }
 
 func TestSessionDetachesReaderAfterPreflightFailure(t *testing.T) {
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType"/>
 </xs:schema>`))})
@@ -307,7 +307,7 @@ func TestSessionPopPathReturnsParentPath(t *testing.T) {
 }
 
 func TestSessionLifecycleZeroesReleasedReferences(t *testing.T) {
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="xs:anyType">
     <xs:key name="ids"><xs:selector xpath=".//never"/><xs:field xpath="@id"/></xs:key>

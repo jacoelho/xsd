@@ -175,7 +175,11 @@ context, and source identity (`Key`). It owns no XSD vocabulary or graph policy.
   in-memory source without opening it; it applies no byte limit.
 - Resolver spelling and built-in fallback capability are tracked separately
   (`ReferenceBase`); a valid reference a backend cannot represent is an
-  unavailable optional hint, not an error.
+  unavailable optional hint, not an error. The built-in fallback has two
+  outcomes for an admitted reference, an identity or unavailable (the empty
+  string); `net/url` is a projection that narrows what the fallback represents
+  and never rejects. `ReferenceBase.WithXMLBase` fails only when `uriref`
+  breaks its `Resolve` contract, an `internal.invariant`.
 
 ### `internal/uriref`
 
@@ -192,7 +196,7 @@ a bare empty authority
 ([I-051](docs/spec/INTERPRETATIONS.md#i-051--a-bare-empty-authority-is-an-anyuri)).
 Every `Reference` that `WithoutFragment` or `Resolve` returns is one `Parse`
 accepts; `Resolve` fails only with `ErrOpaqueBase`, for a relative path against
-an opaque base.
+an opaque base (enforced by `FuzzResolveAdmittedFailsOnlyOpaqueBase`).
 
 ### `internal/schema`
 
@@ -214,6 +218,11 @@ gives the bound per step. The admission comment above `appendWildcard`,
 record is retained. Spent work is never refunded, and the builtin components
 spend none of the caller's `MaxSchemaDependencySteps`, so every
 dependency-limit failure has a schema document to locate it.
+
+`RuntimeName` is constructed only by `Schema.ResolveName` (from an instance
+name), and it renders every
+attribute and element diagnostic name through `Quoted`, as one expanded
+name. The zero value is the absent name.
 
 Content-model checks follow
 [I-026](docs/spec/INTERPRETATIONS.md#i-026--element-declarations-consistent-counts-declarations),
@@ -331,7 +340,9 @@ failure is reported when the loader reaches its reference.
 
 The compile tier decides after every document of the set is read, so a
 compile-tier violation is reported only when no document has a parse-tier
-violation. Each compile-tier rule has a reason the criterion names: reference
+violation. A reference violation (src-include 2.1, src-import) is compile
+tier: it loses to a parse-tier violation in any document of the set, whether
+the referrer declares a targetNamespace, is chameleon or is an explicit root. Each compile-tier rule has a reason the criterion names: reference
 resolution and import authorization (resolution); duplicate components and
 attribute uses (set-wide uniqueness); cycles, derivation and `final`
 (resolution); whether the base type admits a facet, a facet's value against
@@ -367,8 +378,8 @@ or field, after every syntax diagnostic.
 
 `internal/schema`, `internal/value` and `internal/validate` export only
 identifiers consumed outside their package: for schema the published read
-surface plus `Compile`, `CompileMappedSources`, `NormalizeOptions`,
-`Options` and `Limits`. Types in exported signatures stay exported; everything
+surface plus `CompileMappedSources`, `NormalizeOptions`, `Options` and
+`Limits`. Types in exported signatures stay exported; everything
 else is unexported; external test packages reach internals
 only through aliases in `export_test.go`. Fixed-value comparison, for attributes
 and elements, is owned by `internal/validate` (`fixedValueEqual`, value space,
@@ -423,6 +434,11 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   valid-restriction clauses against inherited bounds and the
   lower-versus-upper and fixed-facet checks belong to `Builder.Complete`'s
   restriction derivation, located at the simple type.
+  `Builder` charges every retained allocation of a completed type, including
+  the facet entries inherited from its base, against `MaxStorageBytes`
+  (`ErrStorageLimit`); `internal/schema` derives that budget from
+  `MaxSchemaTotalBytes` and `MaxSchemaInstantiatedNodes`. A restriction that
+  adds nothing on a side shares its base's entries.
   One order and one equality relate two values of a primitive wherever they
   are related: an instance value against a bound, enumeration, fixed values
   and identity constraints, and a literal in restriction derivation. The order
@@ -505,8 +521,12 @@ owner, `internal/schema`, because no value-owned parser exists for them.
 - **Input requirements.** Callers read one scalar `InputRequirements`
   projection for QName context, document identity, and raw-text comparison
   eligibility (`UnconstrainedString`, `LexicalCanonical`). They never read
-  facet metadata. Builder-only `TypeView`s give the compiler component
-  metadata.
+  facet metadata. Builder-only `TypeView`s and `UnionHasFacets` give the
+  compiler component metadata. Value owns the structure of every simple type
+  (base, list item, union members, variety, primitive, builtin kind,
+  whitespace); the compiler's declaration record (`simpleType`) holds none of
+  it, so every compiler read of a completed type's structure goes through
+  them. Only the type being compiled is read from its construction input.
 - **Document identity.** The value program's ID/IDREF carriers are the only
   type-level ID-ness predicate
   ([I-016](docs/spec/INTERPRETATIONS.md#i-016--recursive-id-ness)). Schema
@@ -548,12 +568,16 @@ repeats and precomputes closures. The schema plane reports a compile-bound
 failure as `schema.limit`. The state bound limits the number of compiled
 states, and so every match-time state set; it never limits input length.
 Per-pattern bounds do not bound aggregate memory. `Pattern.RetainedBytes` is
-the admitted measure: an estimate covering instructions or linear atoms,
-precomputed closures and closure bitsets, the source and the character ranges,
-weighted by byte constants that tests keep at least `unsafe.Sizeof` of what
-they estimate. Every retained derived structure must have a term there. Ranges
-are charged once per backing array, by capacity; the over-count for subslices
-is deliberate. `internal/schema` sums the estimate over distinct pattern
+the admitted measure: an estimate covering instructions or linear atoms, the
+scalar successor table and closure bitsets of the mode that retains them, the
+source and the character ranges, weighted by byte constants that tests keep at
+least `unsafe.Sizeof` of what they estimate. Every retained slice is charged by
+capacity, and every retained derived structure must have a term there; a test
+parses the package and fails on a slice field the estimate does not name. The
+`runnerMode` doc comment owns which runner a `Pattern` uses, and the `Pattern`
+doc comment owns which tables each mode retains.
+Ranges are charged once per backing array, by capacity; the over-count for
+subslices is deliberate. `internal/schema` sums the estimate over distinct pattern
 texts. Matching takes only a work budget (`MatchOptions.MaxWork`)
 whose unit definition lives in the `MatchOptions` doc comment and reports the
 work it used. `internal/value` charges that work to its per-value pattern
@@ -585,6 +609,9 @@ Cross-module contracts:
   its ID for keyref `refer` and diagnostics but has no program or branch;
   validate owns all matching state, scopes, and tables, and enables identity
   evaluation only when some reachable element declaration owns a constraint.
+- `identityEvaluation.assessValue` owns taking an assessed attribute or element
+  value into identity state, for every admission path; its doc comment owns the
+  step order and which diagnostic a fixed-value violation leaves.
 - `internal/schema` strips XSI attribute-use defaults and fixed values, so the
   four intrinsic XSI attributes use dedicated assessment only.
 - Schema-location hints never participate in component selection. On assessed
@@ -626,6 +653,9 @@ Cross-module contracts:
   A nil reader and option errors have no document position by design.
   `MaxIdentityEntries` bounds stored entries, pending selector matches, and
   pending field slots independently, as `ValidateOptions` documents.
+  `MaxIdentityTupleBytes` is checked once, by `checkIdentityTextBytes`, on
+  the canonical text length each field takes from `Value.IdentityTextBytes`;
+  the stored key encoding does not enter the measure.
 
 ### `internal/format`
 
@@ -646,28 +676,37 @@ instance validation, and formatting share one `Reader` contract:
   are invalid after the next advance, `Reset`, or `Detach`; retained values must
   be materialized through the reader's caches.
 - The reader owns rejection of DTDs and forbidden outside-root data and reports
-  neutral `ErrorKind` failures; consumers translate them into their own
-  diagnostics.
+  neutral failure classes that it exposes only through predicates (`LimitOf`,
+  `UnsupportedFeatureOf`, `IsInputFailure`, `IsMisuse`); consumers translate
+  them into their own diagnostics.
+- The parser rejects a DOCTYPE declaration at the declaration's `<`, so
+  `TokenKind` holds only the kinds consumers receive and every consumer switch
+  over it is exhaustive with no lint suppression.
 - The reader owns the closed unsupported-feature classification
   (`UnsupportedFeatureOf`: DTD, non-UTF-8 encoding, XML version, undeclared
-  entity reference); a reader error has `ErrorUnsupported` kind exactly when it
-  classifies. Schema, instance, and format consumers map every feature in one
+  entity reference); Schema, instance, and format consumers map every feature in one
   exhaustive switch and own only the message text, so a new feature fails the
   `exhaustive` lint in each consumer instead of degrading to a syntax error.
 - The reader owns the closed limit classification (`Limit`, `LimitOf`:
-  input bytes, token bytes, attributes, depth); a reader error has
-  `ErrorLimit` kind exactly when `LimitOf` classifies, and there is no separate
-  depth kind. Negative limits are `ErrorState` configuration failures, not
+  input bytes, token bytes, attributes, depth); there is no separate
+  depth kind. Negative limits are configuration misuse (`IsMisuse`), not
   exceeded limits. Schema, instance, and format consumers map every `Limit` to
   their own option name in one exhaustive switch (`schemaReaderLimitError`,
   `readerLimitOption`, `formatReaderLimitErr`) and report
   `<option>=<n> exceeded`, so a new limit fails the `exhaustive` lint in each
   consumer instead of degrading to a syntax error. Each consumer has one
   reader-error mapping that classifies limits first: validate `streamError`,
-  schema `schemaStreamError`, format `classifyLimit`. Consumers do not re-check
+  schema `schemaStreamError`, format `readerError`. Each maps `IsMisuse` first to
+  `internal.invariant`: a reader lifecycle or configuration misuse is a defect
+  of the calling code, and the public API rejects it earlier (session misuse,
+  option normalisation). Consumers do not re-check
   limits already handed to the reader; `internal/schema` owns only the
   cross-token measure the reader cannot see, character data accumulated in one
   element under `MaxSchemaTokenBytes`.
+- The reader owns the end-of-document class and position: `Reader.Complete`
+  reports `ErrNoRoot` or `ErrUnclosedElements` at the reader position, and
+  every consumer renders it from `ErrorPos` in its single mapping, so format and
+  validate locate a rootless or unclosed document identically.
 - The reader owns diagnostic positions: `Reader.ErrorPos` locates a reader
   error and `Reader.DiagnosticPos` a failure without a token, both with line
   and column at least 1. The reader's current position and an `Error`'s
@@ -689,7 +728,11 @@ instance validation, and formatting share one `Reader` contract:
   progress, nil reader) rather than of the document. It is false whenever
   `LimitOf` or `UnsupportedFeatureOf` classifies the error, so a limit error
   joined with a read error stays a limit and precedence is owned here, not by
-  consumer branch order; `Error.Kind` is `ErrorInput` exactly when it is true.
+  consumer branch order. Every reader classifier (`LimitOf`,
+  `UnsupportedFeatureOf`, `IsMisuse`) and `Reader.ErrorPos` consider only
+  failures the reader built, never anything inside what the caller's
+  `io.Reader` returned, so a reader that surfaces an earlier xsd diagnostic is
+  reported as an input failure at this document's position.
   `internal/validate` maps it to `validation.read`. `internal/schema` and
   `internal/format` do not: `source.Input` owns schema read failures
   (`schema.read`), and format reads in-memory text.
@@ -703,7 +746,7 @@ instance validation, and formatting share one `Reader` contract:
 - Attribute values are read only through `Reader.AttrValue`, which returns an
   owned string while the attribute's token is current. A value skipped by
   `Config.SkipOrdinaryAttrValues` fails with `ErrAttrValueSkipped` instead of
-  reading as empty; `NewAttr` builds owned values without a reader cache.
+  reading as empty.
   `Attr.RawValue` is a borrowed, current-token-only view guarded by
   `tests/stream_boundary_test.go`.
 - Comment mode is chosen per consumer: validation uses `CommentModeDiscard`,
@@ -722,9 +765,10 @@ Compilation flow:
 3. `internal/schema` loads a closed source graph, then plans, indexes, and
    compiles it. Document-local XSD admission, including URI-reference syntax,
    precedes resolving a document's references, so malformed references fail
-   before resolver invocation; each resolved include/import edge is
-   target-namespace checked before its resolver context or descendants are
-   activated. Explicit source descriptors are bounded before facade conversion;
+   before resolver invocation; loading follows every include/import edge, so
+   read, parse and source-limit failures of a document behind an invalid edge
+   are reported by the tier rules ahead of the edge's compile-tier
+   `schema.reference`. Explicit source descriptors are bounded before facade conversion;
    the loader's loaded-document table is the only document-count ledger: a
    document counts once, when it is parsed and registered, so an explicit file
    that is also imported counts once and an unavailable target never counts (the
@@ -739,8 +783,9 @@ Compilation flow:
    an error. `MaxSchemaTotalBytes` failures are located at the referring
    include/import element, or at the source name for an explicit source.
 
-   Planning applies src-include and src-import checks to every chameleon
-   target-context view against its effective target namespace
+   Planning is the one decision point for src-include and src-import: each
+   edge is checked once per target-context view against its effective target
+   namespace
    ([I-021](docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace)).
    Schema document identity is the resolved source key (I-019): one key
    reached through several edges is one document, while distinct keys are
@@ -999,6 +1044,8 @@ change-detector tests that mirror the implementation or assert their own setup.
 | `tests/harness_test.go` (`checkDiagnosticLocations`) | Every compile diagnostic of a corpus case, and every validation or unsupported diagnostic of an instance run, carries a path and a line; a compile pass that reports outside a component scope fails the corpus |
 | `tests/oracle_observations_test.go` with `tests/oracle-backlog.txt` | Every measured corpus case, a project case or a W3C case whose effective expectation overrides the W3C one (`corpus.Case.Measured`), has an observation row for every provider and phase, as the `tests/README.md` Corpus Contract defines measured, and no other rows. Every row whose validity differs from the project expectation has a `differences` entry citing an interpretation record or anchored row that lists the case and names the provider; only cases listed in the backlog are exempt, and a listed case that is unknown or has every difference owned fails as stale |
 | `tests/schema_export_surface_test.go` | The exported top-level identifiers of `internal/schema`, `internal/value` and `internal/validate` equal an explicit allowlist of the surface consumed across packages |
+| `tests/test_only_exports_test.go` | Every exported package-level identifier, and every exported method of an exported type, in an internal package has a non-test use in the host or js/wasm build, so tests reach a module only through its real surface; the allowlist names intended exceptions with a reason, and an entry that matches nothing fails as stale. It does not check struct fields or methods of unexported types, and an external test package whose other imports see the plain package variant is type-checked leniently, which can only hide a finding |
+| `make lint-test-only-code` (part of `make lint`) | Unexported production code that only tests reach: `unused` runs with tests excluded, on the host build and on the js/wasm build, which owns `cmd/wasmxsd`. It covers what `tests/test_only_exports_test.go` leaves out, methods of unexported types and unexported functions, and follows interface satisfaction |
 | `tests/architecture_names_test.go` | Every code span of this file shaped like a Go name (a mixed-case identifier or a selector ending in one) is declared at package level by some Go file of the module (a function, method, type, constant, variable, or field or method of a declared type), unless the test lists it as a name the module does not declare, and a listed name that is declared or no longer named fails as stale. It checks only that a name exists, in any package and under any build constraint, not that the sentence about it is true or that it is the declaration meant |
 | `tests/resource_limits_doc_test.go` | `docs/RESOURCE_LIMITS.md` option tables list every public option with its code-owned default |
 | `tests/root_public_shape_test.go` and `tests/external_api_smoke_test.go` | External callers use only the supported public packages and interface |
@@ -1113,6 +1160,12 @@ graph preserves these ownership rules:
 
 ### Diagnostics
 
+- Rejecting an include/import edge during loading, before its target's
+  descendants are resolved, when the referrer declares a targetNamespace was
+  rejected: the first diagnostic then depended on whether an unrelated
+  document declared a targetNamespace, and chameleon referrers already reached
+  planning with invalid edges. The edge is checked once, at plan time, and
+  documents behind an invalid edge are loaded.
 - Formatting every rejected value candidate, or replaying validation to explain
   a final error, was rejected: rejected union members occur on successful paths,
   and replay could repeat resolver effects and replenish work.
@@ -1731,7 +1784,10 @@ graph preserves these ownership rules:
   `internal/validate/options.go` and `internal/schema/options.go`.
   `docs/RESOURCE_LIMITS.md` owns the public option reference (zero-value rules,
   meaning, limit interaction); `tests/resource_limits_doc_test.go` checks its
-  tables against those constants through the public zero-value options.
+  tables against those constants through the public zero-value options. The
+  godoc of each public option carries only a one-line summary, the zero rule
+  and a link to its section; the same test fails an option whose godoc lacks
+  the link or whose table row is missing.
 - `docs/BENCHMARKS.md` owns benchmark methodology, reproduction commands, and
   comparison workloads.
 - `docs` holds only documentation: `docs/BENCHMARKS.md`,

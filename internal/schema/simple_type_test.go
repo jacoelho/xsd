@@ -1,6 +1,9 @@
 package schema
 
 import (
+	"go/ast"
+	goparser "go/parser"
+	"go/token"
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/value"
@@ -10,19 +13,66 @@ func TestMissingSimpleType(t *testing.T) {
 	t.Parallel()
 
 	name := QName{Namespace: 1, Local: 2}
-	const base SimpleTypeID = 3
-	got := missingSimpleType(name, base)
-	if got.Name != name || !got.Missing ||
-		got.ValueSpec.Variety != value.Atomic ||
-		got.ValueSpec.Primitive != value.PrimitiveString ||
-		got.ValueSpec.Whitespace != value.WhitespaceCollapse ||
-		!got.ValueSpec.WhitespacePresent ||
-		got.ValueSpec.Base != base || got.ValueSpec.ListItem != value.NoType {
-		t.Fatalf("MissingSimpleType() = %+v", got)
+	got := missingSimpleType(name)
+	if got.decl != (simpleType{Name: name, Missing: true}) {
+		t.Fatalf("missingSimpleType().decl = %+v", got.decl)
+	}
+	if got.spec.Variety != value.Atomic ||
+		got.spec.Primitive != value.PrimitiveString ||
+		got.spec.Whitespace != value.WhitespaceCollapse ||
+		!got.spec.WhitespacePresent ||
+		got.spec.Base != value.BuiltinType(value.PrimitiveString) || got.spec.ListItem != value.NoType {
+		t.Fatalf("missingSimpleType().spec = %+v", got.spec)
 	}
 	if missingSimpleTypeLocalName() != "missing" {
 		t.Fatalf("MissingSimpleTypeLocalName() = %q", missingSimpleTypeLocalName())
 	}
+}
+
+// The build stores only simpleType, so a declaration field of a type from
+// internal/value would give schema a second copy of value-owned structure
+// that compiler code could read after Builder.Complete.
+func TestSimpleTypeDeclarationHoldsNoValueStructure(t *testing.T) {
+	t.Parallel()
+
+	file, err := goparser.ParseFile(token.NewFileSet(), "simple_type.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields *ast.FieldList
+	ast.Inspect(file, func(n ast.Node) bool {
+		if ts, ok := n.(*ast.TypeSpec); ok && ts.Name.Name == "simpleType" {
+			if st, ok := ts.Type.(*ast.StructType); ok {
+				fields = st.Fields
+			}
+		}
+		return fields == nil
+	})
+	if fields == nil {
+		t.Fatal("simple_type.go declares no simpleType struct")
+	}
+	for _, field := range fields.List {
+		ast.Inspect(field.Type, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.SelectorExpr:
+				if pkg, ok := n.X.(*ast.Ident); ok && pkg.Name == "value" {
+					t.Errorf("simpleType field %s has type from internal/value: value.%s", fieldNames(field), n.Sel.Name)
+				}
+			case *ast.Ident:
+				if n.Name == "SimpleTypeID" {
+					t.Errorf("simpleType field %s references SimpleTypeID, a value.TypeID alias", fieldNames(field))
+				}
+			}
+			return true
+		})
+	}
+}
+
+func fieldNames(field *ast.Field) string {
+	if len(field.Names) == 0 {
+		return "(embedded)"
+	}
+	return field.Names[0].Name
 }
 
 func TestSimpleTypeByID(t *testing.T) {
@@ -49,7 +99,7 @@ func TestUsableSimpleTypeRejectsMissingSentinel(t *testing.T) {
 
 	types := []simpleType{
 		{Name: QName{Local: 1}},
-		missingSimpleType(QName{Local: 2}, 0),
+		missingSimpleType(QName{Local: 2}).decl,
 	}
 	if got, ok := usableSimpleType(types, 0); !ok || got.Name != types[0].Name {
 		t.Fatalf("UsableSimpleType(valid) = %+v, %v; want type 0, true", got, ok)

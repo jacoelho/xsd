@@ -42,7 +42,7 @@ func BenchmarkPublishedRawNMTokensList(b *testing.B) {
 	if !ok {
 		b.Fatal("missing NMTOKENS builtin")
 	}
-	id, _ := valuepkg.BuiltinTypeID("NMTOKENS")
+	id, _ := builtinTypeID("NMTOKENS")
 	raw := []byte("one two three")
 	b.ReportAllocs()
 	for b.Loop() {
@@ -57,7 +57,7 @@ func BenchmarkPublishedRawIntegerBounds(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	id, _ := valuepkg.BuiltinTypeID("unsignedLong")
+	id, _ := builtinTypeID("unsignedLong")
 	raw := []byte("18446744073709551615")
 	b.ReportAllocs()
 	for b.Loop() {
@@ -73,7 +73,7 @@ func mustBuiltinProgram(tb testing.TB, name string) (*valuepkg.Program, bool) {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	_, ok := valuepkg.BuiltinTypeID(name)
+	_, ok := builtinTypeID(name)
 	return program, ok
 }
 
@@ -398,7 +398,7 @@ func BenchmarkPublishedRawDecimalBounds(b *testing.B) {
 
 func checkRawPlanResult(tb testing.TB, got valuepkg.Value, id valuepkg.TypeID) {
 	tb.Helper()
-	if got.Type() != id || got.SelectedType() != valuepkg.NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+	if got.Type() != id || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
 		tb.Fatalf("unprojected decimal result = %#v", got)
 	}
 }
@@ -464,8 +464,8 @@ func checkProbeOppSuccess(b *testing.B, got valuepkg.Value, err error, typ value
 	if err != nil {
 		b.Fatal(err)
 	}
-	if got.Type() != typ || got.SelectedType() != valuepkg.NoType {
-		b.Fatalf("type/selection = %d/%d, want %d/%d", got.Type(), got.SelectedType(), typ, valuepkg.NoType)
+	if got.Type() != typ {
+		b.Fatalf("type = %d, want %d", got.Type(), typ)
 	}
 	if got.CanonicalText() != want.canonical || got.IdentityKey() != want.key || got.HasIdentity() != want.identity {
 		b.Fatalf("canonical/key/identity = %q/%q/%v, want %q/%q/%v", got.CanonicalText(), got.IdentityKey(), got.HasIdentity(), want.canonical, want.key, want.identity)

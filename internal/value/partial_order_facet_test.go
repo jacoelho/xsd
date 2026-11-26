@@ -99,8 +99,8 @@ func TestOrderedMixedTimezoneBoundsDefiniteOrder(t *testing.T) {
 				if validationErr != nil {
 					t.Fatalf("definite accepted %q: %v", test.accepted, validationErr)
 				}
-				if got.Type() != ids[i] || got.SelectedType() != value.NoType {
-					t.Fatalf("accepted owner/selection = %v/%v, want %v/%v", got.Type(), got.SelectedType(), ids[i], value.NoType)
+				if got.Type() != ids[i] {
+					t.Fatalf("accepted owner = %v, want %v", got.Type(), ids[i])
 				}
 			}
 			checkAccepted()

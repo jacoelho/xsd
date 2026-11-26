@@ -346,6 +346,7 @@ func removeContainers(ctx context.Context, image string) error {
 type measurer struct {
 	digest string
 	cache  string
+	files  fileDigests
 }
 
 // caseResult is the rows of one case and the provider versions its runs
@@ -502,9 +503,12 @@ func acceptedProviders(schemaRows []corpus.Row) []corpus.Provider {
 }
 
 func (m *measurer) measurePhase(ctx context.Context, slot string, c *corpus.Case, phase, instance string, res *caseResult) ([]corpus.Row, error) {
-	in := phaseInputs(c, instance)
+	in, err := phaseInputs(c, instance)
+	if err != nil {
+		return nil, err
+	}
 	args := in.args()
-	key, err := cacheKey(m.digest, c, in)
+	key, err := m.files.cacheKey(m.digest, c, in)
 	if err != nil {
 		return nil, err
 	}
@@ -537,13 +541,15 @@ func (m *measurer) measurePhase(ctx context.Context, slot string, c *corpus.Case
 }
 
 // runInputs is the files of one phase run: the case's schema documents in
-// manifest order and, for an instance phase, the instance.
+// manifest order and, for an instance phase, the instance. root is the
+// directory run.sh mounts, which measure passes as --root.
 type runInputs struct {
 	instance string
+	root     string
 	schemas  []string
 }
 
-func phaseInputs(c *corpus.Case, instance string) runInputs {
+func phaseInputs(c *corpus.Case, instance string) (runInputs, error) {
 	in := runInputs{schemas: make([]string, 0, len(c.Schema.Documents))}
 	for _, doc := range c.Schema.Documents {
 		in.schemas = append(in.schemas, filepath.Join("tests", doc.File))
@@ -551,14 +557,51 @@ func phaseInputs(c *corpus.Case, instance string) runInputs {
 	if instance != "" {
 		in.instance = filepath.Join("tests", instance)
 	}
-	return in
+	root, err := in.mountRoot()
+	if err != nil {
+		return runInputs{}, err
+	}
+	in.root = root
+	return in, nil
 }
 
-// args returns the run.sh arguments: every schema document after the first as
-// a --schema option, then the first, then the instance. run.sh mounts the
-// deepest directory containing every argument.
+// mountRoot returns the deepest directory containing every run file: the
+// directory run.sh mounts by default. Each file's directory is resolved through
+// symlinks and the file's own name is kept, as run.sh does.
+func (in runInputs) mountRoot() (string, error) {
+	var root string
+	for _, name := range in.files() {
+		abs, err := filepath.Abs(name)
+		if err != nil {
+			return "", err
+		}
+		dir, err := filepath.EvalSymlinks(filepath.Dir(abs))
+		if err != nil {
+			return "", err
+		}
+		if root == "" {
+			root = dir
+			continue
+		}
+		for !within(root, dir) {
+			root = filepath.Dir(root)
+		}
+	}
+	if root == string(filepath.Separator) {
+		return "", errors.New("run files share no directory narrower than /")
+	}
+	return root, nil
+}
+
+func within(root, name string) bool {
+	rel, err := filepath.Rel(root, name)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// args returns the run.sh arguments: the mounted root, every schema document
+// after the first as a --schema option, then the first, then the instance.
 func (in runInputs) args() []string {
-	var args []string
+	args := []string{"--root", in.root}
 	for _, doc := range in.schemas[1:] {
 		args = append(args, "--schema", doc)
 	}
@@ -576,30 +619,112 @@ func (in runInputs) files() []string {
 	return append(slices.Clip(in.schemas), in.instance)
 }
 
+// fileDigests memoises the content digest of each file by absolute path, so
+// overlapping mount roots read a file once per run.
+type fileDigests struct {
+	digests map[string][sha256.Size]byte
+	mu      sync.Mutex
+}
+
+func (d *fileDigests) of(abs string) ([sha256.Size]byte, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if sum, ok := d.digests[abs]; ok {
+		return sum, nil
+	}
+	data, err := os.ReadFile(abs) //nolint:gosec // Names are inventory paths under tests.
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	if d.digests == nil {
+		d.digests = make(map[string][sha256.Size]byte)
+	}
+	sum := sha256.Sum256(data)
+	d.digests[abs] = sum
+	return sum, nil
+}
+
 // cacheKey covers the image digest, the case, the run arguments and the bytes
-// of each run file and each declared case file, since a phase file need not be
-// listed among the case files.
-func cacheKey(digest string, c *corpus.Case, in runInputs) (string, error) {
+// of every regular file under the mount root, since the providers read the
+// whole mounted directory, then the declared case files outside the root. The
+// root enters the key relative to the working directory, so checkouts at
+// different paths share cached runs.
+func (d *fileDigests) cacheKey(digest string, c *corpus.Case, in runInputs) (string, error) {
 	h := sha256.New()
 	writeField(h, digest)
 	writeField(h, c.ID)
-	for _, a := range in.args() {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if wd, err = filepath.EvalSymlinks(wd); err != nil {
+		return "", err
+	}
+	relRoot, err := filepath.Rel(wd, in.root)
+	if err != nil {
+		return "", err
+	}
+	keyed := in
+	keyed.root = filepath.ToSlash(relRoot)
+	for _, a := range keyed.args() {
 		writeField(h, a)
 	}
-	files := slices.Clone(in.files())
-	for _, f := range c.Files {
-		files = append(files, filepath.Join("tests", filepath.FromSlash(f.File)))
+	if err := d.writeTree(h, in.root); err != nil {
+		return "", err
 	}
-	slices.Sort(files)
-	for _, name := range slices.Compact(files) {
-		data, err := os.ReadFile(name) //nolint:gosec // Names are inventory paths under tests.
+	for _, name := range declaredOutside(c, in.root) {
+		abs, err := filepath.Abs(name)
 		if err != nil {
 			return "", err
 		}
-		writeField(h, filepath.ToSlash(name))
-		writeField(h, string(data))
+		if err := d.write(h, filepath.ToSlash(name), abs); err != nil {
+			return "", err
+		}
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (d *fileDigests) writeTree(h hash.Hash, root string) error {
+	return filepath.WalkDir(root, func(abs string, entry fs.DirEntry, err error) error {
+		if err != nil || !entry.Type().IsRegular() {
+			return err
+		}
+		rel, err := filepath.Rel(root, abs)
+		if err != nil {
+			return err
+		}
+		return d.write(h, filepath.ToSlash(rel), abs)
+	})
+}
+
+func (d *fileDigests) write(h hash.Hash, label, abs string) error {
+	sum, err := d.of(abs)
+	if err != nil {
+		return err
+	}
+	writeField(h, label)
+	writeField(h, string(sum[:]))
+	return nil
+}
+
+// declaredOutside returns the sorted case files that are not under root.
+func declaredOutside(c *corpus.Case, root string) []string {
+	var outside []string
+	for _, f := range c.Files {
+		name := filepath.Join("tests", filepath.FromSlash(f.File))
+		abs, err := filepath.Abs(name)
+		if err != nil {
+			abs = name
+		}
+		if dir, err := filepath.EvalSymlinks(filepath.Dir(abs)); err == nil {
+			abs = filepath.Join(dir, filepath.Base(abs))
+		}
+		if !within(root, abs) {
+			outside = append(outside, name)
+		}
+	}
+	slices.Sort(outside)
+	return slices.Compact(outside)
 }
 
 func writeField(h hash.Hash, s string) {

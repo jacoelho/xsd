@@ -72,7 +72,7 @@ func BenchmarkPublishedUnionRejectedMember(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	integerID, ok := valuepkg.BuiltinTypeID("integer")
+	integerID, ok := builtinTypeID("integer")
 	if !ok {
 		b.Fatal("missing integer builtin")
 	}
@@ -150,12 +150,12 @@ func BenchmarkPublishedUnionRejectedMember(b *testing.B) {
 						}
 					}
 					projected, validationErr := validate(valuepkg.NeedCanonical | valuepkg.NeedIdentity)
-					if validationErr != nil || projected.Type() != unionID || projected.SelectedType() != stringID || projected.CanonicalText() != fixture.input || !projected.HasIdentity() {
-						b.Fatalf("projected validation: type=%d selected=%d canonical=%q identity=%t error=%v", projected.Type(), projected.SelectedType(), projected.CanonicalText(), projected.HasIdentity(), validationErr)
+					if validationErr != nil || projected.Type() != unionID || projected.CanonicalText() != fixture.input || !projected.HasIdentity() {
+						b.Fatalf("projected validation: type=%d canonical=%q identity=%t error=%v", projected.Type(), projected.CanonicalText(), projected.HasIdentity(), validationErr)
 					}
 					unprojected, validationErr := validate(0)
-					if validationErr != nil || unprojected.Type() != unionID || unprojected.SelectedType() != stringID || unprojected.CanonicalText() != "" || unprojected.HasIdentity() {
-						b.Fatalf("unprojected validation: type=%d selected=%d canonical=%q identity=%t error=%v", unprojected.Type(), unprojected.SelectedType(), unprojected.CanonicalText(), unprojected.HasIdentity(), validationErr)
+					if validationErr != nil || unprojected.Type() != unionID || unprojected.CanonicalText() != "" || unprojected.HasIdentity() {
+						b.Fatalf("unprojected validation: type=%d canonical=%q identity=%t error=%v", unprojected.Type(), unprojected.CanonicalText(), unprojected.HasIdentity(), validationErr)
 					}
 					b.ReportAllocs()
 					for b.Loop() {

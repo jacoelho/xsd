@@ -2303,6 +2303,202 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/composition/import-location-invalid-port",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "https://www.w3.org/TR/xmlbase/"
+        ],
+        "description": "An import whose schemaLocation is a valid URI reference the built-in backend cannot represent is an unavailable optional hint, not a schema error.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/import-location-invalid-port/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/import-location-invalid-port/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "clause": "src-import: schemaLocation is an optional hint"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-053"
+          },
+          "libxml2": {
+            "record": "I-053"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/import-location-invalid-port/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/import-location-escaped-host",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "https://www.w3.org/TR/xmlbase/"
+        ],
+        "description": "An import whose schemaLocation has an escaped host is an unavailable optional hint, not a schema error.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/import-location-escaped-host/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/import-location-escaped-host/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "clause": "src-import: schemaLocation is an optional hint"
+        },
+        "differences": {
+          "dotnet": {
+            "record": "I-053"
+          }
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/import-location-escaped-host/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/import-xml-base-invalid-port",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "https://www.w3.org/TR/xmlbase/"
+        ],
+        "description": "An import whose xml:base is a valid URI reference the built-in backend cannot represent leaves its target unavailable, not an error.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/import-xml-base-invalid-port/schema.xsd"
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/composition/import-xml-base-invalid-port/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "clause": "src-import: schemaLocation is an optional hint"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/import-xml-base-invalid-port/schema.xsd",
+          "role": "principal"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/reference-violation-with-later-parse-violation-namespaced",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A reference violation in an included document that declares the schema's namespace and a later parse-tier violation in another included document leave the set invalid.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/reference-violation-with-later-parse-violation-namespaced/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.content_model",
+        "documents": [
+          {
+            "file": "corpus/project/composition/reference-violation-with-later-parse-violation-namespaced/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/reference-violation-with-later-parse-violation-namespaced/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/reference-violation-with-later-parse-violation-namespaced/c.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/reference-violation-with-later-parse-violation-namespaced/d.xsd",
+          "role": "dependency"
+        }
+      ]
+    },
+    {
+      "id": "project/composition/reference-violation-with-later-parse-violation-chameleon",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import",
+          "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace"
+        ],
+        "description": "A reference violation in a chameleon included document and a later parse-tier violation in another included document leave the set invalid.",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/composition/reference-violation-with-later-parse-violation-chameleon/schema.xsd"
+      },
+      "schema": {
+        "expected": "invalid",
+        "errorCode": "schema.content_model",
+        "documents": [
+          {
+            "file": "corpus/project/composition/reference-violation-with-later-parse-violation-chameleon/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "docs/spec/INTERPRETATIONS.md#i-021--chameleon-reference-checks-use-the-effective-target-namespace",
+          "clause": "I-021 in docs/spec/INTERPRETATIONS.md"
+        }
+      },
+      "files": [
+        {
+          "file": "corpus/project/composition/reference-violation-with-later-parse-violation-chameleon/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/composition/reference-violation-with-later-parse-violation-chameleon/c.xsd",
+          "role": "dependency"
+        },
+        {
+          "file": "corpus/project/composition/reference-violation-with-later-parse-violation-chameleon/d.xsd",
+          "role": "dependency"
+        }
+      ]
     }
   ]
 }

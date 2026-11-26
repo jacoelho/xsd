@@ -84,7 +84,7 @@ func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 				sources = append(sources, source.Bytes(namespace+".xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="`+namespace+`">`+
 					`<xs:element name="c" type="xs:string"/><xs:element name="e0" type="xs:string"/></xs:schema>`)))
 			}
-			rt, err := Compile(Options{}, sources)
+			rt, err := compileSources(Options{}, sources)
 			if err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
@@ -94,16 +94,16 @@ func TestIndexedRowsDispatchAsLinearScan(t *testing.T) {
 				if !ok {
 					continue
 				}
-				inputs = append(inputs, ContentInput{Name: RuntimeName{Known: true, Name: name, Local: local}})
+				inputs = append(inputs, ContentInput{Name: RuntimeName{known: true, name: name, local: local}})
 			}
 			for _, namespace := range wildcardNamespaces {
-				inputs = append(inputs, ContentInput{Name: RuntimeName{NS: namespace, Local: "any"}})
+				inputs = append(inputs, ContentInput{Name: RuntimeName{ns: namespace, local: "any"}})
 				for _, local := range []string{"c", "e0"} {
 					name, ok := rt.LookupQName(namespace, local)
 					if !ok {
 						t.Fatalf("LookupQName(%q, %q) is unknown", namespace, local)
 					}
-					inputs = append(inputs, ContentInput{Name: RuntimeName{NS: namespace, Known: true, Name: name, Local: local}})
+					inputs = append(inputs, ContentInput{Name: RuntimeName{ns: namespace, known: true, name: name, local: local}})
 				}
 			}
 			indexed := 0

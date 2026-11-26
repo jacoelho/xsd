@@ -8,42 +8,41 @@ import (
 
 // ValidateOptions controls instance validation.
 type ValidateOptions struct {
-	// MaxErrors limits reported recoverable validation errors. Once reached,
-	// validation stops semantic assessment but continues reading XML until a
-	// fatal error or the document end; a later fatal error takes precedence.
-	// Zero uses the default.
+	// MaxErrors caps reported recoverable validation errors. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxErrors int
-	// MaxIdentityScopes limits active identity-constraint scopes. Zero uses the default.
+	// MaxIdentityScopes caps active identity-constraint scopes. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxIdentityScopes int
-	// MaxIdentityEntries independently limits stored ID, IDREF, key, unique,
-	// and keyref entries, pending identity-selector matches, and pending
-	// identity-field values. Zero means the default.
+	// MaxIdentityEntries caps stored identity entries and pending identity matches. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxIdentityEntries int
-	// MaxIdentityTupleBytes limits the byte length of one stored identity key. Zero uses the default.
+	// MaxIdentityTupleBytes caps the canonical text bytes of one identity entry. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxIdentityTupleBytes int64
-	// MaxInstanceDepth limits nested XML elements. Zero uses the default.
+	// MaxInstanceDepth caps nested XML elements. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceDepth int
-	// MaxInstanceAttributes limits attributes on one XML element. Zero uses the default.
+	// MaxInstanceAttributes caps attributes on one XML element. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceAttributes int
-	// MaxInstanceTextBytes limits retained character data bytes. Zero uses the default.
+	// MaxInstanceTextBytes caps retained character data bytes. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceTextBytes int64
-	// MaxInstanceTokenBytes limits parser-owned bytes for one XML token, including
-	// retained payload and active construction scratch. Zero uses the default.
+	// MaxInstanceTokenBytes caps parser-owned bytes for one XML token. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceTokenBytes int64
-	// MaxInstanceBytes limits aggregate raw XML bytes read. Zero uses the default.
+	// MaxInstanceBytes caps aggregate raw XML bytes read. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceBytes int64
-	// MaxInstanceValueWork limits cumulative lexical and evaluation work for one
-	// simple value. Each visited lexical byte and evaluation visit consumes one
-	// work unit. Zero uses the finite default.
+	// MaxInstanceValueWork caps cumulative lexical and evaluation work for one simple value. Zero uses the finite default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceValueWork uint64
-	// MaxInstancePatternWork limits regular-expression matching work for one
-	// simple value, across all pattern facets, list items and union members;
-	// units are defined in docs/RESOURCE_LIMITS.md (Pattern matching cost).
-	// Zero uses the finite default.
+	// MaxInstancePatternWork caps regular-expression matching work for one simple value. Zero uses the finite default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstancePatternWork uint64
-	// MaxInstanceTotalPatternWork caps regular-expression matching work summed
-	// over all values of one document; units are in docs/RESOURCE_LIMITS.md
-	// (Pattern matching cost). Zero uses the default.
+	// MaxInstanceTotalPatternWork caps regular-expression matching work summed over one document. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#validation.
 	MaxInstanceTotalPatternWork uint64
 }
 

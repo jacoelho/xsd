@@ -103,10 +103,6 @@ func TestStreamDTDDiagnosticPreservesCause(t *testing.T) {
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); !ok || feature != xmlstream.UnsupportedDTD {
 		t.Fatalf("DTD cause lost: %v", err)
 	}
-	boundary, ok := errors.AsType[*xmlstream.Error](err)
-	if !ok || boundary.Kind != xmlstream.ErrorUnsupported {
-		t.Fatalf("stream cause = %+v, want unsupported", boundary)
-	}
 }
 
 func parserErr(t *testing.T, doc string) error {
@@ -140,7 +136,7 @@ func parserErr(t *testing.T, doc string) error {
 				return commitErr
 			}
 			frames = frames[:len(frames)-1]
-		case xmlstream.KindCharData, xmlstream.KindDirective, xmlstream.KindComment, xmlstream.KindPI:
+		case xmlstream.KindCharData, xmlstream.KindComment, xmlstream.KindPI:
 			continue
 		}
 	}
@@ -182,4 +178,13 @@ func TestTerminalValueErrorKeepsValueMetadataFailure(t *testing.T) {
 	if xerr := requireDiagnostic(t, err, xsderrors.CodeInternalInvariant); !errors.Is(xerr, value.ErrMetadata) {
 		t.Fatalf("terminalValueError(ErrMetadata) = %v, want it to wrap value.ErrMetadata", err)
 	}
+}
+
+func TestStreamErrorMapsReaderMisuseToInternalInvariant(t *testing.T) {
+	var reader xmlstream.Reader
+	misuse := reader.Complete()
+	if !xmlstream.IsMisuse(misuse) {
+		t.Fatalf("Complete on an inactive reader = %v, want misuse", misuse)
+	}
+	requireCode(t, streamError(startContext{}, misuse, Limits{}), xsderrors.CodeInternalInvariant)
 }

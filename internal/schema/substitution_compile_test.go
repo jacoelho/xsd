@@ -81,5 +81,5 @@ type substitutionMembershipFixture struct {
 }
 
 func (f substitutionMembershipFixture) build() *schemaBuild {
-	return (&derivationFixture{simple: fixtureMapSlice(f.simple), complex: fixtureMapSlice(f.complex)}).build()
+	return (&derivationFixture{simple: f.simple, complex: fixtureMapSlice(f.complex)}).build()
 }

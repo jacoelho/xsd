@@ -121,9 +121,6 @@ func TestAttributeDeclRead(t *testing.T) {
 	def.Fixed = false
 	decl := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, ValueConstraint: fixed})
 	defaultOnly := newAttributeDeclRead(attributeDecl{Name: name, Type: 7, ValueConstraint: &def})
-	if decl.Name() != name {
-		t.Fatalf("Name() = %v, want %v", decl.Name(), name)
-	}
 	if decl.TypeID() != 7 {
 		t.Fatalf("TypeID() = %d, want 7", decl.TypeID())
 	}
@@ -572,15 +569,11 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 	t.Parallel()
 
 	rt := derivationFixture{
-		simple: []simpleTypeDerivation{
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-			{Base: 0, Variety: valuepkg.Atomic},
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-		},
+		simple:  restrictionFixtureTypes(),
 		complex: []complexTypeDerivation{{Kind: derivationKindNone}},
 	}
-	base := attributeUse{Type: 0}
-	derived := attributeUse{Type: 1}
+	base := attributeUse{Type: fixtureRoot}
+	derived := attributeUse{Type: fixtureRestriction}
 	tests := []struct {
 		name    string
 		wantErr string
@@ -595,7 +588,7 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "required base cannot become optional",
 			base: attributeUse{
-				Type:     0,
+				Type:     fixtureRoot,
 				Required: true,
 			},
 			derived: derived,
@@ -605,25 +598,25 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 			name: "derived type must derive from base type",
 			base: base,
 			derived: attributeUse{
-				Type: 2,
+				Type: fixtureUnrelated,
 			},
 			wantErr: "restricted attribute type is not derived from base",
 		},
 		{
 			name: "fixed value preserved",
 			base: attributeUse{
-				Type:            0,
+				Type:            fixtureRoot,
 				ValueConstraint: fixedAttributeUseConstraintForTest(t, "decimal", "5.0"),
 			},
 			derived: attributeUse{
-				Type:            1,
+				Type:            fixtureRestriction,
 				ValueConstraint: fixedAttributeUseConstraintForTest(t, "decimal", "5"),
 			},
 		},
 		{
 			name: "fixed missing",
 			base: attributeUse{
-				Type:            0,
+				Type:            fixtureRoot,
 				ValueConstraint: fixedAttributeUseConstraintForTest(t, "string", "fixed"),
 			},
 			derived: derived,
@@ -632,11 +625,11 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "fixed value mismatch",
 			base: attributeUse{
-				Type:            0,
+				Type:            fixtureRoot,
 				ValueConstraint: fixedAttributeUseConstraintForTest(t, "string", "true"),
 			},
 			derived: attributeUse{
-				Type:            1,
+				Type:            fixtureRestriction,
 				ValueConstraint: fixedAttributeUseConstraintForTest(t, "boolean", "true"),
 			},
 			wantErr: "fixed attribute constraint must be preserved by restriction",
@@ -644,11 +637,11 @@ func TestValidateAttributeUseRestriction(t *testing.T) {
 		{
 			name: "fixed replaced by equal default",
 			base: attributeUse{
-				Type:            0,
+				Type:            fixtureRoot,
 				ValueConstraint: fixedAttributeUseConstraintForTest(t, "decimal", "5"),
 			},
 			derived: attributeUse{
-				Type:            1,
+				Type:            fixtureRestriction,
 				ValueConstraint: attributeUseConstraintForTest(t, "decimal", "5"),
 			},
 			wantErr: "fixed attribute constraint must be preserved by restriction",
@@ -688,11 +681,7 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 	second := QName{Namespace: 1, Local: 2}
 	third := QName{Namespace: 2, Local: 3}
 	rt := attributeUseRestrictionFixture{
-		simple: []simpleTypeDerivation{
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-			{Base: 0, Variety: valuepkg.Atomic},
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-		},
+		simple:  restrictionFixtureTypes(),
 		complex: []complexTypeDerivation{{Kind: derivationKindNone}},
 		attributeWildcardFixture: attributeWildcardFixture{
 			baseWildcard:    {Mode: WildcardAny, Process: processStrict},
@@ -700,12 +689,12 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		},
 	}
 	base := []attributeUse{
-		{Name: first, Type: 0, Required: true},
-		{Name: second, Type: 0},
+		{Name: first, Type: fixtureRoot, Required: true},
+		{Name: second, Type: fixtureRoot},
 	}
 	derived := []attributeUse{
-		{Name: first, Type: 1, Required: true},
-		{Name: second, Type: 1},
+		{Name: first, Type: fixtureRestriction, Required: true},
+		{Name: second, Type: fixtureRestriction},
 	}
 	withExtra := func(use attributeUse) []attributeUse {
 		out := append([]attributeUse(nil), derived...)
@@ -742,7 +731,7 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		{
 			name: "missing required base use",
 			derived: []attributeUse{
-				{Name: second, Type: 1},
+				{Name: second, Type: fixtureRestriction},
 			},
 			baseState:    baseState,
 			derivedState: attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
@@ -751,8 +740,8 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		{
 			name: "pairwise restriction must be valid",
 			derived: []attributeUse{
-				{Name: first, Type: 2, Required: true},
-				{Name: second, Type: 1},
+				{Name: first, Type: fixtureUnrelated, Required: true},
+				{Name: second, Type: fixtureRestriction},
 			},
 			baseState:    baseState,
 			derivedState: attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
@@ -760,13 +749,13 @@ func TestValidateAttributeUseSetRestriction(t *testing.T) {
 		},
 		{
 			name:         "derived-only use allowed by base wildcard",
-			derived:      withExtra(attributeUse{Name: third, Type: 1}),
+			derived:      withExtra(attributeUse{Name: third, Type: fixtureRestriction}),
 			baseState:    baseState,
 			derivedState: attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 		},
 		{
 			name:         "derived-only use requires base wildcard",
-			derived:      withExtra(attributeUse{Name: third, Type: 1}),
+			derived:      withExtra(attributeUse{Name: third, Type: fixtureRestriction}),
 			baseState:    attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 			derivedState: attributeUseSet{Wildcard: NoWildcard, WildcardBase: NoWildcard, WildcardDeclared: NoWildcard},
 			wantErr:      "complex restriction adds attribute outside base wildcard",
@@ -998,7 +987,7 @@ type namedSimpleType struct {
 func attributeUseSetIDFixture(t *testing.T) (*schemaBuild, []namedSimpleType) {
 	t.Helper()
 	b := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	id, found := valuepkg.BuiltinTypeID("ID")
+	id, found := builtinTypeID("ID")
 	if !found {
 		t.Fatal("missing builtin ID")
 	}

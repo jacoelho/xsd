@@ -21,8 +21,8 @@ func TestProgramValueWorkLimitIsRequiredBeforeFastPaths(t *testing.T) {
 		t.Fatalf("ValidateAdmitted zero work limit = %v, want ErrMetadata", admissionErr)
 	}
 	accepted, admissionErr := p.ValidateAdmitted(builtinString, "x", Resolver{}, NeedCanonical, EvaluationLimits{Work: 2, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
-	if admissionErr != nil || accepted.Type() != builtinString || accepted.SelectedType() != NoType || accepted.CanonicalText() != "x" {
-		t.Fatalf("ValidateAdmitted after rejection = type %d, selection %d, canonical %q, error %v; want string, NoType, x, nil", accepted.Type(), accepted.SelectedType(), accepted.CanonicalText(), admissionErr)
+	if admissionErr != nil || accepted.Type() != builtinString || accepted.CanonicalText() != "x" {
+		t.Fatalf("ValidateAdmitted after rejection = type %d, canonical %q, error %v; want string, x, nil", accepted.Type(), accepted.CanonicalText(), admissionErr)
 	}
 }
 
@@ -193,7 +193,7 @@ func TestTemporalWorkLimitResetsPerCall(t *testing.T) {
 
 func TestBorrowedRawListBudgetRouting(t *testing.T) {
 	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	listID, found := BuiltinTypeID("NMTOKENS")
+	listID, found := builtinTypeID("NMTOKENS")
 	if !found {
 		t.Fatal("missing NMTOKENS")
 	}
@@ -217,18 +217,17 @@ func TestBorrowedRawListBudgetRouting(t *testing.T) {
 		t.Fatal(projectionErr)
 	}
 	for _, tc := range []struct {
-		name     string
-		id       TypeID
-		selected TypeID
-		limit    uint64
-		wantErr  error
+		name    string
+		id      TypeID
+		limit   uint64
+		wantErr error
 	}{
-		{"direct below", listID, NoType, 7, ErrLimit},
-		{"direct at", listID, NoType, 8, nil},
-		{"direct above", listID, NoType, 9, nil},
-		{"union below", unionID, listID, 11, ErrLimit},
-		{"union at", unionID, listID, 12, nil},
-		{"union above", unionID, listID, 13, nil},
+		{"direct below", listID, 7, ErrLimit},
+		{"direct at", listID, 8, nil},
+		{"direct above", listID, 9, nil},
+		{"union below", unionID, 11, ErrLimit},
+		{"union at", unionID, 12, nil},
+		{"union above", unionID, 13, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			raw := []byte("one")
@@ -240,8 +239,8 @@ func TestBorrowedRawListBudgetRouting(t *testing.T) {
 			if tc.wantErr != nil {
 				return
 			}
-			if got.Type() != tc.id || got.SelectedType() != tc.selected {
-				t.Fatalf("result type/selection = %d/%d, want %d/%d", got.Type(), got.SelectedType(), tc.id, tc.selected)
+			if got.Type() != tc.id {
+				t.Fatalf("result type = %d, want %d", got.Type(), tc.id)
 			}
 			if got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
 				t.Fatalf("unprojected result = %#v", got)

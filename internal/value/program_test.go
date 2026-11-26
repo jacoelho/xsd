@@ -109,9 +109,9 @@ func TestProgramListUnionAndPatternGroups(t *testing.T) {
 	if v.CanonicalText() != "1.0 2.0" {
 		t.Fatalf("unexpected list canonical=%q", v.CanonicalText())
 	}
-	v, err = p.Validate(union, "2", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
-	if err != nil || v.SelectedType() != item {
-		t.Fatalf("union selection = %d, err=%v; want %d", v.SelectedType(), err, item)
+	v, err = p.Validate(union, "2", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+	if err != nil || v.CanonicalText() != "2.0" || v.IdentityKey() != PrimitiveIdentityKey(PrimitiveDecimal, "2.0") {
+		t.Fatalf("union value = canonical %q, identity %q, err=%v; want the decimal member's 2.0", v.CanonicalText(), v.IdentityKey(), err)
 	}
 	if _, err := p.Validate(union, "no-two", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err == nil {
 		t.Fatal("pattern group should reject a nonmatching union value")
@@ -814,7 +814,7 @@ func TestIncrementalBuilderValidatesCompletedTypesBeforeSeal(t *testing.T) {
 
 func TestUnionPreservesEarlierUnsupportedMemberError(t *testing.T) {
 	b := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	entity, ok := BuiltinTypeID("ENTITY")
+	entity, ok := builtinTypeID("ENTITY")
 	if !ok {
 		t.Fatal("missing ENTITY builtin")
 	}

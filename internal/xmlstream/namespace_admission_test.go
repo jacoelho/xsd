@@ -33,7 +33,7 @@ func TestNamespaceAdmissionAcrossAttributeFreeChildren(t *testing.T) {
 		if element != (xml.Name{Space: "urn:prefix", Local: "child"}) {
 			t.Fatalf("attribute-free child name = %+v", element)
 		}
-		if endErr := ns.End(childFrame, Lexical(child.Name)); endErr != nil {
+		if endErr := ns.endForTest(childFrame, Lexical(child.Name)); endErr != nil {
 			t.Fatal(endErr)
 		}
 	}
@@ -54,11 +54,11 @@ func TestNamespaceAdmissionAcrossAttributeFreeChildren(t *testing.T) {
 				t.Fatalf("published sibling attribute %d = %+v", i, attr)
 			}
 		}
-		if endErr := ns.End(siblingFrame, Lexical(sibling.Name)); endErr != nil {
+		if endErr := ns.endForTest(siblingFrame, Lexical(sibling.Name)); endErr != nil {
 			t.Fatal(endErr)
 		}
 	}
-	if endErr := ns.End(rootFrame, Lexical(root.Name)); endErr != nil {
+	if endErr := ns.endForTest(rootFrame, Lexical(root.Name)); endErr != nil {
 		t.Fatal(endErr)
 	}
 	ns.Reset(64)
@@ -90,7 +90,7 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ns.End(wideFrame, Lexical(wide.Name)); err != nil {
+	if err := ns.endForTest(wideFrame, Lexical(wide.Name)); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {
@@ -153,13 +153,13 @@ func TestNamespaceAliasFailureThenAttributeFreeAndAttributedSiblings(t *testing.
 						t.Fatalf("retry attribute %d = %+v", i, attr)
 					}
 				}
-				if err := ns.End(childFrame, Lexical(child.Name)); err != nil {
+				if err := ns.endForTest(childFrame, Lexical(child.Name)); err != nil {
 					t.Fatal(err)
 				}
 			}
 		})
 	}
-	if err := ns.End(rootFrame, Lexical(root.Name)); err != nil {
+	if err := ns.endForTest(rootFrame, Lexical(root.Name)); err != nil {
 		t.Fatal(err)
 	}
 	ns.Reset(64)
@@ -184,7 +184,7 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err := ns.End(admitted, Lexical(start.Name)); err != nil {
+				if err := ns.endForTest(admitted, Lexical(start.Name)); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -212,7 +212,7 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 					t.Fatalf("published attribute after Reset %d = %+v", i, attr)
 				}
 			}
-			if err := ns.End(reuseFrame, Lexical(start.Name)); err != nil {
+			if err := ns.endForTest(reuseFrame, Lexical(start.Name)); err != nil {
 				t.Fatal(err)
 			}
 			duplicate := StartElement{Name: xml.Name{Local: "e"}, Attr: []Attr{
@@ -224,4 +224,20 @@ func TestNamespaceAdmissionRetentionAfterEmptyStarts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (s *stack) matchEndForTest(f frame, end LexicalName) error {
+	current, err := s.ownedTop(f)
+	if err != nil {
+		return err
+	}
+	return s.matchClosingName(current, end)
+}
+
+func (s *stack) endForTest(f frame, end LexicalName) error {
+	if err := s.matchEndForTest(f, end); err != nil {
+		return err
+	}
+	s.pop()
+	return nil
 }

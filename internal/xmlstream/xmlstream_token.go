@@ -22,10 +22,9 @@ type EndElement struct {
 // retained because Config.SkipOrdinaryAttrValues was set.
 var ErrAttrValueSkipped = errors.New("xmlstream: attribute value skipped by reader configuration")
 
-// Attr is a parsed attribute. A parser-produced value may be backed by raw
-// parser storage that is valid only through the current token; read it with
-// Reader.AttrValue, which returns an owned string. Values built with NewAttr
-// are owned from construction.
+// Attr is a parsed attribute. Its value may be backed by raw parser storage
+// that is valid only through the current token; read it with Reader.AttrValue,
+// which returns an owned string.
 type Attr struct {
 	// Name is lexical before Reader.Start and expanded after successful
 	// namespace admission. Namespace declarations use the XMLNS namespace URI
@@ -34,11 +33,6 @@ type Attr struct {
 	value   string
 	raw     []byte
 	skipped bool
-}
-
-// NewAttr returns an attribute whose value is owned; AttrValue returns value without consulting the cache.
-func NewAttr(name xml.Name, value string) Attr {
-	return Attr{Name: name, value: value}
 }
 
 // attrValue returns the owned value, materializing raw parser storage through

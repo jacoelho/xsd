@@ -52,7 +52,7 @@ func newKeepingFixture(t *testing.T) keepingFixture {
 
 // keep marks every type kept except dropped.
 func (f keepingFixture) keep(dropped ...TypeID) []bool {
-	keep := make([]bool, f.builder.UserTypeCount())
+	keep := make([]bool, userTypeCount(f.builder))
 	for i := range keep {
 		keep[i] = !slices.Contains(dropped, BuiltinTypeCount+TypeID(i)) // #nosec G115 -- keep covers a test builder's user types.
 	}

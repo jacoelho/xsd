@@ -178,7 +178,7 @@ const (
 )
 
 func (s *session) validateToken(tok *xmlstream.Token, mode tokenValidationMode) error {
-	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
+	switch tok.Kind {
 	case xmlstream.KindStart:
 		return s.start(tok.Line, tok.Column, tok.Start.Attr)
 	case xmlstream.KindEnd:
@@ -210,7 +210,7 @@ func (s *session) parseError(err error) error {
 
 func (s *session) finishValidation() error {
 	if err := s.doc.Complete(&s.reader); err != nil {
-		return err
+		return s.parseError(err)
 	}
 	if !s.doc.syntaxOnly {
 		if err := s.checkIDRefs(); err != nil {
@@ -678,7 +678,8 @@ func (s *session) completeElementStartAssessment(start *schemaStart, state eleme
 // and its descendants' diagnostics stay unambiguous without prefixes. Known
 // names and skipped wildcard content keep lexical segments.
 func expandedInstancePath(mode elementMode, rn xsdSchema.RuntimeName) xmlPathMode {
-	if mode == elementAssessed && !rn.Known && rn.NS != "" {
+	_, known := rn.QName()
+	if mode == elementAssessed && !known && rn.Namespace() != "" {
 		return xmlPathExpanded
 	}
 	return xmlPathLexical
@@ -937,7 +938,7 @@ func (s *session) rootStartType(rn xsdSchema.RuntimeName, attrs []xmlstream.Attr
 		}
 		return rootXSITypeStart(typ), nil
 	}
-	err := validation(ctx, xsderrors.CodeValidationRoot, undeclaredRootMessage(xml.Name{Space: rn.NS, Local: rn.Local}))
+	err := validation(ctx, xsderrors.CodeValidationRoot, undeclaredRootMessage(xml.Name{Space: rn.Namespace(), Local: rn.Local()}))
 	if recoverErr := s.recover(err); recoverErr != nil {
 		return schemaStart{}, recoverErr
 	}

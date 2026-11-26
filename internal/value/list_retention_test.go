@@ -192,12 +192,12 @@ func TestUnionFallsBackAfterListEnumerationFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := program.Validate(unionID, "02", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+	value, err := program.Validate(unionID, "02", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("Validate(\"02\"): %v", err)
 	}
-	if value.SelectedType() != builtinInt {
-		t.Fatalf("SelectedType() = %d, want builtin int %d", value.SelectedType(), builtinInt)
+	if value.CanonicalText() != "2" || value.IdentityKey() != PrimitiveIdentityKey(PrimitiveDecimal, "2.0") {
+		t.Fatalf("Validate(\"02\") = canonical %q, identity %q; want the int member's 2", value.CanonicalText(), value.IdentityKey())
 	}
 }
 
@@ -224,12 +224,12 @@ func TestUnionScalarEnumerationAcceptsFallbackAfterListEnumerationFailure(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := program.Validate(unionID, "02", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+	value, err := program.Validate(unionID, "02", Resolver{}, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("Validate(\"02\"): %v", err)
 	}
-	if value.SelectedType() != builtinInt {
-		t.Fatalf("SelectedType() = %d, want builtin int %d", value.SelectedType(), builtinInt)
+	if value.CanonicalText() != "2" || value.IdentityKey() != PrimitiveIdentityKey(PrimitiveDecimal, "2.0") {
+		t.Fatalf("Validate(\"02\") = canonical %q, identity %q; want the int member's 2", value.CanonicalText(), value.IdentityKey())
 	}
 }
 

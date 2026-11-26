@@ -171,7 +171,7 @@ func TestSchemaSourceDocumentNormalizesAttributesOnceAndAssignsStableIDs(t *test
 		t.Fatalf("semantic source counts = arena %d globals %d, want 5 and 2", len(doc.arena), len(globals))
 	}
 	for i, node := range doc.arena {
-		if got := node.ID(); got != schemaNodeID(i) {
+		if got := node.id; got != schemaNodeID(i) {
 			t.Fatalf("node %d ID = %d", i, got)
 		}
 	}

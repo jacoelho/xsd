@@ -167,7 +167,7 @@ func (s *typedSchemaParseState) parse() error {
 }
 
 func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
-	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
+	switch tok.Kind {
 	case xmlstream.KindStart:
 		return s.start(tok.Start, tok.Line, tok.Column)
 	case xmlstream.KindEnd:
@@ -182,9 +182,10 @@ func (s *typedSchemaParseState) handleToken(tok *xmlstream.Token) error {
 		return nil
 	case xmlstream.KindComment:
 		return xsderrors.InternalInvariant("schema parser received a comment token despite comment discard mode", nil)
-	default: // processing instructions are ignored.
+	case xmlstream.KindPI:
 		return nil
 	}
+	return nil
 }
 
 func (s *typedSchemaParseState) start(start xmlstream.StartElement, line, col int) error {

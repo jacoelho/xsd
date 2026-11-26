@@ -176,11 +176,11 @@ func TestReaderNameReadFailureAndReuse(t *testing.T) {
 		}
 		token, err := reader.Next()
 		boundary, ok := errors.AsType[*Error](err)
-		wantKind := ErrorSyntax
+		wantKind := errorSyntax
 		if errors.Is(cause, readErr) {
-			wantKind = ErrorInput
+			wantKind = errorInput
 		}
-		if token != nil || !ok || boundary.Kind != wantKind || boundary.line != 1 || boundary.column != 9 {
+		if token != nil || !ok || boundary.kind != wantKind || boundary.line != 1 || boundary.column != 9 {
 			t.Fatalf("name failure = %+v, %v", token, err)
 		}
 		if errors.Is(cause, readErr) && !errors.Is(err, readErr) {

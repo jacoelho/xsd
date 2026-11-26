@@ -117,11 +117,11 @@ func TestPublicationRejectsIntrinsicXSIAttributeDrift(t *testing.T) {
 			b.GlobalAttributes[q] = id
 			b.Attributes = append(b.Attributes, attributeDecl{Name: q, Type: value.BuiltinType(value.PrimitiveBoolean)})
 		},
-		"list item": func(_ *testing.T, b *schemaBuild, _ QName, _ AttributeID) {
-			b.SimpleTypes[builtinSchemaLocationTypeID].ValueSpec.ListItem = value.BuiltinType(value.PrimitiveString)
+		"list final": func(_ *testing.T, b *schemaBuild, _ QName, _ AttributeID) {
+			b.SimpleTypes[builtinSchemaLocationTypeID].Final = DerivationRestriction
 		},
-		"list facet": func(_ *testing.T, b *schemaBuild, _ QName, _ AttributeID) {
-			b.SimpleTypes[builtinSchemaLocationTypeID].ValueSpec.Facets.Length = value.CardinalityFacet{Present: true, Value: 2}
+		"list scope": func(_ *testing.T, b *schemaBuild, _ QName, _ AttributeID) {
+			b.SimpleTypes[builtinSchemaLocationTypeID].Scope = declarationScopeGlobal
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -148,7 +148,7 @@ func TestIntrinsicTypesDoNotConsumeSourceNodeAllowance(t *testing.T) {
 		{1, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`},
 		{3, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="T"><xs:restriction base="xs:string"/></xs:simpleType></xs:schema>`},
 	} {
-		if _, err := Compile(Options{MaxSchemaInstantiatedNodes: tt.limit}, []source.Source{source.Bytes("schema.xsd", []byte(tt.document))}); err != nil {
+		if _, err := compileSources(Options{MaxSchemaInstantiatedNodes: tt.limit}, []source.Source{source.Bytes("schema.xsd", []byte(tt.document))}); err != nil {
 			t.Fatalf("Compile(MaxSchemaInstantiatedNodes=%d) error = %v", tt.limit, err)
 		}
 	}

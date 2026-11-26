@@ -28789,6 +28789,241 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/identity/fixed-value-field/declared-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/fixed-value-field/declared-attribute.xsd",
+        "description": "A field that selects two nodes, one violating its fixed value, is invalid whichever admission path supplies the value; a satisfied duplicate stays an identity violation and a single node is valid.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/fixed-value-field/declared-attribute.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "violation",
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute-violation.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "satisfied-duplicate",
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute-satisfied-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-032"
+            }
+          }
+        },
+        {
+          "testName": "single-node",
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute-single-node.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute-violation.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute-satisfied-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/declared-attribute-single-node.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/fixed-value-field/wildcard-attribute",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/fixed-value-field/wildcard-attribute.xsd",
+        "description": "A field that selects two nodes, one violating its fixed value, is invalid whichever admission path supplies the value; a satisfied duplicate stays an identity violation and a single node is valid.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/fixed-value-field/wildcard-attribute.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "violation",
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute-violation.xml",
+          "expected": "invalid",
+          "errorCode": "validation.attribute",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "satisfied-duplicate",
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute-satisfied-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          },
+          "differences": {
+            "xerces": {
+              "record": "I-032"
+            }
+          }
+        },
+        {
+          "testName": "single-node",
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute-single-node.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute-violation.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute-satisfied-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/wildcard-attribute-single-node.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/identity/fixed-value-field/element-field",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "schema",
+        "sourceFile": "tests/corpus/project/identity/fixed-value-field/element-field.xsd",
+        "description": "A field that selects two nodes, one violating its fixed value, is invalid whichever admission path supplies the value; a satisfied duplicate stays an identity violation and a single node is valid.",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint"
+        ]
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/identity/fixed-value-field/element-field.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+          "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+        }
+      },
+      "instances": [
+        {
+          "testName": "violation",
+          "file": "corpus/project/identity/fixed-value-field/element-field-violation.xml",
+          "expected": "invalid",
+          "errorCode": "validation.element",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "satisfied-duplicate",
+          "file": "corpus/project/identity/fixed-value-field/element-field-satisfied-duplicate.xml",
+          "expected": "invalid",
+          "errorCode": "validation.identity",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        },
+        {
+          "testName": "single-node",
+          "file": "corpus/project/identity/fixed-value-field/element-field-single-node.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-identity-constraint",
+            "clause": "cvc-identity-constraint clause 3 in XML Schema Part 1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/identity/fixed-value-field/element-field.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/element-field-violation.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/element-field-satisfied-duplicate.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/identity/fixed-value-field/element-field-single-node.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }

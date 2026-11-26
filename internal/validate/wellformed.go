@@ -47,13 +47,16 @@ func (c *xmlWellFormedChecker) checkTokens() error {
 
 func (c *xmlWellFormedChecker) finishTokenStream(err error) error {
 	if xmlstream.IsEOF(err) {
-		return c.doc.Complete(&c.reader)
+		if completeErr := c.doc.Complete(&c.reader); completeErr != nil {
+			return c.streamError(completeErr)
+		}
+		return nil
 	}
 	return c.streamError(err)
 }
 
 func (c *xmlWellFormedChecker) checkToken(tok *xmlstream.Token) error {
-	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
+	switch tok.Kind {
 	case xmlstream.KindStart:
 		return c.start(tok.Line, tok.Column)
 	case xmlstream.KindEnd:
@@ -76,7 +79,7 @@ func (c *xmlWellFormedChecker) start(line, col int) error {
 
 func (c *xmlWellFormedChecker) end(line, col int) error {
 	if err := c.doc.ValidateEnd(&c.reader, line, col); err != nil {
-		return err
+		return c.doc.EndError(err, line, col, c.limits)
 	}
 	return c.doc.CommitEnd(&c.reader)
 }

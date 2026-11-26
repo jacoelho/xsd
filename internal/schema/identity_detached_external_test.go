@@ -19,8 +19,8 @@ func TestDetachedIdentityConstraintPublishesNoProgramOrSelectorBranch(t *testing
 <xs:key name="owned"><xs:selector xpath="p:k"/><xs:field xpath="."/></xs:key>
 </xs:element></xs:schema>`)
 	dispatch := rt.IdentityDispatch()
-	if dispatch.ConstraintCount() != 2 {
-		t.Fatalf("ConstraintCount() = %d, want 2", dispatch.ConstraintCount())
+	if _, ok := rt.DiagnosticIdentityName(2); ok {
+		t.Fatal("DiagnosticIdentityName(2) succeeded, want exactly two published identity constraints")
 	}
 	ids := map[string]xsdSchema.IdentityConstraintID{}
 	for _, id := range []xsdSchema.IdentityConstraintID{0, 1} {
@@ -65,8 +65,11 @@ func TestSchemaWithOnlyDetachedIdentityConstraintsHasNoneToEvaluate(t *testing.T
 	if rt.HasIdentityConstraints() {
 		t.Fatal("HasIdentityConstraints() = true for a schema whose only constraint is detached")
 	}
-	if got := rt.IdentityDispatch().ConstraintCount(); got != 1 {
-		t.Fatalf("ConstraintCount() = %d, want the detached constraint counted", got)
+	if name, ok := rt.DiagnosticIdentityName(0); !ok || name.Local != "detached" {
+		t.Fatalf("DiagnosticIdentityName(0) = %+v, %v; want the detached constraint published", name, ok)
+	}
+	if _, ok := rt.DiagnosticIdentityName(1); ok {
+		t.Fatal("DiagnosticIdentityName(1) succeeded, want only the detached constraint")
 	}
 }
 
@@ -93,11 +96,13 @@ func TestKeyNoInstanceReachesPublishesNoProgram(t *testing.T) {
 			if rt.HasIdentityConstraints() {
 				t.Error("HasIdentityConstraints() = true, want false for a key no instance element reaches")
 			}
-			dispatch := rt.IdentityDispatch()
-			if got := dispatch.ConstraintCount(); got != 1 {
-				t.Fatalf("ConstraintCount() = %d, want the one declared key", got)
+			if name, ok := rt.DiagnosticIdentityName(0); !ok || name.Local != "hidden" {
+				t.Fatalf("DiagnosticIdentityName(0) = %+v, %v; want the declared key", name, ok)
 			}
-			if _, ok := dispatch.Program(0); ok {
+			if _, ok := rt.DiagnosticIdentityName(1); ok {
+				t.Fatal("DiagnosticIdentityName(1) succeeded, want only the declared key")
+			}
+			if _, ok := rt.IdentityDispatch().Program(0); ok {
 				t.Error("Program(hidden) published a program for a key no instance element reaches")
 			}
 		})

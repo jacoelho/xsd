@@ -43,7 +43,7 @@ func TestReaderRejectsColonInPITargets(t *testing.T) {
 							return
 						}
 						var xmlErr *Error
-						if !errors.As(err, &xmlErr) || xmlErr.Kind != ErrorSyntax {
+						if !errors.As(err, &xmlErr) || xmlErr.kind != errorSyntax {
 							t.Fatalf("drain(EmitPI=%v) error = %v, want syntax error", emit, err)
 						}
 					})
@@ -67,7 +67,7 @@ func TestEntityNamesWithColonAreMalformed(t *testing.T) {
 			}
 			err := drainReader(&reader)
 			var xmlErr *Error
-			if !errors.As(err, &xmlErr) || xmlErr.Kind != ErrorSyntax {
+			if !errors.As(err, &xmlErr) || xmlErr.kind != errorSyntax {
 				t.Fatalf("drain() error = %v, want syntax error", err)
 			}
 		})

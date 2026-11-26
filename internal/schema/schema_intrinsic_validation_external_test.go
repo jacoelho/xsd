@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -15,45 +14,13 @@ type intrinsicTypeMutation struct {
 	mutate func(st *xsdSchema.SimpleType)
 }
 
-// intrinsicValueSpecMutations changes one value-specification field, or one
-// facet group, of an intrinsic definition that has no members or facets.
-func intrinsicValueSpecMutations() []intrinsicTypeMutation {
+// intrinsicDeclarationMutations changes one declaration field of an intrinsic
+// type. Its value structure lives in the value builder, which a build cannot
+// alter.
+func intrinsicDeclarationMutations() []intrinsicTypeMutation {
 	return []intrinsicTypeMutation{
-		{name: "Union", mutate: func(st *xsdSchema.SimpleType) {
-			st.ValueSpec.Union = append(st.ValueSpec.Union, value.BuiltinType(value.PrimitiveString))
-		}},
-		{name: "Base", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Base = value.BuiltinType(value.PrimitiveBoolean) }},
-		{name: "ListItem", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.ListItem = value.BuiltinType(value.PrimitiveBoolean) }},
-		{name: "Variety", mutate: func(st *xsdSchema.SimpleType) {
-			if st.ValueSpec.Variety == value.Union {
-				st.ValueSpec.Variety = value.Atomic
-			} else {
-				st.ValueSpec.Variety = value.Union
-			}
-		}},
-		{name: "Primitive", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Primitive = value.PrimitiveBoolean }},
-		{name: "Whitespace", mutate: func(st *xsdSchema.SimpleType) {
-			if st.ValueSpec.Whitespace == value.WhitespacePreserve {
-				st.ValueSpec.Whitespace = value.WhitespaceCollapse
-			} else {
-				st.ValueSpec.Whitespace = value.WhitespacePreserve
-			}
-		}},
-		{name: "WhitespacePresent", mutate: func(st *xsdSchema.SimpleType) {
-			st.ValueSpec.WhitespacePresent = !st.ValueSpec.WhitespacePresent
-		}},
-		{name: "Builtin", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Builtin++ }},
-		{name: "Patterns", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Facets.Patterns = [][]*value.Pattern{nil} }},
-		{name: "Enumeration", mutate: func(st *xsdSchema.SimpleType) {
-			st.ValueSpec.Facets.Enumeration = []value.LiteralSpec{{Lexical: "x"}}
-		}},
-		{name: "BoundFacet", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Facets.MaxInclusive.Lexical = "1" }},
-		{name: "BoundFacetResolver", mutate: func(st *xsdSchema.SimpleType) {
-			st.ValueSpec.Facets.MinExclusive.Resolver.Notation = func(string, string) bool { return true }
-		}},
-		{name: "CardinalityFacet", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Facets.MaxLength.Value = 1 }},
-		{name: "FacetPresent", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Facets.Present = 1 }},
-		{name: "FacetFixed", mutate: func(st *xsdSchema.SimpleType) { st.ValueSpec.Facets.Fixed = 1 }},
+		{name: "Final", mutate: func(st *xsdSchema.SimpleType) { st.Final = xsdSchema.DerivationRestriction }},
+		{name: "Scope", mutate: func(st *xsdSchema.SimpleType) { st.Scope = xsdSchema.DeclarationScopeGlobal }},
 	}
 }
 
@@ -72,11 +39,7 @@ func TestPublishSchemaRejectsAlteredMissingSimpleTypeSentinel(t *testing.T) {
 	if err := validateSchemaBuild(mutableSchemaBuild(t, schema)); err != nil {
 		t.Fatalf("unaltered sentinel error = %v", err)
 	}
-	mutations := append(intrinsicValueSpecMutations(),
-		intrinsicTypeMutation{name: "Final", mutate: func(st *xsdSchema.SimpleType) { st.Final = xsdSchema.DerivationRestriction }},
-		intrinsicTypeMutation{name: "Scope", mutate: func(st *xsdSchema.SimpleType) { st.Scope = xsdSchema.DeclarationScopeGlobal }},
-	)
-	for _, test := range mutations {
+	for _, test := range intrinsicDeclarationMutations() {
 		t.Run(test.name, func(t *testing.T) {
 			build := mutableSchemaBuild(t, schema)
 			test.mutate(sentinel(t, build))
@@ -108,7 +71,7 @@ func TestPublishSchemaRejectsAlteredSchemaLocationType(t *testing.T) {
 	if err := validateSchemaBuild(mutableSchemaBuild(t, schema)); err != nil {
 		t.Fatalf("unaltered schemaLocation type error = %v", err)
 	}
-	for _, test := range intrinsicValueSpecMutations() {
+	for _, test := range intrinsicDeclarationMutations() {
 		t.Run(test.name, func(t *testing.T) {
 			build := mutableSchemaBuild(t, schema)
 			test.mutate(schemaLocation(t, build))

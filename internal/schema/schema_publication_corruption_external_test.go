@@ -1824,14 +1824,13 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 		{name: "defaultQName", owner: xsdSchema.SimpleRef(qnameID), valueType: qnameID, lexical: "q:item", canonical: "{urn:default}item", def: true},
 	}
 	ids := make(map[string]xsdSchema.ElementID, len(tests))
-	names := make(map[string]xsdSchema.QName, len(tests))
 	for _, test := range tests {
 		q := mustQName(t, &build.Names, test.name)
 		id, ok := build.GlobalElements[q]
 		if !ok {
 			t.Fatalf("element %q is missing from compiled fixture", test.name)
 		}
-		ids[test.name], names[test.name] = id, q
+		ids[test.name] = id
 	}
 	count := xsdSchema.ElementID(len(build.Elements)) //nolint:gosec // The fixed fixture contains fifteen element declarations.
 	fixedAlias := build.Elements[ids["fixed"]].ValueConstraint
@@ -1852,8 +1851,8 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 			t.Run(label+"/"+test.name, func(t *testing.T) {
 				id := ids[test.name]
 				constraints, present, valid := published.ElementValueConstraints(id)
-				if !present || !valid || constraints.OwnerType() != test.owner || constraints.HasAny() != (test.fixed || test.def) {
-					t.Fatalf("ElementValueConstraints(%d) = %+v, %v, %v; want owner %v, any %v, present/valid", id, constraints, present, valid, test.owner, test.fixed || test.def)
+				if !present || !valid || constraints.OwnerType() != test.owner {
+					t.Fatalf("ElementValueConstraints(%d) = %+v, %v, %v; want owner %v, present/valid", id, constraints, present, valid, test.owner)
 				}
 				fixed, hasFixed := constraints.FixedValue()
 				def, hasDefault := constraints.DefaultValueConstraint()
@@ -1876,7 +1875,7 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 				if start, ok := published.Element(id); !ok || start != wantStart {
 					t.Fatalf("Element(%d) = %+v, %v; want %+v", id, start, ok, wantStart)
 				}
-				rootID, start, ok := published.GlobalElement(xsdSchema.RuntimeName{Name: names[test.name], Known: true})
+				rootID, start, ok := published.GlobalElement(published.ResolveName("", test.name))
 				if !ok || rootID != id || start != wantStart {
 					t.Fatalf("GlobalElement(%q) = %d, %+v, %v; want %d, %+v", test.name, rootID, start, ok, id, wantStart)
 				}
@@ -1890,7 +1889,7 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 		}
 		fixed, hasFixed := constraints.FixedValue()
 		def, hasDefault := constraints.DefaultValueConstraint()
-		if constraints.HasAny() || hasFixed || hasDefault || fixed != (xsdSchema.ValueConstraintRead{}) || def != (xsdSchema.ValueConstraintRead{}) {
+		if hasFixed || hasDefault || fixed != (xsdSchema.ValueConstraintRead{}) || def != (xsdSchema.ValueConstraintRead{}) {
 			t.Fatalf("absent element retained constraints: fixed %+v/%v, default %+v/%v", fixed, hasFixed, def, hasDefault)
 		}
 	}
@@ -1898,7 +1897,7 @@ func TestPublishedElementValueConstraints(t *testing.T) {
 
 func builtinSimpleValueIDForTest(t *testing.T, local string) valuepkg.TypeID {
 	t.Helper()
-	id, ok := valuepkg.BuiltinTypeID(local)
+	id, ok := builtinTypeID(local)
 	if !ok {
 		t.Fatalf("builtin simple type %q not found", local)
 	}
@@ -1964,8 +1963,8 @@ func TestPublishRejectsMemberTypedConstraintCacheAndRetries(t *testing.T) {
 func TestBuiltinDeclarationIdentityRejectsConsistentRenameAndRetries(t *testing.T) {
 	t.Parallel()
 	build := mutableSchemaBuild(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
-	stringID, stringOK := valuepkg.BuiltinTypeID("string")
-	booleanID, booleanOK := valuepkg.BuiltinTypeID("boolean")
+	stringID, stringOK := builtinTypeID("string")
+	booleanID, booleanOK := builtinTypeID("boolean")
 	if !stringOK || !booleanOK {
 		t.Fatal("canonical value IDs missing")
 	}
@@ -2133,4 +2132,13 @@ func TestPublishSchemaRejectsAGlobalTypeWithAnUninternedName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func builtinTypeID(local string) (valuepkg.TypeID, bool) {
+	for id := range valuepkg.BuiltinTypeCount {
+		if name, _ := valuepkg.BuiltinTypeName(id); name == local {
+			return id, true
+		}
+	}
+	return valuepkg.NoType, false
 }

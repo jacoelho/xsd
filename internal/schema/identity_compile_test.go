@@ -326,12 +326,11 @@ func TestAChameleonIdentityConstraintPublishesTheSamePathsInEveryNamespaceItComp
 		if !ok {
 			t.Fatalf("{%s}k has no published identity program", target)
 		}
-		selectors := program.Selectors()
-		if selectors.Len() != len(wantSelector) {
-			t.Fatalf("{%s}k publishes %d selector paths, want %d", target, selectors.Len(), len(wantSelector))
+		if len(program.selectors) != len(wantSelector) {
+			t.Fatalf("{%s}k publishes %d selector paths, want %d", target, len(program.selectors), len(wantSelector))
 		}
 		for j, want := range wantSelector {
-			path, _ := selectors.At(j)
+			path := program.selectors[j]
 			if step, ok := path.Step(0); !ok || path.StepCount() != 1 || step != want.Steps[0] {
 				t.Fatalf("{%s}k published selector path %d = %+v, want step %+v", target, j, path, want.Steps[0])
 			}

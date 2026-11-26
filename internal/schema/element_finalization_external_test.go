@@ -61,7 +61,7 @@ func TestRecursiveComplexElementConstraintsFinalizeAfterTypeCompletion(t *testin
   <xs:element name="root" type="R"/>
 </xs:schema>`
 			}
-			if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+			if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
 		})
@@ -88,7 +88,7 @@ func TestElementConstraintFinalizationRejectsCompletedInvalidShapes(t *testing.T
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.body+`<xs:element name="root" type="R"/></xs:schema>`))})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.body+`<xs:element name="root" type="R"/></xs:schema>`))})
 			if err == nil {
 				t.Fatal("Compile() succeeded")
 			}
@@ -142,7 +142,7 @@ func TestSubstitutionEffectiveTypesAreResolvedHeadFirst(t *testing.T) {
   <xs:element name="a" substitutionGroup="t:b"/>
   <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="t:z"/></xs:sequence></xs:complexType></xs:element>
 </xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -160,7 +160,7 @@ func TestEqualTypeSubstitutionEdgeDoesNotImportUnrelatedAncestorBlocks(t *testin
   <xs:element name="c" type="t:B" substitutionGroup="t:m"/>
   <xs:element name="root"><xs:complexType><xs:sequence><xs:element ref="t:h"/></xs:sequence></xs:complexType></xs:element>
 </xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -173,7 +173,7 @@ func TestSubstitutionConstraintUsesUltimateEffectiveType(t *testing.T) {
   <xs:element name="b" substitutionGroup="t:z"/>
   <xs:element name="a" substitutionGroup="t:b" default="not-an-int"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
 	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaFacet {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaFacet)
@@ -189,7 +189,7 @@ func TestElementConsistencyRunsAfterSubstitutionTypeFinalization(t *testing.T) {
   </xs:sequence></xs:complexType>
   <xs:element name="root" type="t:C"/>
 </xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -201,10 +201,10 @@ func TestSubstitutionClosureEntryLimit(t *testing.T) {
   <xs:element name="h2" substitutionGroup="h1"/>
   <xs:element name="h3" substitutionGroup="h2"/>
 </xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{MaxSubstitutionClosureEntries: 6}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{MaxSubstitutionClosureEntries: 6}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile(exact limit) error = %v", err)
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{MaxSubstitutionClosureEntries: 5}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{MaxSubstitutionClosureEntries: 5}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
 	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile(over limit) error = %v, want %q", err, xsderrors.CodeSchemaLimit)
@@ -217,7 +217,7 @@ func TestSubstitutionCycleDiagnosticNamesAndLocatesCycleMember(t *testing.T) {
   <xs:element name="y" substitutionGroup="t:z"/>
   <xs:element name="z" substitutionGroup="t:y"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
 	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaReference {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaReference)
@@ -238,7 +238,7 @@ func TestDeferredElementConsistencyDiagnosticRetainsModelLocation(t *testing.T) 
   </xs:sequence></xs:complexType>
   <xs:element name="root" type="C"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
 	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaContentModel {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaContentModel)
@@ -258,7 +258,7 @@ func TestGeneratedExtensionConsistencyDiagnosticRetainsDerivedLocation(t *testin
   </xs:sequence></xs:extension></xs:complexContent></xs:complexType>
   <xs:element name="root" type="Derived"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	var schemaErr *xsderrors.Error
 	if !errors.As(err, &schemaErr) || schemaErr.Code() != xsderrors.CodeSchemaContentModel {
 		t.Fatalf("Compile() error = %v, want %q", err, xsderrors.CodeSchemaContentModel)

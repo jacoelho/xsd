@@ -34,8 +34,8 @@ type publicationSnapshot struct {
 func snapshotPublicationToken(token *Token) publicationSnapshot {
 	result := publicationSnapshot{
 		Start: token.Start.Name, End: token.End.Name,
-		AttrsNil: token.Start.Attr == nil, DataNil: token.Data == nil, DirectiveNil: token.Directive == nil,
-		Data: string(token.Data), Directive: string(token.Directive),
+		AttrsNil: token.Start.Attr == nil, DataNil: token.Data == nil, DirectiveNil: token.Content == nil,
+		Data: string(token.Data), Directive: string(token.Content),
 		StartOffset: token.StartOffset, EndOffset: token.EndOffset,
 		Line: token.Line, Column: token.Column, Kind: token.Kind, TextKind: token.TextKind,
 	}
@@ -55,7 +55,7 @@ func assertPublicationSnapshot(t *testing.T, token *Token, want publicationSnaps
 func assertPublicationTokenZero(t *testing.T, token *Token) {
 	t.Helper()
 	if token.Start.Name != (xml.Name{}) || token.Start.Attr != nil || token.End.Name != (xml.Name{}) ||
-		token.Data != nil || token.Directive != nil || token.StartOffset != 0 || token.EndOffset != 0 ||
+		token.Data != nil || token.Content != nil || token.StartOffset != 0 || token.EndOffset != 0 ||
 		token.Line != 0 || token.Column != 0 || token.Kind != KindStart || token.TextKind != CharacterDataInvalid {
 		t.Fatalf("invalidated token is not zero: %+v", token)
 	}
@@ -72,8 +72,8 @@ func assertPublicationInactive(t *testing.T, token *Token) {
 	if token.Kind != KindCharData && token.Kind != KindPI && token.Data != nil {
 		t.Fatalf("inactive data payload: %q", token.Data)
 	}
-	if token.Kind != KindPI && token.Kind != KindComment && token.Kind != KindDirective && token.Directive != nil {
-		t.Fatalf("inactive directive payload: %q", token.Directive)
+	if token.Kind != KindPI && token.Kind != KindComment && token.Content != nil {
+		t.Fatalf("inactive directive payload: %q", token.Content)
 	}
 	if token.Kind != KindCharData && token.TextKind != CharacterDataInvalid {
 		t.Fatalf("inactive text origin: %v", token.TextKind)
@@ -131,7 +131,7 @@ func TestReaderTokenPublicationRetiresPriorPayload(t *testing.T) {
 				}
 				held = token
 				assertPublicationInactive(t, token)
-				if token.Kind != expected.kind || string(token.Data) != expected.data || string(token.Directive) != expected.directive || token.TextKind != expected.text || token.StartOffset != expected.start || token.EndOffset != expected.end {
+				if token.Kind != expected.kind || string(token.Data) != expected.data || string(token.Content) != expected.directive || token.TextKind != expected.text || token.StartOffset != expected.start || token.EndOffset != expected.end {
 					t.Fatalf("event %d = %+v, want %+v", index, token, expected)
 				}
 				switch expected.kind {
@@ -164,13 +164,11 @@ func TestReaderTokenPublicationRetiresPriorPayload(t *testing.T) {
 					if token.End.Name != expected.name || len(handles) == 0 {
 						t.Fatalf("end event %d = %+v, want %+v", index, token.End, expected.name)
 					}
-					if err := reader.End(handles[len(handles)-1]); err != nil {
+					if err := reader.endForTest(handles[len(handles)-1]); err != nil {
 						t.Fatal(err)
 					}
 					handles = handles[:len(handles)-1]
 				case KindCharData, KindPI, KindComment:
-				case KindDirective:
-					t.Fatal("fixture has no directive event")
 				}
 			}
 			if token, err := reader.Next(); token != nil || !errors.Is(err, io.EOF) {
@@ -182,7 +180,7 @@ func TestReaderTokenPublicationRetiresPriorPayload(t *testing.T) {
 			}
 		})
 	}
-	t.Run("raw directive after PI", func(t *testing.T) {
+	t.Run("raw DOCTYPE after PI", func(t *testing.T) {
 		t.Parallel()
 		var reader Reader
 		defer reader.Detach()
@@ -193,15 +191,19 @@ func TestReaderTokenPublicationRetiresPriorPayload(t *testing.T) {
 		if err := reader.parser.next(&token); err != nil {
 			t.Fatal(err)
 		}
-		if token.Kind != KindPI || string(token.Data) != "p" || string(token.Directive) != "body" {
+		if token.Kind != KindPI || string(token.Data) != "p" || string(token.Content) != "body" {
 			t.Fatalf("PI = %+v", token)
 		}
-		if err := reader.parser.next(&token); err != nil {
-			t.Fatal(err)
+		err := reader.parser.next(&token)
+		boundary, ok := errors.AsType[*Error](err)
+		if !ok || boundary.kind != errorUnsupported || !errors.Is(err, errUnsupportedDTD) {
+			t.Fatalf("DOCTYPE after PI = %v, want the unsupported DTD error", err)
 		}
-		assertPublicationInactive(t, &token)
-		if token.Kind != KindDirective || token.Data != nil || string(token.Directive) != "DOCTYPE " || token.StartOffset != 10 || token.EndOffset != 20 {
-			t.Fatalf("directive after PI = %+v", token)
+		if line, column := reader.ErrorPos(err); line != 1 || column != 11 {
+			t.Fatalf("DOCTYPE position = %d:%d, want 1:11", line, column)
+		}
+		if token.Kind != KindPI {
+			t.Fatalf("held token kind after the failed DOCTYPE = %v, want the PI", token.Kind)
 		}
 	})
 }
@@ -211,8 +213,8 @@ func TestReaderTokenPublicationFailureClearsHeldToken(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		input string
-		kind  ErrorKind
-	}{{name: "syntax", input: `<?p body?><r a="`, kind: ErrorSyntax}, {name: "unsupported", input: `<?p body?><!DOCTYPE r>`, kind: ErrorUnsupported}} {
+		kind  errorKind
+	}{{name: "syntax", input: `<?p body?><r a="`, kind: errorSyntax}, {name: "unsupported", input: `<?p body?><!DOCTYPE r>`, kind: errorUnsupported}} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			var reader Reader
@@ -221,12 +223,12 @@ func TestReaderTokenPublicationFailureClearsHeldToken(t *testing.T) {
 				t.Fatal(err)
 			}
 			held := mustNextToken(t, &reader)
-			if held.Kind != KindPI || string(held.Data) != "p" || string(held.Directive) != "body" {
+			if held.Kind != KindPI || string(held.Data) != "p" || string(held.Content) != "body" {
 				t.Fatalf("populated PI = %+v", held)
 			}
 			token, err := reader.Next()
 			boundary, ok := errors.AsType[*Error](err)
-			if token != nil || !ok || boundary.Kind != test.kind {
+			if token != nil || !ok || boundary.kind != test.kind {
 				t.Fatalf("failure = %+v, %v, want kind %v", token, err, test.kind)
 			}
 			assertPublicationTokenZero(t, held)

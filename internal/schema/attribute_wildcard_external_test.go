@@ -34,7 +34,7 @@ func TestOrdinaryAttributeWildcardRestrictionProcessing(t *testing.T) {
   </xs:restriction></xs:%s></xs:complexType>
   <xs:element name="r" type="R"/>
 </xs:schema>`, base, content, tc.derived, content)
-				engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("ordinary-wildcard.xsd", []byte(schema))})
+				engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("ordinary-wildcard.xsd", []byte(schema))})
 				if tc.valid {
 					if err != nil {
 						t.Fatalf("Compile() error = %v", err)

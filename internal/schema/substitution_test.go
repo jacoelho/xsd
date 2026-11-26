@@ -74,7 +74,7 @@ func TestBuildSubstitutionTableBuildsSortedRawAndEffectiveEntries(t *testing.T) 
 		model contentModelID
 		name  QName
 	}{{0, qnames["member"]}, {1, qnames["child"]}} {
-		transition, status := published.NextContent(ContentState{model: excluded.model, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: excluded.name}}, &ContentScratch{})
+		transition, status := published.NextContent(ContentState{model: excluded.model, present: true}, ContentInput{Name: RuntimeName{known: true, name: excluded.name}}, &ContentScratch{})
 		if status != ContentTransitionNoMatch || transition.IsPlanned() {
 			t.Fatalf("NextContent admitted an excluded substitution: %+v/%v", transition, status)
 		}
@@ -579,7 +579,7 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 	t.Parallel()
 
 	const (
-		atomic SimpleTypeID = iota
+		atomic SimpleTypeID = valuepkg.BuiltinTypeCount + iota
 		restrictsAtomic
 		unionAtomicFirst
 		unionRestrictionFirst
@@ -587,7 +587,6 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 		facetedUnion
 		restrictsFacetedUnion
 		nestedUnion
-		selfListingUnion
 	)
 	const (
 		anyType ComplexTypeID = iota
@@ -597,7 +596,7 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 	)
 	rt := derivationFixture{
 		anyType: anyType,
-		simple: []simpleTypeDerivation{
+		simple: map[SimpleTypeID]simpleTypeDerivation{
 			atomic:                {Base: NoSimpleType, Variety: valuepkg.Atomic},
 			restrictsAtomic:       {Base: atomic, Variety: valuepkg.Atomic},
 			unionAtomicFirst:      {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic, restrictsAtomic}},
@@ -606,7 +605,6 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 			facetedUnion:          {Base: unionOfAtomic, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic}, UnionHasFacets: true},
 			restrictsFacetedUnion: {Base: facetedUnion, Variety: valuepkg.Union, Union: []SimpleTypeID{atomic}, UnionHasFacets: true},
 			nestedUnion:           {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{unionAtomicFirst}},
-			selfListingUnion:      {Base: NoSimpleType, Variety: valuepkg.Union, Union: []SimpleTypeID{selfListingUnion, atomic}},
 		},
 		complex: []complexTypeDerivation{
 			anyType:            {Kind: derivationKindNone},
@@ -631,8 +629,6 @@ func TestValidateSubstitutionEdgeOmitsUnionMembershipFromBlockingMethodsButNotFr
 		{name: "restriction of a union member", member: SimpleRef(restrictsAtomic), head: SimpleRef(unionOfAtomic), methods: rest, full: rest},
 		{name: "member that restricts an earlier member", member: SimpleRef(restrictsAtomic), head: SimpleRef(unionAtomicFirst), full: rest},
 		{name: "member that restricts a later member", member: SimpleRef(restrictsAtomic), head: SimpleRef(unionRestrictionFirst), full: rest},
-		{name: "member of a union that lists itself", member: SimpleRef(atomic), head: SimpleRef(selfListingUnion), full: rest},
-		{name: "restriction of a member of a union that lists itself", member: SimpleRef(restrictsAtomic), head: SimpleRef(selfListingUnion), methods: rest, full: rest},
 		{name: "restriction of a faceted union", member: SimpleRef(restrictsFacetedUnion), head: SimpleRef(facetedUnion), methods: rest, full: rest},
 		{name: "simple content extending a union member", member: ComplexRef(extendsAtomic), head: SimpleRef(unionAtomicFirst), methods: ext, full: ext | rest},
 		{name: "restricted simple content over a union member", member: ComplexRef(restrictsExtension), head: SimpleRef(unionAtomicFirst), methods: ext | rest, full: ext | rest},

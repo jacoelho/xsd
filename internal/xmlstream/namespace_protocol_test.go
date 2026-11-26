@@ -32,13 +32,13 @@ func TestNamespaceMatchEndRestoresShadowedBinding(t *testing.T) {
 	if child != (xml.Name{Space: "urn:child", Local: "child"}) {
 		t.Fatalf("child expanded name = %+v", child)
 	}
-	if err := namespaceStack.End(childFrame, Lexical(childStart.Name)); err != nil {
+	if err := namespaceStack.endForTest(childFrame, Lexical(childStart.Name)); err != nil {
 		t.Fatal(err)
 	}
 	if uri, ok := namespaceStack.Lookup("p"); !ok || uri != "urn:root" {
 		t.Fatalf("restored p binding = %q, %v", uri, ok)
 	}
-	if err := namespaceStack.End(rootFrame, Lexical(rootStart.Name)); err != nil {
+	if err := namespaceStack.endForTest(rootFrame, Lexical(rootStart.Name)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -52,13 +52,13 @@ func TestNamespaceMatchEndRetryAfterMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := namespaceStack.MatchEnd(frame, LexicalName{Local: "wrong"}); err == nil {
+	if err := namespaceStack.matchEndForTest(frame, LexicalName{Local: "wrong"}); err == nil {
 		t.Fatal("MatchEnd accepted a mismatched lexical name")
 	}
 	if namespaceStack.depth() != 1 {
 		t.Fatalf("depth after failed MatchEnd = %d, want 1", namespaceStack.depth())
 	}
-	if err := namespaceStack.End(frame, Lexical(start.Name)); err != nil {
+	if err := namespaceStack.endForTest(frame, Lexical(start.Name)); err != nil {
 		t.Fatal(err)
 	}
 	if namespaceStack.depth() != 0 {
@@ -99,13 +99,13 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 	if uri, ok := namespaceStack.Lookup(""); !ok || uri != "urn:child" {
 		t.Fatalf("child default namespace = %q, %v", uri, ok)
 	}
-	if err := namespaceStack.MatchEnd(childFrame, LexicalName{Local: "wrong"}); err == nil {
+	if err := namespaceStack.matchEndForTest(childFrame, LexicalName{Local: "wrong"}); err == nil {
 		t.Fatal("MatchEnd accepted a mismatched default-namespaced element")
 	}
 	if uri, ok := namespaceStack.Lookup(""); !ok || uri != "urn:child" {
 		t.Fatalf("default namespace after failed end match = %q, %v", uri, ok)
 	}
-	if err := namespaceStack.End(childFrame, Lexical(childStart.Name)); err != nil {
+	if err := namespaceStack.endForTest(childFrame, Lexical(childStart.Name)); err != nil {
 		t.Fatal(err)
 	}
 	if uri, ok := namespaceStack.Lookup(""); !ok || uri != "urn:root" {
@@ -126,7 +126,7 @@ func TestNamespaceDefaultLookupUsesShadowAndRollback(t *testing.T) {
 	if uri, ok := namespaceStack.Lookup(""); !ok || uri != "urn:root" {
 		t.Fatalf("default namespace after failed start = %q, %v", uri, ok)
 	}
-	if err := namespaceStack.End(rootFrame, Lexical(rootStart.Name)); err != nil {
+	if err := namespaceStack.endForTest(rootFrame, Lexical(rootStart.Name)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -151,13 +151,13 @@ func TestNamespaceContextRetainsDefaultBindingAfterStackMutation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := namespaceStack.End(childFrame, Lexical(childStart.Name)); err != nil {
+	if err := namespaceStack.endForTest(childFrame, Lexical(childStart.Name)); err != nil {
 		t.Fatal(err)
 	}
 	if uri, ok := context.Lookup(""); !ok || uri != "urn:root" {
 		t.Fatalf("captured default namespace = %q, %v", uri, ok)
 	}
-	if err := namespaceStack.End(rootFrame, Lexical(rootStart.Name)); err != nil {
+	if err := namespaceStack.endForTest(rootFrame, Lexical(rootStart.Name)); err != nil {
 		t.Fatal(err)
 	}
 }

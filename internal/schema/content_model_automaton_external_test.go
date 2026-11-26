@@ -130,7 +130,7 @@ func automatonConstructionCases() []automatonConstructionCase {
 }
 
 func (tt automatonConstructionCase) compile() (*xsdSchema.Schema, error) {
-	return xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("automaton.xsd", []byte(tt.schema))})
+	return compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("automaton.xsd", []byte(tt.schema))})
 }
 
 func (tt automatonConstructionCase) check(tb testing.TB, err error) {

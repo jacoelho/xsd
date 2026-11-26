@@ -289,11 +289,11 @@ func TestReaderSkippedProcessingInstructionErrors(t *testing.T) {
 			}
 			token, err := reader.Next()
 			boundary, ok := errors.AsType[*Error](err)
-			wantKind := ErrorSyntax
+			wantKind := errorSyntax
 			if test.readErr != nil {
-				wantKind = ErrorInput
+				wantKind = errorInput
 			}
-			if token != nil || !ok || boundary.Kind != wantKind {
+			if token != nil || !ok || boundary.kind != wantKind {
 				t.Fatalf("Next() = %v, %v, want kind %v", token, err, wantKind)
 			}
 			if test.message != "" && err.Error() != test.message {
@@ -338,7 +338,7 @@ func TestReaderSkippedProcessingInstructionLimits(t *testing.T) {
 		if err != nil || token.Kind != KindEnd || token.End.Name.Local != "r" {
 			t.Fatalf("skipped PI = %v, %v, want root end", token, err)
 		}
-		if err := reader.End(frame); err != nil {
+		if err := reader.endForTest(frame); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -355,7 +355,7 @@ func TestReaderSkippedProcessingInstructionLimits(t *testing.T) {
 		token, err := reader.Next()
 		if limit < int64(len(input)) {
 			boundary, ok := errors.AsType[*Error](err)
-			if token != nil || !ok || boundary.Kind != ErrorLimit || !isLimit(err, LimitInputBytes) {
+			if token != nil || !ok || boundary.kind != errorLimit || !isLimit(err, LimitInputBytes) {
 				t.Fatalf("limited PI = %v, %v, want input limit", token, err)
 			}
 			if _, nextErr := reader.Next(); !isLimit(nextErr, LimitInputBytes) {
@@ -366,7 +366,7 @@ func TestReaderSkippedProcessingInstructionLimits(t *testing.T) {
 		if err != nil || token.Kind != KindEnd {
 			t.Fatalf("exact input limit = %v, %v, want root end", token, err)
 		}
-		if err := reader.End(frame); err != nil {
+		if err := reader.endForTest(frame); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := reader.Next(); err != io.EOF { //nolint:errorlint // Token-boundary EOF is the exact sentinel.

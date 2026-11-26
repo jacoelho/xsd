@@ -147,13 +147,6 @@ func newRuntimeNameTable(maxNames int) (nameTable, error) {
 	)
 }
 
-// newNameTable returns a name table seeded with required runtime names.
-// Every table reserves emptyNamespaceID for the empty namespace independently
-// of the caller's seed order.
-func newNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName) (nameTable, error) {
-	return newBoundedNameTable(maxNames, requiredNamespaces, requiredNames, len(requiredNamespaces), len(requiredNames))
-}
-
 func newBoundedNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName, namespaceCap, localCap int) (nameTable, error) {
 	namespaceCap = max(1, namespaceCap, len(requiredNamespaces))
 	localCap = max(localCap, len(requiredNames))
@@ -188,17 +181,6 @@ func runtimeNameLocalCapacity() int {
 	return len(requiredRuntimeNames) +
 		builtinSimpleTypeCount() +
 		1 // xs:anyType
-}
-
-// Clone returns a deep copy of n.
-func (n *nameTable) Clone() nameTable {
-	return nameTable{
-		nsIndex:    maps.Clone(n.nsIndex),
-		localIndex: maps.Clone(n.localIndex),
-		namespaces: slices.Clone(n.namespaces),
-		locals:     slices.Clone(n.locals),
-		maxNames:   n.maxNames,
-	}
 }
 
 // NameCount returns the total number of interned namespace URIs and local names.

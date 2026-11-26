@@ -441,8 +441,8 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	}, &value); evalErr != nil {
 		t.Fatalf("nested union/list evaluation error = %v", evalErr)
 	}
-	if value.selected != listID || !value.isList || len(value.items) != 2 {
-		t.Fatalf("selected value = (selected=%d, list=%t, items=%d), want list %d with two items", value.selected, value.isList, len(value.items), listID)
+	if !value.isList || len(value.items) != 2 {
+		t.Fatalf("selected value = (list=%t, items=%d), want a list with two items", value.isList, len(value.items))
 	}
 	for i := range value.items {
 		if value.items[i].atom.kind != PrimitiveBase64Binary || !value.items[i].atom.lexical.canonicalReady {
@@ -453,8 +453,8 @@ func TestBase64EnumerationPreparesSelectedNestedUnionListLeaves(t *testing.T) {
 	if err != nil {
 		t.Fatalf("public nested union/list validation error = %v", err)
 	}
-	if got.SelectedType() != listID || got.CanonicalText() != "YQ== Zg==" {
-		t.Fatalf("public value = (selected=%d, canonical=%q), want list %d and compact list", got.SelectedType(), got.CanonicalText(), listID)
+	if got.CanonicalText() != "YQ== Zg==" {
+		t.Fatalf("public value canonical = %q, want compact list", got.CanonicalText())
 	}
 	if _, err := program.Validate(outerID, "YQ== nope", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("mixed base64/string list error = %v, want ErrFacet", err)
@@ -655,8 +655,8 @@ func TestExplicitBase64EnumerationPreservesUnionSelection(t *testing.T) {
 					if !errors.Is(err, ErrFacet) {
 						t.Fatalf("string-first bytes=%t input=%q: error=%v, want enumeration rejection", bytes, input, err)
 					}
-				} else if err != nil || got.SelectedType() != BuiltinType(PrimitiveBase64Binary) || got.CanonicalText() != "YQ==" {
-					t.Fatalf("base64-first bytes=%t input=%q: selected=%d canonical=%q error=%v", bytes, input, got.SelectedType(), got.CanonicalText(), err)
+				} else if err != nil || got.CanonicalText() != "YQ==" {
+					t.Fatalf("base64-first bytes=%t input=%q: canonical=%q error=%v", bytes, input, got.CanonicalText(), err)
 				}
 			}
 		}

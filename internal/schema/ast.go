@@ -180,6 +180,9 @@ func parseDocumentDefaultsNode(root *schemaNode) (schemaDefaults, error) {
 }
 
 func schemaStreamError(reader *xmlstream.Reader, err error, limits Limits) error {
+	if xmlstream.IsMisuse(err) {
+		return xsderrors.InternalInvariant("xml reader lifecycle misuse", err)
+	}
 	line, col := reader.ErrorPos(err)
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return xsderrors.WithLocation("", line, col, unsupportedSchemaFeature(feature, err))

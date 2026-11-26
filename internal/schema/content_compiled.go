@@ -722,8 +722,8 @@ func (rt *Schema) CompleteContent(st ContentState, scratch *ContentScratch) Cont
 }
 
 func (rt *Schema) matchPublishedAnyContent(in ContentInput) contentMatch {
-	if in.Name.Known {
-		if id, ok := rt.program.GlobalElements[in.Name.Name]; ok {
+	if in.Name.known {
+		if id, ok := rt.program.GlobalElements[in.Name.name]; ok {
 			return declaredContentMatch(id)
 		}
 	}
@@ -764,10 +764,10 @@ func (rt *Schema) nextIndexedAllContent(st ContentState, model *compiledModelRea
 	if _, valid := scratch.AllSeen(len(model.All) - 1); !valid {
 		return ContentTransition{}, ContentTransitionInvalid
 	}
-	if !in.Name.Known {
+	if !in.Name.known {
 		return ContentTransition{}, ContentTransitionNoMatch
 	}
-	i, found := model.allNames[in.Name.Name]
+	i, found := model.allNames[in.Name.name]
 	if !found {
 		return ContentTransition{}, ContentTransitionNoMatch
 	}
@@ -848,10 +848,10 @@ func (rt *Schema) nextPublishedDFAContent(st ContentState, model *compiledModelR
 // denseCandidate returns the edge that name selects through the row's dense
 // index, or none.
 func (row *compiledModelRowRead) denseCandidate(name RuntimeName) []compiledModelEdgeRead {
-	if !name.Known {
+	if !name.known {
 		return nil
 	}
-	pos := row.index.denseEdge(name.Name)
+	pos := row.index.denseEdge(name.name)
 	if pos < 0 {
 		return nil
 	}
@@ -891,8 +891,8 @@ type publishedDFACandidates struct {
 
 func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishedDFACandidates {
 	element := -1
-	if in.Name.Known {
-		if pos, ok := idx.nameToEdge[in.Name.Name]; ok {
+	if in.Name.known {
+		if pos, ok := idx.nameToEdge[in.Name.name]; ok {
 			element = int(pos)
 		}
 	}
@@ -902,10 +902,10 @@ func newPublishedDFACandidates(idx publishedDFAIndex, in ContentInput) *publishe
 // runDenseCandidate returns the edge that name selects through the dense
 // index of the run that the row's edges are a window of, or none.
 func (row *compiledModelRowRead) runDenseCandidate(name RuntimeName) []compiledModelEdgeRead {
-	if !name.Known {
+	if !name.known {
 		return nil
 	}
-	edge := row.index.denseEdge(name.Name) - int(row.Edges[0].To-1)
+	edge := row.index.denseEdge(name.name) - int(row.Edges[0].To-1)
 	if edge < 0 || edge >= len(row.Edges) {
 		return nil
 	}
@@ -960,10 +960,10 @@ func (rt *Schema) takeFirstPublishedDFAEdge(st ContentState, model *compiledMode
 // runElement returns the run position from start to end of the element edge
 // that in's name selects through a run index, or -1.
 func (idx publishedDFAIndex) runElement(in ContentInput, start, end uint32) int {
-	if !in.Name.Known {
+	if !in.Name.known {
 		return -1
 	}
-	value, ok := idx.nameToEdge[in.Name.Name]
+	value, ok := idx.nameToEdge[in.Name.name]
 	if !ok {
 		return -1
 	}
@@ -1019,20 +1019,20 @@ func (rt *Schema) matchPublishedElementParticle(element ElementID, in ContentInp
 	if !ok {
 		return contentMatch{}, false
 	}
-	if !in.Name.Known {
+	if !in.Name.known {
 		return contentMatch{}, true
 	}
-	if name == in.Name.Name {
+	if name == in.Name.name {
 		return declaredContentMatch(element), true
 	}
-	if member, ok := rt.program.Substitutions.MemberByName(element, in.Name.Name); ok {
+	if member, ok := rt.program.Substitutions.MemberByName(element, in.Name.name); ok {
 		return declaredContentMatch(member), true
 	}
 	return contentMatch{}, true
 }
 
 func (rt *Schema) matchPublishedWildcardParticle(w WildcardView, in ContentInput) contentMatch {
-	if !w.AllowsURI(in.Name.NS) {
+	if !w.AllowsURI(in.Name.ns) {
 		return contentMatch{}
 	}
 	switch w.Process() {
@@ -1059,10 +1059,10 @@ func (rt *Schema) matchPublishedStrictWildcard(in ContentInput) contentMatch {
 }
 
 func (rt *Schema) matchPublishedGlobalElement(in ContentInput) (contentMatch, bool) {
-	if !in.Name.Known {
+	if !in.Name.known {
 		return contentMatch{}, false
 	}
-	id, ok := rt.program.GlobalElements[in.Name.Name]
+	id, ok := rt.program.GlobalElements[in.Name.name]
 	if !ok {
 		return contentMatch{}, false
 	}

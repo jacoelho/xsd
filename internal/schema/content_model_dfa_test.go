@@ -6,7 +6,6 @@ import (
 	"slices"
 	"testing"
 
-	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -400,13 +399,10 @@ func TestValidateContentRestrictionAllowsFixedValueIdentityMatch(t *testing.T) {
 			2: name,
 		},
 		elementRestrictions: map[ElementID]particleRestrictionElement{
-			1: {Type: SimpleRef(1), Scope: declarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "decimal", "5.0")},
-			2: {Type: SimpleRef(2), Scope: declarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "integer", "5")},
+			1: {Type: SimpleRef(fixtureRoot), Scope: declarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "decimal", "5.0")},
+			2: {Type: SimpleRef(fixtureRestriction), Scope: declarationScopeNonGlobal, Fixed: valueConstraintIdentity(t, "integer", "5")},
 		},
-		simpleDerivations: map[SimpleTypeID]simpleTypeDerivation{
-			1: {Base: NoSimpleType, Variety: valuepkg.Atomic},
-			2: {Base: 1, Variety: valuepkg.Atomic},
-		},
+		simpleDerivations: restrictionFixtureTypes(),
 	}
 	if err := validateContentRestriction(rt.build(), 0, 1, unlimitedCompileContentModelWork, mustContentModelAnalysis(t, rt.build(), unlimitedCompileContentModelWork)); err != nil {
 		t.Fatalf("runtime.ValidateContentRestriction() error = %v", err)
@@ -745,7 +741,7 @@ func compiledModelRuntimeFixture(t *testing.T, kind modelKind) compiledModelFixt
 		elementTypes: make(map[ElementID]TypeID, len(elementNames)),
 	}
 	for id := range elementNames {
-		rt.elementTypes[id] = SimpleRef(SimpleTypeID(id))
+		rt.elementTypes[id] = SimpleRef(userSimpleType(SimpleTypeID(id)))
 	}
 	return rt
 }
@@ -768,12 +764,7 @@ func (f compiledModelFixture) build() *schemaBuild {
 		b.Elements[id].Scope = declarationScopeNonGlobal
 	}
 	b.Substitutions = fixtureSubstitutions(b.Elements, nil, f.substitutions)
-	b.SimpleTypes = fixtureSimpleTypes(fixtureMapSlice(f.simpleDerivations))
-	for i := range b.SimpleTypes {
-		if _, ok := f.simpleDerivations[SimpleTypeID(i)]; !ok {
-			b.SimpleTypes[i].Missing = true
-		}
-	}
+	b.SimpleTypes, b.valueBuilder = fixtureSimpleTypes(f.simpleDerivations)
 	b.ComplexTypes = fixtureComplexTypes(fixtureMapSlice(f.complexDerivations))
 	return b
 }

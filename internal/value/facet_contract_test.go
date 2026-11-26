@@ -563,7 +563,7 @@ func TestFacetContractAllowsExplicitSelfTypedBound(t *testing.T) {
 func TestFacetContractAllowsDirectAnySimpleTypeVarietyDerivation(t *testing.T) {
 	t.Parallel()
 
-	anySimpleType, ok := value.BuiltinTypeID("anySimpleType")
+	anySimpleType, ok := builtinTypeID("anySimpleType")
 	if !ok {
 		t.Fatal("anySimpleType builtin is missing")
 	}
@@ -938,8 +938,8 @@ func TestFixedWhitespaceRejectsStrengtheningAndCompletionCanRetry(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.CanonicalText() != lexical || result.Type() != derivedID || result.SelectedType() != value.NoType {
-		t.Fatalf("Validate() = canonical %q, type %d, selection %d; want %q, %d, NoType", result.CanonicalText(), result.Type(), result.SelectedType(), lexical, derivedID)
+	if result.CanonicalText() != lexical || result.Type() != derivedID {
+		t.Fatalf("Validate() = canonical %q, type %d; want %q, %d", result.CanonicalText(), result.Type(), lexical, derivedID)
 	}
 }
 

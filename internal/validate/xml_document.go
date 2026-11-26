@@ -194,10 +194,21 @@ func (d *xmlDocument[P]) ValidateEnd(reader *xmlstream.Reader, line, col int) er
 		return validation(d.context(line, col), xsderrors.CodeValidationXML, msgUnexpectedEnd)
 	}
 
-	if err := reader.MatchEnd(d.elements[len(d.elements)-1].handle); err != nil {
-		return validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
+	return reader.MatchEnd(d.elements[len(d.elements)-1].handle)
+}
+
+// EndError maps a reader error returned by ValidateEnd to an instance
+// diagnostic at the end token, leaving the document's own diagnostics as is.
+// Misuse is an internal invariant; the reader's only other end-token failure is
+// the closing-name mismatch, rendered by its message at the token.
+func (d *xmlDocument[P]) EndError(err error, line, col int, limits Limits) error {
+	if _, ok := errors.AsType[*xmlstream.Error](err); !ok {
+		return err
 	}
-	return nil
+	if xmlstream.IsMisuse(err) {
+		return streamError(d.context(line, col), err, limits)
+	}
+	return validation(d.context(line, col), xsderrors.CodeValidationXML, err.Error())
 }
 
 func (d *xmlDocument[P]) CommitEnd(reader *xmlstream.Reader) error {
@@ -229,20 +240,10 @@ func (d *xmlDocument[P]) truncatePathText(depth int) {
 	d.pathText = d.pathText[:d.elements[depth-1].pathEnd]
 }
 
-// Complete reports document-end diagnostics at the reader position.
-func (d *xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
-	if err := reader.Complete(); err != nil {
-		line, col := reader.DiagnosticPos()
-		ctx := d.context(line, col)
-		if errors.Is(err, xmlstream.ErrNoRoot) {
-			return validation(ctx, xsderrors.CodeValidationXML, msgNoRoot)
-		}
-		if errors.Is(err, xmlstream.ErrUnclosedElements) {
-			return validation(ctx, xsderrors.CodeValidationXML, msgUnclosedElement)
-		}
-		return validation(ctx, xsderrors.CodeValidationXML, err.Error())
-	}
-	return nil
+// Complete returns the reader's document-end failure unchanged; its owner
+// maps it with the reader position.
+func (*xmlDocument[P]) Complete(reader *xmlstream.Reader) error {
+	return reader.Complete()
 }
 
 func (d *xmlDocument[P]) Reset(maxRetainedCap int) {

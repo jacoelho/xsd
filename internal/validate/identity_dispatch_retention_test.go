@@ -183,7 +183,7 @@ func BenchmarkIdentityDispatchResetIncomplete(b *testing.B) {
 
 func compileIdentityDispatchRuntimeForBenchmark(tb testing.TB, schema string) *xsdSchema.Schema {
 	tb.Helper()
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("identity-dispatch-benchmark.xsd", []byte(schema))})
+	rt, err := compileSources([]source.Source{source.Bytes("identity-dispatch-benchmark.xsd", []byte(schema))})
 	if err != nil {
 		tb.Fatal(err)
 	}

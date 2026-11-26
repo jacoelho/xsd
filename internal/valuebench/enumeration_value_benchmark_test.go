@@ -47,9 +47,9 @@ func enumerationValueLiterals(kind enumerationValueKind, size int) []valuepkg.Li
 // literal against its base's group at construction.
 func enumerationValueProgram(tb testing.TB, kind enumerationValueKind, size, steps int) (*valuepkg.Program, valuepkg.TypeID) {
 	tb.Helper()
-	builtin, ok := valuepkg.BuiltinTypeID(kind.base)
+	builtin, ok := builtinTypeID(kind.base)
 	if !ok {
-		tb.Fatalf("BuiltinTypeID(%q) missing", kind.base)
+		tb.Fatalf("builtinTypeID(%q) missing", kind.base)
 	}
 	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	complete := func(spec valuepkg.TypeSpec) valuepkg.TypeID {
@@ -154,9 +154,9 @@ func BenchmarkEnumerationValueKeyLongQName(b *testing.B) {
 		}
 		return valuepkg.ExpandedName{Namespace: namespace, Local: local}, true
 	}}
-	builtin, ok := valuepkg.BuiltinTypeID("QName")
+	builtin, ok := builtinTypeID("QName")
 	if !ok {
-		b.Fatal(`BuiltinTypeID("QName") missing`)
+		b.Fatal(`builtinTypeID("QName") missing`)
 	}
 	for _, size := range []int{16, 2048} {
 		literals := make([]valuepkg.LiteralSpec, size)

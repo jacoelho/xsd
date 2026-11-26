@@ -137,6 +137,8 @@ independent Python xmlschema result.
    for every added or changed measured case (without `ORACLE_CASES` it
    re-measures every measured case), record each difference and derive
    expectations as the [Corpus Contract](#corpus-contract) defines.
+   The measurement cache key covers every file under the directory that
+   `oracle-measure` passes to `run.sh` as `--root`, not only the declared files.
 
 Historical releases and modified provider copies are separate diagnostic
 profiles. Record their selection reason, versions, source changes and hashes;

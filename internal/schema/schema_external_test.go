@@ -12,9 +12,13 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
+func compileSources(opts xsdSchema.Options, sources []source.Source) (*xsdSchema.Schema, error) {
+	return xsdSchema.CompileMappedSources(opts, sources, func(src source.Source) source.Source { return src })
+}
+
 func mustCompile(t *testing.T, schema string) *xsdSchema.Schema {
 	t.Helper()
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	rt, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(schema)),
 	})
 

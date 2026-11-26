@@ -293,7 +293,7 @@ func BenchmarkFacetPolicyRejectedAdmission(b *testing.B) {
 }
 
 type floatPolicyRow struct {
-	id, selected               valuepkg.TypeID
+	id                         valuepkg.TypeID
 	input, canonical, identity string
 	raw                        []byte
 	primitive                  valuepkg.PrimitiveKind
@@ -324,7 +324,7 @@ func floatPolicyFiniteRows(kind valuepkg.PrimitiveKind) []floatPolicyRow {
 		bits = [6]uint64{0x3ff0000000000000, 0x3ff8000000000000, 0x3fb999999999999a, 0xbfd0000000000000, 1, 0x7fefffffffffffff}
 	}
 	for i := range rows {
-		rows[i].id, rows[i].selected = id, valuepkg.NoType
+		rows[i].id = id
 		rows[i].primitive, rows[i].width, rows[i].bits = kind, width, bits[i]
 	}
 	return rows
@@ -346,7 +346,7 @@ func floatPolicyIdentityRows(kind valuepkg.PrimitiveKind) []floatPolicyRow {
 		{input: "INF", canonical: "INF", bits: posInf}, {input: "-INF", canonical: "-INF", bits: negInf},
 		{input: "NaN", canonical: "NaN"}, finite[0],
 	} {
-		row.id, row.selected = finite[0].id, valuepkg.NoType
+		row.id = finite[0].id
 		row.primitive, row.width = kind, finite[0].width
 		rows = append(rows, row)
 	}
@@ -411,8 +411,8 @@ func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 		item := valuepkg.BuiltinType(entry.kind)
 		list := completeFloatPolicyType(tb, builder, valuepkg.TypeSpec{Variety: valuepkg.List, Base: valuepkg.NoType, ListItem: item, Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true})
 		union := completeFloatPolicyType(tb, builder, valuepkg.TypeSpec{Variety: valuepkg.Union, Base: valuepkg.NoType, ListItem: valuepkg.NoType, Union: []valuepkg.TypeID{decimal, item}, Whitespace: valuepkg.WhitespaceCollapse, WhitespacePresent: true})
-		lists = append(lists, floatPolicyRow{id: list, selected: valuepkg.NoType, input: "1 1.5", canonical: "1.0E0 1.5E0", identity: valuepkg.ListIdentityKey([]string{entry.prefix + "1.0E0", entry.prefix + "1.5E0"})})
-		unions = append(unions, floatPolicyRow{id: union, selected: item, input: "1.5", canonical: "1.5E0", identity: entry.prefix + "1.5E0"})
+		lists = append(lists, floatPolicyRow{id: list, input: "1 1.5", canonical: "1.0E0 1.5E0", identity: valuepkg.ListIdentityKey([]string{entry.prefix + "1.0E0", entry.prefix + "1.5E0"})})
+		unions = append(unions, floatPolicyRow{id: union, input: "1.5", canonical: "1.5E0", identity: entry.prefix + "1.5E0"})
 	}
 	composed, err := sealAll(builder)
 	if err != nil {
@@ -424,8 +424,8 @@ func floatPolicyFixtures(tb testing.TB) []floatPolicyFixture {
 
 func checkFloatPolicyResult(tb testing.TB, got valuepkg.Value, row floatPolicyRow) {
 	tb.Helper()
-	if got.Type() != row.id || got.SelectedType() != row.selected || got.CanonicalText() != row.canonical || got.IdentityKey() != row.identity || got.HasQualifiedNames() || got.IDs() != "" || got.IDRefs() != "" {
-		tb.Fatalf("input %q: type=%d selected=%d canonical=%q identity=%q", row.input, got.Type(), got.SelectedType(), got.CanonicalText(), got.IdentityKey())
+	if got.Type() != row.id || got.CanonicalText() != row.canonical || got.IdentityKey() != row.identity || got.HasQualifiedNames() || got.IDs() != "" || got.IDRefs() != "" {
+		tb.Fatalf("input %q: type=%d canonical=%q identity=%q", row.input, got.Type(), got.CanonicalText(), got.IdentityKey())
 	}
 }
 
@@ -620,7 +620,7 @@ func admittedOrderedFixtures(tb testing.TB) [4]admittedOrderedFixture {
 
 func checkAdmittedOrderedResult(tb testing.TB, got valuepkg.Value, id valuepkg.TypeID) {
 	tb.Helper()
-	if got.Type() != id || got.SelectedType() != valuepkg.NoType || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
+	if got.Type() != id || got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" || got.HasQualifiedNames() {
 		tb.Fatalf("unprojected typed result = %#v", got)
 	}
 }

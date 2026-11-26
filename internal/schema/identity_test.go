@@ -52,7 +52,7 @@ func TestIdentityFieldProgramPartitions(t *testing.T) {
 			{attributePath: true, attributeWildcard: true, attribute: noQName(), attributeNamespaceSet: true, attributeNamespace: otherAttr.Namespace},
 		},
 	}}
-	if got := program.ElementFields().values; !reflect.DeepEqual(got, wantElements) {
+	if got := program.elementFields; !reflect.DeepEqual(got, wantElements) {
 		t.Fatalf("element fields = %#v, want %#v", got, wantElements)
 	}
 	if got := program.attributeFields; !reflect.DeepEqual(got, wantAttributes) {
@@ -82,7 +82,7 @@ func TestIdentityFieldProgramDoesNotAliasConstructionSteps(t *testing.T) {
 		identity.Fields[0].Paths[index].Steps[0].Name = replacement
 	}
 	for _, fields := range []IdentityCompiledFieldProgramReads{
-		program.ElementFields(), program.AttributeFields(attr), program.AttributeWildcardFields(),
+		{values: program.elementFields}, program.AttributeFields(attr), program.AttributeWildcardFields(),
 	} {
 		field, ok := fields.At(0)
 		if !ok {
@@ -128,7 +128,7 @@ func TestIdentityFieldProgramPreservesGroupAndPathOrder(t *testing.T) {
 		attribute bool
 		wildcard  bool
 	}{
-		{name: "element", fields: program.ElementFields()},
+		{name: "element", fields: IdentityCompiledFieldProgramReads{values: program.elementFields}},
 		{name: "exact attribute", fields: program.AttributeFields(names["id"]), attribute: true},
 		{name: "wildcard attribute", fields: program.AttributeWildcardFields(), attribute: true, wildcard: true},
 	}
@@ -150,14 +150,14 @@ func TestIdentityFieldProgramPreservesGroupAndPathOrder(t *testing.T) {
 				if !ok || path.StepCount() != 1 || step.Name != wantNames[index] || path.Descendant() != wantDescendant[index] || path.Self() {
 					t.Fatalf("%s field %d path %d lost its ordered name or path flags", partition.name, wantField, index)
 				}
-				if path.IsAttribute() != partition.attribute || path.AttributeWildcard() != partition.wildcard || path.AttributeNamespaceSet() != partition.wildcard {
+				if path.attributePath != partition.attribute || path.attributeWildcard != partition.wildcard || path.attributeNamespaceSet != partition.wildcard {
 					t.Fatalf("%s field %d path %d lost its attribute flags", partition.name, wantField, index)
 				}
 				wantAttribute := noQName()
 				if partition.attribute && !partition.wildcard {
 					wantAttribute = names["id"]
 				}
-				if path.Attribute() != wantAttribute || path.attributeNamespace != emptyNamespaceID {
+				if path.attribute != wantAttribute || path.attributeNamespace != emptyNamespaceID {
 					t.Fatalf("%s field %d path %d lost its attribute name or namespace", partition.name, wantField, index)
 				}
 			}
@@ -326,21 +326,11 @@ func TestIdentityReadAccessors(t *testing.T) {
 		t.Fatal("IdentityDispatchRead.Program() accepted invalid constraint")
 	}
 
-	constraints, constraintsOK := ElementIdentityConstraintIDs([][]IdentityConstraintID{{0, 1}}, 0)
-	first, firstOK := constraints.At(0)
-	if !constraintsOK || constraints.Len() != 2 || !firstOK || first != 0 {
-		t.Fatalf("ElementIdentityConstraintIDs() = len %d first %d, %v; want 2, 0, true", constraints.Len(), first, constraintsOK)
+	if len(read.selectors) != 2 {
+		t.Fatalf("selector count = %d, want %d", len(read.selectors), 2)
 	}
-	if _, ok := ElementIdentityConstraintIDs(nil, 0); ok {
-		t.Fatal("ElementIdentityConstraintIDs() accepted invalid element")
-	}
-
-	selectorPaths := read.Selectors()
-	if selectorPaths.Len() != 2 {
-		t.Fatalf("IdentityConstraintProgramRead.Selectors() count = %d, want %d", selectorPaths.Len(), 2)
-	}
-	if path, ok := selectorPaths.At(1); !ok || !path.Self() {
-		t.Fatalf("zero-step selector Self() = %v, %v; want true", path.Self(), ok)
+	if !read.selectors[1].Self() {
+		t.Fatal("zero-step selector does not report Self()")
 	}
 	if identitySelectorPathProgramRead(identityPath{Descendant: true}).Self() {
 		t.Fatal("descendant zero-step selector reports Self()")
@@ -353,9 +343,8 @@ func TestIdentityReadAccessors(t *testing.T) {
 		t.Fatalf("IdentityConstraintProgramRead.FieldCount() = %d, want 1", count)
 	}
 
-	elementFields := read.ElementFields()
-	if elementFields.Len() != 1 {
-		t.Fatalf("IdentityConstraintProgramRead.ElementFields() count = %d, want %d", elementFields.Len(), 1)
+	if len(read.elementFields) != 1 {
+		t.Fatalf("element field count = %d, want %d", len(read.elementFields), 1)
 	}
 	attributeFields := read.AttributeFields(names["id"])
 	if attributeFields.Len() != 1 {
@@ -380,7 +369,7 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 </xs:sequence></xs:complexType><xs:key name="key">
 <xs:selector xpath="row"/><xs:field xpath="id"/>
 </xs:key></xs:element></xs:schema>`
-	rt, err := Compile(Options{}, []source.Source{source.Bytes("bounds.xsd", []byte(text))})
+	rt, err := compileSources(Options{}, []source.Source{source.Bytes("bounds.xsd", []byte(text))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +377,7 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 	if !rootKnown {
 		t.Fatal("missing root name")
 	}
-	root, _, ok := rt.GlobalElement(RuntimeName{Name: rootName, Known: true})
+	root, _, ok := rt.GlobalElement(RuntimeName{name: rootName, known: true})
 	if !ok {
 		t.Fatal("missing root element")
 	}
@@ -400,22 +389,19 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 	if !ok || id != 0 {
 		t.Fatalf("identity = %v, %v; want 0, true", id, ok)
 	}
-	program, ok := rt.IdentityDispatch().Program(id)
-	if !ok {
-		t.Fatal("missing published identity program")
-	}
-	selectors, fields := program.Selectors(), program.ElementFields()
-	_, selectorOK := selectors.At(0)
-	field, fieldOK := fields.At(0)
-	path, pathOK := field.Path(0)
-	if selectors.Len() != 1 || fields.Len() != 1 || !selectorOK || !fieldOK || !pathOK || field.Field() != 0 || field.PathCount() != 1 {
-		t.Fatal("expected one selector and one field with one path")
-	}
 	rowName, rowOK := rt.LookupQName("", "row")
 	idName, idOK := rt.LookupQName("", "id")
 	if !rowOK || !idOK {
 		t.Fatal("missing path names")
 	}
+	dispatch := rt.IdentityDispatch()
+	selectors, fields := dispatch.SelectorExact(rowName), dispatch.ElementExact(idName)
+	selector, selectorOK := selectors.At(0)
+	field, fieldOK := fields.At(0)
+	if selectors.Len() != 1 || fields.Len() != 1 || !selectorOK || !fieldOK || selector.Constraint() != id || field.Constraint() != id || field.Field() != 0 {
+		t.Fatal("expected one selector branch and one field branch of the key")
+	}
+	path := field.Path()
 	for _, index := range []int{-1, 1} {
 		if _, ok := constraints.At(index); ok {
 			t.Fatalf("constraint index %d accepted", index)
@@ -426,9 +412,6 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 		if _, ok := fields.At(index); ok {
 			t.Fatalf("field index %d accepted", index)
 		}
-		if _, ok := field.Path(index); ok {
-			t.Fatalf("path index %d accepted", index)
-		}
 		if _, ok := path.Step(index); ok {
 			t.Fatalf("step index %d accepted", index)
 		}
@@ -436,12 +419,11 @@ func TestPublishedIdentityReadBounds(t *testing.T) {
 	if got, ok := constraints.At(0); !ok || got != 0 {
 		t.Fatal("constraint changed after rejected reads")
 	}
-	selector, selectorOK := selectors.At(0)
+	selector, selectorOK = selectors.At(0)
 	field, fieldOK = fields.At(0)
-	path, pathOK = field.Path(0)
-	selectorStep, selectorStepOK := selector.Step(0)
-	fieldStep, fieldStepOK := path.Step(0)
-	if !selectorOK || !fieldOK || !pathOK || !selectorStepOK || !fieldStepOK || field.Field() != 0 || selectorStep.Name != rowName || fieldStep.Name != idName {
+	selectorStep, selectorStepOK := selector.Path().Step(0)
+	fieldStep, fieldStepOK := field.Path().Step(0)
+	if !selectorOK || !fieldOK || !selectorStepOK || !fieldStepOK || field.Field() != 0 || selectorStep.Name != rowName || fieldStep.Name != idName {
 		t.Fatal("published paths changed after rejected reads")
 	}
 }

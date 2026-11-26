@@ -28,8 +28,7 @@ func (e *inputError) Unwrap() error { return e.cause }
 // joined with a reader failure, which keeps its precedence; a caller's reader
 // error is never classified by them. It also reports false for io.EOF itself;
 // a reader error that wraps or joins io.EOF is marked by readUnderlying like
-// any other reader error and reports true. Error.Kind is ErrorInput exactly
-// when it reports true.
+// any other reader error and reports true.
 func IsInputFailure(err error) bool {
 	if _, ok := UnsupportedFeatureOf(err); ok {
 		return false
@@ -72,6 +71,21 @@ func originates(err error, match func(error) bool) bool {
 
 func originatesSentinel(err, target error) bool {
 	return originates(err, func(e error) bool { return e == target }) //nolint:errorlint // sentinel identity
+}
+
+// ownError returns the first *Error this package built in err's chain, never
+// one inside what the caller's reader returned.
+func ownError(err error) (*Error, bool) {
+	found := (*Error)(nil)
+	originates(err, func(e error) bool {
+		boundary, ok := e.(*Error) //nolint:errorlint // origin walk inspects each node, never entering *inputError
+		if ok && boundary != nil {
+			found = boundary
+			return true
+		}
+		return false
+	})
+	return found, found != nil
 }
 
 func errNilReader() error { return &inputError{cause: ErrXMLInputNilReader} }

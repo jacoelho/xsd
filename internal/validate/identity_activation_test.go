@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"testing"
 
-	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
@@ -30,7 +29,7 @@ func TestIdentityEvaluationActivatesDocumentIdentityAtValidatedValueDepth(t *tes
 		t.Fatalf("dormant identity state = active %t, elements=%d; want inactive and empty", evaluation.documentIdentityActive, len(evaluation.elements))
 	}
 
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Local: "id"}, 1)
+	target, err := evaluation.prepareAttributeValue(evaluation.rt.ResolveName("", "id"), 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() error = %v", err)
 	}
@@ -77,7 +76,7 @@ func TestIdentityEvaluationFirstDocumentIdentityActivationRollsBackOnFatalStart(
 	}); err != nil {
 		t.Fatalf("startElement() error = %v", err)
 	}
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Local: "id"}, 1)
+	target, err := evaluation.prepareAttributeValue(evaluation.rt.ResolveName("", "id"), 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() error = %v", err)
 	}
@@ -210,7 +209,7 @@ func TestDormantIdentityEvaluationRejectsValueOutsideAnElement(t *testing.T) {
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
 	}
-	if _, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Local: "id"}, 0); err == nil {
+	if _, err := evaluation.prepareAttributeValue(evaluation.rt.ResolveName("", "id"), 0); err == nil {
 		t.Fatal("prepareAttributeValue(depth 0) succeeded, want internal invariant")
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)

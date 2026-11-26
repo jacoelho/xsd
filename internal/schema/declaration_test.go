@@ -190,7 +190,7 @@ func TestElementDeclarationValueConstraintIdentity(t *testing.T) {
 	fixture := notationConstraintFixture(t)
 	rt := fixture.build
 	stringID := valuepkg.BuiltinType(valuepkg.PrimitiveString)
-	id, found := valuepkg.BuiltinTypeID("ID")
+	id, found := builtinTypeID("ID")
 	if !found {
 		t.Fatal("missing builtin ID")
 	}

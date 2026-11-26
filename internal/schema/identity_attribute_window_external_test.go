@@ -174,7 +174,10 @@ func publishedAttributeFieldPaths(t *testing.T, rt *xsdSchema.Schema) []xsdSchem
 			}
 		}
 	}
-	for id := xsdSchema.IdentityConstraintID(0); xsdSchema.ValidIdentityConstraintID(id, dispatch.ConstraintCount()); id++ {
+	for id := xsdSchema.IdentityConstraintID(0); ; id++ {
+		if _, declared := rt.DiagnosticIdentityName(id); !declared {
+			break
+		}
 		program, ok := dispatch.Program(id)
 		if !ok {
 			t.Fatalf("identity constraint %d is missing", id)
@@ -192,7 +195,11 @@ func identityAttributeWindowNames(t *testing.T, rt *xsdSchema.Schema) []xsdSchem
 	locals := []string{"a", "b", "c", "other"}
 	names := make([]xsdSchema.RuntimeName, 0, len(locals))
 	for _, local := range locals {
-		names = append(names, xsdSchema.RuntimeName{Known: true, Local: local, Name: mustQName(t, rt, local)})
+		name := rt.ResolveName("", local)
+		if _, ok := name.QName(); !ok {
+			t.Fatalf("ResolveName(%q, %q) is not known to the schema", "", local)
+		}
+		names = append(names, name)
 	}
 	return names
 }

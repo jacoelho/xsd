@@ -183,11 +183,6 @@ func (c ElementValueConstraints) OwnerType() TypeID {
 	return c.owner
 }
 
-// HasAny reports whether either default or fixed is present.
-func (c ElementValueConstraints) HasAny() bool {
-	return c.constraint.kind.present()
-}
-
 // FixedValue returns the fixed value, if present.
 func (c ElementValueConstraints) FixedValue() (ValueConstraintRead, bool) {
 	if c.constraint.kind != valueConstraintFixed {
@@ -348,16 +343,6 @@ func newValueConstraintValidation(vc *valueConstraint) valueConstraintValidation
 		Value:            vc.Value,
 		HasResolvedNames: len(vc.ResolvedNames) != 0,
 	}
-}
-
-// valueConstraintSimpleType is the simple-type projection needed for cached
-// value-constraint owner matching.
-type valueConstraintSimpleType struct {
-	Union          []SimpleTypeID
-	ListItem       SimpleTypeID
-	Variety        valuepkg.Variety
-	Primitive      valuepkg.PrimitiveKind
-	HasEnumeration bool
 }
 
 // valueConstraintComplexType is the complex-type projection needed to

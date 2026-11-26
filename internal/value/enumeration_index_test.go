@@ -26,7 +26,7 @@ func enumerationSubjects() []enumerationSubject {
 			}
 		}
 	}
-	anyURI, _ := BuiltinTypeID("anyURI")
+	anyURI, _ := builtinTypeID("anyURI")
 	return []enumerationSubject{
 		{name: "string_preserve", spec: testPreservedStringEnumeration, raw: true},
 		{name: "token", spec: derived(builtinToken, PrimitiveString, WhitespaceCollapse)},
@@ -256,7 +256,7 @@ func TestEnumerationStringFamilyKeys(t *testing.T) {
 
 func TestEnumerationMixedKindUnionGroups(t *testing.T) {
 	t.Parallel()
-	nmtokens, _ := BuiltinTypeID("NMTOKENS")
+	nmtokens, _ := builtinTypeID("NMTOKENS")
 	union := func(members ...TypeID) TypeSpec {
 		return TypeSpec{
 			Variety: Union, Primitive: PrimitiveString, Union: members,

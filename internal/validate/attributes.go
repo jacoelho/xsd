@@ -83,14 +83,14 @@ func matchAttributeWildcard(rt *xsdSchema.Schema, wildcard xsdSchema.WildcardID,
 	if !ok {
 		return attributeWildcardMatch{}, false
 	}
-	if !w.AllowsURI(name.NS) {
+	if !w.AllowsURI(name.Namespace()) {
 		return attributeWildcardMatch{}, true
 	}
 	if w.Process() == xsdSchema.ProcessSkip {
 		return attributeWildcardMatch{disposition: attributeWildcardSkip}, true
 	}
-	if name.Known {
-		attribute, found, valid := rt.GlobalAttribute(name.Name)
+	if q, known := name.QName(); known {
+		attribute, found, valid := rt.GlobalAttribute(q)
 		if !valid {
 			return attributeWildcardMatch{}, false
 		}

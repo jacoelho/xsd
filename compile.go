@@ -17,66 +17,61 @@ type Engine struct {
 // CompileOptions controls schema compilation resource limits.
 type CompileOptions struct {
 	// MaxSchemaDepth caps nested schema XML elements. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaDepth int
 	// MaxSchemaAttributes caps attributes on one schema XML element. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaAttributes int
-	// MaxSchemaTokenBytes caps the bytes the schema XML reader holds for one
-	// token (names, attribute values, PI and text payload, construction
-	// scratch), measured lexically, and the character data accumulated in
-	// one element across text tokens. It also scales literal evaluation
-	// work. Zero uses the default.
+	// MaxSchemaTokenBytes caps the bytes held for one schema token and the text accumulated in one element. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaTokenBytes int64
 	// MaxSchemaSourceBytes caps bytes read from each schema source. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaSourceBytes int64
-	// MaxSchemaSources caps the explicit sources passed to one compilation and,
-	// separately, the distinct schema documents it loads, explicit and
-	// resolver-loaded together. An unavailable include/import target loads
-	// nothing and is not counted. Zero uses the default.
+	// MaxSchemaSources caps the explicit sources and the distinct schema documents of one compilation. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaSources int
-	// MaxSchemaTotalBytes caps aggregate bytes read from schema sources. An opener
-	// source reached again is read and charged again; a file source is read
-	// once; an in-memory source is compared by digest without charge. Zero uses the default.
+	// MaxSchemaTotalBytes caps aggregate bytes read from schema sources. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaTotalBytes int64
 	// MaxSchemaReferences caps include/import references processed during compilation. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaReferences int
-	// MaxSchemaDependencySteps caps aggregate schema-graph expansion, target-context
-	// propagation, component-dependency resolution and retained derived records
-	// (content-model particles and models, compiled content-model tables,
-	// attribute uses, wildcard namespaces). Zero uses the default.
+	// MaxSchemaDependencySteps caps aggregate schema-graph expansion and dependency-resolution work. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaDependencySteps int
-	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts,
-	// including primary and chameleon-derived contexts. Zero uses the default.
+	// MaxSchemaTargetContexts caps distinct source/effective-target-namespace contexts. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaTargetContexts int
 	// MaxSchemaInstantiatedNodes caps aggregate schema node occurrences across effective target contexts. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaInstantiatedNodes int
-	// MaxSchemaNames caps interned schema names, including built-ins. Zero means no explicit limit.
+	// MaxSchemaNames caps interned schema names. Zero means no explicit limit.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaNames int
 	// MaxFiniteOccurs caps finite maxOccurs values. Zero uses the uint32 runtime cap.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxFiniteOccurs uint64
 	// MaxContentModelStates caps compiled content-model DFA states. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxContentModelStates int
-	// MaxContentModelAnalysisSteps caps content-model traversal, determinization, and ambiguity-analysis work. Zero uses the default.
+	// MaxContentModelAnalysisSteps caps content-model traversal, determinization and ambiguity-analysis work. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxContentModelAnalysisSteps int
 	// MaxSubstitutionClosureEntries caps aggregate transitive substitution-group relationships. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSubstitutionClosureEntries int
 	// MaxSimpleUnionMemberEntries caps aggregate flattened simple-union members. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSimpleUnionMemberEntries int
-	// MaxSchemaPatternWork caps regular-expression matching work for one schema
-	// literal (enumeration, bound, fixed or default value), across all pattern
-	// facets, list items and union members. Units are defined in
-	// docs/RESOURCE_LIMITS.md (Pattern matching cost). Zero uses the finite
-	// default.
+	// MaxSchemaPatternWork caps regular-expression matching work for one schema literal. Zero uses the finite default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaPatternWork uint64
-	// MaxSchemaTotalPatternWork caps regular-expression matching work summed
-	// over every schema-literal evaluation of one compilation; a facet literal
-	// may be charged for both its base-type check and facet compilation; units are in
-	// docs/RESOURCE_LIMITS.md (Pattern matching cost). Zero uses the default.
+	// MaxSchemaTotalPatternWork caps regular-expression matching work summed over one compilation. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaTotalPatternWork uint64
-	// MaxSchemaPatternRetainedBytes caps the estimated memory retained by
-	// compiled regular expressions, summed over the distinct pattern facets of
-	// one compilation; identical pattern text is compiled and charged once.
-	// The estimate is defined in docs/RESOURCE_LIMITS.md. Each pattern is
-	// separately limited by fixed per-pattern bounds. Zero uses the default.
+	// MaxSchemaPatternRetainedBytes caps the estimated memory retained by compiled regular expressions. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaPatternRetainedBytes int64
 }
 

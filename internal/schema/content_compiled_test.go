@@ -168,7 +168,7 @@ func TestNextContentAnyReturnsGlobalElement(t *testing.T) {
 	})
 	st := ContentState{model: 0, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
-		Name: RuntimeName{Known: true, Name: name, Local: "e"},
+		Name: RuntimeName{known: true, name: name, local: "e"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
 	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != elem {
@@ -187,7 +187,7 @@ func TestNextContentEmptyReturnsNoMatchWithoutMutation(t *testing.T) {
 	scratch := NewContentScratch(bits, 0, 1)
 	wantBits := slices.Clone(bits)
 	transition, status := rt.NextContent(state, ContentInput{
-		Name: RuntimeName{Known: true, Name: QName{Local: 1}, Local: "child"},
+		Name: RuntimeName{known: true, name: QName{Local: 1}, local: "child"},
 	}, &scratch)
 	if status != ContentTransitionNoMatch {
 		t.Fatalf("NextContent(empty) status = %v, want no match", status)
@@ -247,7 +247,7 @@ func TestNextContentAllDefersScratchUntilCommit(t *testing.T) {
 	scratch := NewContentScratch(make([]uint64, 1), 0, 1)
 	st := ContentState{model: model, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
-		Name: RuntimeName{Known: true, Name: name, Local: "e"},
+		Name: RuntimeName{known: true, name: name, local: "e"},
 	}, &scratch)
 	kind, element := transition.Match()
 	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != elem {
@@ -290,7 +290,7 @@ func TestContentTransitionRejectsStaleAllStateWithoutMutation(t *testing.T) {
 	bits := make([]uint64, 1)
 	scratch := NewContentScratch(bits, 0, 1)
 	state := ContentState{model: model, present: true}
-	transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{Known: true, Name: name}}, &scratch)
+	transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{known: true, name: name}}, &scratch)
 	if status != contentTransitionMatched {
 		t.Fatalf("NextContent(all) status = %v, want matched", status)
 	}
@@ -338,7 +338,7 @@ func TestNextContentIndexedSubstitutionReturnsMember(t *testing.T) {
 	})
 	st := ContentState{model: model, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
-		Name: RuntimeName{Known: true, Name: memberName, Local: "member"},
+		Name: RuntimeName{known: true, name: memberName, local: "member"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
 	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != member || st.state != 0 {
@@ -386,7 +386,7 @@ func TestNextContentIndexedPreservesWildcardBeforeElement(t *testing.T) {
 	})
 	st := ContentState{model: model, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
-		Name: RuntimeName{Known: true, Name: name, Local: "e"},
+		Name: RuntimeName{known: true, name: name, local: "e"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
 	if status != contentTransitionMatched || kind != ContentMatchSkip || element != NoElement || st.state != 0 {
@@ -473,7 +473,7 @@ func TestNextContentWildcardProcessContents(t *testing.T) {
 			})
 			st := ContentState{model: model, present: true}
 			transition, status := rt.NextContent(st, ContentInput{
-				Name:       RuntimeName{Known: true, Name: name, Local: "e"},
+				Name:       RuntimeName{known: true, name: name, local: "e"},
 				HasXSIType: tt.xsiType,
 			}, &ContentScratch{})
 			kind, element := transition.Match()
@@ -532,7 +532,7 @@ func TestNextContentInvalidParticleReferenceIsInvalidState(t *testing.T) {
 			})
 			st := ContentState{model: model, present: true}
 			transition, status := rt.NextContent(st, ContentInput{
-				Name: RuntimeName{Known: true, Name: childName, Local: "child"},
+				Name: RuntimeName{known: true, name: childName, local: "child"},
 			}, &ContentScratch{})
 			if status != ContentTransitionInvalid {
 				kind, element := transition.Match()
@@ -588,7 +588,7 @@ func TestNextContentCountSaturatesAtUint32Max(t *testing.T) {
 	})
 	st := ContentState{model: model, count: math.MaxUint32, present: true}
 	transition, status := rt.NextContent(st, ContentInput{
-		Name: RuntimeName{Known: true, Name: name, Local: "e"},
+		Name: RuntimeName{known: true, name: name, local: "e"},
 	}, &ContentScratch{})
 	kind, element := transition.Match()
 	if status != contentTransitionMatched || kind != ContentMatchDeclared || element != elem {

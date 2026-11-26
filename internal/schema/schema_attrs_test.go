@@ -4,14 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 // testRawNodeWithLocalAttrs returns an XSD element whose unqualified
 // attributes each carry a value of the lexical form the attribute requires.
 func testRawNodeWithLocalAttrs(local string, attrs []string) *schemaSyntaxNode {
-	rawAttrs := make([]xmlstream.Attr, len(attrs))
+	rawAttrs := make([]testSchemaAttr, len(attrs))
 	for i, attr := range attrs {
 		value := "v"
 		switch attr {

@@ -67,7 +67,7 @@ func upaNestingCompileError(t *testing.T, group, content string) error {
 	text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + group +
 		`<xs:complexType name="T"><xs:sequence>` + content + `</xs:sequence></xs:complexType>` +
 		`<xs:element name="root" type="T"/></xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
 	if err != nil && !strings.Contains(err.Error(), "UPA violation") {
 		t.Fatalf("compile %s: %v", text, err)
 	}

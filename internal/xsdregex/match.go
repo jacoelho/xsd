@@ -102,12 +102,12 @@ func newRunner(pattern *Pattern, budget *matchBudget, scratch *Scratch) (nfaRunn
 		scratch: scratch,
 		budget:  budget,
 		single:  -1,
-		bitset:  pattern.bitset,
+		bitset:  pattern.mode == modeBitset,
 	}, nil
 }
 
 func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
-	if pattern.deterministic || pattern.bitset {
+	if pattern.mode == modeScalar || pattern.mode == modeBitset {
 		return nil
 	}
 	if scratch == nil {
@@ -211,47 +211,18 @@ func (r *nfaRunner) processClosureTarget(dst *[]int, pc int) error {
 }
 
 func (r *nfaRunner) start() error {
-	if r.pattern.deterministic {
+	switch r.pattern.mode {
+	case modeScalar:
 		r.scalar = true
-		r.single = r.pattern.startClosure[0]
+		r.single = r.pattern.scalarStart
 		return nil
-	}
-	if r.pattern.bitset {
+	case modeBitset:
 		r.current = r.pattern.startBits
 		return nil
+	case modeLinear, modeGeneral:
 	}
 	r.beginClosure()
-	if r.pattern.startClosure != nil {
-		return r.addPrecomputed(&r.scratch.current, r.pattern.startClosure)
-	}
 	return r.addClosure(&r.scratch.current, r.pattern.start)
-}
-
-func (r *nfaRunner) addPrecomputed(dst *[]int, targets []int) error {
-	for _, pc := range targets {
-		if err := r.addPrecomputedTarget(dst, pc); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *nfaRunner) addPrecomputedTarget(dst *[]int, pc int) error {
-	if pc < 0 || pc >= len(r.pattern.states) {
-		return &Error{Kind: ErrorSyntax, Offset: -1, What: "invalid precomputed NFA transition"}
-	}
-	if err := r.budget.step(1); err != nil {
-		return err
-	}
-	if r.scratch.seen[pc] == r.scratch.mark {
-		return nil
-	}
-	r.scratch.seen[pc] = r.scratch.mark
-	if err := r.budget.step(1); err != nil {
-		return err
-	}
-	*dst = append(*dst, pc)
-	return nil
 }
 
 func (r *nfaRunner) rune(value rune) error {
@@ -312,9 +283,6 @@ func (r *nfaRunner) advanceNFAState(value rune, pc int) error {
 	if state.kind != instructionSet || !matchesRune(state.set, value) {
 		return nil
 	}
-	if len(r.pattern.closures) != 0 && r.pattern.closures[pc] != nil {
-		return r.addPrecomputed(&r.scratch.next, r.pattern.closures[pc])
-	}
 	return r.addClosure(&r.scratch.next, state.out)
 }
 
@@ -338,7 +306,7 @@ func (r *nfaRunner) scalarRune(value rune) error {
 		r.single = -1
 		return r.budget.step(work)
 	}
-	r.single = r.pattern.closures[r.single][0]
+	r.single = r.pattern.scalarNext[r.single]
 	return r.budget.step(work)
 }
 
@@ -390,7 +358,7 @@ func matchString(pattern *Pattern, input string, options MatchOptions, scratch *
 }
 
 func matchStringCharged(pattern *Pattern, input string, budget *matchBudget, scratch *Scratch) (bool, error) {
-	if pattern.linear != nil {
+	if pattern.mode == modeLinear {
 		return pattern.linear.matchString(input, budget, scratch)
 	}
 	var owned Scratch
@@ -428,7 +396,7 @@ func matchBytes(pattern *Pattern, input []byte, options MatchOptions, scratch *S
 }
 
 func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scratch *Scratch) (bool, error) {
-	if pattern.linear != nil {
+	if pattern.mode == modeLinear {
 		return pattern.linear.matchBytes(input, budget, scratch)
 	}
 	var owned Scratch

@@ -32,7 +32,7 @@ func TestBitsetMatchWorkAccounting(t *testing.T) {
 					{kind: instructionAccept},
 					{kind: instructionSplit, out: 0, out1: 1},
 				},
-				bitset: true, startBits: test.start, acceptBits: 2, closureBits: []uint64{test.closure, 0, 0},
+				mode: modeBitset, startBits: test.start, acceptBits: 2, closureBits: []uint64{test.closure, 0, 0},
 			}
 			if test.start == 3 {
 				pattern.start = 2

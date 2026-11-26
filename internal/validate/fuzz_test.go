@@ -5,13 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func FuzzValidateNeverPanics(f *testing.F) {
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	rt, err := compileSources([]source.Source{
 		source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">

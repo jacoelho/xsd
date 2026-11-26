@@ -388,8 +388,8 @@ func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
 	spec.Union[0] = builtinDecimal
 	spec.Facets.Patterns[0][0] = replacement
 	spec.Facets.Enumeration[0].Lexical = "false"
-	if got, err := builder.Validate(id, "true", Resolver{}, NeedCanonical, nil); err != nil || got.CanonicalText() != "true" || got.SelectedType() != builtinBoolean {
-		t.Fatalf("builder original value = canonical %q selected %d error %v, want true/boolean", got.CanonicalText(), got.SelectedType(), err)
+	if got, err := builder.Validate(id, "true", Resolver{}, NeedCanonical, nil); err != nil || got.CanonicalText() != "true" {
+		t.Fatalf("builder original value = canonical %q error %v, want true", got.CanonicalText(), err)
 	}
 	if _, err := builder.Validate(id, "false", Resolver{}, 0, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("builder replacement value = %v, want ErrFacet", err)
@@ -398,8 +398,8 @@ func TestBuilderCompleteOwnsSourceMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := program.Validate(id, "true", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil || got.CanonicalText() != "true" || got.SelectedType() != builtinBoolean {
-		t.Fatalf("published original value = canonical %q selected %d error %v, want true/boolean", got.CanonicalText(), got.SelectedType(), err)
+	if got, err := program.Validate(id, "true", Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); err != nil || got.CanonicalText() != "true" {
+		t.Fatalf("published original value = canonical %q error %v, want true", got.CanonicalText(), err)
 	}
 	if _, err := program.Validate(id, "false", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil); !errors.Is(err, ErrFacet) {
 		t.Fatalf("published replacement value = %v, want ErrFacet", err)

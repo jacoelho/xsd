@@ -31,7 +31,7 @@ func (r Reference) Parts() Parts {
 // Resolve resolves ref against base using the validating RFC 2396 section 5.2
 // algorithm. It retains excess leading ".." segments, as shown in RFC 2396
 // Appendix C, and does not normalize dot segments in absolute-path or
-// scheme-bearing references.
+// scheme-bearing references. Resolve fails only with ErrOpaqueBase.
 func Resolve(base, ref Reference) (Reference, error) {
 	b := base.Parts()
 	r := ref.Parts()

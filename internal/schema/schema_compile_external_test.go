@@ -39,7 +39,7 @@ func TestCompileInheritedEnumerationRestrictionChain(t *testing.T) {
 	}
 	fmt.Fprintf(&schema, `<xs:element name="root" type="t%d"/></xs:schema>`, depth)
 
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("schema.xsd", []byte(schema.String())),
 	})
 
@@ -538,7 +538,7 @@ func TestSchemaCompileErrorsIncludeLocation(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sources := append([]source.Source{source.Bytes("schema.xsd", []byte(test.schema))}, test.dependencies...)
-			compiled, err := xsdSchema.Compile(xsdSchema.Options{}, sources)
+			compiled, err := compileSources(xsdSchema.Options{}, sources)
 			if compiled != nil {
 				t.Fatal("invalid schema was published")
 			}
@@ -571,7 +571,7 @@ func TestMissingIncludedSchemaLocationDoesNotInvalidateSchema(t *testing.T) {
 		}
 		return source.Source{}, xsderrors.ErrSchemaNotFound
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:include schemaLocation="missing.xsd"/>
 </xs:schema>`)).WithResolver(resolver)})
@@ -591,7 +591,7 @@ func TestOpaqueSourceMissingRelativeIncludeDoesNotInvalidateSchema(t *testing.T)
 		}),
 	}
 	for _, src := range sources {
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{src})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{src})
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -601,7 +601,7 @@ func TestOpaqueSourceMissingRelativeIncludeDoesNotInvalidateSchema(t *testing.T)
 
 func TestLocalAndOpaqueSchemaIdentitiesRemainDistinct(t *testing.T) {
 	t.Parallel()
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("./urn:types", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:local"/>`)),
 		source.Bytes("urn:types", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:opaque"/>`)),
 	})
@@ -617,7 +617,7 @@ func TestJoinedMissingResolverErrorIsNotSuppressed(t *testing.T) {
 	resolver := source.Resolver(func(_, _ string) (source.Source, error) {
 		return source.Source{}, errors.Join(xsderrors.ErrSchemaNotFound, fatal)
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:include schemaLocation="missing.xsd"/>
 </xs:schema>`)).WithResolver(resolver)})
@@ -649,7 +649,7 @@ func TestMissingResolvedIncludeDoesNotInvalidateSchema(t *testing.T) {
 					return nil, tt.err
 				}), nil
 			})
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:include schemaLocation="optional.xsd"/>
 </xs:schema>`)).WithResolver(resolver)})
@@ -772,7 +772,7 @@ func TestSchemaSetReferenceRules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, tt.sources())
+			_, err := compileSources(xsdSchema.Options{}, tt.sources())
 			expectCategoryCode(t, err, tt.category, tt.code)
 			if !strings.Contains(err.Error(), tt.message) {
 				t.Fatalf("Compile() error = %v, want message containing %q", err, tt.message)
@@ -818,7 +818,7 @@ func TestSchemaSetValidReferenceRules(t *testing.T) {
 				}
 				return source.Bytes(tt.childName, []byte(tt.child)), nil
 			})
-			if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(tt.root)).WithResolver(resolver)}); err != nil {
+			if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(tt.root)).WithResolver(resolver)}); err != nil {
 				t.Fatalf("Compile() error = %v", err)
 			}
 		})
@@ -840,7 +840,7 @@ func TestSchemaDirectivesMustPrecedeGlobalDeclarations(t *testing.T) {
   <xs:annotation><xs:documentation>late directive</xs:documentation></xs:annotation>
   ` + directive + `
 </xs:schema>`
-		_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolver)})
+		_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema)).WithResolver(resolver)})
 		expectCode(t, err, xsderrors.CodeSchemaContentModel)
 		expectSchemaCompileLine(t, err, 4)
 		if calls != 0 {
@@ -863,12 +863,12 @@ func TestSchemaTopLevelOrderAcceptsLeadingDirectivesAndAnnotations(t *testing.T)
 		}
 		return source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
 	})
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
 
-func TestLocalImportRulesPrecedeResolverCalls(t *testing.T) {
+func TestLocalImportRulesApplyWhenTargetIsUnavailable(t *testing.T) {
 	for _, test := range []struct {
 		root string
 		code xsderrors.Code
@@ -877,16 +877,11 @@ func TestLocalImportRulesPrecedeResolverCalls(t *testing.T) {
 		{`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root"><xs:import namespace="" schemaLocation="child.xsd"/></xs:schema>`, xsderrors.CodeSchemaInvalidAttribute},
 		{`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import schemaLocation="child.xsd"/></xs:schema>`, xsderrors.CodeSchemaReference},
 	} {
-		calls := 0
 		resolver := source.Resolver(func(_, _ string) (source.Source, error) {
-			calls++
-			return source.Source{}, errors.New("resolver must not be called")
+			return source.Source{}, xsderrors.ErrSchemaNotFound
 		})
-		_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(test.root)).WithResolver(resolver)})
+		_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(test.root)).WithResolver(resolver)})
 		expectCode(t, err, test.code)
-		if calls != 0 {
-			t.Fatalf("resolver calls = %d, want 0", calls)
-		}
 	}
 }
 
@@ -904,7 +899,7 @@ func TestInvalidSchemaDefaultsPrecedeResolverCalls(t *testing.T) {
 				calls++
 				return source.Source{}, errors.New("resolver must not be called")
 			})
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(schema)).WithResolver(resolver)})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(schema)).WithResolver(resolver)})
 			expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 			if calls != 0 {
 				t.Fatalf("resolver calls = %d, want 0", calls)
@@ -925,14 +920,14 @@ func TestInvalidChildSchemaDefaultsPrecedeDescendantResolverCalls(t *testing.T) 
 		}
 		return source.Source{}, errors.New("descendant resolver must not be called")
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)})
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 	if want := []string{"child.xsd"}; !slices.Equal(calls, want) {
 		t.Fatalf("resolver calls = %v, want %v", calls, want)
 	}
 }
 
-func TestLoadTimeReferenceRejectionDoesNotResolveDescendants(t *testing.T) {
+func TestReferenceRejectionLoadsDescendantsBeforePlanTimeCheck(t *testing.T) {
 	const xs = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"`
 	const leafInclude = `<xs:include schemaLocation="leaf.xsd"/></xs:schema>`
 	tests := []struct {
@@ -946,19 +941,19 @@ func TestLoadTimeReferenceRejectionDoesNotResolveDescendants(t *testing.T) {
 			name:      "include target mismatch",
 			root:      xs + ` targetNamespace="urn:root"><xs:include schemaLocation="child.xsd"/></xs:schema>`,
 			child:     xs + ` targetNamespace="urn:other">` + leafInclude,
-			wantCalls: []string{"child.xsd"},
+			wantCalls: []string{"child.xsd", "leaf.xsd"},
 		},
 		{
 			name:      "targetless root includes namespaced document",
 			root:      xs + `><xs:include schemaLocation="child.xsd"/></xs:schema>`,
 			child:     xs + ` targetNamespace="urn:other">` + leafInclude,
-			wantCalls: []string{"child.xsd"},
+			wantCalls: []string{"child.xsd", "leaf.xsd"},
 		},
 		{
 			name:      "descendant imports its own namespace",
 			root:      xs + `><xs:import namespace="urn:c" schemaLocation="child.xsd"/></xs:schema>`,
 			child:     xs + ` targetNamespace="urn:c"><xs:import namespace="urn:c"/>` + leafInclude,
-			wantCalls: []string{"child.xsd"},
+			wantCalls: []string{"child.xsd", "leaf.xsd"},
 		},
 		{
 			name:      "targetless root includes targetless document",
@@ -978,15 +973,12 @@ func TestLoadTimeReferenceRejectionDoesNotResolveDescendants(t *testing.T) {
 				case "child.xsd":
 					return source.Bytes("child.xsd", []byte(test.child)).WithResolver(resolver), nil
 				case "leaf.xsd":
-					if test.valid {
-						return source.Bytes("leaf.xsd", []byte(xs+"/>")), nil
-					}
-					return source.Source{}, errors.New("unreachable descendant")
+					return source.Bytes("leaf.xsd", []byte(xs+"/>")), nil
 				default:
 					return source.Source{}, errors.New("unexpected location " + location)
 				}
 			}
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(test.root)).WithResolver(resolver)})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(test.root)).WithResolver(resolver)})
 			if test.valid {
 				if err != nil {
 					t.Fatalf("Compile() error = %v", err)
@@ -1021,16 +1013,19 @@ func TestCachedReferenceTargetMismatchDoesNotActivateResolverContext(t *testing.
 		if location == "shared.xsd" {
 			return source.Bytes("shared.xsd", []byte(shared)), nil
 		}
-		return source.Source{}, errors.New("incompatible resolver reached descendant " + location)
+		if location == "leaf.xsd" {
+			return source.Bytes("leaf.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:shared"/>`)), nil
+		}
+		return source.Source{}, errors.New("unexpected location " + location)
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a-compatible.xsd", []byte(compatible)).WithResolver(compatibleResolver),
 		source.Bytes("b-incompatible.xsd", []byte(incompatible)).WithResolver(incompatibleResolver),
 	})
 
 	expectCode(t, err, xsderrors.CodeSchemaReference)
-	if !slices.Equal(incompatibleCalls, []string{"shared.xsd"}) {
-		t.Fatalf("incompatible resolver calls = %v, want cached target only", incompatibleCalls)
+	if !slices.Equal(incompatibleCalls, []string{"shared.xsd", "leaf.xsd"}) {
+		t.Fatalf("incompatible resolver calls = %v, want the cached target and its descendant", incompatibleCalls)
 	}
 }
 
@@ -1044,7 +1039,7 @@ func TestIdentityOnlyReferenceChecksNonExplicitLoadedTarget(t *testing.T) {
 		}
 		return source.Bytes("shared.xsd", []byte(shared)), nil
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a-compatible.xsd", []byte(compatible)).WithResolver(resolver),
 		source.Bytes("b-incompatible.xsd", []byte(incompatible)),
 	})
@@ -1064,7 +1059,7 @@ func TestUnresolvedFragmentSchemaLocationIsOptional(t *testing.T) {
 				return source.Source{}, xsderrors.ErrSchemaNotFound
 			}),
 		} {
-			engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{src})
+			engine, err := compileSources(xsdSchema.Options{}, []source.Source{src})
 			if err != nil {
 				t.Fatalf("Compile(%q) error = %v", location, err)
 			}
@@ -1088,7 +1083,7 @@ func TestUnsupportedLocalSchemaLocationsAreOptional(t *testing.T) {
 			}
 			sources = append(sources, source.File(rootPath))
 			for _, src := range sources {
-				engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{src})
+				engine, err := compileSources(xsdSchema.Options{}, []source.Source{src})
 				if err != nil {
 					t.Fatalf("Compile(%q, %q) error = %v", location, src.Name(), err)
 				}
@@ -1097,7 +1092,7 @@ func TestUnsupportedLocalSchemaLocationsAreOptional(t *testing.T) {
 		}
 	}
 	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="sub?version=1"><xs:include schemaLocation="missing.xsd"/><xs:element name="root"/></xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root))})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root))})
 	if err != nil {
 		t.Fatalf("Compile(xml:base) error = %v", err)
 	}
@@ -1109,7 +1104,7 @@ func TestArbitrarySourceIdentityIsNotParsedAsURIBase(t *testing.T) {
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="sub/"><xs:element name="root"/></xs:schema>`,
 		`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/><xs:element name="root"/></xs:schema>`,
 	} {
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("x:%zz", []byte(schema))})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("x:%zz", []byte(schema))})
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -1127,7 +1122,7 @@ func TestUnixFileFallbackPreservesEffectiveBase(t *testing.T) {
 		rootPath := filepath.Join(dir, "root.xsd")
 		writeCompileTestFile(t, rootPath, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="?version=1"><xs:include schemaLocation="child.xsd"/></xs:schema>`)
 		writeCompileTestFile(t, filepath.Join(dir, "child.xsd"), `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="included"/></xs:schema>`)
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1139,7 +1134,7 @@ func TestUnixFileFallbackPreservesEffectiveBase(t *testing.T) {
 		rootPath := filepath.Join(dir, "root.xsd")
 		writeCompileTestFile(t, rootPath, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child\name.xsd"/></xs:schema>`)
 		writeCompileTestFile(t, filepath.Join(dir, "child\\name.xsd"), `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="included"/></xs:schema>`)
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1153,7 +1148,7 @@ func TestUnixFileFallbackPreservesEffectiveBase(t *testing.T) {
 		writeCompileTestFile(t, childPath, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="included"/></xs:schema>`)
 		root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="//cdn.example/schemas/"><xs:include schemaLocation="` + childPath + `"/></xs:schema>`
 		writeCompileTestFile(t, rootPath, root)
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1267,7 +1262,7 @@ func TestCustomResolverReceivesNonLocalXMLBase(t *testing.T) {
 			if name == "" {
 				name = "root.xsd"
 			}
-			engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+			engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 				source.Bytes(name, []byte(test.root)).WithResolver(resolver),
 			})
 
@@ -1282,7 +1277,7 @@ func TestCustomResolverReceivesNonLocalXMLBase(t *testing.T) {
 func TestFragmentBearingXMLBaseCompiles(t *testing.T) {
 	t.Run("without references", func(t *testing.T) {
 		root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xml:base="#fragment"><xs:element name="root"/></xs:schema>`
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root))})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root))})
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -1301,7 +1296,7 @@ func TestFragmentBearingXMLBaseCompiles(t *testing.T) {
 		if err := os.WriteFile(childPath, []byte(child), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+		engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -1322,7 +1317,7 @@ func TestAbsoluteFileReferenceOverridesNonLocalXMLBase(t *testing.T) {
 	if err := os.WriteFile(rootPath, []byte(root), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1339,7 +1334,7 @@ func TestFileFragmentSchemaLocationDoesNotOpenFragmentlessFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "child.xsd"), []byte(`<not-a-schema/>`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1348,7 +1343,7 @@ func TestFileFragmentSchemaLocationDoesNotOpenFragmentlessFile(t *testing.T) {
 
 func TestMalformedFragmentSchemaLocationRemainsFatal(t *testing.T) {
 	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="missing.xsd#%zz"/></xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root))})
 	expectCode(t, err, xsderrors.CodeSchemaReference)
 }
 
@@ -1362,7 +1357,7 @@ func TestResolvedIdentityUsesResolverReturnedSourceName(t *testing.T) {
 		}
 		return source.Bytes("alias/common.xsd", []byte(alias)), nil
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("dir/main.xsd", []byte(main)).WithResolver(resolver),
 		source.Bytes("dir/common.xsd", []byte(competing)),
 	})
@@ -1384,7 +1379,7 @@ func TestResolverHandlesSchemaLocationBeforeGenericURIResolution(t *testing.T) {
 		}
 		return source.Bytes("urn:cache:child#v1", []byte(child)), nil
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("urn:opaque:root", []byte(root)).WithResolver(resolver),
 	})
 
@@ -1404,7 +1399,7 @@ func TestMalformedSchemaLocationPrecedesSuccessfulResolver(t *testing.T) {
 		called = true
 		return source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd#%zz"/></xs:schema>`)).WithResolver(resolver),
 	})
 
@@ -1417,7 +1412,7 @@ func TestMalformedSchemaLocationPrecedesSuccessfulResolver(t *testing.T) {
 func TestResolverReturnedSourceRequiresIdentity(t *testing.T) {
 	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="child.xsd"/></xs:schema>`
 	resolver := source.Resolver(func(_, _ string) (source.Source, error) { return source.Source{}, nil })
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
 	})
 
@@ -1435,7 +1430,7 @@ func TestSameResolvedIdentityRejectsDifferentDocumentContent(t *testing.T) {
 			return source.Bytes("shared.xsd", []byte(doc)), nil
 		}
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(root)).WithResolver(resolverFor("a")),
 		source.Bytes("b.xsd", []byte(root)).WithResolver(resolverFor("b")),
 	})
@@ -1456,7 +1451,7 @@ func TestSameResolverGraphRejectsDifferentContentForOneIdentity(t *testing.T) {
 		doc := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="` + strings.TrimSuffix(location, ".xsd") + `"/></xs:schema>`
 		return source.Bytes("shared.xsd", []byte(doc)), nil
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
 	})
 
@@ -1483,7 +1478,7 @@ func TestCachedSourceIdentityKeepsDistinctFallbackContexts(t *testing.T) {
 		{source.Bytes(rootPath, rootData), source.File(rootPath).WithResolver(nil)},
 		{source.File(rootPath).WithResolver(nil), source.Bytes(rootPath, rootData)},
 	} {
-		engine, err := xsdSchema.Compile(xsdSchema.Options{}, sources)
+		engine, err := compileSources(xsdSchema.Options{}, sources)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1506,7 +1501,7 @@ func TestCachedSourceIdentityKeepsDistinctFallbackContexts(t *testing.T) {
 			return source.Source{}, xsderrors.ErrSchemaNotFound
 		}
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", root).WithResolver(resolver)})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", root).WithResolver(resolver)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1531,7 +1526,7 @@ func TestCanonicalAliasesPreserveReturnedNamesAsDescendantBases(t *testing.T) {
 			return source.Source{}, xsderrors.ErrSchemaNotFound
 		}
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
 	})
 
@@ -1560,7 +1555,7 @@ func TestSameResolvedIdentityRejectsDifferentDescendantIdentities(t *testing.T) 
 			}
 		}
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(root)).WithResolver(resolverFor("a")),
 		source.Bytes("b.xsd", []byte(root)).WithResolver(resolverFor("b")),
 	})
@@ -1598,7 +1593,7 @@ func TestResolverMissDoesNotBindTentativeDescendantIdentity(t *testing.T) {
 		{name: "success then miss", firstMissing: false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+			engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 				source.Bytes("a.xsd", []byte(root)).WithResolver(resolverFor(test.firstMissing)),
 				source.Bytes("b.xsd", []byte(root)).WithResolver(resolverFor(!test.firstMissing)),
 			})
@@ -1621,7 +1616,7 @@ func TestLateLoadedGenericReferenceContributesTargetContext(t *testing.T) {
 		}
 		return source.Bytes("shared.xsd", []byte(shared)), nil
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(rootA)),
 		source.Bytes("b.xsd", []byte(rootB)).WithResolver(resolver),
 	})
@@ -1643,7 +1638,7 @@ func TestLateLoadedGenericReferenceValidatesTargetNamespace(t *testing.T) {
 		}
 		return source.Bytes("shared.xsd", []byte(shared)), nil
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(rootA)),
 		source.Bytes("b.xsd", []byte(rootB)).WithResolver(resolver),
 	})
@@ -1690,7 +1685,7 @@ func TestLateLoadedGenericCandidateConflictsWithSuccessfulBinding(t *testing.T) 
 			return source.Source{}, errors.New("unexpected location " + location)
 		}
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(root)).WithResolver(resolverA),
 		source.Bytes("b.xsd", []byte(root)).WithResolver(resolverB),
 		source.Bytes("c.xsd", []byte(triggerRoot)).WithResolver(resolverC),
@@ -1709,7 +1704,7 @@ func TestSchemaLoaderCanonicalizesURIIdentityComponents(t *testing.T) {
 		{"urn:item~", "urn:item%7E"},
 		{"https://example.test/schema.xsd#~", "https://example.test/schema.xsd#%7e"},
 	} {
-		if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+		if _, err := compileSources(xsdSchema.Options{}, []source.Source{
 			source.Bytes(names[0], schema),
 			source.Bytes(names[1], schema),
 		}); err != nil {
@@ -1721,7 +1716,7 @@ func TestSchemaLoaderCanonicalizesURIIdentityComponents(t *testing.T) {
 func TestSchemaLoaderRejectsConflictingURIIdentityAliases(t *testing.T) {
 	first := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="first"/></xs:schema>`)
 	second := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="second"/></xs:schema>`)
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("https://example.test/schema.xsd?q=~", first),
 		source.Bytes("https://example.test/schema.xsd?q=%7e", second),
 	})
@@ -1733,7 +1728,7 @@ func TestSchemaLoaderRejectsConflictingURIIdentityAliases(t *testing.T) {
 }
 
 func TestSchemaLoaderKeepsEmptyAuthorityIdentityDistinct(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("foo:", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:no-authority"/>`)),
 		source.Bytes("foo://", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:empty-authority"/>`)),
 	})
@@ -1746,7 +1741,7 @@ func TestSchemaLoaderKeepsEmptyAuthorityIdentityDistinct(t *testing.T) {
 func TestSchemaLoaderRejectsConflictingCanonicalSource(t *testing.T) {
 	first := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="first"/></xs:schema>`
 	second := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="second"/></xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("dir/../schema.xsd", []byte(first)),
 		source.Bytes("schema.xsd", []byte(second)),
 	})
@@ -1788,7 +1783,7 @@ func TestCachedSchemaIdentityRetainsResolverContext(t *testing.T) {
 			return source.Source{}, errors.New("unexpected location " + location)
 		}
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(root)).WithResolver(resolverA),
 		source.Bytes("b.xsd", []byte(root)).WithResolver(resolverB),
 	})
@@ -1827,17 +1822,17 @@ func TestCachedSchemaIdentityResolverContextCountsReferences(t *testing.T) {
 			source.Bytes("b.xsd", []byte(root)).WithResolver(resolver(true)),
 		}
 	}
-	if _, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaReferences: 4}, sources()); err != nil {
+	if _, err := compileSources(xsdSchema.Options{MaxSchemaReferences: 4}, sources()); err != nil {
 		t.Fatalf("Compile(exact references) error = %v", err)
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaReferences: 3}, sources())
+	_, err := compileSources(xsdSchema.Options{MaxSchemaReferences: 3}, sources())
 	expectCode(t, err, xsderrors.CodeSchemaLimit)
 }
 
 func TestSchemaLoaderMatchesCanonicalURLIdentity(t *testing.T) {
 	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="%74ypes.xsd"/></xs:schema>`
 	child := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="canonical"/></xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("https://EXAMPLE.test/main.xsd", []byte(root)),
 		source.Bytes("https://example.test/types.xsd", []byte(child)),
 	})
@@ -1865,7 +1860,7 @@ func TestFileSourceResolvesFromPathContainingURIDelimiters(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "child.xsd"), []byte(child), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1895,7 +1890,7 @@ func TestFileSourceResolvesFromRelativePathContainingColon(t *testing.T) {
 	if writeErr := os.WriteFile(filepath.Join(dir, "child.xsd"), []byte(child), 0o600); writeErr != nil {
 		t.Fatal(writeErr)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1904,7 +1899,7 @@ func TestFileSourceResolvesFromRelativePathContainingColon(t *testing.T) {
 
 func TestEmptyIncludeLocationResolvesCurrentDocument(t *testing.T) {
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="   "/><xs:element name="root"/></xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1922,7 +1917,7 @@ func TestEmptyIncludeLocationResolvesXMLBaseWithFileSource(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "child.xsd"), []byte(child), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.File(rootPath)})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -1932,7 +1927,7 @@ func TestEmptyIncludeLocationResolvesXMLBaseWithFileSource(t *testing.T) {
 func TestQueryOnlyXMLBaseUsesRFC2396ForGenericIdentity(t *testing.T) {
 	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xml:base="?y"><xs:include schemaLocation=""/></xs:schema>`
 	child := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="from-child"/></xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("http://a/b/c/d;p?q", []byte(root)),
 		source.Bytes("http://a/b/c/d;p?y", []byte(child)),
 	})
@@ -1954,7 +1949,7 @@ func TestFileSourceResolverMissFallsBackToLocalInclude(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "child.xsd"), []byte(child), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.File(rootPath).WithResolver(func(_, _ string) (source.Source, error) {
 			return source.Source{}, xsderrors.ErrSchemaNotFound
 		}),
@@ -1983,7 +1978,7 @@ func TestSchemaLoaderResolvesBreadthFirst(t *testing.T) {
 		return source.Bytes(location, []byte(schema)), nil
 	})
 	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include schemaLocation="a.xsd"/><xs:include schemaLocation="b.xsd"/></xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)}); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 	want := []string{"a.xsd", "b.xsd", "leaf-a.xsd", "leaf-b.xsd"}
@@ -2013,7 +2008,7 @@ func TestResolvedSourceNameAndResolverErrorsRemainStructured(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(tt.resolver)})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(tt.resolver)})
 			expectCategoryCode(t, err, tt.category, xsderrors.CodeSchemaRead)
 			xerr, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok || xerr.Path() != "root.xsd" || xerr.Line() != 2 || xerr.Column() == 0 {
@@ -2026,8 +2021,19 @@ func TestResolvedSourceNameAndResolverErrorsRemainStructured(t *testing.T) {
 	}
 }
 
+func TestResolutionInternalInvariantIsNotReportedAsReadFailure(t *testing.T) {
+	root := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="child.xsd"/>
+</xs:schema>`
+	resolver := source.Resolver(func(_, _ string) (source.Source, error) {
+		return source.Source{}, xsderrors.InternalInvariant("resolution broke its contract", nil)
+	})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("root.xsd", []byte(root)).WithResolver(resolver)})
+	expectCategoryCode(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+}
+
 func TestSchemaReferenceErrorsFollowSourceNameOrder(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("b/../a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:include/></xs:schema>`)),
 		source.Bytes("a/../b.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:import namespace=""/></xs:schema>`)),
 	})
@@ -2036,7 +2042,7 @@ func TestSchemaReferenceErrorsFollowSourceNameOrder(t *testing.T) {
 }
 
 func TestLocalReferenceErrorsPrecedeResolvedEdgeErrors(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:import namespace="urn:a"/></xs:schema>`)),
 		source.Bytes("z.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:z"><xs:include schemaLocation="child.xsd"/></xs:schema>`)),
 		source.Bytes("child.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:child"/>`)),
@@ -2072,7 +2078,7 @@ func TestChameleonIncludesCloneTransitivelyForMultipleTargets(t *testing.T) {
 </xs:schema>`
 		return source.Bytes(strings.TrimPrefix(target, "urn:")+".xsd", []byte(schema)).WithResolver(resolver)
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{root("urn:b"), root("urn:a")})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{root("urn:b"), root("urn:a")})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -2125,7 +2131,7 @@ func TestChameleonIncludesInstantiateAbsentAndNonEmptyTargetsTransitively(t *tes
 		{name: "non-empty target assigned first", absentName: "z-absent.xsd", namedName: "a-named.xsd"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+			engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 				root(tt.absentName, ""),
 				root(tt.namedName, "urn:test"),
 			})
@@ -2158,14 +2164,14 @@ func TestExplicitChameleonSourceRetainsAbsentTargetContext(t *testing.T) {
 			source.Bytes("named.xsd", []byte(named)),
 		}
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaTargetContexts: 3}, sources())
+	engine, err := compileSources(xsdSchema.Options{MaxSchemaTargetContexts: 3}, sources())
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 	mustValidate(t, engine, `<shared>absent</shared>`)
 	mustValidate(t, engine, `<shared xmlns="urn:named">named</shared>`)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaTargetContexts: 2}, sources())
+	_, err = compileSources(xsdSchema.Options{MaxSchemaTargetContexts: 2}, sources())
 	expectCode(t, err, xsderrors.CodeSchemaLimit)
 }
 
@@ -2177,7 +2183,7 @@ func TestImportedAbsentTargetChecksTransitiveIncludeTarget(t *testing.T) {
   <xs:include schemaLocation="foreign.xsd"/>
 </xs:schema>`
 	const foreign = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:foreign"/>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(root)),
 		source.Bytes("child.xsd", []byte(child)),
 		source.Bytes("foreign.xsd", []byte(foreign)),
@@ -2213,7 +2219,7 @@ func TestResolverImportAndNamedIncludeInstantiateSharedChameleonTransitively(t *
 		}
 		return source.Bytes(location, []byte(schema)).WithResolver(resolver), nil
 	}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("root.xsd", []byte(root)).WithResolver(resolver),
 	})
 
@@ -2233,7 +2239,7 @@ func TestAbsentTargetIncludeCycleEstablishesRootContext(t *testing.T) {
   <xs:include schemaLocation="a.xsd"/>
   <xs:element name="b" type="xs:string"/>
 </xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("a.xsd", []byte(a)),
 		source.Bytes("b.xsd", []byte(b)),
 	})
@@ -2269,7 +2275,7 @@ func TestIdenticalSchemasResolveSourceRelativeIncludesIndependently(t *testing.T
 			return source.Source{}, errors.New("unexpected base " + base)
 		}
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
 		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
 	})
@@ -2292,7 +2298,7 @@ func TestSameLocationIncludedTwiceIsOneDocument(t *testing.T) {
   <xs:element name="shared"/>
 </xs:schema>`)), nil
 	})
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("one.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test">
   <xs:include schemaLocation="common.xsd"/>
@@ -2374,14 +2380,14 @@ func TestByteIdenticalSchemasAtDistinctLocationsConflict(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, test.sources)
+			_, err := compileSources(xsdSchema.Options{}, test.sources)
 			expectCode(t, err, xsderrors.CodeSchemaDuplicate)
 		})
 	}
 }
 
 func TestIPv6ZoneCaseKeepsSourceIdentitiesDistinct(t *testing.T) {
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("http://[fe80::1%25ZoneA]/schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a"><xs:element name="a"/></xs:schema>`)),
 		source.Bytes("http://[fe80::1%25zonea]/schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:b"><xs:element name="b"/></xs:schema>`)),
 	})
@@ -2413,7 +2419,7 @@ func TestByteIdenticalSameTargetDuplicateKeepsImportGraphValidation(t *testing.T
 			return source.Source{}, errors.New("unexpected base " + base)
 		}
 	})
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("b/main.xsd", []byte(main)).WithResolver(resolver),
 		source.Bytes("a/main.xsd", []byte(main)).WithResolver(resolver),
 	})
@@ -2444,7 +2450,7 @@ func lineOf(s, needle string) int {
 }
 
 func TestInvalidSchemaContentOrdering(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad">
     <xs:attribute name="a"/>
@@ -2454,7 +2460,7 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad">
     <xs:attribute name="a"/>
@@ -2464,7 +2470,7 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad">
     <xs:attribute name="a"/>
@@ -2474,21 +2480,21 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="bad"><xs:complexType name="localName"/></xs:element>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad" block="substitution"/>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
   <xs:complexType name="bad"><xs:complexContent mixed="true"><xs:extension base="base"/></xs:complexContent></xs:complexType>
@@ -2496,7 +2502,7 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"/>
   <xs:complexType name="bad"><xs:complexContent><xs:extension base="base"/><xs:annotation/></xs:complexContent></xs:complexType>
@@ -2504,7 +2510,7 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"/>
   <xs:complexType name="bad"><xs:complexContent><xs:restriction base="base"><xs:sequence/><xs:choice/></xs:restriction></xs:complexContent></xs:complexType>
@@ -2512,7 +2518,7 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base"><xs:sequence><xs:element name="a"/></xs:sequence></xs:complexType>
   <xs:complexType name="bad"><xs:complexContent><xs:extension base="base"><xs:all><xs:element name="b"/></xs:all></xs:extension></xs:complexContent></xs:complexType>
@@ -2522,14 +2528,14 @@ func TestInvalidSchemaContentOrdering(t *testing.T) {
 }
 
 func TestInvalidAnnotationStructureIsSchemaError(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation><xs:annotation/></xs:annotation>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root">
     <xs:annotation/>
@@ -2539,21 +2545,21 @@ func TestInvalidAnnotationStructureIsSchemaError(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation foo="bar"/>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:annotation><xs:documentation xml:lang=" "/></xs:annotation>
 </xs:schema>`))})
 
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attributeGroup name="g">
     <xs:attribute name="a"/>
@@ -2565,7 +2571,7 @@ func TestInvalidAnnotationStructureIsSchemaError(t *testing.T) {
 }
 
 func TestComplexContentCannotDeriveFromItself(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad"><xs:complexContent><xs:extension base="bad"><xs:sequence><xs:element name="child"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
 </xs:schema>`))})
@@ -2574,7 +2580,7 @@ func TestComplexContentCannotDeriveFromItself(t *testing.T) {
 }
 
 func TestSimpleTypeCannotRestrictAnySimpleType(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="bad"><xs:restriction base="xs:anySimpleType"/></xs:simpleType>
 </xs:schema>`))})
@@ -2583,7 +2589,7 @@ func TestSimpleTypeCannotRestrictAnySimpleType(t *testing.T) {
 }
 
 func TestSimpleAndComplexTypesShareNames(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="dup"><xs:restriction base="xs:string"/></xs:simpleType>
   <xs:complexType name="dup"/>
@@ -2621,7 +2627,7 @@ func TestCompileRejectsBuiltinTypeRedeclarations(t *testing.T) {
 			t.Parallel()
 			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.w3.org/2001/XMLSchema">` +
 				tt.declaration + `</xs:schema>`
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 			expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaDuplicate)
 			if !strings.Contains(err.Error(), "duplicate type") {
 				t.Fatalf("Compile() error = %v, want duplicate type diagnostic", err)
@@ -2675,7 +2681,7 @@ func TestSubstitutionImplicitTypeInheritanceWaitsForCompleteHead(t *testing.T) {
 }
 
 func TestSubstitutionInheritedTypeReplaysValueConstraint(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="head" type="xs:int"/>
   <xs:element name="member" substitutionGroup="head" default="not-int"/>
@@ -2685,7 +2691,7 @@ func TestSubstitutionInheritedTypeReplaysValueConstraint(t *testing.T) {
 }
 
 func TestDuplicateSingleValueFacetRejectedPerRestrictionStep(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="bad">
     <xs:restriction base="xs:string">
@@ -2758,7 +2764,7 @@ func TestUnionMissingMemberInvalidatesOnlyAffectedType(t *testing.T) {
 }
 
 func TestUnionRejectsMissingSchemaNamespaceMember(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="bad"><xs:union memberTypes="xs:absent"/></xs:simpleType>
 </xs:schema>`))})
@@ -2795,11 +2801,15 @@ func TestUnionCanonicalizesRepeatedFlattenedMembers(t *testing.T) {
 </xs:schema>`
 	build := mutableSchemaBuild(t, schema)
 	outer := simpleBuildTypeIDByName(t, build, "outer")
-	if got := len(build.SimpleTypes[outer].ValueSpec.Union); got != 3 {
+	derivation, ok, err := build.SimpleTypeDerivation(outer)
+	if err != nil || !ok {
+		t.Fatalf("SimpleTypeDerivation(outer) = %v, %v; want a completed derivation", ok, err)
+	}
+	if got := len(derivation.Union); got != 3 {
 		t.Fatalf("outer flattened members = %d, want 3 unique members", got)
 	}
 	var names []string
-	for _, member := range build.SimpleTypes[outer].ValueSpec.Union {
+	for _, member := range derivation.Union {
 		names = append(names, build.Names.Format(build.SimpleTypes[member].Name))
 	}
 	want := []string{
@@ -2822,10 +2832,10 @@ func TestSimpleUnionMemberEntryLimit(t *testing.T) {
   <xs:simpleType name="u2"><xs:union memberTypes="u1 xs:boolean"/></xs:simpleType>
 </xs:schema>`
 	sourceFor := func() []source.Source { return []source.Source{source.Bytes("schema.xsd", []byte(schema))} }
-	if _, err := xsdSchema.Compile(xsdSchema.Options{MaxSimpleUnionMemberEntries: 6}, sourceFor()); err != nil {
+	if _, err := compileSources(xsdSchema.Options{MaxSimpleUnionMemberEntries: 6}, sourceFor()); err != nil {
 		t.Fatalf("Compile(exact union member entries) error = %v", err)
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{MaxSimpleUnionMemberEntries: 5}, sourceFor())
+	_, err := compileSources(xsdSchema.Options{MaxSimpleUnionMemberEntries: 5}, sourceFor())
 	expectCode(t, err, xsderrors.CodeSchemaLimit)
 }
 
@@ -2836,10 +2846,10 @@ func TestSimpleUnionMemberEntryLimitIncludesRestrictions(t *testing.T) {
   <xs:simpleType name="r2"><xs:restriction base="r1"/></xs:simpleType>
 </xs:schema>`
 	sourceFor := func() []source.Source { return []source.Source{source.Bytes("schema.xsd", []byte(schema))} }
-	if _, err := xsdSchema.Compile(xsdSchema.Options{MaxSimpleUnionMemberEntries: 6}, sourceFor()); err != nil {
+	if _, err := compileSources(xsdSchema.Options{MaxSimpleUnionMemberEntries: 6}, sourceFor()); err != nil {
 		t.Fatalf("Compile(exact restricted-union member entries) error = %v", err)
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{MaxSimpleUnionMemberEntries: 5}, sourceFor())
+	_, err := compileSources(xsdSchema.Options{MaxSimpleUnionMemberEntries: 5}, sourceFor())
 	expectCode(t, err, xsderrors.CodeSchemaLimit)
 }
 
@@ -2868,7 +2878,7 @@ func TestUnavailableRestrictionsRetainDecidableFacetState(t *testing.T) {
 		`<xs:length value="4"/>`,
 		`<xs:maxLength value="2"/>`,
 	} {
-		_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+		_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="badList"><xs:list itemType="absent"/></xs:simpleType>
   <xs:simpleType name="base"><xs:restriction base="badList">
@@ -2882,7 +2892,7 @@ func TestUnavailableRestrictionsRetainDecidableFacetState(t *testing.T) {
 }
 
 func TestUnavailableSimpleContentRestrictionsRetainDecidableFacetState(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="badList"><xs:list itemType="absent"/></xs:simpleType>
   <xs:complexType name="badContent">
@@ -2905,7 +2915,7 @@ func TestUnavailableRestrictionStillValidatesFacetSyntax(t *testing.T) {
 		`<xs:pattern value="["/>`,
 		`<xs:enumeration/>`,
 	} {
-		_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+		_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="bad"><xs:union memberTypes="absent xs:int"/></xs:simpleType>
   <xs:simpleType name="restricted"><xs:restriction base="bad">`+facet+`</xs:restriction></xs:simpleType>
@@ -2927,7 +2937,7 @@ func TestMissingSchemaNamespaceTypesInvalidateSchema(t *testing.T) {
 		{name: "list", declaration: `<xs:simpleType name="bad"><xs:list itemType="xs:absent"/></xs:simpleType>`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+test.declaration+`</xs:schema>`))})
 
 			expectCode(t, err, xsderrors.CodeSchemaReference)
@@ -3055,7 +3065,7 @@ func TestUnavailableAttributeTypesReportValidationErrors(t *testing.T) {
 }
 
 func TestElementDeclarationsMustBeConsistent(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="bad">
     <xs:sequence>
@@ -3069,7 +3079,7 @@ func TestElementDeclarationsMustBeConsistent(t *testing.T) {
 }
 
 func TestExtendedElementDeclarationsMustBeConsistent(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base">
     <xs:sequence><xs:element name="item" type="xs:int"/></xs:sequence>
@@ -3087,7 +3097,7 @@ func TestExtendedElementDeclarationsMustBeConsistent(t *testing.T) {
 }
 
 func TestTypeFinalBlocksDerivation(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:test" targetNamespace="urn:test">
   <xs:complexType name="Base" final="extension"><xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence></xs:complexType>
   <xs:complexType name="Derived"><xs:complexContent><xs:extension base="tns:Base"><xs:sequence><xs:element name="b" type="xs:string"/></xs:sequence></xs:extension></xs:complexContent></xs:complexType>
@@ -3095,7 +3105,7 @@ func TestTypeFinalBlocksDerivation(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaReference)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:test" targetNamespace="urn:test">
   <xs:simpleType name="Base" final="restriction"><xs:restriction base="xs:string"/></xs:simpleType>
   <xs:simpleType name="Derived"><xs:restriction base="tns:Base"><xs:minLength value="1"/></xs:restriction></xs:simpleType>
@@ -3103,7 +3113,7 @@ func TestTypeFinalBlocksDerivation(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaReference)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="Base" final="extension">
     <xs:simpleContent>
@@ -3121,12 +3131,12 @@ func TestTypeFinalBlocksDerivation(t *testing.T) {
 }
 
 func TestAnonymousSimpleTypeCannotHaveName(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="parent"><xs:restriction><xs:simpleType name="child"><xs:restriction base="xs:string"/></xs:simpleType></xs:restriction></xs:simpleType></xs:schema>`))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:simpleType name="parent"><xs:restriction><xs:simpleType name="child"><xs:restriction base="xs:string"/></xs:simpleType></xs:restriction></xs:simpleType></xs:schema>`))})
 	expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 }
 
 func TestSimpleDerivationAnnotationMustPrecedeContent(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="t">
     <xs:list>
@@ -3138,7 +3148,7 @@ func TestSimpleDerivationAnnotationMustPrecedeContent(t *testing.T) {
 
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="t">
     <xs:union>
@@ -3158,15 +3168,15 @@ func TestSimpleContentRestrictionSimpleTypeMustPrecedeFacets(t *testing.T) {
 	const inline = `<xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>`
 	const suffix = `</xs:restriction></xs:simpleContent></xs:complexType></xs:element></xs:schema>`
 
-	if _, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("ordered.xsd", []byte(prefix+inline+`<xs:minLength value="1"/>`+suffix))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("ordered.xsd", []byte(prefix+inline+`<xs:minLength value="1"/>`+suffix))}); err != nil {
 		t.Fatalf("Compile(ordered) error = %v", err)
 	}
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("reversed.xsd", []byte(prefix+`<xs:minLength value="1"/>`+inline+suffix))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("reversed.xsd", []byte(prefix+`<xs:minLength value="1"/>`+inline+suffix))})
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
 func TestTopLevelSimpleTypeRequiresName(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType><xs:restriction base="xs:string"/></xs:simpleType>
 </xs:schema>`))})
@@ -3182,7 +3192,7 @@ func TestRestrictionElementPropertiesCannotBeLoosened(t *testing.T) {
 		 <xs:complexType name="derived"><xs:complexContent><xs:restriction base="base"><xs:choice><xs:element name="e1" block="extension substitution"/></xs:choice></xs:restriction></xs:complexContent></xs:complexType>`,
 	}
 	for _, body := range tests {
-		_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
+		_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`+body+`</xs:schema>`))})
 		expectCode(t, err, xsderrors.CodeSchemaContentModel)
 	}
 }
@@ -3206,7 +3216,7 @@ func TestRestrictionElementPreservesFixedValueIdentity(t *testing.T) {
 }
 
 func TestRestrictionElementTypeCannotUseExtension(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test" xmlns:t="urn:test">
   <xs:complexType name="baseType"><xs:choice><xs:element name="f1"/><xs:element name="f2"/></xs:choice></xs:complexType>
   <xs:complexType name="extendedType">
@@ -3254,7 +3264,7 @@ func TestSubstitutionMemberWithMissingHeadUsesDefaultType(t *testing.T) {
 }
 
 func TestSchemaAdmissionRejectsForeignElementsOutsideAnnotationPayload(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("foreign.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("foreign.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:f="urn:foreign">
   <f:extension/>
 </xs:schema>`))})
@@ -3271,7 +3281,7 @@ func TestSchemaAdmissionTreatsAnnotationPayloadAsOpaque(t *testing.T) {
   </xs:appinfo></xs:annotation>
   <xs:element name="root"/>
 </xs:schema>`
-	engine, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("opaque.xsd", []byte(schema))})
+	engine, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("opaque.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -3282,7 +3292,7 @@ func TestSchemaAdmissionRejectsSchemaAttributesOnAnnotationEnvelopes(t *testing.
 	for _, envelope := range []string{"appinfo", "documentation"} {
 		t.Run(envelope, func(t *testing.T) {
 			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:` + envelope + ` xs:bogus="value"/></xs:annotation></xs:schema>`
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes(envelope+".xsd", []byte(schema))})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes(envelope+".xsd", []byte(schema))})
 			expectCode(t, err, xsderrors.CodeSchemaInvalidAttribute)
 		})
 	}
@@ -3296,14 +3306,14 @@ func TestSchemaAdmissionRejectsDirectiveChildren(t *testing.T) {
 				attrs += ` namespace="urn:other"`
 			}
 			schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:` + directive + attrs + `><xs:element name="bad"/></xs:` + directive + `></xs:schema>`
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes(directive+".xsd", []byte(schema))})
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes(directive+".xsd", []byte(schema))})
 			expectCode(t, err, xsderrors.CodeSchemaContentModel)
 		})
 	}
 }
 
 func TestSchemaCompileDiagnosticIdentifiesSource(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{
 		source.Bytes("good.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:good"/>`)),
 		source.Bytes("broken.xsd", []byte("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n<xs:element/>\n</xs:schema>")),
 	})
@@ -3357,7 +3367,7 @@ func TestAnonymousLocalTypeCanRestrictContainingType(t *testing.T) {
 }
 
 func TestNamedComplexTypeCannotDeriveFromItself(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="self">
     <xs:complexContent><xs:extension base="self"/></xs:complexContent>
@@ -3368,7 +3378,7 @@ func TestNamedComplexTypeCannotDeriveFromItself(t *testing.T) {
 }
 
 func TestComplexContentExtensionCannotDropMixedBase(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base" mixed="true">
     <xs:sequence><xs:element name="a"/></xs:sequence>
@@ -3384,7 +3394,7 @@ func TestComplexContentExtensionCannotDropMixedBase(t *testing.T) {
 		t.Fatalf("Compile() unexpected error: %v", err)
 	}
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="base" mixed="true">
     <xs:sequence><xs:element name="a" minOccurs="0"/></xs:sequence>
@@ -3404,7 +3414,7 @@ func TestComplexContentExtensionCannotDropMixedBase(t *testing.T) {
 }
 
 func TestRecursiveComplexTypeThroughElementRefCompiles(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="root" type="node"/>
   <xs:element name="child" type="node"/>
@@ -3421,30 +3431,30 @@ func TestRecursiveComplexTypeThroughElementRefCompiles(t *testing.T) {
 }
 
 func TestUnsupportedFeaturesAreExplicit(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:redefine schemaLocation="a.xsd"/></xs:schema>`))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:redefine schemaLocation="a.xsd"/></xs:schema>`))})
 	expectCode(t, err, xsderrors.CodeUnsupportedRedefine)
 
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:anyAttribute notQName="##defined"/></xs:complexType></xs:element></xs:schema>`))})
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="r"><xs:complexType><xs:anyAttribute notQName="##defined"/></xs:complexType></xs:element></xs:schema>`))})
 	expectCode(t, err, xsderrors.CodeUnsupportedXSD11)
 }
 
 func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 	deepSchema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:documentation>ok</xs:documentation></xs:annotation></xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaDepth: 2}, []source.Source{source.Bytes("schema.xsd", []byte(deepSchema))})
+	_, err := compileSources(xsdSchema.Options{MaxSchemaDepth: 2}, []source.Source{source.Bytes("schema.xsd", []byte(deepSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
-	if _, boundaryErr := xsdSchema.Compile(xsdSchema.Options{MaxSchemaDepth: 3}, []source.Source{source.Bytes("schema.xsd", []byte(deepSchema))}); boundaryErr != nil {
+	if _, boundaryErr := compileSources(xsdSchema.Options{MaxSchemaDepth: 3}, []source.Source{source.Bytes("schema.xsd", []byte(deepSchema))}); boundaryErr != nil {
 		t.Fatalf("Compile() depth boundary error = %v", boundaryErr)
 	}
 
 	attrSchema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test"><xs:element name="root"/></xs:schema>`
-	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaAttributes: 1}, []source.Source{source.Bytes("schema.xsd", []byte(attrSchema))})
+	_, err = compileSources(xsdSchema.Options{MaxSchemaAttributes: 1}, []source.Source{source.Bytes("schema.xsd", []byte(attrSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
-	if _, boundaryErr := xsdSchema.Compile(xsdSchema.Options{MaxSchemaAttributes: 2}, []source.Source{source.Bytes("schema.xsd", []byte(attrSchema))}); boundaryErr != nil {
+	if _, boundaryErr := compileSources(xsdSchema.Options{MaxSchemaAttributes: 2}, []source.Source{source.Bytes("schema.xsd", []byte(attrSchema))}); boundaryErr != nil {
 		t.Fatalf("Compile() attribute boundary error = %v", boundaryErr)
 	}
 
 	textSchema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:documentation>` + strings.Repeat("x", 129) + `</xs:documentation></xs:annotation></xs:schema>`
-	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("schema.xsd", []byte(textSchema))})
+	_, err = compileSources(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("schema.xsd", []byte(textSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
 
 	t.Run("token forms", func(t *testing.T) {
@@ -3466,7 +3476,7 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 		for name, build := range forms {
 			t.Run(name, func(t *testing.T) {
 				opts := xsdSchema.Options{MaxSchemaTokenBytes: 128}
-				_, tokenErr := xsdSchema.Compile(opts, []source.Source{source.Bytes("big.xsd", []byte(build(200)))})
+				_, tokenErr := compileSources(opts, []source.Source{source.Bytes("big.xsd", []byte(build(200)))})
 				expectCategoryCode(t, tokenErr, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
 				if !strings.Contains(tokenErr.Error(), "MaxSchemaTokenBytes=128") {
 					t.Fatalf("error %q does not name MaxSchemaTokenBytes=128", tokenErr)
@@ -3488,7 +3498,7 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 				input := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:documentation>` +
 					strings.Repeat("a", 64) + `<?p?>` + strings.Repeat("b", test.secondBytes) +
 					`</xs:documentation></xs:annotation><xs:element name="r" type="xs:string"/></xs:schema>`
-				compiled, compileErr := xsdSchema.Compile(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("opaque-cumulative.xsd", []byte(input))})
+				compiled, compileErr := compileSources(xsdSchema.Options{MaxSchemaTokenBytes: 128}, []source.Source{source.Bytes("opaque-cumulative.xsd", []byte(input))})
 				if test.wantLimit {
 					diagnostic, ok := errors.AsType[*xsderrors.Error](compileErr)
 					if compiled != nil || !ok || diagnostic.Category() != xsderrors.CategorySchemaParse || diagnostic.Code() != xsderrors.CodeSchemaLimit || diagnostic.Path() != "opaque-cumulative.xsd" || diagnostic.Line() != 1 || diagnostic.Column() != 158 {
@@ -3505,7 +3515,7 @@ func TestCompileOptionsSchemaXMLLimits(t *testing.T) {
 	})
 
 	nodeSchema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:annotation><xs:appinfo><payload/></xs:appinfo></xs:annotation></xs:schema>`
-	_, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaInstantiatedNodes: 3}, []source.Source{source.Bytes("schema.xsd", []byte(nodeSchema))})
+	_, err = compileSources(xsdSchema.Options{MaxSchemaInstantiatedNodes: 3}, []source.Source{source.Bytes("schema.xsd", []byte(nodeSchema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaParse, xsderrors.CodeSchemaLimit)
 }
 
@@ -3526,11 +3536,11 @@ func TestSchemaParserDoesNotRetainOpaqueAnnotationPayload(t *testing.T) {
 
 func TestCompileOptionsSchemaSourceByteLimit(t *testing.T) {
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"/></xs:schema>`
-	if _, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaSourceBytes: int64(len(schema))}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
+	if _, err := compileSources(xsdSchema.Options{MaxSchemaSourceBytes: int64(len(schema))}, []source.Source{source.Bytes("schema.xsd", []byte(schema))}); err != nil {
 		t.Fatalf("Compile() source byte boundary error = %v", err)
 	}
 
-	_, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaSourceBytes: int64(len(schema) - 1)}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{MaxSchemaSourceBytes: int64(len(schema) - 1)}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
@@ -3587,7 +3597,7 @@ func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 		{MaxContentModelStates: -1},
 	}
 	for _, opts := range tests {
-		_, err := xsdSchema.Compile(opts, []source.Source{schemaSource})
+		_, err := compileSources(opts, []source.Source{schemaSource})
 		expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 	}
 }
@@ -3734,7 +3744,6 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	idName := mustQName(t, &aliases.Names, "id")
 	rootID := aliases.GlobalElements[rootName]
 	headID := aliases.GlobalElements[headName]
-	codeID := simpleBuildTypeIDByName(t, &aliases, "Code")
 	itemType := complexBuildTypeIDByName(t, &aliases, "Item")
 	attrSetID := aliases.ComplexTypes[itemType].Attrs
 	identityID := aliases.Elements[rootID].Identity[0]
@@ -3746,7 +3755,6 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 
 	aliases.GlobalElements[rootName] = headID
 	aliases.GlobalTypes[mustQName(t, &aliases.Names, "Code")] = xsdSchema.ComplexRef(itemType)
-	aliases.SimpleTypes[codeID].ValueSpec.Union[0] = xsdSchema.NoSimpleType
 	aliases.Elements[rootID].Identity[0] = xsdSchema.NoIdentityConstraint
 	aliases.Identities[identityID].Selector[0].Steps[0].Name = headName
 	aliases.Identities[identityID].Fields[0].Paths[0].Attribute = itemName
@@ -3758,14 +3766,12 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	if !ok {
 		t.Fatal("published identity program is missing")
 	}
-	elementField, ok := program.ElementFields().At(0)
-	if !ok {
-		t.Fatal("published element field is missing")
+	elementBranches := published.IdentityDispatch().ElementExact(childName)
+	elementBranch, ok := elementBranches.At(0)
+	if !ok || elementBranches.Len() != 1 || elementBranch.Constraint() != identityID || elementBranch.Field() != 0 {
+		t.Fatalf("published element field dispatch for child = %d branches, first %+v; want one branch of field 0", elementBranches.Len(), elementBranch)
 	}
-	elementPath, ok := elementField.Path(0)
-	if !ok {
-		t.Fatal("published element field path is missing")
-	}
+	elementPath := elementBranch.Path()
 	if step, stepOK := elementPath.Step(0); !stepOK || elementPath.StepCount() != 1 || step.Name != childName {
 		t.Fatalf("published element field path = %v/%d/%t, want child", step, elementPath.StepCount(), stepOK)
 	}
@@ -3780,7 +3786,7 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	if step, stepOK := attributePath.Step(0); !stepOK || attributePath.StepCount() != 1 || step.Name != childName {
 		t.Fatalf("published exact attribute field path = %v/%d/%t, want child", step, attributePath.StepCount(), stepOK)
 	}
-	if !attributePath.IsAttribute() || attributePath.Attribute() != idName || attributePath.AttributeWildcard() {
+	if !attributePath.KnownAttributeMatches(idName) || attributePath.KnownAttributeMatches(codeName) {
 		t.Fatal("published exact attribute field lost its id attribute test")
 	}
 	wildcardField, ok := program.AttributeWildcardFields().At(0)
@@ -3794,7 +3800,7 @@ func TestPublishedSchemaOwnsValidationStorage(t *testing.T) {
 	if step, stepOK := wildcardPath.Step(0); !stepOK || wildcardPath.StepCount() != 1 || step.Name != childName {
 		t.Fatalf("published wildcard attribute field path = %v/%d/%t, want child", step, wildcardPath.StepCount(), stepOK)
 	}
-	if !wildcardPath.IsAttribute() || !wildcardPath.AttributeWildcard() || wildcardPath.AttributeNamespaceSet() {
+	if !wildcardPath.KnownAttributeMatches(codeName) || !wildcardPath.UnknownAttributeMatches(published, "urn:other") {
 		t.Fatal("published wildcard attribute field lost its unrestricted attribute test")
 	}
 
@@ -3977,7 +3983,7 @@ func TestSimpleContentMixedAttributeDoesNotAdmitMixedExtension(t *testing.T) {
   </xs:complexType>
   <xs:element name="root" type="C"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(mixedBase))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(mixedBase))})
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 
 	const nonMixedBase = `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -3989,7 +3995,7 @@ func TestSimpleContentMixedAttributeDoesNotAdmitMixedExtension(t *testing.T) {
   </xs:complexType>
   <xs:element name="root" type="B"/>
 </xs:schema>`
-	_, err = xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(nonMixedBase))})
+	_, err = compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(nonMixedBase))})
 	expectCode(t, err, xsderrors.CodeSchemaContentModel)
 }
 
@@ -4002,8 +4008,7 @@ func TestRuntimeElementAccessor(t *testing.T) {
 	if _, ok := rt.Element(xsdSchema.ElementID(1 << 30)); ok {
 		t.Error("element(out of range) resolved, want miss")
 	}
-	rootName := mustQName(t, rt, "root")
-	_, rootInfo, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: rootName})
+	_, rootInfo, ok := rt.GlobalElement(rt.ResolveName("", "root"))
 	if !ok || !rootInfo.Type.IsSimple() {
 		t.Fatal("root element is missing")
 	}
@@ -4019,7 +4024,7 @@ func TestGlobalAttributeTypeRequiresSimpleType(t *testing.T) {
   </xs:complexType>
   <xs:element name="r" type="T"/>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(invalid))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(invalid))})
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok || diagnostic.Category() != xsderrors.CategorySchemaCompile || diagnostic.Code() != xsderrors.CodeSchemaReference || diagnostic.Message() != `unknown simple type "C"` {
 		t.Fatalf("Compile(complex attribute type) = %v; want schema reference error for unknown simple type C", err)
@@ -4035,7 +4040,7 @@ func TestGlobalAttributeTypeRequiresSimpleType(t *testing.T) {
   </xs:complexType>
   <xs:element name="r" type="T"/>
 </xs:schema>`
-	compiled, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(valid))})
+	compiled, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("kind.xsd", []byte(valid))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4047,7 +4052,7 @@ func TestCompileReportsIDReferenceValueConstraintOnAttributeUse(t *testing.T) {
   <xs:attribute name="a" type="xs:ID"/>
   <xs:element name="r"><xs:complexType><xs:attribute ref="a" fixed="x"/></xs:complexType></xs:element>
 </xs:schema>`
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("id-reference.xsd", []byte(schema))})
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("id-reference.xsd", []byte(schema))})
 	expectCategoryCode(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 	diagnostic, _ := errors.AsType[*xsderrors.Error](err)
 	if diagnostic.Line() != 3 || !strings.Contains(err.Error(), "ID-typed attribute use stores value constraint") {
@@ -4064,7 +4069,7 @@ func TestCompileLocatesNameLimitBreachAtIdentityConstraint(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	compile := func(maxNames int) error {
-		_, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaNames: maxNames}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+		_, err := compileSources(xsdSchema.Options{MaxSchemaNames: maxNames}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 		return err
 	}
 	fits := 1

@@ -106,6 +106,8 @@ func (b ReferenceBase) ResolverValue() (string, bool) {
 // WithXMLBase applies one xml:base value. Syntactically valid URI forms that
 // cannot be represented by the built-in local backend remain available to a
 // custom resolver without becoming document identities themselves.
+// WithXMLBase fails only when uriref breaks its Resolve contract; the error is
+// internal.invariant.
 func (b ReferenceBase) WithXMLBase(reference uriref.Reference) (ReferenceBase, error) {
 	reference = reference.WithoutFragment()
 	if reference.Raw() == "" {
@@ -115,9 +117,9 @@ func (b ReferenceBase) WithXMLBase(reference uriref.Reference) (ReferenceBase, e
 	if err != nil {
 		return ReferenceBase{}, err
 	}
-	fallback, fallbackErr := resolveFallbackBase(b, reference)
-	if fallbackErr != nil {
-		return ReferenceBase{}, fallbackErr
+	fallback, err := resolveFallbackBase(b, reference)
+	if err != nil {
+		return ReferenceBase{}, err
 	}
 	return (ReferenceBase{resolver: resolver, fallback: fallback}).withoutFragment(), nil
 }
@@ -142,7 +144,7 @@ func resolveFallbackBase(base ReferenceBase, reference uriref.Reference) (string
 func resolveFallbackWithoutBase(base ReferenceBase, reference uriref.Reference) (string, error) {
 	parts := reference.Parts()
 	if parts.HasScheme {
-		return canonicalFallbackReference(reference)
+		return resolveLocalFallback("", reference), nil
 	}
 	if base.resolver.kind != resolverBaseLocal || parts.Path == "" {
 		return "", nil
@@ -152,14 +154,10 @@ func resolveFallbackWithoutBase(base ReferenceBase, reference uriref.Reference) 
 
 func resolveFallbackAgainst(fallbackBase string, reference uriref.Reference) (string, error) {
 	if isLocalName(fallbackBase) {
-		resolved, err := resolveLocalFallback(fallbackBase, reference)
-		if IsReferenceUnavailable(err) {
-			return "", nil
-		}
-		return resolved, err
+		return resolveLocalFallback(fallbackBase, reference), nil
 	}
 	if reference.Parts().HasScheme {
-		return canonicalFallbackReference(reference)
+		return resolveLocalFallback("", reference), nil
 	}
 	baseReference, err := uriref.Parse(fallbackBase)
 	if err != nil {
@@ -170,17 +168,13 @@ func resolveFallbackAgainst(fallbackBase string, reference uriref.Reference) (st
 		return "", nil
 	}
 	if err != nil {
-		return "", err
+		return "", uriResolveInvariant(err)
 	}
-	return canonicalFallbackReference(resolved)
+	return resolveLocalFallback("", resolved), nil
 }
 
-func canonicalFallbackReference(reference uriref.Reference) (string, error) {
-	resolved, err := resolveLocalFallback("", reference)
-	if IsReferenceUnavailable(err) {
-		return "", nil
-	}
-	return resolved, err
+func uriResolveInvariant(err error) error {
+	return xsderrors.InternalInvariant("uriref.Resolve rejected admitted references", err)
 }
 
 func withoutFragment(uri string) string {
@@ -345,7 +339,7 @@ func (s Source) resolveWithBuiltins(base ReferenceBase, location uriref.Referenc
 	}
 	resolvedBase, err := base.WithXMLBase(location)
 	if err != nil {
-		return Resolution{}, referenceResolutionError{err: err}
+		return Resolution{}, err
 	}
 	if resolvedBase.fallback == "" {
 		return Resolution{}, nil
@@ -359,21 +353,6 @@ func (s Source) resolveWithBuiltins(base ReferenceBase, location uriref.Referenc
 		}
 	}
 	return Resolution{target: Key(target)}, nil
-}
-
-type referenceResolutionError struct {
-	err error
-}
-
-func (e referenceResolutionError) Error() string { return e.err.Error() }
-
-func (e referenceResolutionError) Unwrap() error { return e.err }
-
-// IsReferenceResolutionError reports whether err came from generic URI
-// reference identity resolution rather than an attached schema resolver.
-func IsReferenceResolutionError(err error) bool {
-	var target referenceResolutionError
-	return errors.As(err, &target)
 }
 
 // ReadResult reports a bounded source acquisition. Bytes and Digest describe
@@ -492,14 +471,6 @@ func Key(name string) string {
 	return name
 }
 
-var errReferenceUnavailable = errors.New("schema reference is unavailable to the local backend")
-
-// IsReferenceUnavailable reports whether a URI reference is syntactically
-// valid but cannot be represented by the local source backend.
-func IsReferenceUnavailable(err error) bool {
-	return errors.Is(err, errReferenceUnavailable)
-}
-
 func resolveResolverBase(base ReferenceBase, reference uriref.Reference) (resolverBase, error) {
 	if base.resolver.available() {
 		return resolveAvailableResolverBase(base.resolver, reference)
@@ -526,7 +497,7 @@ func resolveAvailableResolverBase(base resolverBase, reference uriref.Reference)
 		return resolverBase{}, nil
 	}
 	if err != nil {
-		return resolverBase{}, err
+		return resolverBase{}, uriResolveInvariant(err)
 	}
 	return uriResolverBase(resolved), nil
 }
@@ -584,14 +555,16 @@ func localResolverBase(path string, query resolverQuery) resolverBase {
 // resolveLocalFallback receives a nonempty, fragmentless admitted reference.
 // URI-base composition belongs to uriref; this path only projects local and
 // absolute references into the built-in backend's escaped identity spelling.
-func resolveLocalFallback(base string, reference uriref.Reference) (string, error) {
+// net/url narrows what the backend represents and never rejects: the empty
+// result means the reference is unavailable to the backend.
+func resolveLocalFallback(base string, reference uriref.Reference) string {
 	escaped := reference.Escaped()
 	if filepath.VolumeName(escaped) != "" && filepath.IsAbs(escaped) {
-		return canonicalLocalReference(escaped, localPathFormOf(escaped)), nil
+		return canonicalLocalReference(escaped, localPathFormOf(escaped))
 	}
 	ref, err := url.Parse(escaped)
 	if err != nil {
-		return "", err
+		return ""
 	}
 	authority := parseURIAuthoritySyntax(escaped, ref.Scheme)
 	if ref.Scheme != "" {
@@ -600,51 +573,37 @@ func resolveLocalFallback(base string, reference uriref.Reference) (string, erro
 	return resolveLocalReference(base, ref, authority)
 }
 
-func resolveAbsoluteReference(ref *url.URL, authority uriAuthoritySyntax) (string, error) {
+func resolveAbsoluteReference(ref *url.URL, authority uriAuthoritySyntax) string {
 	if strings.EqualFold(ref.Scheme, "file") {
 		ref.Scheme = "file"
 		if !hasEncodedPathSeparator(ref.EscapedPath()) {
 			if file, ok := localFileURIPath(ref, uriFragmentAbsent); ok {
-				return canonicalLocalReference(file, localPathFormOf(ref.Path)), nil
+				return canonicalLocalReference(file, localPathFormOf(ref.Path))
 			}
 		}
 	}
 	canonical, ok := canonicalURL(ref, uriReferenceSyntax{authority: authority, fragment: uriFragmentAbsent})
 	if !ok {
-		return "", errors.New("schema reference has an invalid URI path")
+		return ""
 	}
-	return canonical, nil
+	return canonical
 }
 
-func resolveLocalReference(base string, ref *url.URL, authority uriAuthoritySyntax) (string, error) {
-	switch authority.kind {
-	case uriAuthorityAbsent:
-	case uriAuthorityNonEmpty:
-		return "", errReferenceUnavailable
-	case uriAuthorityEmpty:
-		if authority.escapedPath == "" {
-			return "", errReferenceUnavailable
-		}
-	case uriAuthorityInvalid:
-		return "", errors.New("schema reference has invalid authority syntax")
-	default:
-		err := errors.New("schema reference has invalid authority syntax")
-		return "", err
+func resolveLocalReference(base string, ref *url.URL, authority uriAuthoritySyntax) string {
+	if authority.kind != uriAuthorityAbsent && (authority.kind != uriAuthorityEmpty || authority.escapedPath == "") {
+		return ""
 	}
 	if hasEncodedPathSeparator(ref.EscapedPath()) {
-		return "", errReferenceUnavailable
+		return ""
 	}
 	if ref.Host != "" || ref.RawQuery != "" || ref.ForceQuery {
-		return "", errReferenceUnavailable
+		return ""
 	}
 	refPath, err := url.PathUnescape(ref.EscapedPath())
-	if err != nil {
-		return "", errors.New("local schema reference has an invalid escaped path")
+	if err != nil || strings.IndexByte(refPath, 0) >= 0 {
+		return ""
 	}
-	if strings.IndexByte(refPath, 0) >= 0 {
-		return "", errReferenceUnavailable
-	}
-	return resolveLocalReferencePath(base, refPath), nil
+	return resolveLocalReferencePath(base, refPath)
 }
 
 func resolveLocalReferencePath(base, refPath string) string {

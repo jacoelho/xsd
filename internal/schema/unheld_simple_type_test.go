@@ -32,7 +32,7 @@ func minimalPassingLimit(t *testing.T, text string, set func(*Options, int)) int
 	compiles := func(limit int) bool {
 		var opts Options
 		set(&opts, limit)
-		_, err := Compile(opts, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+		_, err := compileSources(opts, []source.Source{source.Bytes("schema.xsd", []byte(text))})
 		return err == nil
 	}
 	low, high := 1, 1<<20

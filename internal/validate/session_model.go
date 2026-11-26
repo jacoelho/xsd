@@ -90,7 +90,7 @@ func (s *session) laxSchemaStart(rn xsdSchema.RuntimeName) schemaStart {
 
 func (s *session) end(line, col int) error {
 	if err := s.doc.ValidateEnd(&s.reader, line, col); err != nil {
-		return err
+		return s.doc.EndError(err, line, col, s.limits)
 	}
 	if s.doc.syntaxOnly {
 		return s.doc.CommitEnd(&s.reader)

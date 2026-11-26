@@ -76,7 +76,7 @@ func BenchmarkAuditBase64NonEnumeration(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	id, ok := valuepkg.BuiltinTypeID("base64Binary")
+	id, ok := builtinTypeID("base64Binary")
 	if !ok {
 		b.Fatal("missing base64Binary builtin")
 	}

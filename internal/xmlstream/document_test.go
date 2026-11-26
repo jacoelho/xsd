@@ -56,8 +56,8 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if err := reader.CommitEnd(childFrame); err != nil {
 		t.Fatal(err)
 	}
-	if reader.Depth() != 1 {
-		t.Fatalf("Depth after child = %d, want 1", reader.Depth())
+	if reader.ns.depth() != 1 {
+		t.Fatalf("Depth after child = %d, want 1", reader.ns.depth())
 	}
 	_ = mustNextToken(t, &reader)
 	if err := reader.MatchEnd(rootFrame); err != nil {
@@ -66,8 +66,8 @@ func TestReaderAdmitsNamespacesAndCompletesDocument(t *testing.T) {
 	if err := reader.CommitEnd(rootFrame); err != nil {
 		t.Fatal(err)
 	}
-	if reader.Depth() != 0 {
-		t.Fatalf("Depth after root = %d, want 0", reader.Depth())
+	if reader.ns.depth() != 0 {
+		t.Fatalf("Depth after root = %d, want 0", reader.ns.depth())
 	}
 	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
 		t.Fatalf("Next after document = %v, want EOF", err)
@@ -107,7 +107,7 @@ func TestReaderDefaultNamespaceShadowRestoresAfterChild(t *testing.T) {
 		t.Fatalf("child expanded name = %+v", child)
 	}
 	_ = mustNextToken(t, &reader)
-	err = reader.End(childFrame)
+	err = reader.endForTest(childFrame)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,13 +124,13 @@ func TestReaderDefaultNamespaceShadowRestoresAfterChild(t *testing.T) {
 		t.Fatalf("sibling expanded name = %+v", sibling)
 	}
 	_ = mustNextToken(t, &reader)
-	err = reader.End(siblingFrame)
+	err = reader.endForTest(siblingFrame)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	_ = mustNextToken(t, &reader)
-	if err := reader.End(rootFrame); err != nil {
+	if err := reader.endForTest(rootFrame); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -156,7 +156,7 @@ func TestReaderOwnsAndInvalidatesBorrowedToken(t *testing.T) {
 	if end.Kind != KindEnd {
 		t.Fatalf("current token kind = %v, want end", end.Kind)
 	}
-	if err := reader.End(frame); err != nil {
+	if err := reader.endForTest(frame); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -255,7 +255,7 @@ func TestReaderRejectsXMLDeclarationAfterComment(t *testing.T) {
 			t.Fatal("accepted XML declaration after a comment")
 		} else {
 			boundary, ok := errors.AsType[*Error](err)
-			if !ok || boundary == nil || boundary.Kind != ErrorSyntax {
+			if !ok || boundary == nil || boundary.kind != errorSyntax {
 				t.Fatalf("error = %T %v, want syntax boundary error", err, err)
 			}
 		}
@@ -307,7 +307,7 @@ func TestReaderDiscardCommentModeDoesNotRetainOrChargePayload(t *testing.T) {
 	if end.Kind != KindEnd {
 		t.Fatalf("token kind = %v, want end after discarded comment", end.Kind)
 	}
-	if err := reader.End(frame); err != nil {
+	if err := reader.endForTest(frame); err != nil {
 		t.Fatal(err)
 	}
 	if cap(reader.parser.directive) != 0 {
@@ -333,12 +333,12 @@ func TestReaderNamespaceAdmissionRollsBackAndRejectsDuplicateExpandedAttributes(
 		t.Fatal("Start() accepted duplicate expanded attributes")
 	} else {
 		var boundaryErr *Error
-		if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+		if !errors.As(err, &boundaryErr) || boundaryErr.kind != errorNamespace {
 			t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
 		}
 	}
-	if reader.Depth() != 0 {
-		t.Fatalf("Depth after failed start = %d, want 0", reader.Depth())
+	if reader.ns.depth() != 0 {
+		t.Fatalf("Depth after failed start = %d, want 0", reader.ns.depth())
 	}
 	if _, ok := reader.Lookup("a"); ok {
 		t.Fatal("failed start retained namespace binding")
@@ -372,7 +372,7 @@ func TestReaderNamespaceDeclarationIdentityDoesNotCollideWithRelativeAttribute(t
 		}
 	}
 	_ = mustNextToken(t, &reader)
-	if err := reader.End(frame); err != nil {
+	if err := reader.endForTest(frame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.Complete(); err != nil {
@@ -390,12 +390,12 @@ func TestReaderNamespaceAdmissionRollbackKeepsLexicalAttributes(t *testing.T) {
 		t.Fatal("Start() accepted an unbound later attribute")
 	} else {
 		var boundaryErr *Error
-		if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+		if !errors.As(err, &boundaryErr) || boundaryErr.kind != errorNamespace {
 			t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
 		}
 	}
-	if reader.Depth() != 0 {
-		t.Fatalf("Depth after failed start = %d, want 0", reader.Depth())
+	if reader.ns.depth() != 0 {
+		t.Fatalf("Depth after failed start = %d, want 0", reader.ns.depth())
 	}
 	if _, ok := reader.Lookup("p"); ok {
 		t.Fatal("failed start retained namespace binding")
@@ -420,7 +420,7 @@ func TestReaderNamespaceAdmissionRollbackKeepsLexicalAttributes(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = mustNextToken(t, &reader)
-	if err := reader.End(frame); err != nil {
+	if err := reader.endForTest(frame); err != nil {
 		t.Fatal(err)
 	}
 	if err := reader.Complete(); err != nil {
@@ -443,12 +443,12 @@ func TestReaderRejectsReservedXMLNSNamespaceBindings(t *testing.T) {
 				t.Fatal("Start() accepted the reserved XMLNS namespace URI")
 			} else {
 				var boundaryErr *Error
-				if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+				if !errors.As(err, &boundaryErr) || boundaryErr.kind != errorNamespace {
 					t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
 				}
 			}
-			if reader.Depth() != 0 {
-				t.Fatalf("Depth after rejected binding = %d, want 0", reader.Depth())
+			if reader.ns.depth() != 0 {
+				t.Fatalf("Depth after rejected binding = %d, want 0", reader.ns.depth())
 			}
 		})
 	}
@@ -469,12 +469,12 @@ func TestReaderRejectsDuplicateNamespaceDeclarationAndExpandedAlias(t *testing.T
 				t.Fatal("Start() accepted duplicate expanded names")
 			} else {
 				var boundaryErr *Error
-				if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+				if !errors.As(err, &boundaryErr) || boundaryErr.kind != errorNamespace {
 					t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
 				}
 			}
-			if reader.Depth() != 0 {
-				t.Fatalf("Depth after duplicate = %d, want 0", reader.Depth())
+			if reader.ns.depth() != 0 {
+				t.Fatalf("Depth after duplicate = %d, want 0", reader.ns.depth())
 			}
 		})
 	}
@@ -493,8 +493,8 @@ func TestReaderAbortStartAndResetInvalidateFrames(t *testing.T) {
 	if err := reader.AbortStart(frame); err != nil {
 		t.Fatal(err)
 	}
-	if reader.Depth() != 0 {
-		t.Fatalf("Depth after AbortStart = %d, want 0", reader.Depth())
+	if reader.ns.depth() != 0 {
+		t.Fatalf("Depth after AbortStart = %d, want 0", reader.ns.depth())
 	}
 	if _, ok := reader.Lookup("p"); ok {
 		t.Fatal("AbortStart retained namespace binding")
@@ -525,12 +525,12 @@ func TestReaderDepthAndParserLimitsAreTyped(t *testing.T) {
 		t.Fatal("Start() accepted depth beyond limit")
 	} else {
 		boundaryErr, ok := errors.AsType[*Error](err)
-		if !ok || boundaryErr.Kind != ErrorLimit || !isLimit(err, LimitDepth) {
-			t.Fatalf("depth error = %T %v, want ErrorLimit/LimitDepth", err, err)
+		if !ok || boundaryErr.kind != errorLimit || !isLimit(err, LimitDepth) {
+			t.Fatalf("depth error = %T %v, want errorLimit/LimitDepth", err, err)
 		}
 	}
-	if reader.Depth() != 1 {
-		t.Fatalf("Depth after rejected child = %d, want 1", reader.Depth())
+	if reader.ns.depth() != 1 {
+		t.Fatalf("Depth after rejected child = %d, want 1", reader.ns.depth())
 	}
 	if err := reader.Reset(strings.NewReader(`<fresh/>`), Config{}); err != nil {
 		t.Fatal(err)
@@ -543,8 +543,8 @@ func TestReaderDepthAndParserLimitsAreTyped(t *testing.T) {
 		t.Fatal("Next() accepted token beyond token limit")
 	} else {
 		var boundaryErr *Error
-		if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorLimit {
-			t.Fatalf("token limit error = %T %v, want ErrorLimit", err, err)
+		if !errors.As(err, &boundaryErr) || boundaryErr.kind != errorLimit {
+			t.Fatalf("token limit error = %T %v, want errorLimit", err, err)
 		}
 	}
 }
@@ -625,7 +625,7 @@ func TestReaderSkipsOrdinaryAttributeValuesWhileRetainingNamespaceValues(t *test
 				if token := mustNextToken(t, &reader); token.Kind != KindEnd {
 					t.Fatalf("token = %+v, want end", token)
 				}
-				if err := reader.End(handle); err != nil {
+				if err := reader.endForTest(handle); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -678,7 +678,7 @@ func TestReaderSkipOrdinaryAttributeValuesStillEnforcesTokenLimit(t *testing.T) 
 					}
 				} else {
 					boundary, ok := errors.AsType[*Error](err)
-					if token != nil || !ok || boundary.Kind != ErrorLimit || !isLimit(err, LimitTokenBytes) || boundary.line != 1 || boundary.column != 6 {
+					if token != nil || !ok || boundary.kind != errorLimit || !isLimit(err, LimitTokenBytes) || boundary.line != 1 || boundary.column != 6 {
 						t.Fatalf("below admission = %v, %#v, want token limit at 1:6", token, boundary)
 					}
 				}
@@ -726,7 +726,7 @@ func TestReaderSkipOrdinaryAttrValuesValidatesReferencesAndUTF8(t *testing.T) {
 				t.Fatal(err)
 			}
 			_ = mustNextToken(t, &reader)
-			if err := reader.End(handle); err != nil {
+			if err := reader.endForTest(handle); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -770,11 +770,11 @@ func TestReaderSkipOrdinaryAttrValuesRetainsNamespaceInputs(t *testing.T) {
 		t.Fatalf("child expanded name = %+v", childElement)
 	}
 	_ = mustNextToken(t, &reader)
-	if err := reader.End(childHandle); err != nil {
+	if err := reader.endForTest(childHandle); err != nil {
 		t.Fatal(err)
 	}
 	_ = mustNextToken(t, &reader)
-	if err := reader.End(rootHandle); err != nil {
+	if err := reader.endForTest(rootHandle); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := reader.Next(); !errors.Is(err, io.EOF) {
@@ -798,7 +798,7 @@ func TestReaderSkipOrdinaryAttrValuesStillChecksExpandedDuplicates(t *testing.T)
 		t.Fatal("Start() accepted duplicate expanded attributes")
 	} else {
 		var boundaryErr *Error
-		if !errors.As(err, &boundaryErr) || boundaryErr.Kind != ErrorNamespace {
+		if !errors.As(err, &boundaryErr) || boundaryErr.kind != errorNamespace {
 			t.Fatalf("Start() error = %T %v, want namespace boundary error", err, err)
 		}
 	}
@@ -973,8 +973,8 @@ func TestReaderKeepsSyntaxFrameAfterAdvanceForRecovery(t *testing.T) {
 	if abortErr := reader.AbortStart(rootFrame); abortErr != nil {
 		t.Fatal(abortErr)
 	}
-	if reader.Depth() != 0 {
-		t.Fatalf("Depth after immediate AbortStart = %d, want 0", reader.Depth())
+	if reader.ns.depth() != 0 {
+		t.Fatalf("Depth after immediate AbortStart = %d, want 0", reader.ns.depth())
 	}
 
 	if resetErr := reader.Reset(strings.NewReader(`<r><child/></r>`), Config{}); resetErr != nil {
@@ -989,9 +989,16 @@ func TestReaderKeepsSyntaxFrameAfterAdvanceForRecovery(t *testing.T) {
 	if err := reader.AbortStart(rootFrame); !errors.Is(err, ErrInvalidFrame) {
 		t.Fatalf("AbortStart after advance = %v, want %v", err, ErrInvalidFrame)
 	}
-	if reader.Depth() != 1 {
-		t.Fatalf("Depth after semantic recovery frame = %d, want 1", reader.Depth())
+	if reader.ns.depth() != 1 {
+		t.Fatalf("Depth after semantic recovery frame = %d, want 1", reader.ns.depth())
 	}
+}
+
+func (r *Reader) endForTest(opaque Handle) error {
+	if err := r.MatchEnd(opaque); err != nil {
+		return err
+	}
+	return r.CommitEnd(opaque)
 }
 
 func mustNextToken(t *testing.T, reader *Reader) *Token {
@@ -1037,11 +1044,11 @@ func TestReaderAttributeScannerTerminalFailures(t *testing.T) {
 				}
 				token, err := reader.Next()
 				boundary, ok := errors.AsType[*Error](err)
-				wantKind := ErrorSyntax
+				wantKind := errorSyntax
 				if test.wantSource {
-					wantKind = ErrorInput
+					wantKind = errorInput
 				}
-				if token != nil || !ok || boundary.Kind != wantKind || boundary.line != 1 || boundary.column != 9 {
+				if token != nil || !ok || boundary.kind != wantKind || boundary.line != 1 || boundary.column != 9 {
 					t.Fatalf("Next() = %v, %#v, want kind %v at 1:9", token, boundary, wantKind)
 				}
 				if !test.wantSource && err.Error() != "unexpected EOF in attribute value" {
@@ -1072,7 +1079,7 @@ func assertAttributeReaderReset(t *testing.T, reader *Reader, config Config) {
 	if token := mustNextToken(t, reader); token.Kind != KindEnd {
 		t.Fatalf("reset token = %+v, want end", token)
 	}
-	if err := reader.End(handle); err != nil {
+	if err := reader.endForTest(handle); err != nil {
 		t.Fatal(err)
 	}
 	if token, err := reader.Next(); token != nil || !errors.Is(err, io.EOF) {
@@ -1127,11 +1134,11 @@ func TestReaderAttributeErrorsPreserveSyntaxAndSourceFailure(t *testing.T) {
 				}
 				token, err := reader.Next()
 				boundary, ok := errors.AsType[*Error](err)
-				wantKind := ErrorSyntax
+				wantKind := errorSyntax
 				if test.wantSource {
-					wantKind = ErrorInput
+					wantKind = errorInput
 				}
-				if token != nil || !ok || boundary.Kind != wantKind || boundary.line != test.line || boundary.column != test.column {
+				if token != nil || !ok || boundary.kind != wantKind || boundary.line != test.line || boundary.column != test.column {
 					t.Fatalf("Next() = %v, %#v, want kind %v at %d:%d", token, boundary, wantKind, test.line, test.column)
 				}
 				if test.message != "" && err.Error() != test.message {
@@ -1218,7 +1225,7 @@ func TestReaderStartLocationRejectsUnavailableStart(t *testing.T) {
 				cause = ErrReaderState
 			}
 			boundary, ok := errors.AsType[*Error](err)
-			if !ok || boundary.Kind != ErrorState || !errors.Is(err, cause) {
+			if !ok || boundary.kind != errorState || !errors.Is(err, cause) {
 				t.Fatalf("StartLocation error = %v, want state error wrapping %v", err, cause)
 			}
 		})

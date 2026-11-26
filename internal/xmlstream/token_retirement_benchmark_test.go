@@ -43,7 +43,7 @@ type retirementBenchFixture struct {
 	config         Config
 	want           retirementBenchSample
 	origin         CharacterDataKind
-	failure        ErrorKind
+	failure        errorKind
 	scenario       retirementBenchScenario
 }
 
@@ -64,7 +64,7 @@ func (f retirementBenchFixture) drain(reader *Reader, input *strings.Reader, che
 		if err != nil {
 			if f.scenario == retirementBenchFailure {
 				var boundary *Error
-				if !errors.As(err, &boundary) || boundary.Kind != f.failure || (f.failure == ErrorLimit && !isLimit(err, LimitTokenBytes)) {
+				if !errors.As(err, &boundary) || boundary.kind != f.failure || (f.failure == errorLimit && !isLimit(err, LimitTokenBytes)) {
 					return sample, fmt.Errorf("failure class = %w, want %v", err, f.failure)
 				}
 				if check == retirementBenchFull && (token != nil || held == nil || !retirementBenchTokenZero(held)) {
@@ -134,19 +134,17 @@ func (f retirementBenchFixture) drain(reader *Reader, input *strings.Reader, che
 		case KindPI:
 			sample.pis++
 			sample.targetBytes += len(token.Data)
-			sample.directiveBytes += len(token.Directive)
+			sample.directiveBytes += len(token.Content)
 		case KindComment:
 			sample.comments++
-			sample.directiveBytes += len(token.Directive)
-		case KindDirective:
-			return sample, errors.New("Reader unexpectedly admitted a directive")
+			sample.directiveBytes += len(token.Content)
 		}
 	}
 }
 
 func retirementBenchTokenZero(token *Token) bool {
 	return token.Kind == KindStart && token.Start.Name == (xml.Name{}) && token.Start.Attr == nil &&
-		token.End.Name == (xml.Name{}) && token.Data == nil && token.Directive == nil &&
+		token.End.Name == (xml.Name{}) && token.Data == nil && token.Content == nil &&
 		token.TextKind == CharacterDataInvalid && token.StartOffset == 0 && token.EndOffset == 0 && token.Line == 0 && token.Column == 0
 }
 
@@ -154,7 +152,7 @@ func (f retirementBenchFixture) checkToken(reader *Reader, token *Token, eventIn
 	if token.Kind != KindStart && (token.Start.Name != (xml.Name{}) || token.Start.Attr != nil) ||
 		token.Kind != KindEnd && token.End.Name != (xml.Name{}) ||
 		token.Kind != KindCharData && token.Kind != KindPI && token.Data != nil ||
-		token.Kind != KindPI && token.Kind != KindComment && token.Kind != KindDirective && token.Directive != nil ||
+		token.Kind != KindPI && token.Kind != KindComment && token.Content != nil ||
 		token.Kind != KindCharData && token.TextKind != CharacterDataInvalid {
 		return errors.New("inactive token payload was retained")
 	}
@@ -165,7 +163,7 @@ func (f retirementBenchFixture) checkToken(reader *Reader, token *Token, eventIn
 				return errors.New("text payload or origin differs from the independent literal")
 			}
 		}
-		if token.Kind == KindPI && (!bytes.Equal(token.Data, []byte("p")) || !bytes.Equal(token.Directive, []byte("body"))) {
+		if token.Kind == KindPI && (!bytes.Equal(token.Data, []byte("p")) || !bytes.Equal(token.Content, []byte("body"))) {
 			return errors.New("failure prefix PI differs from its literal")
 		}
 		return nil
@@ -174,7 +172,7 @@ func (f retirementBenchFixture) checkToken(reader *Reader, token *Token, eventIn
 		return errors.New("unexpected extra publication")
 	}
 	want := f.events[eventIndex]
-	if token.Kind != want.kind || !bytes.Equal(token.Data, []byte(want.data)) || !bytes.Equal(token.Directive, []byte(want.directive)) || token.TextKind != want.origin {
+	if token.Kind != want.kind || !bytes.Equal(token.Data, []byte(want.data)) || !bytes.Equal(token.Content, []byte(want.directive)) || token.TextKind != want.origin {
 		return fmt.Errorf("publication %d payload differs from literal expectation", eventIndex)
 	}
 	if token.Kind == KindStart {
@@ -303,21 +301,21 @@ func BenchmarkReaderTokenRetirement(b *testing.B) {
 	})
 	b.Run("syntax_reset", func(b *testing.B) {
 		benchmarkRetirementReader(b, retirementBenchFixture{
-			document: `<?p body?><r a="`, config: Config{EmitPI: true}, scenario: retirementBenchFailure, failure: ErrorSyntax,
+			document: `<?p body?><r a="`, config: Config{EmitPI: true}, scenario: retirementBenchFailure, failure: errorSyntax,
 			want: retirementBenchSample{starts: 1, ends: 1, pis: 1, targetBytes: 1, directiveBytes: 4},
 		})
 	})
 	b.Run("token_limit_reset", func(b *testing.B) {
 		benchmarkRetirementReader(b, retirementBenchFixture{
 			document: `<?p body?><r>123456789</r>`, config: Config{EmitPI: true, Limits: Limits{MaxTokenBytes: 8}},
-			scenario: retirementBenchFailure, failure: ErrorLimit,
+			scenario: retirementBenchFailure, failure: errorLimit,
 			want: retirementBenchSample{starts: 2, ends: 1, pis: 1, targetBytes: 1, directiveBytes: 4},
 		})
 	})
 }
 
 func BenchmarkParserTokenRetirement(b *testing.B) {
-	b.Run("PI_to_directive", func(b *testing.B) {
+	b.Run("PI_to_DOCTYPE", func(b *testing.B) {
 		var reader Reader
 		var input strings.Reader
 		var token Token
@@ -330,15 +328,12 @@ func BenchmarkParserTokenRetirement(b *testing.B) {
 			if err := reader.parser.next(&token); err != nil {
 				return err
 			}
-			if token.Kind != KindPI || !bytes.Equal(token.Data, []byte("p")) || !bytes.Equal(token.Directive, []byte("body")) {
+			if token.Kind != KindPI || !bytes.Equal(token.Data, []byte("p")) || !bytes.Equal(token.Content, []byte("body")) {
 				return errors.New("raw first publication differs from literal PI")
 			}
-			if err := reader.parser.next(&token); err != nil {
-				return err
-			}
-			if token.Kind != KindDirective || !bytes.Equal(token.Directive, []byte("DOCTYPE ")) || token.Data != nil ||
-				token.Start.Name != (xml.Name{}) || token.Start.Attr != nil || token.End.Name != (xml.Name{}) || token.TextKind != CharacterDataInvalid {
-				return errors.New("raw second publication differs from literal directive")
+			err := reader.parser.next(&token)
+			if boundary, ok := errors.AsType[*Error](err); !ok || boundary.kind != errorUnsupported {
+				return fmt.Errorf("raw second publication = %w, want the unsupported DTD error", err)
 			}
 			return nil
 		}

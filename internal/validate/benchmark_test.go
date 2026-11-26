@@ -18,15 +18,15 @@ func BenchmarkRecordIdentityValueIDREFS(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			id, ok := value.BuiltinTypeID("IDREFS")
+			id, ok := builtinTypeID("IDREFS")
 			if !ok {
-				b.Fatal("BuiltinTypeID(IDREFS) failed")
+				b.Fatal("builtinTypeID(IDREFS) failed")
 			}
 			validated, err := program.Validate(id, benchmarkIDREFS(refs), value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: defaultMaxInstanceValueWork, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				b.Fatal(err)
 			}
-			recorder := NewIdentityRecorderForTest()
+			recorder := NewIdentityRecorderForTest(b)
 			recorder.PushPath("root")
 			recorder.PushPath("refs")
 			if path := recorder.PathString(); path != "/root/refs" {

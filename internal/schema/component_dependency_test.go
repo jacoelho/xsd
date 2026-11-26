@@ -17,10 +17,10 @@ func TestComponentDependencyWorkBoundsAcyclicChains(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			t.Parallel()
 			schema := componentChainSchema(kind, 32)
-			if _, err := Compile(Options{}, []source.Source{source.Bytes(kind+".xsd", []byte(schema))}); err != nil {
+			if _, err := compileSources(Options{}, []source.Source{source.Bytes(kind+".xsd", []byte(schema))}); err != nil {
 				t.Fatalf("Compile(default) error = %v", err)
 			}
-			_, err := Compile(
+			_, err := compileSources(
 				Options{MaxSchemaDependencySteps: 8},
 				[]source.Source{source.Bytes(kind+".xsd", []byte(schema))},
 			)
@@ -33,7 +33,7 @@ func TestComponentDependencyDepthRejectsDeepAcyclicChains(t *testing.T) {
 	for _, kind := range []string{"simple", "union", "complex", "model-group", "attribute-group"} {
 		t.Run(kind, func(t *testing.T) {
 			schema := componentChainSchema(kind, maxComponentDependencyDepth+1)
-			_, err := Compile(Options{}, []source.Source{source.Bytes(kind+".xsd", []byte(schema))})
+			_, err := compileSources(Options{}, []source.Source{source.Bytes(kind+".xsd", []byte(schema))})
 			expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 			if !strings.Contains(err.Error(), "component dependency depth") {
 				t.Fatalf("Compile() error = %v, want component-depth limit", err)
@@ -53,7 +53,7 @@ func TestComponentCyclePrecedesDependencyLimit(t *testing.T) {
   <xs:simpleType name="T0"><xs:restriction base="T1"/></xs:simpleType>
   <xs:simpleType name="T1"><xs:restriction base="T0"/></xs:simpleType>
 </xs:schema>`
-	_, err := Compile(
+	_, err := compileSources(
 		Options{MaxSchemaDependencySteps: 16},
 		[]source.Source{source.Bytes("cycle.xsd", []byte(schema))},
 	)
@@ -66,7 +66,7 @@ func TestSchemaGraphAndComponentsShareDependencyBudget(t *testing.T) {
 	child := []byte(componentChainSchema("simple", 3))
 	budget := 1
 	for ; budget <= 64; budget++ {
-		if _, err := Compile(
+		if _, err := compileSources(
 			Options{MaxSchemaDependencySteps: budget},
 			[]source.Source{source.Bytes("child.xsd", child)},
 		); err == nil {
@@ -84,7 +84,7 @@ func TestSchemaGraphAndComponentsShareDependencyBudget(t *testing.T) {
 			return source.Bytes("child.xsd", child), nil
 		}),
 	)
-	_, err := Compile(Options{MaxSchemaDependencySteps: budget}, []source.Source{root})
+	_, err := compileSources(Options{MaxSchemaDependencySteps: budget}, []source.Source{root})
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
 }
 
@@ -178,7 +178,7 @@ func TestEachElementTypeReferenceCostsOneDependencyStep(t *testing.T) {
 func minimumDependencySteps(t *testing.T, schema string) int {
 	t.Helper()
 	for budget := 1; budget <= 1024; budget++ {
-		_, err := Compile(Options{MaxSchemaDependencySteps: budget}, []source.Source{source.Bytes("s.xsd", []byte(schema))})
+		_, err := compileSources(Options{MaxSchemaDependencySteps: budget}, []source.Source{source.Bytes("s.xsd", []byte(schema))})
 		if err == nil {
 			return budget
 		}

@@ -52,7 +52,8 @@ func addBounded(a, b uint64) uint64 {
 
 func valueStorageBound(limits Limits) uint64 {
 	// typeSpecStorage charges a fixed record estimate plus copied lexical and
-	// pattern bytes. Source bytes cover the latter; a fixed per admitted node
+	// pattern bytes, and Complete also charges inherited facet entries.
+	// Source bytes cover the lexical and pattern bytes; a fixed per admitted node
 	// term covers the record and slice metadata. Checked arithmetic keeps the
 	// bound itself from becoming an accidental overflow.
 	const perNode = uint64(1024)
@@ -102,39 +103,24 @@ func schemaValueError(limits Limits, code xsderrors.Code, subject string, err er
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaTotalPatternWork="+strconv.FormatUint(limits.MaxSchemaTotalPatternWork, 10)+" exceeded", nil)
 	case errors.Is(err, value.ErrPatternLimit):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": MaxSchemaPatternWork="+strconv.FormatUint(limits.MaxSchemaPatternWork, 10)+" exceeded", nil)
+	case errors.Is(err, value.ErrStorageLimit):
+		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": value storage budget from MaxSchemaTotalBytes="+strconv.FormatInt(limits.MaxSchemaTotalBytes, 10)+" and MaxSchemaInstantiatedNodes="+strconv.FormatInt(int64(limits.MaxSchemaInstantiatedNodes), 10)+" exceeded", nil)
 	case errors.Is(err, value.ErrLimit):
 		return xsderrors.SchemaCompile(xsderrors.CodeSchemaLimit, subject+": "+err.Error(), nil)
 	}
 	return compileRuleError(code, subject, err)
 }
 
-func (c *compiler) completeValueType(id SimpleTypeID, st simpleType) error {
+func (c *compiler) completeValueType(id SimpleTypeID, spec value.TypeSpec) error {
 	if id < value.BuiltinTypeCount {
 		return nil
 	}
-	builder := c.ensureValueBuilder()
-	spec := st.ValueSpec
-	if st.Missing {
-		// A missing schema component remains unavailable to callers, but its
-		// reserved ID still needs a complete value record so later IDs stay
-		// canonical and the builder can seal atomically.
-		spec = value.TypeSpec{
-			Variety:           value.Atomic,
-			Primitive:         value.PrimitiveString,
-			Whitespace:        value.WhitespaceCollapse,
-			WhitespacePresent: true,
-			Base:              value.BuiltinType(value.PrimitiveString),
-			ListItem:          value.NoType,
-		}
-	}
-	if err := builder.Complete(id, spec); err != nil {
+	if err := c.ensureValueBuilder().Complete(id, spec); err != nil {
 		return schemaValueError(c.limits, xsderrors.CodeSchemaFacet, "simple type", err)
 	}
-	constrained, ok := builder.UnionHasFacets(id)
-	if !ok {
+	if _, ok := c.rt.valueBuilder.TypeView(id); !ok {
 		return xsderrors.InternalInvariant("completed simple type has no value definition", nil)
 	}
-	c.rt.SimpleTypes[id].unionHasFacets = constrained
 	return nil
 }
 

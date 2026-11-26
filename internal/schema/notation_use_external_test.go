@@ -28,7 +28,7 @@ func TestNotationTypeUseRequiresEffectiveEnumeration(t *testing.T) {
 				}
 				declarations += `<xs:simpleType name="T"><xs:restriction base="` + base + `"/></xs:simpleType>`
 				text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:notation name="n" public="urn:n"/>` + declarations + consumer.body + `</xs:schema>`
-				compiled, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("notation-use.xsd", []byte(text))})
+				compiled, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("notation-use.xsd", []byte(text))})
 				if enumerated {
 					if err != nil || compiled == nil {
 						t.Fatalf("Compile() = %v, %v; want enumerated inherited use admitted", compiled, err)
@@ -107,16 +107,10 @@ func TestPublishSchemaRejectsBareNotationUseAndAllowsRetry(t *testing.T) {
 			retained := func(current *xsdSchema.SchemaBuild) []any {
 				return []any{current.Names, current.GlobalTypes, current.GlobalElements, current.GlobalAttributes,
 					current.Elements, current.Attributes, current.ComplexTypes,
-					current.AttributeUseSets, current.Models, current.Notations}
+					current.AttributeUseSets, current.Models, current.Notations, current.SimpleTypes}
 			}
 			if !reflect.DeepEqual(retained(build), retained(expected)) {
 				t.Fatal("PublishSchema() changed rejected construction records")
-			}
-			for i, typ := range build.SimpleTypes {
-				want := expected.SimpleTypes[i]
-				if typ.ValueSpec.ListItem != want.ValueSpec.ListItem || !reflect.DeepEqual(typ.ValueSpec.Union, want.ValueSpec.Union) {
-					t.Fatal("PublishSchema() changed rejected constructor edges")
-				}
 			}
 			restore()
 			if _, err := publishSchema(build); err != nil {

@@ -58,7 +58,7 @@ func (s *session) validateSimpleContent(f *frame, line, col int) (bool, error) {
 		if err != nil {
 			return false, simpleValueError(ctx, xsderrors.CodeValidationFacet, msgInvalidSimpleContent, err, s.limits.evaluation(&s.patternTotal))
 		}
-		return true, s.doc.identity.recordValue(ctx, identityTarget, value)
+		return true, s.doc.identity.assessValue(ctx, identityTarget, value, nil)
 	}
 	if len(rawText) == 0 && hasValueConstraint {
 		constraint, present := constraints.FixedValue()
@@ -121,30 +121,22 @@ func (s *session) elementSimpleContentValueError(ctx startContext, target identi
 }
 
 func (s *session) commitElementSimpleContentValue(ctx startContext, result xsdValue.Value, constraints xsdSchema.ElementValueConstraints, target identityValueTarget) (bool, error) {
-	if err := s.doc.identity.recordValue(ctx, target, result); err != nil {
-		return false, err
-	}
+	var mismatch error
 	if fixed, ok := constraints.FixedValue(); ok {
-		if err := s.checkFixedElementValue(ctx, result, fixed, target); err != nil {
-			return false, err
-		}
+		mismatch = fixedElementMismatch(ctx, result, fixed)
 	}
-	if err := s.doc.identity.captureValue(ctx, target); err != nil {
-		return false, err
-	}
-	if err := s.doc.identity.commitValue(target); err != nil {
+	if err := s.doc.identity.assessValue(ctx, target, result, mismatch); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (s *session) checkFixedElementValue(ctx startContext, result xsdValue.Value, fixed xsdSchema.ValueConstraintRead, target identityValueTarget) error {
+// fixedElementMismatch returns the diagnostic of an element value that
+// differs from its fixed value in value space, or nil when they agree.
+func fixedElementMismatch(ctx startContext, result xsdValue.Value, fixed xsdSchema.ValueConstraintRead) error {
 	equal, valid := fixedValueEqual(result, fixed.Value())
 	if equal {
 		return nil
-	}
-	if rejectErr := s.doc.identity.rejectValue(target); rejectErr != nil {
-		return rejectErr
 	}
 	if !valid {
 		return xsderrors.InternalInvariant("fixed element value-space identity is missing", nil)
@@ -203,20 +195,10 @@ func (s *session) recordElementSimpleContent(
 	ctx startContext, result xsdValue.Value,
 	identityTarget identityValueTarget,
 ) (bool, error) {
-	if err := s.doc.identity.recordValue(ctx, identityTarget, result); err != nil {
-		return false, err
-	}
-	if err := s.doc.identity.captureValue(ctx, identityTarget); err != nil {
-		return false, err
-	}
-	if err := s.doc.identity.commitValue(identityTarget); err != nil {
+	if err := s.doc.identity.assessValue(ctx, identityTarget, result, nil); err != nil {
 		return false, err
 	}
 	return true, nil
-}
-
-func knownIdentityAttributeName(name xsdSchema.QName) xsdSchema.RuntimeName {
-	return xsdSchema.RuntimeName{Name: name, Known: true}
 }
 
 func (s *session) checkIDRefs() error {

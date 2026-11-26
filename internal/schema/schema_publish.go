@@ -164,6 +164,7 @@ func newSchemaProgram(build *schemaBuild, work contentModelWork) (schemaProgram,
 	}
 	typeDerivations, err := newTypeDerivationReadForTypes(
 		build.AnyType,
+		build.valueBuilder,
 		build.SimpleTypes,
 		build.ComplexTypes,
 	)

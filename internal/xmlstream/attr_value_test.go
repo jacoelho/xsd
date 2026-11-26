@@ -96,21 +96,6 @@ func TestReaderAttrValueMatrix(t *testing.T) {
 	}
 }
 
-func TestNewAttrRoundTripsThroughAttrValue(t *testing.T) {
-	t.Parallel()
-	var reader Reader
-	for _, value := range []string{"", "v", "x&y"} {
-		attr := NewAttr(xml.Name{Local: "a"}, value)
-		got, err := reader.AttrValue(&attr)
-		if err != nil || got != value {
-			t.Fatalf("AttrValue(NewAttr(%q)) = %q, %v", value, got, err)
-		}
-		if raw, ok := attr.RawValue(); ok || raw != nil {
-			t.Fatalf("owned RawValue() = %q, %v, want none", raw, ok)
-		}
-	}
-}
-
 func TestAttrValueDoesNotAllocateAfterMaterialization(t *testing.T) {
 	var reader Reader
 	t.Cleanup(reader.Detach)

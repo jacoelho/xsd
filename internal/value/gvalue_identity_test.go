@@ -35,7 +35,7 @@ func TestGValueIdentityMatchesValueSpaceEquality(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			id, ok := value.BuiltinTypeID(test.typ)
+			id, ok := builtinTypeID(test.typ)
 			if !ok {
 				t.Fatalf("missing builtin %q", test.typ)
 			}
@@ -75,7 +75,7 @@ func TestGValueIdentityDistinguishesTimezonePresence(t *testing.T) {
 	} {
 		t.Run(test.typ, func(t *testing.T) {
 			t.Parallel()
-			id, ok := value.BuiltinTypeID(test.typ)
+			id, ok := builtinTypeID(test.typ)
 			if !ok {
 				t.Fatalf("missing builtin %q", test.typ)
 			}
@@ -114,7 +114,7 @@ func TestGValueIdentityCalendarDefaults(t *testing.T) {
 		{"gMonth", value.PrimitiveGMonth, "--12Z", "2000-12-01T00:00:00Z"},
 	} {
 		t.Run(tc.typ, func(t *testing.T) {
-			id, ok := value.BuiltinTypeID(tc.typ)
+			id, ok := builtinTypeID(tc.typ)
 			if !ok {
 				t.Fatalf("missing builtin %q", tc.typ)
 			}

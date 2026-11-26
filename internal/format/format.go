@@ -44,19 +44,13 @@ type Options struct {
 	MaxTokenBytes int64
 }
 
-// XML writes a consistently indented XML document from the caller-owned input.
+// XMLWithOptions writes a consistently indented XML document from the
+// caller-owned input, within the resource limits opts sets.
 //
-// Formatting validates input into a flat source-span tape, then streams output
-// with only depth-bounded layout frames. The tape retains offsets and layout
-// directives, while payloads remain in the caller-owned input string.
-func XML(w io.Writer, input string) error {
-	return XMLWithOptions(w, input, Options{})
-}
-
-// XMLWithOptions writes a consistently indented XML document with resource limits.
-//
-// It validates the complete caller-owned input before writing, then replays the
-// source spans through a streaming renderer. No generic XML tree or decoded
+// It validates the complete input into a flat source-span tape before writing,
+// then replays the spans through a streaming renderer with only depth-bounded
+// layout frames. The tape retains offsets and layout directives, while payloads
+// remain in the caller-owned input string; no generic XML tree or decoded
 // document representation is retained. Malformed input therefore writes
 // nothing. A nil result means the complete document was written; on a writer
 // failure or output limit, w may hold partial output.
@@ -120,6 +114,9 @@ func resetReader(reader *xmlstream.Reader, input string, limits Options) error {
 // readerError is the one mapping of xmlstream reader failures, on both the
 // Reset and token paths.
 func readerError(reader *xmlstream.Reader, err error, limits Options) error {
+	if xmlstream.IsMisuse(err) {
+		return xsderrors.InternalInvariant("xml reader lifecycle misuse", err)
+	}
 	line, col := reader.ErrorPos(err)
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); ok {
 		return xsderrors.WithLocation("", line, col, unsupportedFormatFeature(feature, err))
@@ -129,6 +126,8 @@ func readerError(reader *xmlstream.Reader, err error, limits Options) error {
 		return xmlFormatErr(line, col, err, limits)
 	}
 	switch {
+	case errors.Is(boundary, xmlstream.ErrNoRoot):
+		return xmlFormatErr(line, col, errors.New("XML document has no root element"), limits)
 	case errors.Is(boundary, xmlstream.ErrCDATOutsideRoot):
 		return xmlFormatErr(line, col, errors.New("CDATA section outside root element"), limits)
 	case errors.Is(boundary, xmlstream.ErrReferenceOutsideRoot):
@@ -357,23 +356,21 @@ func (a *formatAnalysis) format() error {
 }
 
 func (a *formatAnalysis) finishEOF() error {
-	if len(a.stack) > 0 {
-		line, col := a.reader.DiagnosticPos()
+	err := a.reader.Complete()
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, xmlstream.ErrUnclosedElements) && len(a.stack) > 0 {
+		line, col := a.reader.ErrorPos(err)
 		return xmlFormatErr(line, col, fmt.Errorf("unexpected EOF before end element </%s>", xmlQName(a.stack[len(a.stack)-1].name)), a.limits)
 	}
-	if completeErr := a.reader.Complete(); completeErr != nil {
-		if errors.Is(completeErr, xmlstream.ErrNoRoot) {
-			return xmlFormatErr(1, 1, errors.New("XML document is empty"), a.limits)
-		}
-		return a.readerError(completeErr)
-	}
-	return nil
+	return a.readerError(err)
 }
 
 //nolint:gocognit // This dispatch owns one state transition per validated XML token.
 func (a *formatAnalysis) collectToken(tok *xmlstream.Token) error {
 	layout := false
-	switch tok.Kind { //nolint:exhaustive // Reader.Next rejects directives before consumers see them.
+	switch tok.Kind {
 	case xmlstream.KindStart:
 		if err := a.collectStart(tok); err != nil {
 			return err
@@ -497,7 +494,7 @@ func (f *xmlFormatter) format() error {
 }
 
 func (f *xmlFormatter) renderEvent(event formatEvent) error {
-	switch event.kind { //nolint:exhaustive // The analysis tape cannot contain rejected directives.
+	switch event.kind {
 	case xmlstream.KindStart:
 		return f.renderStart(event)
 	case xmlstream.KindEnd:

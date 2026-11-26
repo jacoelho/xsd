@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"unsafe"
 
 	"github.com/jacoelho/xsd/internal/xsdregex"
 )
@@ -151,7 +152,7 @@ func (b *Builder) Reserve() (TypeID, error) {
 	}
 	if b.prepaidSlots == 0 {
 		if b.maxStorage < typeStorageBase || b.storageUsed > b.maxStorage-typeStorageBase {
-			return NoType, ErrLimit
+			return NoType, ErrStorageLimit
 		}
 		b.storageUsed += typeStorageBase
 	} else {
@@ -241,7 +242,7 @@ func (b *Builder) ReserveCapacity(userTypes int) error {
 	additional := remaining - b.prepaidSlots
 	charge, ok := typeSlotStorage(additional)
 	if !ok || charge > b.maxStorage || b.storageUsed > b.maxStorage-charge {
-		return ErrLimit
+		return ErrStorageLimit
 	}
 	b.program.types = slices.Grow(b.program.types, remaining)
 	b.program.complete = slices.Grow(b.program.complete, remaining)
@@ -285,9 +286,15 @@ func (b *Builder) Complete(id TypeID, spec TypeSpec) error {
 			b.storageUsed -= charge
 		}
 	}()
-	if err := b.program.compileFacets(id, spec.Facets, b.constructionLimits()); err != nil {
+	inherited, err := b.program.compileFacets(id, spec.Facets, b.constructionLimits())
+	if err != nil {
 		return err
 	}
+	if inherited > b.maxStorage-b.storageUsed {
+		return ErrStorageLimit
+	}
+	b.storageUsed += inherited
+	charge += inherited
 	b.program.types[i].needsQName = b.program.typeNeedsQName(id, nil, 0)
 	b.program.types[i].needsQNameKnown = true
 	b.program.types[i].inputs = inputRequirements(&b.program.types[i])
@@ -390,36 +397,27 @@ func (b *Builder) coreReferenceDepth(ref TypeID) (uint16, error) {
 func (b *Builder) completeStorage(spec TypeSpec) (uint64, error) {
 	storage, ok := typeSpecStorage(spec)
 	if !ok || storage > b.maxStorage {
-		return 0, ErrLimit
+		return 0, ErrStorageLimit
 	}
 	if storage < typeStorageBase {
 		return 0, ErrMetadata
 	}
 	storage -= typeStorageBase
 	if b.storageUsed > b.maxStorage-storage {
-		return 0, ErrLimit
+		return 0, ErrStorageLimit
 	}
 	return storage, nil
 }
 
-// UserTypeCount returns the number of user types the builder holds, the
-// issued IDs that Truncate has not removed: the length of the keep
-// SealKeeping takes.
-func (b *Builder) UserTypeCount() int {
-	if b == nil || b.program == nil {
-		return 0
-	}
-	return len(b.program.types)
-}
-
 // SealKeeping closes the incremental builder and returns its immutable value
-// program, keeping the definitions of the user types keep marks. keep has
-// UserTypeCount entries, and keep[i] marks the type with ID BuiltinTypeCount+i.
+// program, keeping the definitions of the user types keep marks. keep has one
+// entry per user type the builder holds, the IDs Reserve issued that Truncate
+// has not removed, and keep[i] marks the type with ID BuiltinTypeCount+i.
 // A type that is not kept keeps its ID but no definition, and validating it
 // returns ErrMetadata. Builtins are always kept, and keep is not retained.
 // SealKeeping fails without consuming the builder while any slot is reserved
 // (reported first, naming the slot) or still being completed, when keep does
-// not have UserTypeCount entries, and when a kept type's base, list item or
+// not have one entry per user type, and when a kept type's base, list item or
 // union member is not kept, since evaluation and diagnostics read them.
 func (b *Builder) SealKeeping(keep []bool) (*Program, error) {
 	if b == nil || b.program == nil || b.program.sealed {
@@ -781,49 +779,64 @@ func (p *Program) inheritedWhitespace(base TypeID, fallback WhitespaceMode) Whit
 	return fallback
 }
 
-// compileFacets evaluates all bound and enumeration literals of one type under
-// one fresh construction work budget. Each literal starts its own pattern
-// budget.
-func (p *Program) compileFacets(id TypeID, source FacetSpec, limits EvaluationLimits) error {
+// compileFacets installs the effective facet program of id and returns the
+// storage retained for entries inherited from its base. It evaluates all bound
+// and enumeration literals of the type under one fresh construction work
+// budget, and each literal starts its own pattern budget.
+func (p *Program) compileFacets(id TypeID, source FacetSpec, limits EvaluationLimits) (uint64, error) {
 	budget, err := newEvaluationBudget(limits)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	t := &p.types[id-BuiltinTypeCount]
 	mask, missing := facetMask(source)
 	own := newFacetProgram(source, mask)
 	if presenceErr := validateFacetPresence(source, mask, missing); presenceErr != nil {
-		return presenceErr
+		return 0, presenceErr
 	}
 	if sourceErr := validateFacetSource(*t, source, own, missing); sourceErr != nil {
-		return sourceErr
+		return 0, sourceErr
 	}
 	if batchErr := p.compileFacetBatch(id, t, source, &own, &budget); batchErr != nil {
-		return batchErr
+		return 0, batchErr
 	}
 	// Resolver callbacks during the batch may complete other slots and grow
 	// p.types, so the earlier pointer can be stale.
 	t = &p.types[id-BuiltinTypeCount]
-	facets := own
-	if t.base != NoType {
-		base, ok := p.typeDef(t.base)
-		if !ok {
-			return ErrMetadata
-		}
-		facets, err = deriveFacetProgram(*t, *base, own)
-		if err != nil {
-			return err
-		}
+	facets, inherited, err := p.inheritFacets(t, own)
+	if err != nil {
+		return 0, err
 	}
 	t.facets = facets
 	if err := validateEffectiveFacetShape(t.facets); err != nil {
-		return facetFailure(err.Error())
+		return 0, facetFailure(err.Error())
 	}
 	t.facets.raw = rawEvaluationPlan{}
 	prepareRawDecimalFastPath(t)
 	prepareRawIntegerFastPath(t)
 	prepareRawValuePlans(p, t)
-	return nil
+	return inherited, nil
+}
+
+// inheritFacets returns the effective facet program of t and the storage
+// retained for entries inherited from its base.
+func (p *Program) inheritFacets(t *typeDef, own facetProgram) (facetProgram, uint64, error) {
+	if t.base == NoType {
+		return clipFacetSides(own), 0, nil
+	}
+	base, ok := p.typeDef(t.base)
+	if !ok {
+		return facetProgram{}, 0, ErrMetadata
+	}
+	facets, err := deriveFacetProgram(*t, *base, own)
+	if err != nil {
+		return facetProgram{}, 0, err
+	}
+	inherited, fits := inheritedFacetStorage(base.facets, own)
+	if !fits {
+		return facetProgram{}, 0, ErrStorageLimit
+	}
+	return facets, inherited, nil
 }
 
 func (p *Program) compileFacetBatch(id TypeID, t *typeDef, source FacetSpec, own *facetProgram, budget *evaluationBudget) error {
@@ -945,13 +958,66 @@ func mergeFacetPrograms(base, own facetProgram) facetProgram {
 	out.fractionDigits = overrideCardinality(base.fractionDigits, own.fractionDigits)
 	out.present |= own.present
 	out.fixed |= own.fixed
-	out.lower = append(append([]boundValue(nil), base.lower...), own.lower...)
-	out.upper = append(append([]boundValue(nil), base.upper...), own.upper...)
-	out.enumGroups = append(append([]enumerationGroup(nil), base.enumGroups...), own.enumGroups...)
+	out.lower = concatExact(base.lower, own.lower)
+	out.upper = concatExact(base.upper, own.upper)
+	out.enumGroups = concatExact(base.enumGroups, own.enumGroups)
 	out.enumItemLimit = max(base.enumItemLimit, own.enumItemLimit)
 	out.enumBase64 = base.enumBase64 || own.enumBase64
-	out.patterns = append(clonePatterns(base.patterns), own.patterns...)
+	out.patterns = concatExact(base.patterns, own.patterns)
 	return out
+}
+
+// concatExact returns base when own is empty, so a restriction that adds
+// nothing on a side shares its base's entries. Otherwise it returns a new
+// slice of exactly len(base)+len(own) entries, so the capacity that
+// inheritedFacetStorage charges is the capacity retained. Entries are never
+// appended into base, whose backing array other types share.
+func concatExact[T any](base, own []T) []T {
+	if len(own) == 0 {
+		return base
+	}
+	out := make([]T, len(base)+len(own))
+	copy(out, base)
+	copy(out[len(base):], own)
+	return out
+}
+
+// clipFacetSides copies each retained side to exact length, since the
+// appends that built them leave capacity beyond the length.
+func clipFacetSides(f facetProgram) facetProgram {
+	f.lower = concatExact(nil, f.lower)
+	f.upper = concatExact(nil, f.upper)
+	f.enumGroups = concatExact(nil, f.enumGroups)
+	f.patterns = concatExact(nil, f.patterns)
+	return f
+}
+
+const (
+	boundValueBytes         = uint64(unsafe.Sizeof(boundValue{}))
+	enumerationGroupBytes   = uint64(unsafe.Sizeof(enumerationGroup{}))
+	patternGroupHeaderBytes = uint64(unsafe.Sizeof([]*Pattern(nil)))
+)
+
+// inheritedFacetStorage returns the storage that mergeFacetPrograms retains
+// for entries copied from base: base's entries on every side where own adds
+// some. Own entries are covered by the type's spec charge.
+func inheritedFacetStorage(base, own facetProgram) (uint64, bool) {
+	var estimate storageEstimate
+	for _, side := range []struct {
+		inherited, added int
+		weight           uint64
+	}{
+		{len(base.lower), len(own.lower), boundValueBytes},
+		{len(base.upper), len(own.upper), boundValueBytes},
+		{len(base.enumGroups), len(own.enumGroups), enumerationGroupBytes},
+		{len(base.patterns), len(own.patterns), patternGroupHeaderBytes},
+	} {
+		//nolint:gosec // side.inherited is a slice length and never negative
+		if side.added != 0 && !estimate.addCount(uint64(side.inherited), side.weight) {
+			return 0, false
+		}
+	}
+	return estimate.total, true
 }
 
 func overrideCardinality(base, own CardinalityFacet) CardinalityFacet {
@@ -1097,7 +1163,7 @@ func validVarietyRefs(spec TypeSpec) bool {
 func clonePatterns(in [][]*Pattern) [][]*Pattern {
 	out := make([][]*Pattern, len(in))
 	for i := range in {
-		out[i] = append([]*Pattern(nil), in[i]...)
+		out[i] = concatExact(nil, in[i])
 	}
 	return out
 }

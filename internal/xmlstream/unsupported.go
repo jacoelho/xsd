@@ -19,8 +19,7 @@ const (
 )
 
 // UnsupportedFeatureOf classifies err, as returned by this package's readers
-// and decoders. Error.Kind is ErrorUnsupported exactly when it reports true.
-// An error returned by the caller's reader is never classified, whatever its
+// and decoders. An error returned by the caller's reader is never classified, whatever its
 // chain contains.
 func UnsupportedFeatureOf(err error) (UnsupportedFeature, bool) {
 	switch {

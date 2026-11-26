@@ -3,8 +3,10 @@ package xmlstream
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 // XML 1.0 Second Edition [23]-[26], [32], [80]-[81]: a malformed declaration is
@@ -87,7 +89,7 @@ func TestXMLDeclarationAdmission(t *testing.T) {
 					}
 				default:
 					var xmlErr *Error
-					if !errors.As(err, &xmlErr) || xmlErr.Kind != ErrorSyntax {
+					if !errors.As(err, &xmlErr) || xmlErr.kind != errorSyntax {
 						t.Fatalf("error = %v, want syntax error", err)
 					}
 				}
@@ -138,7 +140,7 @@ func TestXMLDeclarationPreviewBoundary(t *testing.T) {
 					_, err = reader.Next()
 				}
 				xerr, ok := errors.AsType[*Error](err)
-				if !ok || !errors.Is(err, errUnsupportedNonUTF8) || xerr.Kind != ErrorUnsupported || xerr.line != 1 || xerr.column != test.column {
+				if !ok || !errors.Is(err, errUnsupportedNonUTF8) || xerr.kind != errorUnsupported || xerr.line != 1 || xerr.column != test.column {
 					t.Fatalf("bom=%t end=%d %s: error = %#v, want unsupported encoding at 1:%d", bom != "", test.end, rc.name, err, test.column)
 				}
 				reader.Detach()
@@ -185,6 +187,99 @@ func TestCallerReaderErrorChainIsNotClassified(t *testing.T) {
 				t.Errorf("error %v lost cause %v", err, test.err)
 			}
 		})
+	}
+}
+
+func TestNextDoesNotAdoptReaderErrorFromCallerChain(t *testing.T) {
+	t.Parallel()
+
+	newOuter := func(callerErr error) *Reader {
+		outer := io.MultiReader(strings.NewReader("<r>"+strings.Repeat("a", 3*xmlInputBufferSize)), iotest.ErrReader(callerErr))
+		reader := new(Reader)
+		if err := reader.Reset(outer, Config{}); err != nil {
+			t.Fatalf("Reset() = %v, want nil", err)
+		}
+		return reader
+	}
+	ctrlReader := newOuter(errors.New("plain"))
+	ctrlErr := drainReader(ctrlReader)
+	ctrlLine, ctrlCol := ctrlReader.ErrorPos(ctrlErr)
+	if ctrlLine != 1 || ctrlCol <= len("<r>") {
+		t.Fatalf("control position = %d:%d, want line 1 past the preview", ctrlLine, ctrlCol)
+	}
+
+	dtd := readDocument("\n\n<!DOCTYPE r><r/>")
+	if feature, ok := UnsupportedFeatureOf(dtd); !ok || feature != UnsupportedDTD {
+		t.Fatalf("dtd setup = %v", dtd)
+	}
+	var depthReader Reader
+	if err := depthReader.Reset(strings.NewReader("\n\n<a><b/></a>"), Config{Limits: Limits{MaxDepth: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	depth := drainReader(&depthReader)
+	if limit, ok := LimitOf(depth); !ok || limit != LimitDepth {
+		t.Fatalf("depth setup = %v", depth)
+	}
+	var misuseReader Reader
+	if err := misuseReader.Reset(strings.NewReader("\n\n<r/>"), Config{}); err != nil {
+		t.Fatal(err)
+	}
+	for started := false; !started; {
+		started = mustNextToken(t, &misuseReader).Kind == KindStart
+	}
+	_, positioned := misuseReader.Next()
+	if line, _ := misuseReader.ErrorPos(positioned); !errors.Is(positioned, ErrPendingStart) || !IsMisuse(positioned) || line <= 1 {
+		t.Fatalf("positioned misuse setup = %v at line %d", positioned, line)
+	}
+	var zero Reader
+	_, unpositioned := zero.Next()
+	if !IsMisuse(unpositioned) {
+		t.Fatalf("unpositioned misuse setup = %v", unpositioned)
+	}
+
+	inners := []struct {
+		name string
+		err  error
+	}{
+		{"dtd", dtd},
+		{"depth", depth},
+		{"positioned misuse", positioned},
+		{"unpositioned misuse", unpositioned},
+	}
+	wraps := []struct {
+		name string
+		wrap func(error) error
+	}{
+		{"as is", func(err error) error { return err }},
+		{"wrapped", func(err error) error { return fmt.Errorf("transport: %w", err) }},
+		{"joined", func(err error) error { return errors.Join(err, errors.New("other")) }},
+	}
+	for _, inner := range inners {
+		for _, w := range wraps {
+			t.Run(inner.name+"/"+w.name, func(t *testing.T) {
+				t.Parallel()
+				reader := newOuter(w.wrap(inner.err))
+				err := drainReader(reader)
+				if !IsInputFailure(err) {
+					t.Errorf("IsInputFailure(%v) = false, want true", err)
+				}
+				if _, ok := LimitOf(err); ok {
+					t.Errorf("LimitOf(%v) classified a caller error", err)
+				}
+				if _, ok := UnsupportedFeatureOf(err); ok {
+					t.Errorf("UnsupportedFeatureOf(%v) classified a caller error", err)
+				}
+				if IsMisuse(err) {
+					t.Errorf("IsMisuse(%v) classified a caller error", err)
+				}
+				if !errors.Is(err, inner.err) {
+					t.Errorf("error %v lost cause %v", err, inner.err)
+				}
+				if line, col := reader.ErrorPos(err); line != ctrlLine || col != ctrlCol {
+					t.Errorf("ErrorPos = %d:%d, want %d:%d", line, col, ctrlLine, ctrlCol)
+				}
+			})
+		}
 	}
 }
 

@@ -14,7 +14,7 @@ func TestElementFrameUsesEffectiveTypeAndDeclarationConstraint(t *testing.T) {
 		t.Fatalf("value.Builder.SealKeeping() error = %v", err)
 	}
 	stringID := value.BuiltinType(value.PrimitiveString)
-	integerID, ok := value.BuiltinTypeID("integer")
+	integerID, ok := builtinTypeID("integer")
 	if !ok {
 		t.Fatal("missing builtin integer type")
 	}

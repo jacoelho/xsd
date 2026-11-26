@@ -420,7 +420,7 @@ func TestContentRestrictionWildcardUsesAggregateMinimum(t *testing.T) {
 <xs:complexType name="Base"><xs:sequence><xs:any namespace="urn:allowed" minOccurs="1" maxOccurs="2" processContents="skip"/></xs:sequence></xs:complexType>
 <xs:complexType name="Derived"><xs:complexContent><xs:restriction base="t:Base"><xs:all>` + test.members + `</xs:all></xs:restriction></xs:complexContent></xs:complexType>
 </xs:schema>`
-			_, err := Compile(Options{}, []source.Source{source.Bytes("restriction.xsd", []byte(text))})
+			_, err := compileSources(Options{}, []source.Source{source.Bytes("restriction.xsd", []byte(text))})
 			if !test.invalid {
 				if err != nil {
 					t.Fatalf("Compile() error = %v", err)
@@ -484,7 +484,7 @@ func TestContentRestrictionImplicitChoiceOrdering(t *testing.T) {
 				}
 				fmt.Fprintf(&text, `<xs:complexType name="Base"><xs:choice>%s</xs:choice></xs:complexType>
 <xs:complexType name="Derived"><xs:complexContent><xs:restriction base="t:Base"><xs:choice>%s</xs:choice></xs:restriction></xs:complexContent></xs:complexType></xs:schema>`, test.base, test.derived)
-				_, err := Compile(Options{}, []source.Source{source.Bytes("restriction.xsd", []byte(text.String()))})
+				_, err := compileSources(Options{}, []source.Source{source.Bytes("restriction.xsd", []byte(text.String()))})
 				if !test.invalid {
 					if err != nil {
 						t.Fatalf("Compile() error = %v", err)

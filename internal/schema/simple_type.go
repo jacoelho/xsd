@@ -7,20 +7,29 @@ import (
 	"github.com/jacoelho/xsd/internal/vocab"
 )
 
-// simpleType is compiler-owned schema declaration metadata. ValueSpec is the
-// sole owner of all simple-type semantics and derivation edges; schema keeps
-// only declaration facts and derived construction metadata.
+// simpleType is compiler-owned schema declaration metadata. It holds no
+// value structure: value.Builder owns the base, list item, union members,
+// variety, primitive, builtin kind and whitespace of every simple type, and
+// compiler reads of a completed type go through Builder.TypeView and
+// Builder.UnionHasFacets. Only the type being compiled is read from its
+// simpleTypeDraft.
 type simpleType struct {
-	ValueSpec value.TypeSpec
-	Name      QName
-	Final     DerivationMask
-	Missing   bool
-	Scope     declarationScope
+	Name    QName
+	Final   DerivationMask
+	Missing bool
+	Scope   declarationScope
 
 	// Union admission derives this from completed members; restrictions preserve it.
 	unionContainsList bool
-	// The completed value definition owns this effective-facet projection.
-	unionHasFacets bool
+}
+
+// simpleTypeDraft is a simple type under construction: its declaration and
+// the value specification completeSimpleType hands to value.Builder.Complete.
+// A draft lives only between compiling a simple type and completing it; the
+// build stores the declaration alone.
+type simpleTypeDraft struct {
+	spec value.TypeSpec
+	decl simpleType
 }
 
 // simpleTypeByID returns the declaration at id when it is within types.
@@ -43,16 +52,22 @@ func usableSimpleType(types []simpleType, id SimpleTypeID) (*simpleType, bool) {
 // missingSimpleTypeLocalName returns the local name used for unavailable types.
 func missingSimpleTypeLocalName() string { return "missing" }
 
-// missingSimpleType creates the unavailable-type sentinel declaration.
-func missingSimpleType(name QName, base SimpleTypeID) simpleType {
-	return simpleType{
-		Name:    name,
-		Missing: true,
-		ValueSpec: value.TypeSpec{
-			Variety: value.Atomic, Primitive: value.PrimitiveString,
-			Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
-			Base: base, ListItem: value.NoType,
-		},
+// missingSimpleType creates the unavailable-type sentinel. Missing keeps it
+// unavailable to every caller; its value record is a collapsed xs:string
+// restriction only so that its reserved ID is complete and the builder can
+// seal.
+func missingSimpleType(name QName) simpleTypeDraft {
+	return simpleTypeDraft{
+		decl: simpleType{Name: name, Missing: true},
+		spec: missingValueTypeSpec(),
+	}
+}
+
+func missingValueTypeSpec() value.TypeSpec {
+	return value.TypeSpec{
+		Variety: value.Atomic, Primitive: value.PrimitiveString,
+		Whitespace: value.WhitespaceCollapse, WhitespacePresent: true,
+		Base: value.BuiltinType(value.PrimitiveString), ListItem: value.NoType,
 	}
 }
 

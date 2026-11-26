@@ -154,12 +154,12 @@ func contentDispatchBenchmarkFixture(b *testing.B, test contentDispatchBenchmark
 	}
 	model := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{row, {Accept: true}}}
 	rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: model}, elementNames: names, substitutionLookup: substitutions, wildcards: wildcards})
-	input := ContentInput{Name: RuntimeName{Known: true, Name: inputName, Local: fmt.Sprintf("fixture-%d", inputName.Local)}}
+	input := ContentInput{Name: RuntimeName{known: true, name: inputName, local: fmt.Sprintf("fixture-%d", inputName.Local)}}
 	if test.shape == "wildcard-name" {
-		input.Name.NS = "urn:fixture"
+		input.Name.ns = "urn:fixture"
 	}
 	if test.shape == "wildcard-skip" {
-		input.Name.Known = false
+		input.Name.known = false
 	}
 	return contentDispatchBenchmarkSetup{rt: rt, initial: initial, input: input, wantElement: want, wantKind: wantKind}
 }
@@ -247,7 +247,7 @@ func contentDispatchBenchmarkMixed(width uint32) ([]ContentInput, []contentDispa
 	wants := make([]contentDispatchBenchmarkWant, 64)
 	for i := range inputs {
 		position := positions[i%4]
-		inputs[i] = ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: localNameID(position)}, Local: fmt.Sprintf("fixture-%d", position)}}
+		inputs[i] = ContentInput{Name: RuntimeName{known: true, name: QName{Local: localNameID(position)}, local: fmt.Sprintf("fixture-%d", position)}}
 		wants[i] = contentDispatchBenchmarkWant{contentTransitionMatched, ContentMatchDeclared, ElementID(position)}
 		if i%4 == 3 {
 			wants[i] = contentDispatchBenchmarkWant{ContentTransitionNoMatch, ContentMatchInvalid, NoElement}

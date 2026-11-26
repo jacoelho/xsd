@@ -406,7 +406,7 @@ func TestDocumentationLanguageOutsideAnnotation(t *testing.T) {
     <xs:documentation xml:lang="` + tt.lang + `"/>
   </xs:complexType>
 </xs:schema>`
-			_, err := Compile(Options{}, []source.Source{source.Bytes("language.xsd", []byte(schema))})
+			_, err := compileSources(Options{}, []source.Source{source.Bytes("language.xsd", []byte(schema))})
 			issue, ok := errors.AsType[*xsderrors.Error](err)
 			if !ok {
 				t.Fatalf("Compile() error = %T %[1]v, want structured diagnostic", err)

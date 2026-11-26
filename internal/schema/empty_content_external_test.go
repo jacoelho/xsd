@@ -259,7 +259,7 @@ func TestComplexContentEmptyKindFlowsThroughDerivationAndXSIType(t *testing.T) {
 	// A mixed extension may start from true empty content, but the same
 	// derivation from element-only content that merely normalizes to an empty
 	// model remains disallowed.
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:complexType name="ElementOnly"><xs:sequence><xs:element name="child" minOccurs="0"/></xs:sequence></xs:complexType>
   <xs:complexType name="Bad"><xs:complexContent mixed="true"><xs:extension base="ElementOnly"/></xs:complexContent></xs:complexType>
 </xs:schema>`))})

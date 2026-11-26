@@ -157,11 +157,11 @@ func TestMatchWorkIsBoundedByRunesTimesStates(t *testing.T) {
 func TestMatchWorkIndependentOfScratchHistory(t *testing.T) {
 	t.Parallel()
 	pattern := mustCompile(t, `(a|ab){1,60}x`)
-	if pattern.bitset || pattern.deterministic {
+	if pattern.mode == modeBitset || pattern.mode == modeScalar {
 		t.Fatal("precondition: pattern must use the general NFA matcher")
 	}
 	small := mustCompile(t, `(a|ab){1,20}x`)
-	if small.bitset || small.deterministic || len(small.states) >= len(pattern.states) {
+	if small.mode == modeBitset || small.mode == modeScalar || len(small.states) >= len(pattern.states) {
 		t.Fatal("precondition: smaller NFA pattern required")
 	}
 	input := strings.Repeat("a", 30) + "x"
@@ -201,7 +201,7 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 	t.Parallel()
 	large := mustCompile(t, `(a|ab){1,60}x`)
 	small := mustCompile(t, `(a|ab){1,20}x`)
-	if large.bitset || large.deterministic || small.bitset || small.deterministic ||
+	if large.mode == modeBitset || large.mode == modeScalar || small.mode == modeBitset || small.mode == modeScalar ||
 		len(small.states) >= len(large.states) {
 		t.Fatal("precondition: two general NFA patterns, small before large")
 	}

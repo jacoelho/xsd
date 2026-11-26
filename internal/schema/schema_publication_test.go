@@ -139,7 +139,7 @@ func TestPublishedSchemaExcludesCompilerSources(t *testing.T) {
   </xs:simpleType>
   <xs:element name="root" type="QNameEnum"/>
 </xs:schema>`
-	published, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(document))})
+	published, err := compileSources(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(document))})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}

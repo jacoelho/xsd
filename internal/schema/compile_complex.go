@@ -735,16 +735,19 @@ func (c *compiler) compileSimpleContentFacetRestriction(parent *schemaNode, base
 	if err := checkSimpleTypeFinalAllows(c.rt.simpleTypeFinalMask(baseID), DerivationRestriction, simpleTypeFinalBaseRestriction); err != nil {
 		return NoSimpleType, withSchemaCompileLocation(first, err)
 	}
-	st := c.rt.derivedSimpleType(baseID, noQName())
-	if err := c.compileFacetChildren(parent, &st, baseID); err != nil {
+	st, err := c.rt.derivedSimpleType(baseID, noQName())
+	if err != nil {
 		return NoSimpleType, withSchemaCompileLocation(first, err)
 	}
-	if st.ValueSpec.Variety == valuepkg.Union {
-		if chargeErr := c.chargeSimpleUnionMemberEntries(first, len(st.ValueSpec.Union)); chargeErr != nil {
+	if err = c.compileFacetChildren(parent, &st, baseID); err != nil {
+		return NoSimpleType, withSchemaCompileLocation(first, err)
+	}
+	if st.spec.Variety == valuepkg.Union {
+		if chargeErr := c.chargeSimpleUnionMemberEntries(first, len(st.spec.Union)); chargeErr != nil {
 			return NoSimpleType, chargeErr
 		}
 	}
-	id, err := c.addSimpleType(st)
+	id, err := c.addSimpleType(st.decl)
 	if err != nil {
 		return NoSimpleType, err
 	}

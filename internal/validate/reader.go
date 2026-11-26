@@ -12,12 +12,15 @@ import (
 // streamError is the single mapping from xmlstream reader errors to instance
 // diagnostics. It classifies by origin, so a caller reader's error is never
 // taken for this package's own failure whatever its chain carries. Order:
-// reader limits ('<option>=<n> exceeded' at ctx), unsupported features,
+// reader misuse (internal.invariant), reader limits ('<option>=<n> exceeded' at ctx), unsupported features,
 // caller-reader failures (validation.read, including a nil reader; exclusive),
-// outside-root sentinels, and finally well-formedness failures.
+// outside-root sentinels, end-of-document sentinels, and finally well-formedness failures.
 // resetInstanceReader locates prologue failures at path "/" and the reader
 // position (line 1 column 1 when none); a nil reader stays unlocated.
 func streamError(ctx startContext, err error, limits Limits) error {
+	if xmlstream.IsMisuse(err) {
+		return xsderrors.InternalInvariant("xml reader lifecycle misuse", err)
+	}
 	line, col, path := ctx.Line, ctx.Column, ctx.PathString()
 	if limit, ok := xmlstream.LimitOf(err); ok {
 		option, configured := readerLimitOption(limit, limits)
@@ -32,16 +35,41 @@ func streamError(ctx startContext, err error, limits Limits) error {
 		}
 		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationRead, "read instance document", err))
 	}
-	if errors.Is(err, xmlstream.ErrTextOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgTextOutsideRoot, err))
-	}
-	if errors.Is(err, xmlstream.ErrCDATOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgCDATAOutsideRoot, err))
-	}
-	if errors.Is(err, xmlstream.ErrReferenceOutsideRoot) {
-		return xsderrors.WithLocation(path, line, col, xsderrors.Validation(xsderrors.CodeValidationXML, msgReferenceOutsideRoot, err))
+	if diagnostic := xmlSentinelDiagnostic(err); diagnostic != nil {
+		return xsderrors.WithLocation(path, line, col, diagnostic)
 	}
 	return validationReaderCause(xsderrors.CodeValidationXML, line, col, path, err)
+}
+
+// xmlSentinelDiagnostic returns the diagnostic for a reader failure listed in
+// xmlSentinelMessages, or nil when err is none of them.
+func xmlSentinelDiagnostic(err error) error {
+	for _, sentinel := range xmlSentinelMessages {
+		if !errors.Is(err, sentinel.err) {
+			continue
+		}
+		var cause error
+		if sentinel.withCause {
+			cause = err
+		}
+		return xsderrors.Validation(xsderrors.CodeValidationXML, sentinel.msg, cause)
+	}
+	return nil
+}
+
+// xmlSentinelMessages maps reader failures to their diagnostic text. The
+// end-of-document failures carry no cause, because the reader's text restates
+// the message.
+var xmlSentinelMessages = [...]struct {
+	err       error
+	msg       string
+	withCause bool
+}{
+	{xmlstream.ErrTextOutsideRoot, msgTextOutsideRoot, true},
+	{xmlstream.ErrCDATOutsideRoot, msgCDATAOutsideRoot, true},
+	{xmlstream.ErrReferenceOutsideRoot, msgReferenceOutsideRoot, true},
+	{xmlstream.ErrNoRoot, msgNoRoot, false},
+	{xmlstream.ErrUnclosedElements, msgUnclosedElement, false},
 }
 
 func unsupportedInstanceFeature(feature xmlstream.UnsupportedFeature, err error) error {

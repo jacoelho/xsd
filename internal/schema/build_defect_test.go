@@ -76,14 +76,6 @@ func TestPublishReportsCorruptBuildStateAsInternalInvariant(t *testing.T) {
 			defect: true,
 		},
 		{
-			name: "simple base outside the type table",
-			corrupt: func(t *testing.T, rt *schemaBuild) {
-				t.Helper()
-				rt.SimpleTypes[buildDefectSimpleType(t, rt, "ShortCode")].ValueSpec.Base = SimpleTypeID(outsideTable)
-			},
-			defect: true,
-		},
-		{
 			name: "simple type availability shorter than the type table",
 			corrupt: func(_ *testing.T, rt *schemaBuild) {
 				rt.simpleTypeUnavailable = rt.simpleTypeUnavailable[:1]
@@ -372,12 +364,6 @@ func TestDerivationWalksReportMissingTypesAndCyclesAsBuildDefects(t *testing.T) 
 	}
 	simpleCorruptions := map[string]func(rt *schemaBuild, derived, base SimpleTypeID){
 		"intact": func(*schemaBuild, SimpleTypeID, SimpleTypeID) {},
-		"base outside the type table": func(rt *schemaBuild, derived, _ SimpleTypeID) {
-			rt.SimpleTypes[derived].ValueSpec.Base = SimpleTypeID(outsideTable)
-		},
-		"cycle": func(rt *schemaBuild, derived, base SimpleTypeID) {
-			rt.SimpleTypes[base].ValueSpec.Base = derived
-		},
 	}
 	for name, corrupt := range simpleCorruptions {
 		t.Run("simple derivation/"+name, func(t *testing.T) {

@@ -270,7 +270,7 @@ func drainReader(reader *Reader) error {
 				return err
 			}
 			handles = handles[:len(handles)-1]
-		case KindCharData, KindDirective, KindComment, KindPI:
+		case KindCharData, KindComment, KindPI:
 			// These tokens do not change the retained element-handle stack.
 		}
 	}
@@ -318,11 +318,11 @@ func TestReaderSkippedProcessingInstructionBoundaries(t *testing.T) {
 				t.Fatal(err)
 			}
 			_ = mustNextToken(t, &reader)
-			if err := reader.End(frame); err != nil {
+			if err := reader.endForTest(frame); err != nil {
 				t.Fatal(err)
 			}
 			_ = mustNextToken(t, &reader)
-			if err := reader.End(root); err != nil {
+			if err := reader.endForTest(root); err != nil {
 				t.Fatal(err)
 			}
 			if token, err := reader.Next(); token != nil || err != io.EOF { //nolint:errorlint // Token-boundary EOF is the exact sentinel.

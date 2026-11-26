@@ -21,6 +21,10 @@ var ErrLimit = errors.New("value program limit exceeded")
 // handling still classifies it.
 var ErrPatternLimit = fmt.Errorf("pattern match work limit exceeded: %w", ErrLimit)
 
+// ErrStorageLimit reports that the retained storage of completed types
+// exceeded BuilderOptions.MaxStorageBytes. It wraps ErrLimit.
+var ErrStorageLimit = fmt.Errorf("value program storage limit exceeded: %w", ErrLimit)
+
 // ErrPatternTotalLimit reports that the caller-owned PatternAccount shared
 // across evaluations was exhausted. It wraps ErrLimit and is distinct from
 // ErrPatternLimit.

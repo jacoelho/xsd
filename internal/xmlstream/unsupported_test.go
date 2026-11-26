@@ -13,7 +13,7 @@ func unsupportedFeatureIs(err error, want UnsupportedFeature) bool {
 
 // TestUnsupportedFeatureClassification pins the project contract (XML 1.0,
 // UTF-8, no DTD, no general entities) and the invariant that a reader error
-// has Kind ErrorUnsupported exactly when it classifies as a feature.
+// has Kind errorUnsupported exactly when it classifies as a feature.
 func TestUnsupportedFeatureClassification(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -56,8 +56,8 @@ func TestUnsupportedFeatureClassification(t *testing.T) {
 			if !isBoundary {
 				t.Fatalf("error %T = %v, want *Error", err, err)
 			}
-			if (boundary.Kind == ErrorUnsupported) != ok {
-				t.Fatalf("Kind = %d, classified = %t; want ErrorUnsupported exactly when classified", boundary.Kind, ok)
+			if (boundary.kind == errorUnsupported) != ok {
+				t.Fatalf("Kind = %d, classified = %t; want errorUnsupported exactly when classified", boundary.kind, ok)
 			}
 		})
 	}

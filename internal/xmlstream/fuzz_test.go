@@ -156,11 +156,11 @@ func recordReader(input io.Reader, config Config, maxTokens int) ([]recordedToke
 			if len(handles) == 0 {
 				return tokens, errors.New("unexpected end in test helper")
 			}
-			if err := reader.End(handles[len(handles)-1]); err != nil {
+			if err := reader.endForTest(handles[len(handles)-1]); err != nil {
 				return tokens, err
 			}
 			handles = handles[:len(handles)-1]
-		case KindCharData, KindDirective, KindComment, KindPI:
+		case KindCharData, KindComment, KindPI:
 			// These tokens do not change the retained element-handle stack.
 		}
 	}
@@ -169,7 +169,7 @@ func recordReader(input io.Reader, config Config, maxTokens int) ([]recordedToke
 func recordToken(reader *Reader, tok *Token) recordedToken {
 	record := recordedToken{
 		data:        string(tok.Data),
-		directive:   string(tok.Directive),
+		directive:   string(tok.Content),
 		startOffset: tok.StartOffset,
 		endOffset:   tok.EndOffset,
 		line:        tok.Line,
@@ -193,7 +193,7 @@ func recordToken(reader *Reader, tok *Token) recordedToken {
 		record.attrs = attrs.String()
 	case KindEnd:
 		record.name = tok.End.Name
-	case KindCharData, KindDirective, KindComment, KindPI:
+	case KindCharData, KindComment, KindPI:
 		// Data and Directive above carry these kinds' content.
 	}
 	return record
@@ -205,7 +205,7 @@ func readerOutcome(err error) string {
 		return "nil"
 	}
 	if xerr, ok := errors.AsType[*Error](err); ok {
-		return fmt.Sprintf("kind=%d at %d:%d: %v", xerr.Kind, xerr.line, xerr.column, err)
+		return fmt.Sprintf("kind=%d at %d:%d: %v", xerr.kind, xerr.line, xerr.column, err)
 	}
 	return err.Error()
 }

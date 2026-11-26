@@ -8,7 +8,7 @@ import (
 
 func builtinValueForTest(tb testing.TB, typeName, lexical string) value.Value {
 	tb.Helper()
-	id, ok := value.BuiltinTypeID(typeName)
+	id, ok := builtinTypeID(typeName)
 	if !ok {
 		tb.Fatalf("unknown builtin %q", typeName)
 	}

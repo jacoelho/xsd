@@ -34,7 +34,7 @@ type nfaCompiler struct {
 type compiledNFA struct {
 	states       []instruction
 	closures     [][]int
-	startClosure []int
+	startTargets []int
 	start        int
 }
 
@@ -65,14 +65,15 @@ func compileNFA(root *node, options compileLimits) (compiledNFA, error) {
 		return compiledNFA{}, err
 	}
 	var closures [][]int
-	var startClosure []int
-	// Precomputed closures are only useful to the compact <=64-state bitset
-	// runner. Larger machines use the bounded on-demand walk and avoid carrying
+	var startTargets []int
+	// Precomputed closures are only useful to the compact <=64-state scalar and
+	// bitset runners, and the Pattern retains tables derived from them rather
+	// than the closures. Larger machines use the bounded on-demand walk and avoid carrying
 	// a potentially quadratic derived graph through compilation.
 	if len(c.states) <= 64 {
-		closures, startClosure = precomputeClosures(c.states, rootFragment.start)
+		closures, startTargets = precomputeClosures(c.states, rootFragment.start)
 	}
-	return compiledNFA{states: c.states, start: rootFragment.start, closures: closures, startClosure: startClosure}, nil
+	return compiledNFA{states: c.states, start: rootFragment.start, closures: closures, startTargets: startTargets}, nil
 }
 
 // precomputeClosures removes repeated epsilon-graph walks from the hot match
@@ -84,7 +85,7 @@ func precomputeClosures(states []instruction, start int) ([][]int, []int) {
 	}
 	seen := make([]uint32, len(states))
 	var mark uint32
-	startClosure, ok := epsilonTargets(states, start, seen, &mark)
+	startTargets, ok := epsilonTargets(states, start, seen, &mark)
 	if !ok {
 		return nil, nil
 	}
@@ -99,11 +100,24 @@ func precomputeClosures(states []instruction, start int) ([][]int, []int) {
 		}
 		closures[pc] = targets
 	}
-	return closures, startClosure
+	return closures, startTargets
 }
 
-func isDeterministicNFA(states []instruction, closures [][]int, startClosure []int) bool {
-	if len(closures) == 0 || len(startClosure) != 1 {
+// scalarNextStates returns, for each set state, the one state its match leads
+// to, and -1 for every other state. The slice has exactly one entry per state.
+func scalarNextStates(states []instruction, closures [][]int) []int {
+	next := make([]int, len(states))
+	for pc, instruction := range states {
+		next[pc] = -1
+		if instruction.kind == instructionSet {
+			next[pc] = closures[pc][0]
+		}
+	}
+	return next
+}
+
+func isDeterministicNFA(states []instruction, closures [][]int, startTargets []int) bool {
+	if len(closures) == 0 || len(startTargets) != 1 {
 		return false
 	}
 	for pc, instruction := range states {
@@ -114,15 +128,15 @@ func isDeterministicNFA(states []instruction, closures [][]int, startClosure []i
 	return true
 }
 
-func buildBitsetNFA(states []instruction, closures [][]int, startClosure []int) bitsetNFA {
-	if len(states) == 0 || len(states) > 64 || len(closures) == 0 || len(startClosure) == 0 {
+func buildBitsetNFA(states []instruction, closures [][]int, startTargets []int) bitsetNFA {
+	if len(states) == 0 || len(states) > 64 || len(closures) == 0 || len(startTargets) == 0 {
 		return bitsetNFA{}
 	}
 	closureBits, ok := buildClosureBits(states, closures)
 	if !ok {
 		return bitsetNFA{}
 	}
-	startBits, ok := buildStartBits(startClosure, len(states))
+	startBits, ok := buildStartBits(startTargets, len(states))
 	if !ok {
 		return bitsetNFA{}
 	}
@@ -156,9 +170,9 @@ func appendClosureBits(closureBits []uint64, pc int, targets []int, stateCount i
 	return true
 }
 
-func buildStartBits(startClosure []int, stateCount int) (uint64, bool) {
+func buildStartBits(startTargets []int, stateCount int) (uint64, bool) {
 	var startBits uint64
-	for _, target := range startClosure {
+	for _, target := range startTargets {
 		if target < 0 || target >= stateCount {
 			return 0, false
 		}
