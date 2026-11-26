@@ -1212,8 +1212,8 @@ graph preserves these ownership rules:
   text that the compiler cache would have compiled once, and compiled every
   distinct text before any `MaxSchemaPatternRetainedBytes` charge, so 200
   copies of one large pattern cost gigabytes instead of one compile. A
-  syntax-only `xsdregex` check was rejected as well: the NFA state limit is
-  raised while the program is built, and parsing is most of the compile cost.
+  syntax-only `xsdregex` check was rejected as well: parsing is most of the
+  compile cost, so the check would save little over compiling once.
 
 - Bounding segments inside an incremental path-text cache was rejected: escaped
   lengths need a per-element name scan on the element-start hot path, and every

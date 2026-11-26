@@ -234,8 +234,10 @@ quadratic in its depth; exceeding the budget reports `schema.limit` naming
 both options.
 
 Each pattern is compiled under fixed structural bounds that are not options:
-source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand
-into states), 1,000,000 retained character ranges, and nesting depth 1,024.
+source 1 MiB, 100,000 AST nodes, 100,000 NFA states (a counted repeat is
+charged as if its body were written out once per iteration, even when it
+compiles to a counter), 1,000,000 retained character ranges, and nesting depth
+1,024.
 Exceeding one reports `schema.limit`. These bound one compiled machine, not the
 length of the values it matches. `MaxSchemaPatternRetainedBytes` is the
 aggregate over a compilation.
@@ -246,7 +248,9 @@ counted once, by capacity), plus, for a run-length pattern, 48 bytes per atom
 and the literal text, or, for an NFA pattern, 48 bytes per state plus, for the
 mode that retains them, 8 bytes per scalar successor (deterministic patterns of
 at most 64 states) or 8 bytes per closure bitset word (other patterns of at
-most 64 states); larger NFAs retain neither. Every retained array is charged by
+most 64 states); larger NFAs retain neither. A pattern whose counted repeats
+compile to counters adds 64 bytes for counter tables, 12 bytes per counter and
+12 bytes per state of a machine with counters. Every retained array is charged by
 capacity, not length, which raises the estimate by the arrays' append slack:
 about 22% for a large NFA, and up to about 70% for a small one. A pattern set near the `MaxSchemaPatternRetainedBytes` default that
 compiles today can fail with `schema.limit`. The default is a byte target, not a multiple of the per-pattern
@@ -313,8 +317,22 @@ a fresh total. A match costs:
 - linear patterns (concatenations of repeated character sets): `4 * (runes + 1) + 1`
   per atom, literal atoms and exact-count atoms included. Example: `x[a-z]+` on
   `x` followed by 1000 `a` costs 1001 + 2 * (4 * 1002 + 1) = 9019;
-- NFA patterns: one unit per set-state test and per split or jump followed
-  during epsilon closure, so work is at most 72 * (runes + 1) * compiled states.
+- NFA patterns: one unit per set-state test and per split, jump or counter
+  step followed during epsilon closure, and two per closure step in a machine
+  with counters, whose steps take longer, so work is at most
+  72 * (runes + 1) * tracked states. A tracked state is a compiled state, or,
+  inside a counted repeat, a compiled state and an iteration count; a machine
+  has at most three times as many tracked states as its unrolled form has
+  states. Only a repeat whose maximum, or minimum when unbounded, is at least
+  2 can compile to a counter, and a repeat inside a counted body never does.
+  Such a repeat compiles to a counter when that gives a smaller machine,
+  except when the unrolled machine has at most 64 states, or when its body
+  matches one non-zero length and either its count is exact or it always
+  starts at the same input position, as in `(ab){70}` or
+  `[a-z]{2}(a|b){1,512}`. A counted repeat tracks every count below its
+  minimum but only the smallest count at or above it, so `(a|aa){1,512}`,
+  `(a?){1,512}` and `([a-z]+){1,512}` cost work proportional to the runes,
+  while `(a|aa){400,512}` can track up to 400 counts per state.
 
 Exhaustion reports `validation.limit` naming `MaxInstancePatternWork` (or
 `schema.limit` naming `MaxSchemaPatternWork`). When the remaining aggregate
@@ -327,8 +345,8 @@ The aggregate default is derived, not chosen: the per-value default times the
 number of maximum-size text values a maximum-size document can hold,
 `2^29 * (64 MiB / 4 MiB) = 2^33`. A maximum-size document made entirely of
 maximum-size values of the shape the per-value default admits therefore stays
-admitted. At the measured worst case of about 1 s per value, the total bounds
-pattern CPU for one document at about 16 s. The schema default is the
+admitted. At the measured worst case of about 1.6 s per value, the total bounds
+pattern CPU for one document at about 25 s. The schema default is the
 per-literal default times 16, the same ratio.
 
 Measured under default options on one machine (macOS, serialized), 4 MiB of
@@ -336,14 +354,14 @@ text:
 
 | Pattern | Work | Time |
 | --- | ---: | ---: |
-| `[a-z]+` | 20,971,525 | 17 ms |
-| `(a\|b)*c` | 33,554,435 | 51 ms |
-| `(a\|aa){1,300}(a{1,100}){1,300}b` (61,500 states, non-matching) | exceeds the default | about 1.2 s until `MaxInstancePatternWork` is reached |
+| `[a-z]+` | 20,971,525 | 24 ms |
+| `(a\|b)*c` | 33,554,435 | 57 ms |
+| `(a\|aa){1,300}(a{1,100}){1,300}b` (counted repeats, non-matching) | 42,228,093 | 116 ms |
+| `(a\|b)*a(a\|b){24000}` (72,007 states, non-matching) | exceeds the default | about 1.6 s until `MaxInstancePatternWork` is reached |
 
-At the earlier candidate of `1 << 30` the last case took 2.3 s before reaching
-the per-value limit, so the per-value default is `1 << 29`, the largest power
-of two that keeps one value near 1 s while admitting both common cases with a
-wide margin.
+At `1 << 30` the last case takes 3.2 s before reaching the per-value limit, so
+the per-value default is `1 << 29`, the largest power of two that keeps one
+value under 2 s while admitting the common cases with a wide margin.
 
 Reaching `MaxErrors` stops semantic assessment, but XML is still read until the
 end or a fatal error. A later fatal error takes precedence.

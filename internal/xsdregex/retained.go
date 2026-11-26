@@ -14,13 +14,17 @@ const (
 	// wordBytes estimates one uint64 of Pattern.closureBits.
 	wordBytes = 8
 	// patternBytes estimates the fixed Pattern and linearPattern overhead.
-	patternBytes = 256
+	patternBytes        = 256
+	countedRepeatsBytes = 64
+	counterBytes        = 12
+	stateSlotsBytes     = 12
 )
 
 // RetainedBytes estimates the memory the compiled machine retains: every
 // retained slice is charged by capacity at its weight, since the allocator
 // keeps the capacity whatever the length. Instructions or linear atoms, the
-// scalar successor table and the closure bitsets are counted, each distinct
+// scalar successor table, the closure bitsets and the counter tables are
+// counted, each distinct
 // character-range backing array once, and the source. Every retained derived
 // structure must be counted here; a new retained table without a term here
 // escapes admission.
@@ -36,5 +40,9 @@ func (p *Pattern) RetainedBytes() uint64 {
 	total += instructionBytes * uint64(cap(p.states))
 	total += intBytes * uint64(cap(p.scalarNext))
 	total += wordBytes * uint64(cap(p.closureBits))
+	if p.counted != nil {
+		total += countedRepeatsBytes + counterBytes*uint64(cap(p.counted.counters)) +
+			stateSlotsBytes*uint64(cap(p.counted.slots))
+	}
 	return total
 }

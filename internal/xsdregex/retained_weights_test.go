@@ -27,6 +27,9 @@ func TestRetainedByteWeightsCoverStructSizes(t *testing.T) {
 		{"int", intBytes, unsafe.Sizeof(int(0))},
 		{"word", wordBytes, unsafe.Sizeof(uint64(0))},
 		{"pattern", patternBytes, unsafe.Sizeof(Pattern{}) + unsafe.Sizeof(linearPattern{})},
+		{"countedRepeats", countedRepeatsBytes, unsafe.Sizeof(countedRepeats{})},
+		{"counter", counterBytes, unsafe.Sizeof(counter{})},
+		{"stateSlots", stateSlotsBytes, unsafe.Sizeof(stateSlots{})},
 	} {
 		if test.weight < test.size {
 			t.Errorf("%s weight %d < Sizeof %d", test.name, test.weight, test.size)
@@ -54,6 +57,9 @@ func TestResourceLimitsDocStatesRetainedWeightsAndBounds(t *testing.T) {
 		fmt.Sprintf("%d bytes per state", instructionBytes),
 		fmt.Sprintf("%d bytes per scalar successor", intBytes),
 		fmt.Sprintf("%d bytes per closure bitset word", wordBytes),
+		fmt.Sprintf("%d bytes for counter tables", countedRepeatsBytes),
+		fmt.Sprintf("%d bytes per counter", counterBytes),
+		fmt.Sprintf("%d bytes per state of a machine with counters", stateSlotsBytes),
 	} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("docs/RESOURCE_LIMITS.md does not state %q", want)
@@ -75,6 +81,8 @@ var retainedSliceFields = map[string]string{
 	"Pattern.states":             "instructionBytes",
 	"Pattern.scalarNext":         "intBytes",
 	"Pattern.closureBits":        "wordBytes",
+	"countedRepeats.counters":    "counterBytes",
+	"countedRepeats.slots":       "stateSlotsBytes",
 	"linearPattern.atoms":        "linearAtomBytes",
 	"linearPattern.literalBytes": "bytes",
 	"rangeSet.ranges":            "runeRangeBytes through Pattern.retainedRanges",

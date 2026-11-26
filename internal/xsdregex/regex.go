@@ -51,10 +51,11 @@ func IsLimit(err error) bool {
 }
 
 // compileLimits are the fixed structural bounds of one compiled pattern. They
-// are not per-value budgets: the NFA expands counted repeats and precomputes
-// closures, so its size is capped when the schema is compiled. states bounds
-// len(states), which bounds every reachable match-time state set; it never
-// limits input length. Repetitions are never expanded into one AST node per
+// are not per-value budgets: the NFA expands or counts repeats and
+// precomputes closures, so its size is capped when the schema is compiled.
+// states bounds the machine's size with every counted repeat unrolled; that
+// bounds len(states), and three times it bounds the tracked states, so it
+// bounds every reachable match-time state set; it never limits input length. Repetitions are never expanded into one AST node per
 // occurrence. The aggregate over patterns is admitted by the caller from
 // Pattern.RetainedBytes.
 type compileLimits struct {
@@ -80,9 +81,12 @@ var fixedCompileLimits = compileLimits{
 //   - nothing further for literal patterns;
 //   - for linear patterns, 4*(runes+1)+1 per atom, every atom including
 //     literal atoms of a non-literal pattern and exact-count atoms;
-//   - for NFA patterns, one unit per set-state test and per split or jump
-//     followed during epsilon closure (bitset runner: the popcount of active
-//     states per rune), so NFA work is at most 72*(runes+1)*compiled states.
+//   - for NFA patterns, one unit per set-state test and per split, jump or
+//     counter step followed during epsilon closure, two per closure step in
+//     a machine with counters (bitset runner: the popcount of active states
+//     per rune), so NFA work is at most
+//     72*(runes+1)*tracked states, where a state inside a counted repeat is
+//     tracked once per iteration count it can hold.
 //
 // Zero admits no work: every match returns an ErrorLimit error. Work depends
 // only on the pattern and the input.
@@ -101,12 +105,13 @@ type MatchOptions struct {
 //
 // Each runnerMode retains only the tables its runner reads: scalar keeps
 // states, scalarStart and scalarNext; bitset keeps states, start, closureBits,
-// startBits and acceptBits; general keeps states and start; linear keeps only
-// linear.
+// startBits and acceptBits; general keeps states, start and, when some repeat
+// compiled to a counter, counted; linear keeps only linear.
 type Pattern struct {
 	linear      *linearPattern
 	source      string
 	states      []instruction
+	counted     *countedRepeats
 	scalarNext  []int
 	closureBits []uint64
 	start       int
@@ -122,7 +127,8 @@ type Pattern struct {
 // runnerMode selects the matcher a Pattern runs. The modes are tried in this
 // order: linear when compileLinear succeeds, scalar for a deterministic NFA of
 // at most 64 states, bitset for any other NFA of at most 64 states whose
-// closures precompute, and general otherwise. General is also the mode of an
+// closures precompute, and general otherwise. A machine with a counter is
+// always general, because the other runners hold no counts. General is also the mode of an
 // NFA of at most 64 states whose closure precomputation fails; it computes
 // closures on demand. The zero value is general, which rejects a Pattern with
 // no states.
@@ -168,6 +174,7 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 		source:         source,
 		start:          nfa.start,
 		states:         nfa.states,
+		counted:        nfa.counted,
 		retainedRanges: p.retainedRanges,
 	}
 	if isDeterministicNFA(nfa.states, nfa.closures, nfa.startTargets) {
@@ -931,4 +938,13 @@ func (p *parser) syntax(message string) error {
 
 func (p *parser) limit(message string) error {
 	return &Error{Kind: ErrorLimit, Offset: p.pos, What: message}
+}
+
+// trackedSlots is the number of distinct threads the general runner can
+// hold: one per state, or with counters one per state and count.
+func (p *Pattern) trackedSlots() int {
+	if p.counted != nil {
+		return p.counted.trackedSlots
+	}
+	return len(p.states)
 }

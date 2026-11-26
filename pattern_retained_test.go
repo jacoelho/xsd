@@ -155,9 +155,10 @@ func TestInheritedPatternsAreNotRecharged(t *testing.T) {
 }
 
 // Each pattern uses a two-byte alternative so every pattern has the same
-// source length and therefore the same estimate.
+// source length and therefore the same estimate. Counters do not nest, so
+// three nested repeats keep at least two levels written out.
 func distinctPattern(i int) string {
-	return fmt.Sprintf("(ab|%c){1,2000}", rune(0x100+i)) //nolint:gosec // i is small and non-negative.
+	return fmt.Sprintf("(((ab|%c){1,20}){1,20}){1,20}", rune(0x100+i)) //nolint:gosec // i is small and non-negative.
 }
 
 func TestPatternRetainedBytesDefaultRejects(t *testing.T) {

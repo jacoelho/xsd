@@ -35364,6 +35364,865 @@
       ]
     },
     {
+      "id": "project/datatypes/regex/conformance-counted-repeat-nullable-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "A nullable atom with a minimum above one: every count from zero to the maximum matches, one more does not."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-0",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-0.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-034"
+            }
+          }
+        },
+        {
+          "testName": "count-70",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-70.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-90",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-90.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-91",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-91.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "foreign",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/foreign.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-70.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-90.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/count-91.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-nullable-minimum/foreign.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-ambiguous-optional",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "An atom that splits one input into different iteration counts, minimum one: lengths 1 to 80 match."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-0",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-0.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-1",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-1.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-80",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-80.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-81",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-81.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-80.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-optional/count-81.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "An atom that splits one input into different iteration counts, large minimum: lengths 30 to 80 match."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-29",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-29.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-30",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-30.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-80",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-80.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-81",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-81.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-29.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-30.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-80.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum/count-81.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-exact-group",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-exact-group",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "An exact count of a group of one or two characters: 70 iterations, so lengths 70 to 140, match."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-69",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/count-69.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-70",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/count-70.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "length-140",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/length-140.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "length-141",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/length-141.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "foreign",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/foreign.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/count-69.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/count-70.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/length-140.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/length-141.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-exact-group/foreign.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-open-minimum",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "An unbounded repeat with a large minimum: any count from 70 matches."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-69",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/count-69.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-70",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/count-70.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-200",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/count-200.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "mixed-70",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/mixed-70.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "foreign",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/foreign.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/count-69.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/count-70.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/count-200.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/mixed-70.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-open-minimum/foreign.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-inner-repeat",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "A counted group of varying length containing a fixed repeat: 1 to 40 groups match."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-0",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-0.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-1",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-1.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-40",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-40.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-41",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-41.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "short-group",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/short-group.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-40.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/count-41.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-inner-repeat/short-group.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-many-entries",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-many-entries",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "A fixed-length counted atom that a preceding star can enter at many positions: some a is followed by 1 to 70 characters."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "count-0",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-0.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-1",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-1.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-70",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-70.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "count-71",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-71.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "late-entry",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/late-entry.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-0.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-70.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/count-71.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-many-entries/late-entry.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
+      "id": "project/datatypes/regex/conformance-counted-repeat-outer-repeat",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "validation",
+        "sourceFile": "tests/corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat",
+        "conditions": [
+          "appendix-a-final-join:D41",
+          "appendix-a-final-join:P38",
+          "regex-publication:f05",
+          "regex-publication:[3]",
+          "regex-publication:1 Composition",
+          "regex-publication:[4]",
+          "regex-publication:[5]",
+          "regex-publication:[6]"
+        ],
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-piece",
+          "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#dt-quantifier"
+        ],
+        "description": "A counted atom inside a small outer repeat: two or three groups of 1 to 140 characters each match."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+          "clause": "the quantifier in XML Schema Part 2 Appendix F"
+        }
+      },
+      "instances": [
+        {
+          "testName": "groups-1",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-1.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "groups-2",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-2.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "groups-3",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-3.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "groups-4",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-4.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        },
+        {
+          "testName": "group-141",
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/group-141.xml",
+          "expected": "invalid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-2-20041028/datatypes.html#nt-quantifier",
+            "clause": "the quantifier in XML Schema Part 2 Appendix F"
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-1.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-2.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-3.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/groups-4.xml",
+          "role": "instance"
+        },
+        {
+          "file": "corpus/project/datatypes/regex/conformance-counted-repeat-outer-repeat/group-141.xml",
+          "role": "instance"
+        }
+      ]
+    },
+    {
       "id": "project/datatypes/regex/conformance-escape-01-atom",
       "expectedSource": "project",
       "source": {

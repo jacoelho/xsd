@@ -21,14 +21,13 @@ const (
 	// construction limits or the builtin type count.
 	defaultMaxInstanceValueWork uint64 = 4_194_502_132_335
 	// defaultMaxInstancePatternWork bounds regular-expression matching CPU per
-	// value, in the units documented on xsdregex.MatchOptions. It keeps the
-	// measured worst case (a near-cap NFA against 4 MiB of text) near 1.2 s.
+	// value, in the units documented on xsdregex.MatchOptions.
+	// docs/RESOURCE_LIMITS.md records the measured worst case it bounds.
 	defaultMaxInstancePatternWork uint64 = 1 << 29
 	// defaultMaxInstanceTotalPatternWork bounds pattern work summed over one
 	// document. It is the per-value default times the number of maximum-size
 	// text values a maximum-size document can hold, so a document made
-	// entirely of values at the per-value default stays admitted. At the
-	// measured worst case of about 1 s per value this is about 16 s.
+	// entirely of values at the per-value default stays admitted.
 	defaultMaxInstanceTotalPatternWork uint64 = defaultMaxInstancePatternWork * (defaultMaxInstanceBytes / defaultMaxInstanceTextBytes)
 )
 

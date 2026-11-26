@@ -60,6 +60,7 @@ commits can be compared on the same harness:
 | 100,000-row identity validation | `BenchmarkLargeIdentityValidation` (`tests`) |
 | Peak in-document heap, identity | `BenchmarkLargeIdentityPeakHeap` (`tests`) |
 | Retained compiled engine | `BenchmarkCompileRetainedContentModels` (root) |
+| Pattern matching per rune | `BenchmarkPatternStress` (`internal/xsdregex`) |
 
 `BenchmarkLargeIdentityPeakHeap` reports `peak-HeapInuse-delta-B` and
 `peak-HeapInuse-B` from a 1 ms `HeapInuse` sampler with GC percent pinned to 100.
@@ -69,6 +70,9 @@ median over iterations. Both benchmarks call `runtime.ReadMemStats` or
 `runtime.GC` inside the loop, so their `ns/op` is not a timing. The sampler is a
 lower bound on the true peak; run it at `-benchtime=1x` with several `-count`
 samples and `-cpu` of at least 2, so the sampler is not starved by validation.
+`BenchmarkPatternStress` reports `ns/rune` and `work/rune` for
+character-class, active-state, counted-repeat, backtracking-prone and
+early-rejection patterns at two input lengths.
 
 Function placement in the linked binary can move a benchmark by 1–2% when
 only unrelated packages change. Before attributing such a delta to a commit,
