@@ -46,7 +46,7 @@ func (c *compiler) indexTopLevelSchemaDeclaration(ctx *schemaSetDocument, name l
 		return err
 	}
 	label := c.rt.formatName(q)
-	component := schemaComponent{id: child.id, ctx: ctx}
+	component := schemaComponent{ctx: ctx, node: child}
 	return c.indexNamedTopLevelSchemaChild(child, q, label, component)
 }
 

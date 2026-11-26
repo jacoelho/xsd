@@ -77,11 +77,7 @@ func (c *compiler) compileElementParticleDeclaration(ctx *schemaSetDocument, n *
 
 func (c *compiler) compileElementByQName(q QName) (result ElementID, err error) {
 	raw, exists := c.elementComponents[q]
-	var source *schemaNode
-	if exists {
-		source = raw.sourceNode()
-	}
-	if err = c.spendComponentDependency(source); err != nil {
+	if err = c.spendComponentDependency(raw.sourceNode()); err != nil {
 		return 0, err
 	}
 	if id, ok := c.rt.GlobalElements[q]; ok {

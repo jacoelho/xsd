@@ -144,6 +144,6 @@ func omittedCompositorCompiler(t *testing.T, descendants string) (*compiler, sch
 		t.Fatal(err)
 	}
 	component := c.complexComponents[q]
-	component.id = component.sourceNode().firstXS(sequenceChild).id
+	component.node = component.sourceNode().firstXS(sequenceChild)
 	return c, component
 }

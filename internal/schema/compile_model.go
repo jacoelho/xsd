@@ -73,7 +73,7 @@ func (c *compiler) compileCompositor(ctx *schemaSetDocument, n *schemaNode, use 
 		// Cache only the parent's absence. Its descendants retain their own
 		// obligations after active group expansion unwinds.
 		c.modelDone[nodeKey(ctx, n)] = compiledModelGroup{id: noContentModel, use: use}
-		c.deferredModelChildren = append(c.deferredModelChildren, schemaComponent{ctx: ctx, id: n.id})
+		c.deferredModelChildren = append(c.deferredModelChildren, schemaComponent{ctx: ctx, node: n})
 		return noContentModel, occurs, nil
 	}
 	record := contentModelNode{Occurs: occurrence{Min: 1, Max: 1}}

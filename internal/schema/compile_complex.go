@@ -70,7 +70,7 @@ func (c *compiler) reserveAnonymousComplexType(ctx *schemaSetDocument, n *schema
 	if err != nil {
 		return noComplexType, err
 	}
-	c.complexDefinitions[id].source = schemaComponent{ctx: ctx, id: n.id}
+	c.complexDefinitions[id].source = schemaComponent{ctx: ctx, node: n}
 	c.complexDefinitions[id].label = label
 	return id, nil
 }
