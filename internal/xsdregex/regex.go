@@ -98,22 +98,42 @@ type MatchOptions struct {
 // The fields stay flat. Rejected: embedding compiler return records
 // (compiledNFA, bitsetNFA), because the aggregate copies introduce bulk write
 // barriers and enlarge frames active during graph and bitset allocations.
+//
+// Each runnerMode retains only the tables its runner reads: scalar keeps
+// states, scalarStart and scalarNext; bitset keeps states, start, closureBits,
+// startBits and acceptBits; general keeps states and start; linear keeps only
+// linear.
 type Pattern struct {
-	linear        *linearPattern
-	source        string
-	states        []instruction
-	closures      [][]int
-	startClosure  []int
-	closureBits   []uint64
-	start         int
-	startBits     uint64
-	acceptBits    uint64
-	deterministic bool
-	bitset        bool
+	linear      *linearPattern
+	source      string
+	states      []instruction
+	scalarNext  []int
+	closureBits []uint64
+	start       int
+	scalarStart int
+	startBits   uint64
+	acceptBits  uint64
+	mode        runnerMode
 
 	// retainedRanges counts runeRange elements in distinct backing arrays.
 	retainedRanges uint64
 }
+
+// runnerMode selects the matcher a Pattern runs. The modes are tried in this
+// order: linear when compileLinear succeeds, scalar for a deterministic NFA of
+// at most 64 states, bitset for any other NFA of at most 64 states whose
+// closures precompute, and general otherwise. General is also the mode of an
+// NFA of at most 64 states whose closure precomputation fails; it computes
+// closures on demand. The zero value is general, which rejects a Pattern with
+// no states.
+type runnerMode uint8
+
+const (
+	modeGeneral runnerMode = iota
+	modeLinear
+	modeScalar
+	modeBitset
+)
 
 // Compile parses and compiles one XSD 1.0 regular expression under the fixed
 // per-pattern bounds. XSD patterns match the complete input; callers do not
@@ -138,28 +158,31 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 		return nil, err
 	}
 	if linear, ok := compileLinear(root, options); ok {
-		return &Pattern{source: source, linear: linear, retainedRanges: p.retainedRanges}, nil
+		return &Pattern{source: source, linear: linear, mode: modeLinear, retainedRanges: p.retainedRanges}, nil
 	}
 	nfa, err := compileNFA(root, options)
 	if err != nil {
 		return nil, err
 	}
-	deterministic := isDeterministicNFA(nfa.states, nfa.closures, nfa.startClosure)
-	bitset := buildBitsetNFA(nfa.states, nfa.closures, nfa.startClosure)
-	return &Pattern{
-		source:        source,
-		start:         nfa.start,
-		states:        nfa.states,
-		closures:      nfa.closures,
-		startClosure:  nfa.startClosure,
-		deterministic: deterministic,
-		bitset:        bitset.enabled,
-		closureBits:   bitset.closureBits,
-		startBits:     bitset.startBits,
-		acceptBits:    bitset.acceptBits,
-
+	pattern := &Pattern{
+		source:         source,
+		start:          nfa.start,
+		states:         nfa.states,
 		retainedRanges: p.retainedRanges,
-	}, nil
+	}
+	if isDeterministicNFA(nfa.states, nfa.closures, nfa.startTargets) {
+		pattern.mode = modeScalar
+		pattern.scalarStart = nfa.startTargets[0]
+		pattern.scalarNext = scalarNextStates(nfa.states, nfa.closures)
+		return pattern, nil
+	}
+	if bitset := buildBitsetNFA(nfa.states, nfa.closures, nfa.startTargets); bitset.enabled {
+		pattern.mode = modeBitset
+		pattern.closureBits = bitset.closureBits
+		pattern.startBits = bitset.startBits
+		pattern.acceptBits = bitset.acceptBits
+	}
+	return pattern, nil
 }
 
 // Source returns the original pattern text.

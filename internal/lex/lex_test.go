@@ -145,8 +145,8 @@ func TestSplitQName(t *testing.T) {
 func TestXMLNameBytesAcceptUnicodeNames(t *testing.T) {
 	t.Parallel()
 
-	if !IsXMLNameBytes([]byte("é:name")) {
-		t.Fatal("IsXMLNameBytes rejected unicode XML name")
+	if !IsXMLName("é:name") {
+		t.Fatal("IsXMLName rejected unicode XML name")
 	}
 	if !IsNCNameBytes([]byte("é_name")) {
 		t.Fatal("IsNCNameBytes rejected unicode NCName")

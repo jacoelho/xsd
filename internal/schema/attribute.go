@@ -262,7 +262,6 @@ func (u AttributeUseRead) AbsentValueConstraint() (ValueConstraintRead, bool) {
 // declaration without exposing compiler-owned storage.
 type AttributeDeclRead struct {
 	fixed    ValueConstraintRead
-	name     QName
 	typ      SimpleTypeID
 	hasFixed bool
 }
@@ -272,7 +271,6 @@ type AttributeDeclRead struct {
 func newAttributeDeclRead(decl attributeDecl) AttributeDeclRead {
 	fixed, hasFixed := newValueConstraintReadFromConstraint(decl.ValueConstraint.fixedConstraint())
 	return AttributeDeclRead{
-		name:     decl.Name,
 		typ:      decl.Type,
 		fixed:    fixed,
 		hasFixed: hasFixed,
@@ -295,11 +293,6 @@ func attributeDeclReadByID(reads []AttributeDeclRead, id AttributeID) (Attribute
 		return AttributeDeclRead{}, false
 	}
 	return reads[id], true
-}
-
-// Name returns the runtime QName for the declaration.
-func (d AttributeDeclRead) Name() QName {
-	return d.name
 }
 
 // TypeID returns the simple type used to validate the attribute.

@@ -45,8 +45,8 @@ func TestLimitClassification(t *testing.T) {
 				t.Fatalf("LimitOf(%v) is not %v", err, tt.limit)
 			}
 			boundary, ok := errors.AsType[*Error](err)
-			if !ok || boundary.Kind != ErrorLimit {
-				t.Fatalf("error = %#v, want *Error with ErrorLimit", err)
+			if !ok || boundary.kind != errorLimit {
+				t.Fatalf("error = %#v, want *Error with errorLimit", err)
 			}
 			if boundary.line < 1 || boundary.column < 1 || boundary.line > 1 || boundary.column > len(tt.input)+1 {
 				t.Fatalf("position = %d:%d, want within the one-line document", boundary.line, boundary.column)
@@ -108,15 +108,15 @@ func TestErrorKindIsLimitExactlyWhenLimitOf(t *testing.T) {
 			}
 			_, limited := LimitOf(err)
 			boundary, ok := errors.AsType[*Error](err)
-			if ok && (boundary.Kind == ErrorLimit) != limited {
-				t.Fatalf("Kind = %v but LimitOf = %v for %v", boundary.Kind, limited, err)
+			if ok && (boundary.kind == errorLimit) != limited {
+				t.Fatalf("Kind = %v but LimitOf = %v for %v", boundary.kind, limited, err)
 			}
 			wantInput := tt.name == "nil input" || tt.name == "reader error" || tt.name == "wrapped reader error" || tt.name == "no progress"
 			if IsInputFailure(err) != wantInput {
 				t.Fatalf("IsInputFailure = %v, want %v for %v", !wantInput, wantInput, err)
 			}
-			if ok && (boundary.Kind == ErrorInput) != IsInputFailure(err) {
-				t.Fatalf("Kind = %v but IsInputFailure = %v for %v", boundary.Kind, IsInputFailure(err), err)
+			if ok && (boundary.kind == errorInput) != IsInputFailure(err) {
+				t.Fatalf("Kind = %v but IsInputFailure = %v for %v", boundary.kind, IsInputFailure(err), err)
 			}
 			wantLimited := strings.HasSuffix(tt.name, "limit") && tt.name != "negative limit"
 			if limited != wantLimited {
@@ -138,8 +138,8 @@ func TestResetRejectsNegativeLimitsAsState(t *testing.T) {
 			var reader Reader
 			err := reader.Reset(strings.NewReader(`<a/>`), Config{Limits: limits})
 			boundary, ok := errors.AsType[*Error](err)
-			if !ok || boundary.Kind != ErrorState {
-				t.Fatalf("Reset() = %#v, want ErrorState", err)
+			if !ok || boundary.kind != errorState {
+				t.Fatalf("Reset() = %#v, want errorState", err)
 			}
 			if _, limited := LimitOf(err); limited {
 				t.Fatalf("negative limit classified as exceeded limit: %v", err)

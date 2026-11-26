@@ -108,20 +108,6 @@ func (p IdentityPathProgramRead) Self() bool {
 	return !p.descendant && len(p.steps) == 0 && !p.attributePath
 }
 
-// IsAttribute reports whether the path selects an attribute.
-func (p IdentityPathProgramRead) IsAttribute() bool { return p.attributePath }
-
-// Attribute returns the exact attribute name for the path.
-func (p IdentityPathProgramRead) Attribute() QName { return p.attribute }
-
-// AttributeNamespaceSet reports whether an attribute wildcard constrains namespace.
-func (p IdentityPathProgramRead) AttributeNamespaceSet() bool {
-	return p.attributeNamespaceSet
-}
-
-// AttributeWildcard reports whether the path selects attributes by wildcard.
-func (p IdentityPathProgramRead) AttributeWildcard() bool { return p.attributeWildcard }
-
 // Matches reports whether the path matches namePath from baseDepth to
 // currentDepth.
 func (p *IdentityPathProgramRead) Matches(
@@ -171,50 +157,38 @@ func identityDescendantPath(namePath []RuntimeName, baseDepth, currentDepth, ste
 	return rel[len(rel)-stepCount:], true
 }
 
-// AttributeMatches reports whether name matches the path's attribute branch.
-func (p IdentityPathProgramRead) AttributeMatches(names IdentityNamespaceResolver, name RuntimeName) bool {
+// KnownAttributeMatches reports whether the schema-known attribute name q
+// matches the path's attribute branch.
+func (p IdentityPathProgramRead) KnownAttributeMatches(q QName) bool {
 	if !p.attributePath {
 		return false
 	}
 	if !p.attributeWildcard {
-		return name.Known && p.attribute == name.Name
+		return p.attribute == q
 	}
-	if !p.attributeNamespaceSet {
-		return true
+	return !p.attributeNamespaceSet || p.attributeNamespace == q.Namespace
+}
+
+// UnknownAttributeMatches reports whether an attribute in namespace ns whose
+// name the schema does not know matches the path's attribute branch.
+func (p IdentityPathProgramRead) UnknownAttributeMatches(names IdentityNamespaceResolver, ns string) bool {
+	if !p.attributePath || !p.attributeWildcard {
+		return false
 	}
-	if name.Known {
-		return p.attributeNamespace == name.Name.Namespace
-	}
-	return names.Namespace(p.attributeNamespace) == name.NS
+	return !p.attributeNamespaceSet || names.Namespace(p.attributeNamespace) == ns
 }
 
 func identityProgramStepMatches(names IdentityNamespaceResolver, name RuntimeName, step IdentityStep) bool {
 	if !step.Wildcard {
-		return name.Known && name.Name == step.Name
+		return name.known && name.name == step.Name
 	}
 	if !step.NamespaceSet {
 		return true
 	}
-	if name.Known {
-		return name.Name.Namespace == step.Namespace
+	if name.known {
+		return name.name.Namespace == step.Namespace
 	}
-	return name.NS == names.Namespace(step.Namespace)
-}
-
-// IdentityPathProgramReads is an immutable ordered view of path programs.
-type IdentityPathProgramReads struct {
-	values []IdentityPathProgramRead
-}
-
-// Len returns the number of path programs.
-func (r IdentityPathProgramReads) Len() int { return len(r.values) }
-
-// At returns a path program by index.
-func (r IdentityPathProgramReads) At(index int) (IdentityPathProgramRead, bool) {
-	if index < 0 || index >= len(r.values) {
-		return IdentityPathProgramRead{}, false
-	}
-	return r.values[index], true
+	return name.ns == names.Namespace(step.Namespace)
 }
 
 // IdentityCompiledFieldProgramRead is an immutable compiled field-path group.
@@ -267,19 +241,9 @@ type IdentityConstraintProgramRead struct {
 	fieldCount  int
 }
 
-// Selectors returns selector path programs.
-func (p IdentityConstraintProgramRead) Selectors() IdentityPathProgramReads {
-	return IdentityPathProgramReads{values: p.selectors}
-}
-
 // SelectsSelf reports whether any selector path selects the node that opened
 // the constraint's scope.
 func (p IdentityConstraintProgramRead) SelectsSelf() bool { return p.selectsSelf }
-
-// ElementFields returns element field-path programs.
-func (p IdentityConstraintProgramRead) ElementFields() IdentityCompiledFieldProgramReads {
-	return IdentityCompiledFieldProgramReads{values: p.elementFields}
-}
 
 // AttributeFields returns exact-name attribute field-path programs.
 func (p IdentityConstraintProgramRead) AttributeFields(name QName) IdentityCompiledFieldProgramReads {
@@ -442,10 +406,6 @@ func (d IdentityDispatchRead) AttributeFieldBaseDepths(currentDepth int) (from, 
 	}
 	return from, currentDepth - s.fewest + 1
 }
-
-// ConstraintCount returns the number of published identity constraints,
-// detached ones included.
-func (d IdentityDispatchRead) ConstraintCount() int { return len(d.programs) }
 
 // Program returns the immutable dispatch program for an identity constraint.
 // It reports false for an invalid ID and for a detached constraint, which no
@@ -666,13 +626,4 @@ func newIdentitySelectorPathProgramReads(paths []identityPath) []IdentityPathPro
 		programs[index] = identitySelectorPathProgramRead(path)
 	}
 	return programs
-}
-
-// ElementIdentityConstraintIDs returns an immutable view of the constraints
-// attached to id.
-func ElementIdentityConstraintIDs(reads [][]IdentityConstraintID, id ElementID) (IdentityConstraintIDs, bool) {
-	if !validElementID(id, len(reads)) {
-		return IdentityConstraintIDs{}, false
-	}
-	return borrowedIdentityConstraintIDs(reads[id]), true
 }

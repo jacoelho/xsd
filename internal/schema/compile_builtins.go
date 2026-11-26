@@ -25,8 +25,8 @@ func (c *compiler) addBuiltinXSIAttributes() error {
 	if err != nil {
 		return err
 	}
-	list := simpleType{Name: name, ValueSpec: builtinSchemaLocationTypeSpec()}
-	id, err := c.addSimpleType(list)
+	list := simpleTypeDraft{decl: simpleType{Name: name}, spec: builtinSchemaLocationTypeSpec()}
+	id, err := c.addSimpleType(list.decl)
 	if err != nil {
 		return err
 	}
@@ -67,25 +67,10 @@ func (c *compiler) addBuiltinSimpleType(builder *value.Builder, id SimpleTypeID)
 	if err != nil {
 		return err
 	}
-	view, ok := builder.TypeView(id)
-	if !ok {
+	if _, ok := builder.TypeView(id); !ok {
 		return xsderrors.InternalInvariant("canonical builtin type has no value metadata: "+name, nil)
 	}
-	st := simpleType{
-		ValueSpec: value.TypeSpec{
-			Variety:           view.Variety,
-			Primitive:         view.Primitive,
-			Whitespace:        view.Whitespace,
-			WhitespacePresent: true,
-			Builtin:           view.Builtin,
-			Base:              view.Base,
-			ListItem:          view.ListItem,
-			Union:             append([]value.TypeID(nil), view.Union...),
-		},
-		Name:  q,
-		Scope: declarationScopeGlobal,
-	}
-	got, err := c.addSimpleType(st)
+	got, err := c.addSimpleType(simpleType{Name: q, Scope: declarationScopeGlobal})
 	if err != nil {
 		return err
 	}
@@ -132,8 +117,8 @@ func (c *compiler) missingSimpleType() (SimpleTypeID, error) {
 	if err != nil {
 		return NoSimpleType, err
 	}
-	typ := missingSimpleType(q, value.AnySimpleTypeID)
-	id, err := c.addSimpleType(typ)
+	typ := missingSimpleType(q)
+	id, err := c.addSimpleType(typ.decl)
 	if err != nil {
 		return NoSimpleType, err
 	}

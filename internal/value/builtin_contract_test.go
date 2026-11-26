@@ -111,7 +111,7 @@ func TestBuiltinValueContracts(t *testing.T) {
 	} {
 		t.Run(tc.typ+"/"+tc.lexical, func(t *testing.T) {
 			t.Parallel()
-			id, ok := value.BuiltinTypeID(tc.typ)
+			id, ok := builtinTypeID(tc.typ)
 			if !ok {
 				t.Fatalf("missing builtin %q", tc.typ)
 			}
@@ -178,8 +178,8 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 	} {
 		t.Run(tc.leftType+"/"+tc.rightType+"/"+tc.left, func(t *testing.T) {
 			t.Parallel()
-			leftID, _ := value.BuiltinTypeID(tc.leftType)
-			rightID, _ := value.BuiltinTypeID(tc.rightType)
+			leftID, _ := builtinTypeID(tc.leftType)
+			rightID, _ := builtinTypeID(tc.rightType)
 			left, err := program.Validate(leftID, tc.left, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatal(err)
@@ -197,7 +197,7 @@ func TestValueEqualityUsesValueSpace(t *testing.T) {
 
 func TestBuiltinEntityUnionFallback(t *testing.T) {
 	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	entity, _ := value.BuiltinTypeID("ENTITY")
+	entity, _ := builtinTypeID("ENTITY")
 	stringID := value.BuiltinType(value.PrimitiveString)
 	id, err := builder.Reserve()
 	if err != nil {
@@ -217,7 +217,7 @@ func TestBuiltinEntityUnionFallback(t *testing.T) {
 		} else {
 			got, err = program.Validate(id, "name", value.Resolver{}, value.NeedCanonical, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 		}
-		if err != nil || got.Type() != id || got.SelectedType() != stringID || got.CanonicalText() != "name" {
+		if err != nil || got.Type() != id || got.CanonicalText() != "name" {
 			t.Fatalf("bytes=%t: union value=%#v, error=%v; want string fallback", bytesInput, got, err)
 		}
 	}

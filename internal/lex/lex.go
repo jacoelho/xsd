@@ -373,11 +373,6 @@ func (k languageSubtagKind) accepts(c byte) bool {
 	return isASCIILetter(c) || k == subsequentLanguageSubtag && isASCIIDigit(c)
 }
 
-// IsXMLNameBytes reports whether b is an XML Name.
-func IsXMLNameBytes(b []byte) bool {
-	return isNameBytes(b, xmlName)
-}
-
 // IsNCNameBytes reports whether b is an XML NCName.
 func IsNCNameBytes(b []byte) bool {
 	return isNameBytes(b, ncName)

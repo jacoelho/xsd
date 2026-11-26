@@ -213,13 +213,22 @@ func (rt *schemaBuild) SimpleTypeFinal(id SimpleTypeID) (DerivationMask, bool) {
 	return st.Final, true
 }
 
-// SimpleTypeDerivation returns compiler-owned simple-type derivation metadata.
-func (rt *schemaBuild) SimpleTypeDerivation(id SimpleTypeID) (simpleTypeDerivation, bool) {
-	st, ok := usableSimpleType(rt.SimpleTypes, id)
+// SimpleTypeDerivation returns the derivation of the simple type id, and
+// false for a missing type, which derives from nothing. An id outside the
+// build, or a type the value builder has not completed, is a build defect.
+func (rt *schemaBuild) SimpleTypeDerivation(id SimpleTypeID) (simpleTypeDerivation, bool, error) {
+	st, ok := simpleTypeByID(rt.SimpleTypes, id)
 	if !ok {
-		return simpleTypeDerivation{}, false
+		return simpleTypeDerivation{}, false, errSimpleDerivationTypeInvalid
 	}
-	return newSimpleTypeDerivationForSimpleType(*st), true
+	if st.Missing {
+		return simpleTypeDerivation{}, false, nil
+	}
+	derivation, err := valueSimpleTypeDerivation(rt.valueBuilder, id)
+	if err != nil {
+		return simpleTypeDerivation{}, false, err
+	}
+	return derivation, true, nil
 }
 
 // ComplexTypeDerivation returns compiler-owned complex-type derivation metadata.

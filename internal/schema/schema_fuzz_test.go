@@ -22,7 +22,7 @@ func FuzzSchemaParserLimits(f *testing.F) {
 		if len(schema) > 8192 {
 			t.Skip()
 		}
-		if _, err := xsdSchema.Compile(xsdSchema.Options{
+		if _, err := compileSources(xsdSchema.Options{
 			MaxSchemaDepth:        32,
 			MaxSchemaAttributes:   32,
 			MaxSchemaTokenBytes:   4096,

@@ -18,8 +18,8 @@ func TestCompositeValueIdentityProjections(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-			member, _ := value.BuiltinTypeID(tc.member)
-			integer, _ := value.BuiltinTypeID("int")
+			member, _ := builtinTypeID(tc.member)
+			integer, _ := builtinTypeID("int")
 			union, err := builder.Reserve()
 			if err != nil {
 				t.Fatalf("Reserve() error = %v", err)
@@ -154,12 +154,12 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, route := range []struct {
-		name             string
-		typeID, selected value.TypeID
+		name   string
+		typeID value.TypeID
 	}{
-		{name: "list", typeID: list, selected: value.NoType},
-		{name: "union", typeID: inner, selected: list},
-		{name: "nested union", typeID: outer, selected: inner},
+		{name: "list", typeID: list},
+		{name: "union", typeID: inner},
+		{name: "nested union", typeID: outer},
 	} {
 		t.Run(route.name, func(t *testing.T) {
 			for _, needs := range []value.Needs{value.NeedIdentity, value.NeedCanonical | value.NeedIdentity} {
@@ -177,8 +177,8 @@ func TestEmptyListIdentityThroughUnions(t *testing.T) {
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
 					}
-					if !got.HasIdentity() || got.Type() != route.typeID || got.SelectedType() != route.selected || got.IdentityKey() != value.ListIdentityKey(nil) || got.CanonicalText() != "" {
-						t.Fatalf("needs %d, bytes %t: type=%d, selected=%d, identity=%q, canonical=%q", needs, bytes, got.Type(), got.SelectedType(), got.IdentityKey(), got.CanonicalText())
+					if !got.HasIdentity() || got.Type() != route.typeID || got.IdentityKey() != value.ListIdentityKey(nil) || got.CanonicalText() != "" {
+						t.Fatalf("needs %d, bytes %t: type=%d, identity=%q, canonical=%q", needs, bytes, got.Type(), got.IdentityKey(), got.CanonicalText())
 					}
 					if got.Equal(atomic) {
 						t.Fatalf("needs %d, bytes %t: empty list equals empty string", needs, bytes)
@@ -232,8 +232,8 @@ func TestCanonicalProjectionRequestsAndOwnership(t *testing.T) {
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
 					}
-					if got.Type() != id || got.SelectedType() != value.NoType {
-						t.Fatalf("type=%d selected=%d; want %d and NoType", got.Type(), got.SelectedType(), id)
+					if got.Type() != id {
+						t.Fatalf("type=%d; want %d", got.Type(), id)
 					}
 					assertRequestedCanonicalProjection(t, got, needs, test.canonical, test.identity)
 				}
@@ -265,8 +265,8 @@ func TestCanonicalProjectionClearsRejectedUnionMember(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.Type() != union || got.SelectedType() != stringType {
-				t.Fatalf("type=%d selected=%d; want union=%d, string=%d", got.Type(), got.SelectedType(), union, stringType)
+			if got.Type() != union {
+				t.Fatalf("type=%d; want union=%d", got.Type(), union)
 			}
 			assertRequestedCanonicalProjection(t, got, needs, "1", "\x00\x1e1")
 		}
@@ -341,7 +341,7 @@ func TestDecimalAndIntegerProjectionRequests(t *testing.T) {
 		{"decimal", "-00012.3400", "-12.34", "\x02\x1e-12.34"},
 	} {
 		t.Run(test.builtin+"/"+test.lexical, func(t *testing.T) {
-			id, ok := value.BuiltinTypeID(test.builtin)
+			id, ok := builtinTypeID(test.builtin)
 			if !ok {
 				t.Fatalf("missing builtin %s", test.builtin)
 			}
@@ -358,8 +358,8 @@ func TestDecimalAndIntegerProjectionRequests(t *testing.T) {
 					if err != nil {
 						t.Fatalf("needs %d, bytes %t: %v", needs, bytes, err)
 					}
-					if got.Type() != id || got.SelectedType() != value.NoType {
-						t.Fatalf("needs %d, bytes %t: type/selection=%d/%d, want %d/NoType", needs, bytes, got.Type(), got.SelectedType(), id)
+					if got.Type() != id {
+						t.Fatalf("needs %d, bytes %t: type=%d, want %d", needs, bytes, got.Type(), id)
 					}
 					assertRequestedCanonicalProjection(t, got, needs, test.canonical, test.identity)
 					if got.IDs() != "" || got.IDRefs() != "" {

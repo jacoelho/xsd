@@ -18,8 +18,7 @@ const (
 	LimitDepth
 )
 
-// LimitOf reports which Limit err exceeded. Error.Kind is ErrorLimit exactly
-// when LimitOf reports true. An error returned by the caller's reader is
+// LimitOf reports which Limit err exceeded. An error returned by the caller's reader is
 // never classified, whatever its chain contains.
 func LimitOf(err error) (Limit, bool) {
 	switch {

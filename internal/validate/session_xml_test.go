@@ -33,7 +33,7 @@ func sessionXMLState(s *session) *sessionXMLTestState {
 	return state
 }
 
-func startForTest(t *testing.T, s *session, line, col int, start xmlstream.StartElement) error {
+func startForTest(t *testing.T, s *session, line, col int, start testXMLStartTag) error {
 	t.Helper()
 	tok, err := nextStartForTest(t, s, start)
 	if err != nil {
@@ -42,7 +42,7 @@ func startForTest(t *testing.T, s *session, line, col int, start xmlstream.Start
 	return s.start(line, col, tok.Start.Attr)
 }
 
-func nextStartForTest(t *testing.T, s *session, start xmlstream.StartElement) (*xmlstream.Token, error) {
+func nextStartForTest(t *testing.T, s *session, start testXMLStartTag) (*xmlstream.Token, error) {
 	t.Helper()
 	state := sessionXMLState(s)
 	state.input.offset = 0

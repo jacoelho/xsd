@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
-	valuepkg "github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -33,14 +32,14 @@ func TestAttributeUseCompilationNormalMode(t *testing.T) {
 		t.Parallel()
 
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, nil, NoWildcard, attributeMergeDirect)
-		if err := compilation.mergeUse(attributeUse{Name: first, Type: 0}); err != nil {
+		if err := compilation.mergeUse(attributeUse{Name: first, Type: fixtureRoot}); err != nil {
 			t.Fatal(err)
 		}
-		err := compilation.mergeUse(attributeUse{Name: second, Type: 1})
+		err := compilation.mergeUse(attributeUse{Name: second, Type: fixtureRestriction})
 		if err != nil {
 			t.Fatalf("mergeUse() error = %v", err)
 		}
-		want := []attributeUse{{Name: first, Type: 0}, {Name: second, Type: 1}}
+		want := []attributeUse{{Name: first, Type: fixtureRoot}, {Name: second, Type: fixtureRestriction}}
 		if !slices.Equal(compilation.uses, want) {
 			t.Fatalf("uses = %#v, want %#v", compilation.uses, want)
 		}
@@ -50,12 +49,12 @@ func TestAttributeUseCompilationNormalMode(t *testing.T) {
 		t.Parallel()
 
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, nil, NoWildcard, attributeMergeDirect)
-		if err := compilation.mergeUse(attributeUse{Name: first, Type: 0}); err != nil {
+		if err := compilation.mergeUse(attributeUse{Name: first, Type: fixtureRoot}); err != nil {
 			t.Fatal(err)
 		}
-		err := compilation.mergeUse(attributeUse{Name: first, Type: 1})
+		err := compilation.mergeUse(attributeUse{Name: first, Type: fixtureRestriction})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaDuplicate)
-		want := []attributeUse{{Name: first, Type: 0}}
+		want := []attributeUse{{Name: first, Type: fixtureRoot}}
 		if !slices.Equal(compilation.uses, want) {
 			t.Fatalf("rejected duplicate changed uses: %#v, want %#v", compilation.uses, want)
 		}
@@ -74,19 +73,19 @@ func TestAttributeUseCompilationRestrictionMode(t *testing.T) {
 		t.Parallel()
 
 		uses := []attributeUse{
-			{Name: first, Type: 0, Required: true},
+			{Name: first, Type: fixtureRoot, Required: true},
 		}
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, uses, NoWildcard, attributeMergeRestriction)
 
-		err := compilation.mergeUse(attributeUse{Name: first, Type: 1, Required: true})
+		err := compilation.mergeUse(attributeUse{Name: first, Type: fixtureRestriction, Required: true})
 		if err != nil {
 			t.Fatalf("mergeUse() error = %v", err)
 		}
-		want := []attributeUse{{Name: first, Type: 1, Required: true}}
+		want := []attributeUse{{Name: first, Type: fixtureRestriction, Required: true}}
 		if !slices.Equal(compilation.finalUses(), want) {
 			t.Fatalf("uses = %#v, want %#v", compilation.finalUses(), want)
 		}
-		if uses[0].Type != 0 || !uses[0].Required {
+		if uses[0].Type != fixtureRoot || !uses[0].Required {
 			t.Fatalf("restriction changed inherited use: %#v", uses[0])
 		}
 	})
@@ -95,13 +94,13 @@ func TestAttributeUseCompilationRestrictionMode(t *testing.T) {
 		t.Parallel()
 
 		uses := []attributeUse{
-			{Name: first, Type: 0, Required: true},
+			{Name: first, Type: fixtureRoot, Required: true},
 		}
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, uses, NoWildcard, attributeMergeRestriction)
 
-		err := compilation.mergeUse(attributeUse{Name: first, Type: 2})
+		err := compilation.mergeUse(attributeUse{Name: first, Type: fixtureUnrelated})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
-		want := []attributeUse{{Name: first, Type: 0, Required: true}}
+		want := []attributeUse{{Name: first, Type: fixtureRoot, Required: true}}
 		if !slices.Equal(compilation.finalUses(), want) {
 			t.Fatalf("rejected restriction changed uses: %#v, want %#v", compilation.finalUses(), want)
 		}
@@ -111,11 +110,11 @@ func TestAttributeUseCompilationRestrictionMode(t *testing.T) {
 		t.Parallel()
 
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, nil, 1, attributeMergeRestriction)
-		err := compilation.mergeUse(attributeUse{Name: second, Type: 1})
+		err := compilation.mergeUse(attributeUse{Name: second, Type: fixtureRestriction})
 		if err != nil {
 			t.Fatalf("mergeUse() error = %v", err)
 		}
-		want := []attributeUse{{Name: second, Type: 1}}
+		want := []attributeUse{{Name: second, Type: fixtureRestriction}}
 		if !slices.Equal(compilation.uses, want) {
 			t.Fatalf("uses = %#v, want %#v", compilation.uses, want)
 		}
@@ -125,7 +124,7 @@ func TestAttributeUseCompilationRestrictionMode(t *testing.T) {
 		t.Parallel()
 
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, nil, NoWildcard, attributeMergeRestriction)
-		err := compilation.mergeUse(attributeUse{Name: second, Type: 1})
+		err := compilation.mergeUse(attributeUse{Name: second, Type: fixtureRestriction})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 		if compilation.uses != nil {
 			t.Fatalf("rejected restriction changed uses: %#v, want nil", compilation.uses)
@@ -136,7 +135,7 @@ func TestAttributeUseCompilationRestrictionMode(t *testing.T) {
 		t.Parallel()
 
 		compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, nil, 1, attributeMergeRestriction)
-		err := compilation.mergeUse(attributeUse{Name: foreign, Type: 1})
+		err := compilation.mergeUse(attributeUse{Name: foreign, Type: fixtureRestriction})
 		expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 		if compilation.uses != nil {
 			t.Fatalf("rejected restriction changed uses: %#v, want nil", compilation.uses)
@@ -149,12 +148,12 @@ func TestAttributeUseCompilationProhibitionPreservesExplicitUses(t *testing.T) {
 
 	name := QName{Namespace: 1, Local: 1}
 	rt := attributeUseMergeRuntime()
-	actual := attributeUse{Name: name, Type: 1}
+	actual := attributeUse{Name: name, Type: fixtureRestriction}
 	for _, mode := range []attributeMergeMode{attributeMergeDirect, attributeMergeExtension, attributeMergeRestriction} {
 		for _, prohibitFirst := range []bool{true, false} {
 			var inherited []attributeUse
 			if mode == attributeMergeRestriction {
-				inherited = []attributeUse{{Name: name, Type: 0}}
+				inherited = []attributeUse{{Name: name, Type: fixtureRoot}}
 			}
 			compilation := newAttributeUseCompilation(nil, &compiler{rt: *rt.build()}, inherited, NoWildcard, mode)
 			if prohibitFirst {
@@ -181,21 +180,21 @@ func TestAttributeUseCompilationRestrictionWorkFailureAllowsRetry(t *testing.T) 
 	c := &compiler{rt: *rt.build()}
 	exhausted := newWorkBudget(dependencyWorkBudget, 0)
 	c.rt.typeWork = &exhausted
-	compilation := newAttributeUseCompilation(nil, c, []attributeUse{{Name: name, Type: 0, Required: true}}, NoWildcard, attributeMergeRestriction)
+	compilation := newAttributeUseCompilation(nil, c, []attributeUse{{Name: name, Type: fixtureRoot, Required: true}}, NoWildcard, attributeMergeRestriction)
 
-	err := compilation.mergeUse(attributeUse{Name: name, Type: 1, Required: true})
+	err := compilation.mergeUse(attributeUse{Name: name, Type: fixtureRestriction, Required: true})
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaLimit)
-	want := []attributeUse{{Name: name, Type: 0, Required: true}}
+	want := []attributeUse{{Name: name, Type: fixtureRoot, Required: true}}
 	if !slices.Equal(compilation.finalUses(), want) {
 		t.Fatalf("work failure changed uses: %#v, want %#v", compilation.finalUses(), want)
 	}
 
 	sufficient := newWorkBudget(dependencyWorkBudget, 64)
 	c.rt.typeWork = &sufficient
-	if err := compilation.mergeUse(attributeUse{Name: name, Type: 1, Required: true}); err != nil {
+	if err := compilation.mergeUse(attributeUse{Name: name, Type: fixtureRestriction, Required: true}); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
-	want = []attributeUse{{Name: name, Type: 1, Required: true}}
+	want = []attributeUse{{Name: name, Type: fixtureRestriction, Required: true}}
 	if !slices.Equal(compilation.finalUses(), want) {
 		t.Fatalf("retried uses = %#v, want %#v", compilation.finalUses(), want)
 	}
@@ -210,17 +209,13 @@ func TestAttributeUseRestrictionRejectsRequiredBaseOmission(t *testing.T) {
     <xs:attribute name="a" type="xs:string" use="prohibited"/>
   </xs:restriction></xs:complexContent></xs:complexType>
 </xs:schema>`
-	_, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(document))})
+	_, err := compileSources(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(document))})
 	expectDiagnostic(t, err, xsderrors.CategorySchemaCompile, xsderrors.CodeSchemaInvalidAttribute)
 }
 
 func attributeUseMergeRuntime() compiledModelFixture {
 	return compiledModelFixture{
-		simpleDerivations: map[SimpleTypeID]simpleTypeDerivation{
-			0: {Base: NoSimpleType, Variety: valuepkg.Atomic},
-			1: {Base: 0, Variety: valuepkg.Atomic},
-			2: {Base: NoSimpleType, Variety: valuepkg.Atomic},
-		},
+		simpleDerivations: restrictionFixtureTypes(),
 		complexDerivations: map[ComplexTypeID]complexTypeDerivation{
 			0: {Kind: derivationKindNone},
 		},

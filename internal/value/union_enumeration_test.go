@@ -73,12 +73,12 @@ func TestProgramUnionEnumerationEnforcesQNameMemberFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(restricted, "p:item", resolver, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+	v, err := p.Validate(restricted, "p:item", resolver, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("QName member facet forced wrong enum value: %v", err)
 	}
-	if v.SelectedType() != builtinString {
-		t.Fatalf("selected member = %d, want string %d", v.SelectedType(), builtinString)
+	if want := PrimitiveIdentityKey(PrimitiveString, "p:item"); v.IdentityKey() != want {
+		t.Fatalf("identity = %q, want the string member's %q", v.IdentityKey(), want)
 	}
 }
 
@@ -140,12 +140,12 @@ func TestProgramUnionEnumerationEnforcesListItemFacets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := p.Validate(restricted, "x", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+	v, err := p.Validate(restricted, "x", Resolver{}, NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("list item facet forced wrong enum value: %v", err)
 	}
-	if v.SelectedType() != builtinString {
-		t.Fatalf("selected member = %d, want string %d", v.SelectedType(), builtinString)
+	if want := PrimitiveIdentityKey(PrimitiveString, "x"); v.IdentityKey() != want {
+		t.Fatalf("identity = %q, want the string member's %q", v.IdentityKey(), want)
 	}
 }
 
@@ -297,8 +297,8 @@ func TestProgramUnionEnumerationRetainsListMemberItems(t *testing.T) {
 			if (err == nil) != tc.accept {
 				t.Fatalf("validation error = %v, want accepted=%t", err, tc.accept)
 			}
-			if tc.accept && (v.Type() != union || v.SelectedType() != list) {
-				t.Fatalf("value types = (%d, %d), want (%d, %d)", v.Type(), v.SelectedType(), union, list)
+			if tc.accept && v.Type() != union {
+				t.Fatalf("value type = %d, want %d", v.Type(), union)
 			}
 		})
 	}

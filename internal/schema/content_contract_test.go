@@ -16,12 +16,12 @@ func TestNextContentQNameBounds(t *testing.T) {
 		input RuntimeName
 		want  ElementID
 	}{
-		{"first", RuntimeName{Known: true, Name: QName{Namespace: 3, Local: math.MaxUint32 - 4}}, 0},
-		{"last", RuntimeName{Known: true, Name: QName{Namespace: 3, Local: math.MaxUint32 - 1}}, 1},
-		{"different namespace", RuntimeName{Known: true, Name: QName{Namespace: 4, Local: math.MaxUint32 - 1}}, NoElement},
-		{"unknown namespace", RuntimeName{NS: "urn:unknown", Known: false, Name: QName{Namespace: 3, Local: math.MaxUint32 - 1}}, NoElement},
-		{"below", RuntimeName{Known: true, Name: QName{Namespace: 3, Local: 0}}, NoElement},
-		{"hole", RuntimeName{Known: true, Name: QName{Namespace: 3, Local: math.MaxUint32 - 2}}, NoElement},
+		{"first", RuntimeName{known: true, name: QName{Namespace: 3, Local: math.MaxUint32 - 4}}, 0},
+		{"last", RuntimeName{known: true, name: QName{Namespace: 3, Local: math.MaxUint32 - 1}}, 1},
+		{"different namespace", RuntimeName{known: true, name: QName{Namespace: 4, Local: math.MaxUint32 - 1}}, NoElement},
+		{"unknown namespace", RuntimeName{ns: "urn:unknown", known: false, name: QName{Namespace: 3, Local: math.MaxUint32 - 1}}, NoElement},
+		{"below", RuntimeName{known: true, name: QName{Namespace: 3, Local: 0}}, NoElement},
+		{"hole", RuntimeName{known: true, name: QName{Namespace: 3, Local: math.MaxUint32 - 2}}, NoElement},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -46,7 +46,7 @@ func TestNextContentQNameBounds(t *testing.T) {
 		t.Parallel()
 		lower := contentContractBuild(t, []QName{{Local: 10}, {Local: 11}})
 		runtime := contentContractSchema(lower, testCompiledModelReads(lower.CompiledContent.Models))
-		transition, status := runtime.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 12}}}, &ContentScratch{})
+		transition, status := runtime.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{known: true, name: QName{Local: 12}}}, &ContentScratch{})
 		if status != ContentTransitionNoMatch || transition.IsPlanned() {
 			t.Fatalf("above-span name = %+v/%v, want no match", transition, status)
 		}
@@ -69,7 +69,7 @@ func TestNextContentExhaustedNamedCandidateContinuesToWildcard(t *testing.T) {
 			rt := contentContractSchema(build, testCompiledModelReads(build.CompiledContent.Models))
 			rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 			st := ContentState{model: 0, count: 1, present: true}
-			transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
+			transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{known: true, name: QName{Local: 1}}}, &ContentScratch{})
 			kind, _ := transition.Match()
 			if status != contentTransitionMatched || kind != ContentMatchSkip || !transition.Commit(&st, &ContentScratch{}) || st.state != 1 {
 				t.Fatalf("exhausted named candidate = %+v/%v/%v, want wildcard exit", st, status, kind)
@@ -96,7 +96,7 @@ func TestNextContentDuplicateNameKeepsCountedLoopAndExit(t *testing.T) {
 			rt := contentContractSchema(build, reads)
 			st := ContentState{model: 0, present: true}
 			for _, want := range []ContentState{{model: 0, count: 1, present: true}, {model: 0, count: 2, present: true}, {model: 0, state: 1, present: true}} {
-				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
+				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{known: true, name: QName{Local: 1}}}, &ContentScratch{})
 				if status != contentTransitionMatched || !transition.Commit(&st, &ContentScratch{}) || st != want {
 					t.Fatalf("counted transition = %+v/%v, want %+v", st, status, want)
 				}
@@ -163,7 +163,7 @@ func TestNextContentWarmNamedDispatchAllocatesNothing(t *testing.T) {
 			model := compiledModel{Kind: compiledModelDFA, Rows: []compiledModelRow{{Edges: edges}, {Accept: true}}}
 			rt := publishedContentSchema(contentSchemaFixture{models: map[contentModelID]compiledModel{0: model}, elementNames: names})
 			initial := ContentState{model: 0, present: true}
-			input := ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: localNameID(width)}}}
+			input := ContentInput{Name: RuntimeName{known: true, name: QName{Local: localNameID(width)}}}
 			var scratch ContentScratch
 			transition, status := rt.NextContent(initial, input, &scratch)
 			check := func() {

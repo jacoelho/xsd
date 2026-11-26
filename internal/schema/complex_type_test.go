@@ -3,8 +3,6 @@ package schema
 import (
 	"strings"
 	"testing"
-
-	valuepkg "github.com/jacoelho/xsd/internal/value"
 )
 
 func TestDerivationKindValidity(t *testing.T) {
@@ -983,10 +981,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 				Particles: []contentParticle{elementParticle(1, one)},
 			},
 		},
-		simple: []simpleTypeDerivation{
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-			{Base: 0, Variety: valuepkg.Atomic},
-		},
+		simple: restrictionFixtureTypes(),
 	}
 	base := complexTypeMetadata{
 		Content:     baseSeqID,
@@ -1024,12 +1019,12 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			name: "valid simple content restricts simple base",
 			base: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    0,
+				TextType:    fixtureRoot,
 				ContentKind: contentSimple,
 			},
 			derived: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    1,
+				TextType:    fixtureRestriction,
 				ContentKind: contentSimple,
 				Derivation:  derivationKindRestriction,
 			},
@@ -1038,12 +1033,12 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			name: "simple content text type must derive from base",
 			base: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    1,
+				TextType:    fixtureRestriction,
 				ContentKind: contentSimple,
 			},
 			derived: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    0,
+				TextType:    fixtureRoot,
 				ContentKind: contentSimple,
 				Derivation:  derivationKindRestriction,
 			},
@@ -1058,7 +1053,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			},
 			derived: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    0,
+				TextType:    fixtureRoot,
 				ContentKind: contentSimple,
 				Derivation:  derivationKindRestriction,
 			},
@@ -1072,7 +1067,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			},
 			derived: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    0,
+				TextType:    fixtureRoot,
 				ContentKind: contentSimple,
 				Derivation:  derivationKindRestriction,
 			},
@@ -1082,7 +1077,7 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 			name: "complex content cannot drop simple base",
 			base: complexTypeMetadata{
 				Content:     emptyID,
-				TextType:    0,
+				TextType:    fixtureRoot,
 				ContentKind: contentSimple,
 			},
 			derived: derived,
@@ -1111,23 +1106,17 @@ func TestValidateComplexTypeRestrictionRuntime(t *testing.T) {
 func TestValidateSimpleContentRestrictionTextType(t *testing.T) {
 	t.Parallel()
 
-	rt := derivationFixture{
-		simple: []simpleTypeDerivation{
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-			{Base: 0, Variety: valuepkg.Atomic},
-			{Base: NoSimpleType, Variety: valuepkg.Atomic},
-		},
-	}
+	rt := derivationFixture{simple: restrictionFixtureTypes()}
 	tests := []struct {
 		name    string
 		wantErr string
 		derived SimpleTypeID
 		base    SimpleTypeID
 	}{
-		{name: "mixed base has no text type", derived: 2, base: NoSimpleType},
-		{name: "derived text type restricts base", derived: 1, base: 0},
-		{name: "same text type", derived: 0, base: 0},
-		{name: "unrelated text type", derived: 2, base: 0, wantErr: "simpleContent restriction type is not derived from base"},
+		{name: "mixed base has no text type", derived: fixtureUnrelated, base: NoSimpleType},
+		{name: "derived text type restricts base", derived: fixtureRestriction, base: fixtureRoot},
+		{name: "same text type", derived: fixtureRoot, base: fixtureRoot},
+		{name: "unrelated text type", derived: fixtureUnrelated, base: fixtureRoot, wantErr: "simpleContent restriction type is not derived from base"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

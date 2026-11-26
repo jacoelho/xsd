@@ -102,7 +102,7 @@ func wildcardWorkSchema(body string) string {
 func minimumCompileLimit(t *testing.T, document string, limit func(int) xsdSchema.Options) int {
 	t.Helper()
 	compiles := func(steps int) bool {
-		_, err := xsdSchema.Compile(limit(steps), []source.Source{source.Bytes("schema.xsd", []byte(document))})
+		_, err := compileSources(limit(steps), []source.Source{source.Bytes("schema.xsd", []byte(document))})
 		if err == nil {
 			return true
 		}

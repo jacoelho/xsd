@@ -3,6 +3,7 @@ package schema
 import (
 	"math"
 
+	"github.com/jacoelho/xsd/internal/diagnostictext"
 	"github.com/jacoelho/xsd/internal/value"
 )
 
@@ -272,27 +273,33 @@ func validIdentityConstraintID(id IdentityConstraintID, n int) bool {
 }
 
 // RuntimeName is an XML name resolved against the runtime name table when known.
+// The zero value is the absent name. Build one with Schema.ResolveName.
 type RuntimeName struct {
-	NS    string
-	Local string
-	Name  QName
-	Known bool
+	ns    string
+	local string
+	name  QName
+	known bool
 }
 
-// Label formats the runtime name for diagnostics.
-func (n RuntimeName) Label() string {
-	if n.Known || n.NS == "" {
-		return n.Local
-	}
-	return formatExpandedName(n.NS, n.Local)
+// Namespace returns the namespace URI of n.
+func (n RuntimeName) Namespace() string { return n.ns }
+
+// Local returns the local name of n.
+func (n RuntimeName) Local() string { return n.local }
+
+// QName returns the runtime QName of n and whether the schema knows it.
+func (n RuntimeName) QName() (QName, bool) { return n.name, n.known }
+
+// Quoted renders n as a quoted expanded name for diagnostics.
+func (n RuntimeName) Quoted() string {
+	return diagnostictext.ExpandedName(n.ns, n.local)
 }
 
-// formatExpandedName formats a namespace URI and local name as an expanded XML name.
-func formatExpandedName(ns, local string) string {
-	if ns == "" {
-		return local
-	}
-	return "{" + ns + "}" + local
+// ResolveName returns the runtime name for a namespace URI and local name,
+// known when the schema's name table interns both.
+func (rt *Schema) ResolveName(ns, local string) RuntimeName {
+	q, ok := rt.LookupQName(ns, local)
+	return RuntimeName{ns: ns, local: local, name: q, known: ok}
 }
 
 // identityConstraintSpec is canonical construction metadata for an XSD identity constraint.

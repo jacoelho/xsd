@@ -27,9 +27,9 @@ func qualifiedValueAPIs(p *Program) []qualifiedValueAPI {
 
 func assertUnprojectedQualifiedValue(t *testing.T, got Value, id TypeID) {
 	t.Helper()
-	if got.Type() != id || got.SelectedType() != NoType || !got.HasQualifiedNames() || got.HasIdentity() ||
+	if got.Type() != id || !got.HasQualifiedNames() || got.HasIdentity() ||
 		got.CanonicalText() != "" || got.IdentityKey() != "" || got.IDs() != "" || got.IDRefs() != "" {
-		t.Fatalf("unprojected qualified value = %#v, want type %d, NoType selection and only qualified-name metadata", got, id)
+		t.Fatalf("unprojected qualified value = %#v, want type %d and only qualified-name metadata", got, id)
 	}
 }
 

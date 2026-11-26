@@ -68,7 +68,7 @@ var xsd11Contexts = map[string]string{
 }
 
 func compileXSD11TestSchema(schema string) error {
-	compiled, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	compiled, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err == nil && compiled == nil {
 		return errors.New("Compile returned neither a schema nor an error")
 	}

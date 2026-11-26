@@ -1484,3 +1484,57 @@ func hasSchemaLimitCode(err error) bool {
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	return ok && diagnostic.Code() == xsderrors.CodeSchemaLimit
 }
+
+func TestResolveFromFileBaseProjectsAdmittedReferences(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	base := NewReferenceBase(filepath.Join(dir, "a.xsd"))
+	tests := []struct {
+		name      string
+		reference string
+		want      string
+	}{
+		{name: "relative", reference: "b.xsd", want: filepath.Join(dir, "b.xsd")},
+		{name: "percent-escaped", reference: "b%20c.xsd", want: filepath.Join(dir, "b c.xsd")},
+		{name: "invalid port", reference: "http://h:abc/x.xsd"},
+		{name: "escaped host", reference: "http://a%41b/x.xsd"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			resolution, err := Bytes("a.xsd", nil).ResolveFrom(base, mustURIReference(t, test.reference))
+			if err != nil {
+				t.Fatalf("ResolveFrom() error = %v", err)
+			}
+			if got := resolution.Target(); got != test.want {
+				t.Fatalf("ResolveFrom() target = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func FuzzResolveFromAdmittedReferences(f *testing.F) {
+	for _, reference := range []string{"http://h:abc/x.xsd", "http://a%41b/x.xsd", "http://h:abc/", "b.xsd", "../c.xsd", "?q", "file:///x.xsd"} {
+		f.Add("a/b.xsd", reference)
+		f.Add("http://h/a/b.xsd", reference)
+	}
+	f.Fuzz(func(t *testing.T, rawBase, rawReference string) {
+		reference, err := uriref.Parse(rawReference)
+		if err != nil {
+			return
+		}
+		baseReference, err := uriref.Parse(rawBase)
+		if err != nil {
+			return
+		}
+		base, err := NewReferenceBase(rawBase).WithXMLBase(baseReference)
+		if err != nil {
+			t.Fatalf("WithXMLBase(%q) error = %v", rawBase, err)
+		}
+		if _, err := Bytes("a.xsd", nil).ResolveFrom(base, reference); err != nil {
+			t.Fatalf("ResolveFrom(%q, %q) error = %v", rawBase, rawReference, err)
+		}
+	})
+}

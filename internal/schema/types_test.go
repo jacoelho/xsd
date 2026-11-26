@@ -5,38 +5,53 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+
+	"github.com/jacoelho/xsd/internal/diagnostictext"
+	"github.com/jacoelho/xsd/internal/source"
 )
 
-func TestRuntimeNameLabel(t *testing.T) {
+func compileRuntimeNameFixture(t *testing.T) *Schema {
+	t.Helper()
+	rt, err := compileSources(Options{}, []source.Source{source.Bytes("names.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:a" xmlns:a="urn:a">
+<xs:element name="r"><xs:complexType>
+<xs:attribute name="x" form="qualified" type="xs:string"/>
+<xs:attribute name="y" type="xs:string"/>
+</xs:complexType></xs:element></xs:schema>`))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rt
+}
+
+func TestRuntimeNameQuoted(t *testing.T) {
 	t.Parallel()
 
+	rt := compileRuntimeNameFixture(t)
+	qualified := rt.ResolveName("urn:a", "x")
+	if _, ok := qualified.QName(); !ok {
+		t.Fatal("fixture lacks {urn:a}x")
+	}
+	unqualified := rt.ResolveName("", "y")
+	if _, ok := unqualified.QName(); !ok {
+		t.Fatal("fixture lacks y")
+	}
 	tests := []struct {
 		name string
 		want string
 		in   RuntimeName
 	}{
-		{
-			name: "known names use local label",
-			in:   RuntimeName{Known: true, NS: "urn:test", Local: "item"},
-			want: "item",
-		},
-		{
-			name: "unknown names use expanded label",
-			in:   RuntimeName{NS: "urn:test", Local: "item"},
-			want: "{urn:test}item",
-		},
-		{
-			name: "empty namespace uses local label",
-			in:   RuntimeName{Local: "item"},
-			want: "item",
-		},
+		{name: "known qualified", in: qualified, want: `"{urn:a}x"`},
+		{name: "known unqualified", in: unqualified, want: `"y"`},
+		{name: "unknown qualified", in: rt.ResolveName("urn:missing", "item"), want: `"{urn:missing}item"`},
+		{name: "unknown unqualified", in: rt.ResolveName("", "missing"), want: `"missing"`},
+		{name: "zero", in: RuntimeName{}, want: diagnostictext.Quote("")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := tt.in.Label(); got != tt.want {
-				t.Fatalf("Label() = %q, want %q", got, tt.want)
+			if got := tt.in.Quoted(); got != tt.want {
+				t.Fatalf("Quoted() = %s, want %s", got, tt.want)
 			}
 		})
 	}

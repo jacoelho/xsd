@@ -9,15 +9,16 @@ import (
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func identityValueForTest(tb testing.TB, typeName, lexical string, needs value.Needs) value.Value {
 	tb.Helper()
-	id, ok := value.BuiltinTypeID(typeName)
+	id, ok := builtinTypeID(typeName)
 	if !ok {
-		tb.Fatalf("BuiltinTypeID(%q) failed", typeName)
+		tb.Fatalf("builtinTypeID(%q) failed", typeName)
 	}
 	program, err := sealAll(value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62}))
 	if err != nil {
@@ -87,9 +88,9 @@ func (identityTestPathSource) retainedPathString(path retainedPath) string {
 }
 
 func identityTestContext(path string, line, column int) startContext {
-	source := identityTestPathSource{text: path, path: explicitRetainedPath(path)}
+	pathSource := identityTestPathSource{text: path, path: explicitRetainedPath(path)}
 	return startContext{
-		document: source,
+		document: pathSource,
 		Path:     path,
 		Line:     line,
 		Column:   column,
@@ -442,10 +443,7 @@ func TestIdentityStateLimitFailuresDoNotAppendOrInsert(t *testing.T) {
 func TestIdentityStateResetClearsAndDropsOversizedState(t *testing.T) {
 	t.Parallel()
 
-	constraints, ok := xsdSchema.ElementIdentityConstraintIDs([][]xsdSchema.IdentityConstraintID{{1}}, 0)
-	if !ok {
-		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
-	}
+	constraints := scopeIdentityConstraintsForTest(t, 1)
 	state := identityState{
 		ids: map[string]retainedPath{"a": explicitRetainedPath("/id")},
 		idrefs: append(make([]identityRef, 0, 2),
@@ -561,10 +559,7 @@ func TestIdentityStateStartScopeEnforcesLimit(t *testing.T) {
 
 	var state identityState
 	const id xsdSchema.IdentityConstraintID = 1
-	constraints, ok := xsdSchema.ElementIdentityConstraintIDs([][]xsdSchema.IdentityConstraintID{{id}}, 0)
-	if !ok {
-		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
-	}
+	constraints := scopeIdentityConstraintsForTest(t, id)
 	ctx := identityTestContext("/root", 2, 3)
 	if err := state.startScope(ctx, constraints, 1, 1); err != nil {
 		t.Fatalf("startScope(first) error = %v", err)
@@ -1087,15 +1082,55 @@ func closeIdentityScopesForTest(s *identityState, depth int, report func(error) 
 
 func startIdentityScope(t *testing.T, state *identityState, constraints []xsdSchema.IdentityConstraintID, depth int, path string) {
 	t.Helper()
-	const elem xsdSchema.ElementID = 0
-	constraintIDs, ok := xsdSchema.ElementIdentityConstraintIDs([][]xsdSchema.IdentityConstraintID{constraints}, elem)
-	if !ok {
-		t.Fatal("ElementIdentityConstraintIDs() rejected test fixture")
-	}
-	err := state.startScope(identityTestContext(path, 0, 0), constraintIDs, depth, 0)
+	err := state.startScope(identityTestContext(path, 0, 0), scopeIdentityConstraintsForTest(t, constraints...), depth, 0)
 	if err != nil {
 		t.Fatalf("startScope(depth=%d) error = %v", depth, err)
 	}
+}
+
+// scopeIdentityConstraintsForTest returns the constraints a compiled schema
+// attaches to its scope element, which declares ids; ids must ascend without
+// gaps, because the compiler numbers constraints in document order and the
+// preceding filler elements take the lower IDs.
+func scopeIdentityConstraintsForTest(tb testing.TB, ids ...xsdSchema.IdentityConstraintID) xsdSchema.IdentityConstraintIDs {
+	tb.Helper()
+	if len(ids) == 0 {
+		tb.Fatal("scope needs at least one identity constraint")
+	}
+	unique := func(id int) string {
+		return `<xs:unique name="u` + strconv.Itoa(id) + `"><xs:selector xpath="."/><xs:field xpath="."/></xs:unique>`
+	}
+	var b strings.Builder
+	b.WriteString(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`)
+	for id := range int(ids[0]) {
+		b.WriteString(`<xs:element name="filler` + strconv.Itoa(id) + `" type="xs:string">` + unique(id) + `</xs:element>`)
+	}
+	b.WriteString(`<xs:element name="scope" type="xs:string">`)
+	for index, id := range ids {
+		if id != ids[0]+xsdSchema.IdentityConstraintID(index) {
+			tb.Fatalf("scope identity constraints %v do not ascend without gaps", ids)
+		}
+		b.WriteString(unique(int(id)))
+	}
+	b.WriteString(`</xs:element></xs:schema>`)
+	rt, err := compileSources([]source.Source{source.Bytes("scope.xsd", []byte(b.String()))})
+	if err != nil {
+		tb.Fatalf("compile scope schema: %v", err)
+	}
+	element, _, ok := rt.GlobalElement(rt.ResolveName("", "scope"))
+	if !ok {
+		tb.Fatal("scope element is missing")
+	}
+	constraints, ok := rt.ElementIdentityConstraints(element)
+	if !ok || constraints.Len() != len(ids) {
+		tb.Fatalf("scope constraints = %d, %v; want %v", constraints.Len(), ok, ids)
+	}
+	for index, want := range ids {
+		if got, _ := constraints.At(index); got != want {
+			tb.Fatalf("scope constraint %d = %d, want %d", index, got, want)
+		}
+	}
+	return constraints
 }
 
 func captureIdentityField(t *testing.T, state *identityState, selection int, lexical string) {

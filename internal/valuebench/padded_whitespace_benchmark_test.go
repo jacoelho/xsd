@@ -25,9 +25,9 @@ func BenchmarkPaddedValue(b *testing.B) {
 		{local: "double", lexical: "1.5E3", invalid: "abc"},
 		{local: "NMTOKEN", lexical: "alpha", invalid: "a b"},
 	} {
-		id, ok := value.BuiltinTypeID(typ.local)
+		id, ok := builtinTypeID(typ.local)
 		if !ok {
-			b.Fatalf("BuiltinTypeID(%q) missing", typ.local)
+			b.Fatalf("builtinTypeID(%q) missing", typ.local)
 		}
 		shapes := []struct{ name, text string }{
 			{name: "plain", text: typ.lexical},

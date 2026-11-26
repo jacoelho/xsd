@@ -168,7 +168,7 @@ func TestCompileAppliesStateLimitOnlyToComplexTypeContent(t *testing.T) {
 		text := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + repeat + `
   <xs:element name="r"><xs:complexType>` + content + `</xs:complexType></xs:element>
 </xs:schema>`
-		_, err := xsdSchema.Compile(xsdSchema.Options{MaxContentModelStates: 8}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+		_, err := compileSources(xsdSchema.Options{MaxContentModelStates: 8}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
 		return err
 	}
 	if err := compile(`<xs:sequence><xs:element name="a"/></xs:sequence>`); err != nil {

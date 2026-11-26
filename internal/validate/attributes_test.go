@@ -1,13 +1,10 @@
 package validate
 
 import (
-	"encoding/xml"
 	"strings"
 	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
-	"github.com/jacoelho/xsd/internal/vocab"
-	"github.com/jacoelho/xsd/internal/xmlstream"
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
@@ -79,11 +76,7 @@ func TestMatchAttributeWildcard(t *testing.T) {
   <xs:element name="local"><xs:complexType><xs:anyAttribute namespace="##local" processContents="strict"/></xs:complexType></xs:element>
 </xs:schema>`)
 	wildcard := func(local string) xsdSchema.WildcardID {
-		q, ok := rt.LookupQName("urn:test", local)
-		if !ok {
-			t.Fatalf("missing element name %s", local)
-		}
-		_, info, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: q, NS: "urn:test", Local: local})
+		_, info, ok := rt.GlobalElement(resolveKnownNameForTest(t, rt, "urn:test", local))
 		if !ok {
 			t.Fatalf("missing element %s", local)
 		}
@@ -101,10 +94,7 @@ func TestMatchAttributeWildcard(t *testing.T) {
 	if !found || !valid {
 		t.Fatalf("global attribute = found %v, valid %v", found, valid)
 	}
-	missingName, ok := rt.LookupQName("urn:test", "strict")
-	if !ok {
-		t.Fatal("missing known non-attribute name")
-	}
+	missingName := resolveKnownNameForTest(t, rt, "urn:test", "strict")
 	tests := []struct {
 		name     string
 		wildcard xsdSchema.WildcardID
@@ -124,41 +114,41 @@ func TestMatchAttributeWildcard(t *testing.T) {
 		{
 			name:     "namespace not allowed",
 			wildcard: wildcard("local"),
-			rn:       xsdSchema.RuntimeName{NS: "urn:not-local", Local: "x"},
+			rn:       rt.ResolveName("urn:not-local", "x"),
 			valid:    true,
 		},
 		{
 			name:     "skip",
 			wildcard: wildcard("skip"),
-			rn:       xsdSchema.RuntimeName{NS: "urn:any", Local: "x"},
+			rn:       rt.ResolveName("urn:any", "x"),
 			want:     attributeWildcardMatch{disposition: attributeWildcardSkip},
 			valid:    true,
 		},
 		{
 			name:     "lax missing",
 			wildcard: wildcard("lax"),
-			rn:       xsdSchema.RuntimeName{NS: "urn:any", Local: "x"},
+			rn:       rt.ResolveName("urn:any", "x"),
 			want:     attributeWildcardMatch{disposition: attributeWildcardLaxMissing},
 			valid:    true,
 		},
 		{
 			name:     "lax known missing global",
 			wildcard: wildcard("lax"),
-			rn:       xsdSchema.RuntimeName{Known: true, Name: missingName, NS: "urn:test", Local: "strict"},
+			rn:       missingName,
 			want:     attributeWildcardMatch{disposition: attributeWildcardLaxMissing},
 			valid:    true,
 		},
 		{
 			name:     "strict missing",
 			wildcard: wildcard("strict"),
-			rn:       xsdSchema.RuntimeName{NS: "urn:any", Local: "x"},
+			rn:       rt.ResolveName("urn:any", "x"),
 			want:     attributeWildcardMatch{disposition: attributeWildcardStrictMissing},
 			valid:    true,
 		},
 		{
 			name:     "known global",
 			wildcard: wildcard("strict"),
-			rn:       xsdSchema.RuntimeName{Known: true, Name: knownName, NS: "urn:test", Local: "known"},
+			rn:       rt.ResolveName("urn:test", "known"),
 			want:     attributeWildcardMatch{attribute: knownID, disposition: attributeWildcardDeclared},
 			valid:    true,
 		},
@@ -186,20 +176,6 @@ func TestRelativeNamespaceAttributeIsNotReservedOrDropped(t *testing.T) {
   </xs:element>
 </xs:schema>`
 	rt := compileRuntimeForTest(t, schema)
-	session, err := newSessionForTest(rt, Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := &session.session
-	declaration := xmlstream.NewAttr(xml.Name{Space: vocab.XMLNSNamespaceURI, Local: "p"}, "xmlns")
-	ordinary := xmlstream.NewAttr(xml.Name{Space: vocab.XMLNSPrefix, Local: "value"}, "v")
-	if handled, reservedErr := s.validateReservedAttribute(&declaration, 1, 1); reservedErr != nil || !handled {
-		t.Fatalf("expanded namespace declaration = handled %v, error %v; want handled without error", handled, reservedErr)
-	}
-	if handled, reservedErr := s.validateReservedAttribute(&ordinary, 1, 1); reservedErr != nil || handled {
-		t.Fatalf("ordinary relative-namespace attribute = handled %v, error %v; want ordinary without error", handled, reservedErr)
-	}
-
 	integrationSession, err := newSessionForTest(rt, Options{})
 	if err != nil {
 		t.Fatal(err)

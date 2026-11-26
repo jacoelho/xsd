@@ -2,10 +2,16 @@ package validate
 
 import (
 	"encoding/xml"
+	"testing"
 
 	xsdSchema "github.com/jacoelho/xsd/internal/schema"
+	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/value"
 )
+
+func compileSources(sources []source.Source) (*xsdSchema.Schema, error) {
+	return xsdSchema.CompileMappedSources(xsdSchema.Options{}, sources, func(src source.Source) source.Source { return src })
+}
 
 func newSessionForTest(rt *xsdSchema.Schema, opts Options) (*Session, error) {
 	return NewSessionPool(rt).NewSession(opts)
@@ -52,8 +58,14 @@ type IdentityRecorderForTest struct {
 }
 
 // NewIdentityRecorderForTest creates a benchmark identity recorder.
-func NewIdentityRecorderForTest() *IdentityRecorderForTest {
+func NewIdentityRecorderForTest(tb testing.TB) *IdentityRecorderForTest {
+	tb.Helper()
+	rt, err := compileSources([]source.Source{source.Bytes("recorder.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`))})
+	if err != nil {
+		tb.Fatal(err)
+	}
 	recorder := &IdentityRecorderForTest{}
+	recorder.session.rt = rt
 	recorder.session.doc.identity.limits = identityLimits{
 		Entries:    defaultMaxIdentityEntries,
 		TupleBytes: defaultMaxIdentityTupleBytes,
@@ -67,7 +79,7 @@ func (r *IdentityRecorderForTest) PushPath(local string) {
 	r.session.doc.CommitStart(start, frame{})
 	if err := r.session.doc.identity.startElement(identityElementStart{
 		Context: r.session.startContext(1, 1),
-		Name:    xsdSchema.RuntimeName{Local: local},
+		Name:    r.session.rt.ResolveName("", local),
 		Element: xsdSchema.NoElement,
 		Mode:    elementAssessed,
 	}); err != nil {

@@ -57,14 +57,14 @@ func TestDenseDFAUsesFullQNameAndBounds(t *testing.T) {
 		input RuntimeName
 		want  ElementID
 	}{
-		{"first", RuntimeName{Known: true, Name: QName{Namespace: 1000, Local: math.MaxUint32 - 32}}, 0},
-		{"middle", RuntimeName{Known: true, Name: QName{Namespace: 1000, Local: math.MaxUint32 - 16}}, 8},
-		{"last", RuntimeName{Known: true, Name: QName{Namespace: 1000, Local: math.MaxUint32 - 2}}, 15},
-		{"other namespace", RuntimeName{Known: true, Name: QName{Namespace: 1001, Local: math.MaxUint32 - 2}}, NoElement},
-		{"unknown", RuntimeName{NS: "urn:unknown", Name: QName{Namespace: 1000, Local: math.MaxUint32 - 2}}, NoElement},
-		{"below", RuntimeName{Known: true, Name: QName{Namespace: 1000, Local: 0}}, NoElement},
-		{"hole", RuntimeName{Known: true, Name: QName{Namespace: 1000, Local: math.MaxUint32 - 3}}, NoElement},
-		{"above", RuntimeName{Known: true, Name: QName{Namespace: 1000, Local: math.MaxUint32 - 1}}, NoElement},
+		{"first", RuntimeName{known: true, name: QName{Namespace: 1000, Local: math.MaxUint32 - 32}}, 0},
+		{"middle", RuntimeName{known: true, name: QName{Namespace: 1000, Local: math.MaxUint32 - 16}}, 8},
+		{"last", RuntimeName{known: true, name: QName{Namespace: 1000, Local: math.MaxUint32 - 2}}, 15},
+		{"other namespace", RuntimeName{known: true, name: QName{Namespace: 1001, Local: math.MaxUint32 - 2}}, NoElement},
+		{"unknown", RuntimeName{ns: "urn:unknown", name: QName{Namespace: 1000, Local: math.MaxUint32 - 2}}, NoElement},
+		{"below", RuntimeName{known: true, name: QName{Namespace: 1000, Local: 0}}, NoElement},
+		{"hole", RuntimeName{known: true, name: QName{Namespace: 1000, Local: math.MaxUint32 - 3}}, NoElement},
+		{"above", RuntimeName{known: true, name: QName{Namespace: 1000, Local: math.MaxUint32 - 1}}, NoElement},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -102,7 +102,7 @@ func TestDenseDFAUniqueCountedRowPreservesAdmission(t *testing.T) {
 	}
 	rt := contentContractSchema(build, reads)
 	st := ContentState{model: 0, present: true}
-	input := ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}
+	input := ContentInput{Name: RuntimeName{known: true, name: QName{Local: 1}}}
 	transition, status := rt.NextContent(st, input, &ContentScratch{})
 	if status != contentTransitionMatched || !transition.Commit(&st, &ContentScratch{}) || st.count != 1 {
 		t.Fatalf("first counted match = %+v/%v", st, status)
@@ -149,7 +149,7 @@ func TestDenseDFAExcludesWildcardAndAmbiguousRows(t *testing.T) {
 			if !ambiguous {
 				rt := contentContractSchema(build, reads)
 				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
-				transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{NS: "urn:unknown"}}, &ContentScratch{})
+				transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{ns: "urn:unknown"}}, &ContentScratch{})
 				kind, _ := transition.Match()
 				if status != contentTransitionMatched || kind != ContentMatchSkip {
 					t.Fatalf("wildcard fallback = %v/%v, want skip", status, kind)
@@ -197,7 +197,7 @@ func TestDenseDFAEffectiveSubstitutionReturnsActualMember(t *testing.T) {
 				t.Fatal("wide contiguous substitution row was not admitted")
 			}
 			rt := contentContractSchema(build, reads)
-			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: elements[16].Name}}, &ContentScratch{})
+			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{known: true, name: elements[16].Name}}, &ContentScratch{})
 			kind, member := transition.Match()
 			if exclusion == "none" {
 				if status != contentTransitionMatched || kind != ContentMatchDeclared || member != 16 {
@@ -212,7 +212,7 @@ func TestDenseDFAEffectiveSubstitutionReturnsActualMember(t *testing.T) {
 
 func TestPublishedWidthSixteenContentDispatchIsDense(t *testing.T) {
 	t.Parallel()
-	published, err := Compile(Options{}, []source.Source{source.Bytes("choice-sixteen.xsd", []byte(publishedWidthSixteenSchema))})
+	published, err := compileSources(Options{}, []source.Source{source.Bytes("choice-sixteen.xsd", []byte(publishedWidthSixteenSchema))})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestPublishedWidthSixteenContentDispatchIsDense(t *testing.T) {
 		if !known {
 			t.Fatalf("missing child QName n%d", i)
 		}
-		transition, status := published.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: name}}, &scratch)
+		transition, status := published.NextContent(st, ContentInput{Name: RuntimeName{known: true, name: name}}, &scratch)
 		kind, element := transition.Match()
 		actualName, declared := published.program.Elements.name(element)
 		if status != contentTransitionMatched || kind != ContentMatchDeclared || !declared || actualName != name || !transition.Commit(&st, &scratch) {
@@ -272,12 +272,12 @@ func TestPublishedMapIndexPreservesWildcardOrder(t *testing.T) {
 				rt := contentContractSchema(build, testCompiledModelReads(build.CompiledContent.Models))
 				rt.program.Wildcards = []WildcardView{newWildcardView(nil, &wildcardRuntime{Mode: WildcardAny, Process: ProcessSkip})}
 				st := ContentState{model: 0, present: true}
-				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{Known: true, Name: QName{Local: 1}}}, &ContentScratch{})
+				transition, status := rt.NextContent(st, ContentInput{Name: RuntimeName{known: true, name: QName{Local: 1}}}, &ContentScratch{})
 				kind, element := transition.Match()
 				if status != contentTransitionMatched || (before && kind != ContentMatchSkip) || (!before && (kind != ContentMatchDeclared || element != 0)) {
 					t.Fatalf("ordered fallback = %v/%v/%v", status, kind, element)
 				}
-				transition, status = rt.NextContent(st, ContentInput{Name: RuntimeName{NS: "urn:unknown"}}, &ContentScratch{})
+				transition, status = rt.NextContent(st, ContentInput{Name: RuntimeName{ns: "urn:unknown"}}, &ContentScratch{})
 				kind, _ = transition.Match()
 				if status != contentTransitionMatched || kind != ContentMatchSkip {
 					t.Fatalf("unknown-name fallback = %v/%v, want wildcard skip", status, kind)
@@ -400,7 +400,7 @@ func TestDenseDFAConversionOwnsOneRepresentation(t *testing.T) {
 			}
 			rt := contentContractSchema(build, reads)
 			build.Elements[15].Name = QName{Local: 99}
-			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{Known: true, Name: names[15]}}, &ContentScratch{})
+			transition, status := rt.NextContent(ContentState{model: 0, present: true}, ContentInput{Name: RuntimeName{known: true, name: names[15]}}, &ContentScratch{})
 			kind, element := transition.Match()
 			if status != contentTransitionMatched || kind != ContentMatchDeclared || element != 15 {
 				t.Fatalf("source alias changed publication = %v/%v/%v", status, kind, element)
@@ -425,7 +425,7 @@ func TestIdentityXPathNamesDoNotChangeWhichContentModelRowsAreDense(t *testing.T
 			`</xs:choice></xs:complexType>` + identity + `</xs:element></xs:schema>`
 	}
 	denseRows := func(text string) int {
-		rt, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+		rt, err := compileSources(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}
@@ -471,7 +471,7 @@ func TestIdentityConstraintNamesDoNotChangeWhichContentModelRowsAreDense(t *test
 			`<xs:element name="root" type="B">` + identity + `</xs:element></xs:schema>`
 	}
 	denseRows := func(text string) int {
-		rt, err := Compile(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
+		rt, err := compileSources(Options{}, []source.Source{source.Bytes("schema.xsd", []byte(text))})
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)
 		}

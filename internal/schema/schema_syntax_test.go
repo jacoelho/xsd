@@ -3,6 +3,7 @@ package schema
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -11,9 +12,38 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func testRawNode(name xml.Name, attrs []xmlstream.Attr) *schemaSyntaxNode {
-	// Test attributes are owned (NewAttr), so a zero Reader never materializes.
-	normalized, err := schemaAttributesStream(new(xmlstream.Reader), name, attrs)
+func testRawNode(name xml.Name, attrs []testSchemaAttr) *schemaSyntaxNode {
+	var tag strings.Builder
+	tag.WriteString(`<e:` + name.Local + ` xmlns:e="` + name.Space + `"`)
+	for i, attr := range attrs {
+		tag.WriteByte(' ')
+		switch attr.namespace {
+		case "":
+		case vocab.XMLNamespaceURI:
+			tag.WriteString("xml:")
+		default:
+			prefix := fmt.Sprintf("a%d", i)
+			tag.WriteString(`xmlns:` + prefix + `="` + attr.namespace + `" ` + prefix + ":")
+		}
+		tag.WriteString(attr.local + `="`)
+		if err := xml.EscapeText(&tag, []byte(attr.value)); err != nil {
+			panic(err)
+		}
+		tag.WriteByte('"')
+	}
+	tag.WriteString("/>")
+	var reader xmlstream.Reader
+	if err := reader.Reset(strings.NewReader(tag.String()), xmlstream.Config{}); err != nil {
+		panic(err)
+	}
+	token, err := reader.Next()
+	if err != nil {
+		panic(err)
+	}
+	if _, _, startErr := reader.Start(); startErr != nil {
+		panic(startErr)
+	}
+	normalized, err := schemaAttributesStream(&reader, name, token.Start.Attr)
 	if err != nil {
 		panic(err)
 	}
@@ -23,12 +53,16 @@ func testRawNode(name xml.Name, attrs []xmlstream.Attr) *schemaSyntaxNode {
 	}
 }
 
-func testXSDRawNode(local string, attrs []xmlstream.Attr) *schemaSyntaxNode {
+func testXSDRawNode(local string, attrs []testSchemaAttr) *schemaSyntaxNode {
 	return testRawNode(xml.Name{Space: vocab.XSDNamespaceURI, Local: local}, attrs)
 }
 
-func testRawAttr(namespace, local, value string) xmlstream.Attr {
-	return xmlstream.NewAttr(xml.Name{Space: namespace, Local: local}, value)
+type testSchemaAttr struct {
+	namespace, local, value string
+}
+
+func testRawAttr(namespace, local, value string) testSchemaAttr {
+	return testSchemaAttr{namespace: namespace, local: local, value: value}
 }
 
 type schemaStartFixture struct {
@@ -258,28 +292,28 @@ func TestSchemaAnnotationStartAttributes(t *testing.T) {
 	tests := []struct {
 		name     string
 		local    string
-		attrs    []xmlstream.Attr
+		attrs    []testSchemaAttr
 		validate func(*schemaSyntaxNode) error
 		wantMsg  string
 	}{
 		{
 			name: "annotation allows id attr", local: annotationChild,
-			attrs:    []xmlstream.Attr{testRawAttr("", vocab.XSDAttrID, "a1")},
+			attrs:    []testSchemaAttr{testRawAttr("", vocab.XSDAttrID, "a1")},
 			validate: checkElementChildAttributes,
 		},
 		{
 			name: "annotation rejects local attr", local: annotationChild,
-			attrs:    []xmlstream.Attr{testRawAttr("", "foo", "")},
+			attrs:    []testSchemaAttr{testRawAttr("", "foo", "")},
 			validate: checkElementChildAttributes, wantMsg: "\"annotation\" cannot have attribute \"foo\"",
 		},
 		{
 			name: "documentation valid lang", local: vocab.XSDElemDocumentation,
-			attrs:    []xmlstream.Attr{testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, "en-US")},
+			attrs:    []testSchemaAttr{testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, "en-US")},
 			validate: checkElementChildAttributes,
 		},
 		{
 			name: "documentation invalid lang", local: vocab.XSDElemDocumentation,
-			attrs:    []xmlstream.Attr{testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, " ")},
+			attrs:    []testSchemaAttr{testRawAttr(vocab.XMLNamespaceURI, vocab.XMLAttrLang, " ")},
 			validate: checkElementChildAttributes, wantMsg: "invalid xml:lang on xs:documentation",
 		},
 	}

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test"
+           targetNamespace="urn:test"
+           elementFormDefault="qualified">
+  <xs:simpleType name="U1">
+    <xs:union memberTypes="xs:int xs:date"/>
+  </xs:simpleType>
+  <xs:simpleType name="U2">
+    <xs:restriction base="tns:U1"/>
+  </xs:simpleType>
+  <xs:element name="root" type="tns:U2"/>
+</xs:schema>

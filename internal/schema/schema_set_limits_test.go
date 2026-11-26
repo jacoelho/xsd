@@ -88,7 +88,7 @@ func TestSchemaSetAggregateLimits(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := Compile(tt.opts, []source.Source{root})
+			_, err := compileSources(tt.opts, []source.Source{root})
 			if !tt.wantErr {
 				if err != nil {
 					t.Fatalf("Compile() error = %v", err)
@@ -116,7 +116,7 @@ func TestSchemaTotalByteLimitPreservesAcquisitionErrors(t *testing.T) {
 
 	t.Run("first load", func(t *testing.T) {
 		t.Parallel()
-		_, err := Compile(Options{MaxSchemaSourceBytes: 100, MaxSchemaTotalBytes: 1},
+		_, err := compileSources(Options{MaxSchemaSourceBytes: 100, MaxSchemaTotalBytes: 1},
 			[]source.Source{source.Opener("schema.xsd", func() (io.ReadCloser, error) {
 				return closeErrorReadCloser{Reader: strings.NewReader("ab"), err: closeErr}, nil
 			})})
@@ -127,7 +127,7 @@ func TestSchemaTotalByteLimitPreservesAcquisitionErrors(t *testing.T) {
 	t.Run("cached load", func(t *testing.T) {
 		t.Parallel()
 		data := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`
-		_, err := Compile(Options{MaxSchemaSourceBytes: int64(len(data) + 1), MaxSchemaTotalBytes: int64(len(data) + 1)},
+		_, err := compileSources(Options{MaxSchemaSourceBytes: int64(len(data) + 1), MaxSchemaTotalBytes: int64(len(data) + 1)},
 			[]source.Source{
 				source.Bytes("a/../same.xsd", []byte(data)),
 				source.Opener("same.xsd", func() (io.ReadCloser, error) {
@@ -191,14 +191,14 @@ func TestExplicitSchemaSourceLimitCountsSameIdentityDescriptors(t *testing.T) {
 			return io.NopCloser(strings.NewReader(data)), nil
 		})
 	}
-	_, err := Compile(Options{MaxSchemaSources: 1}, []source.Source{sourceFor(), sourceFor()})
+	_, err := compileSources(Options{MaxSchemaSources: 1}, []source.Source{sourceFor(), sourceFor()})
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile() error = %v, want schema limit", err)
 	}
 	if openCalls != 0 {
 		t.Fatalf("source open calls = %d, want 0", openCalls)
 	}
-	if _, err := Compile(Options{MaxSchemaSources: 2}, []source.Source{sourceFor(), sourceFor()}); err != nil {
+	if _, err := compileSources(Options{MaxSchemaSources: 2}, []source.Source{sourceFor(), sourceFor()}); err != nil {
 		t.Fatalf("Compile(exact limit) error = %v", err)
 	}
 }
@@ -224,7 +224,7 @@ func TestSchemaSourceLimitCountsDistinctLoadedDocuments(t *testing.T) {
 			return source.Bytes("root.xsd", rootData).WithResolver(resolver)
 		}
 		// Two same-identity descriptors count as one document.
-		_, err := Compile(Options{MaxSchemaSources: limit}, []source.Source{root(), root()})
+		_, err := compileSources(Options{MaxSchemaSources: limit}, []source.Source{root(), root()})
 		return err
 	}
 
@@ -261,7 +261,7 @@ func TestSchemaSetRetriesSameKeyAfterOptionalCandidateIsMissing(t *testing.T) {
 		source.Bytes("a.xsd", rootSchema("urn:a")).WithResolver(missing),
 		source.Bytes("b.xsd", rootSchema("urn:b")).WithResolver(found),
 	}
-	if _, err := Compile(Options{}, roots); err != nil {
+	if _, err := compileSources(Options{}, roots); err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
 }
@@ -277,7 +277,7 @@ func TestSchemaSetAggregateByteLimitBoundsCurrentRead(t *testing.T) {
 			return &countingReadCloser{Reader: strings.NewReader(childData), bytes: &readBytes}, nil
 		}), nil
 	})
-	_, err := Compile(Options{MaxSchemaTotalBytes: int64(len(rootData) + 1)},
+	_, err := compileSources(Options{MaxSchemaTotalBytes: int64(len(rootData) + 1)},
 		[]source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
 
 	if err == nil || !strings.Contains(err.Error(), "MaxSchemaTotalBytes") {
@@ -303,10 +303,10 @@ func TestSchemaSetAggregateByteLimitChargesInMemoryRepeatsOnce(t *testing.T) {
 		source.Bytes("b.xsd", rootData).WithResolver(resolverFor()),
 	}
 	distinct := int64(2*len(rootData) + len(childData))
-	if _, err := Compile(Options{MaxSchemaTotalBytes: distinct}, sources); err != nil {
+	if _, err := compileSources(Options{MaxSchemaTotalBytes: distinct}, sources); err != nil {
 		t.Fatalf("Compile(distinct total) error = %v", err)
 	}
-	_, err := Compile(Options{MaxSchemaTotalBytes: distinct - 1}, sources)
+	_, err := compileSources(Options{MaxSchemaTotalBytes: distinct - 1}, sources)
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile(distinct total - 1) error = %v, want schema limit", err)
 	}
@@ -329,10 +329,10 @@ func TestSchemaSetAggregateByteLimitSameIdentityDescriptors(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := Compile(Options{MaxSchemaTotalBytes: tt.want}, tt.sources); err != nil {
+			if _, err := compileSources(Options{MaxSchemaTotalBytes: tt.want}, tt.sources); err != nil {
 				t.Fatalf("Compile(exact budget) error = %v", err)
 			}
-			_, err := Compile(Options{MaxSchemaTotalBytes: tt.want - 1}, tt.sources)
+			_, err := compileSources(Options{MaxSchemaTotalBytes: tt.want - 1}, tt.sources)
 			if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 				t.Fatalf("Compile(budget - 1) error = %v, want schema limit", err)
 			}
@@ -363,7 +363,7 @@ func TestSchemaSetReportsPostOpenErrorsWithoutResolvingNextReference(t *testing.
 				calls++
 				return source.Opener(location, func() (io.ReadCloser, error) { return tt.open(), nil }), nil
 			})
-			_, err := Compile(Options{MaxSchemaTotalBytes: int64(len(rootData) + 1)},
+			_, err := compileSources(Options{MaxSchemaTotalBytes: int64(len(rootData) + 1)},
 				[]source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
 
 			if err == nil || !strings.Contains(err.Error(), `read schema "a.xsd"`) {
@@ -394,7 +394,7 @@ func TestSchemaReferencesResolveAndVerifyReturnedIdentityOneAtATime(t *testing.T
 			return io.NopCloser(strings.NewReader(childData)), nil
 		}), nil
 	})
-	_, err := Compile(Options{}, []source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
+	_, err := compileSources(Options{}, []source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
 	if err != nil {
 		t.Fatalf("Compile() error = %v", err)
 	}
@@ -412,7 +412,7 @@ func TestSchemaReferenceLimitPrecedesResolverCalls(t *testing.T) {
 		calls++
 		return source.Source{}, xsderrors.ErrSchemaNotFound
 	})
-	_, err := Compile(Options{MaxSchemaReferences: 1},
+	_, err := compileSources(Options{MaxSchemaReferences: 1},
 		[]source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
 
 	if err == nil || !strings.Contains(err.Error(), "MaxSchemaReferences") {
@@ -432,7 +432,7 @@ func TestSchemaDependencyStepLimitStopsResolutionIncrementally(t *testing.T) {
 		calls++
 		return source.Source{}, xsderrors.ErrSchemaNotFound
 	})
-	_, err := Compile(Options{MaxSchemaDependencySteps: 1}, []source.Source{
+	_, err := compileSources(Options{MaxSchemaDependencySteps: 1}, []source.Source{
 		source.Bytes("root.xsd", rootData).WithResolver(resolver),
 	})
 
@@ -449,10 +449,10 @@ func TestSchemaReferenceLimitCountsImportsWithoutSchemaLocation(t *testing.T) {
 
 	rootData := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root"><xs:import namespace="urn:a"/><xs:import namespace="urn:b"/></xs:schema>`)
 	root := source.Bytes("root.xsd", rootData)
-	if _, err := Compile(Options{MaxSchemaReferences: 2}, []source.Source{root}); err != nil {
+	if _, err := compileSources(Options{MaxSchemaReferences: 2}, []source.Source{root}); err != nil {
 		t.Fatalf("Compile(exact) error = %v", err)
 	}
-	_, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{root})
+	_, err := compileSources(Options{MaxSchemaReferences: 1}, []source.Source{root})
 	if err == nil || !strings.Contains(err.Error(), "MaxSchemaReferences") {
 		t.Fatalf("Compile(over) error = %v, want reference limit", err)
 	}
@@ -465,10 +465,10 @@ func TestSchemaReferenceLimitCountsXMLNamespaceImport(t *testing.T) {
 		data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:root"><xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>` + imports + `</xs:schema>`)
 		return source.Bytes("root.xsd", data)
 	}
-	if _, err := Compile(Options{MaxSchemaReferences: 2}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)}); err != nil {
+	if _, err := compileSources(Options{MaxSchemaReferences: 2}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)}); err != nil {
 		t.Fatalf("Compile(exact) error = %v", err)
 	}
-	_, err := Compile(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)})
+	_, err := compileSources(Options{MaxSchemaReferences: 1}, []source.Source{schema(`<xs:import namespace="urn:a"/>`)})
 	if err == nil || !strings.Contains(err.Error(), "MaxSchemaReferences") {
 		t.Fatalf("Compile(over) error = %v, want reference limit", err)
 	}
@@ -483,7 +483,7 @@ func TestSchemaSourceLimitStopsResolutionIncrementally(t *testing.T) {
 		calls++
 		return source.Bytes(location, []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)), nil
 	})
-	_, err := Compile(Options{MaxSchemaSources: 1},
+	_, err := compileSources(Options{MaxSchemaSources: 1},
 		[]source.Source{source.Bytes("root.xsd", rootData).WithResolver(resolver)})
 
 	if err == nil || !strings.Contains(err.Error(), "MaxSchemaSources") {
@@ -524,7 +524,7 @@ func TestSchemaTargetContextLimit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := Compile(Options{MaxSchemaTargetContexts: tt.limit}, sources)
+			_, err := compileSources(Options{MaxSchemaTargetContexts: tt.limit}, sources)
 			if tt.wantErr {
 				if err == nil || !strings.Contains(err.Error(), "MaxSchemaTargetContexts") {
 					t.Fatalf("Compile() error = %v, want target context limit", err)
@@ -546,10 +546,10 @@ func TestSchemaInstantiatedNodeLimit(t *testing.T) {
 
 		data := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`)
 		sources := []source.Source{source.Bytes("a.xsd", data), source.Bytes("b.xsd", data)}
-		if _, err := Compile(Options{MaxSchemaInstantiatedNodes: 2}, sources); err != nil {
+		if _, err := compileSources(Options{MaxSchemaInstantiatedNodes: 2}, sources); err != nil {
 			t.Fatalf("Compile(exact) error = %v", err)
 		}
-		_, err := Compile(Options{MaxSchemaInstantiatedNodes: 1}, sources)
+		_, err := compileSources(Options{MaxSchemaInstantiatedNodes: 1}, sources)
 		if err == nil || !strings.Contains(err.Error(), "MaxSchemaInstantiatedNodes") {
 			t.Fatalf("Compile(over) error = %v, want instantiated node limit", err)
 		}
@@ -574,7 +574,7 @@ func TestSchemaInstantiatedNodeLimit(t *testing.T) {
 		minimumLimit := func(sources []source.Source) int {
 			t.Helper()
 			for limit := 1; limit <= 64; limit++ {
-				if _, err := Compile(Options{MaxSchemaInstantiatedNodes: limit}, sources); err == nil {
+				if _, err := compileSources(Options{MaxSchemaInstantiatedNodes: limit}, sources); err == nil {
 					return limit
 				}
 			}
@@ -587,7 +587,7 @@ func TestSchemaInstantiatedNodeLimit(t *testing.T) {
 		if limit-one != 8 {
 			t.Fatalf("eight extra literals raised the minimum node limit by %d, want 8", limit-one)
 		}
-		_, err := Compile(Options{MaxSchemaInstantiatedNodes: limit - 1}, nine)
+		_, err := compileSources(Options{MaxSchemaInstantiatedNodes: limit - 1}, nine)
 		diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 		if !ok || diagnostic.Code() != xsderrors.CodeSchemaLimit || !strings.Contains(err.Error(), "MaxSchemaInstantiatedNodes") {
 			t.Fatalf("Compile(over) error = %v, want instantiated node limit", err)
@@ -617,7 +617,7 @@ func TestSchemaInstantiatedNodeLimit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := Compile(Options{MaxSchemaInstantiatedNodes: tt.limit}, sources)
+			_, err := compileSources(Options{MaxSchemaInstantiatedNodes: tt.limit}, sources)
 			if tt.wantErr {
 				if err == nil || !strings.Contains(err.Error(), "MaxSchemaInstantiatedNodes") {
 					t.Fatalf("Compile() error = %v, want instantiated node limit", err)
@@ -739,7 +739,7 @@ func TestSchemaReaderFailuresKeepTheirPlane(t *testing.T) {
 	t.Parallel()
 
 	data := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="` + strings.Repeat("e", 64) + `" type="xs:string"/></xs:schema>`
-	_, err := Compile(Options{MaxSchemaTokenBytes: 16}, []source.Source{source.Bytes("limit.xsd", []byte(data))})
+	_, err := compileSources(Options{MaxSchemaTokenBytes: 16}, []source.Source{source.Bytes("limit.xsd", []byte(data))})
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaLimit {
 		t.Fatalf("Compile(token limit) error = %v, want schema.limit", err)
 	}
@@ -748,7 +748,7 @@ func TestSchemaReaderFailuresKeepTheirPlane(t *testing.T) {
 	failing := source.Opener("read.xsd", func() (io.ReadCloser, error) {
 		return &dataErrorReadCloser{data: []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">`), err: readErr}, nil
 	})
-	_, err = Compile(Options{}, []source.Source{failing})
+	_, err = compileSources(Options{}, []source.Source{failing})
 	if xerr, ok := errors.AsType[*xsderrors.Error](err); !ok || xerr.Code() != xsderrors.CodeSchemaRead || !errors.Is(err, readErr) {
 		t.Fatalf("Compile(failing reader) error = %v, want schema.read with cause", err)
 	}

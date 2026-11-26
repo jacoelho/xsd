@@ -35,7 +35,7 @@ func BenchmarkNamespaceAdmissionChurn(b *testing.B) {
 							}
 						}
 						for _, admitted := range slices.Backward(frames) {
-							if err := namespaceStack.End(admitted, LexicalName{Local: "e"}); err != nil {
+							if err := namespaceStack.endForTest(admitted, LexicalName{Local: "e"}); err != nil {
 								b.Fatal(err)
 							}
 						}
@@ -68,7 +68,7 @@ func BenchmarkNamespaceDefaultResolveChurn(b *testing.B) {
 						frames[i] = admitted
 					}
 					for _, admitted := range slices.Backward(frames) {
-						if err := namespaceStack.End(admitted, LexicalName{Local: "item"}); err != nil {
+						if err := namespaceStack.endForTest(admitted, LexicalName{Local: "item"}); err != nil {
 							b.Fatal(err)
 						}
 					}
@@ -199,7 +199,7 @@ func BenchmarkNamespaceScratchLifecycle(b *testing.B) {
 				fixture.run(b, false)
 			}
 			b.StopTimer()
-			if err := fixture.namespaces.End(fixture.parent, LexicalName{Local: "root"}); err != nil {
+			if err := fixture.namespaces.endForTest(fixture.parent, LexicalName{Local: "root"}); err != nil {
 				b.Fatal(err)
 			}
 			fixture.namespaces.Reset(64)
@@ -282,12 +282,12 @@ func (fixture *scratchOppFixture) run(b *testing.B, verify bool) {
 			if verify {
 				assertScratchOppSuccess(b, event, start, name)
 			}
-			if endErr := fixture.namespaces.End(admitted, LexicalName{Local: "child"}); endErr != nil {
+			if endErr := fixture.namespaces.endForTest(admitted, LexicalName{Local: "child"}); endErr != nil {
 				b.Fatal(endErr)
 			}
 		}
 		if verify {
-			if matchErr := fixture.namespaces.MatchEnd(fixture.parent, LexicalName{Local: "root"}); matchErr != nil {
+			if matchErr := fixture.namespaces.matchEndForTest(fixture.parent, LexicalName{Local: "root"}); matchErr != nil {
 				b.Fatal(matchErr)
 			}
 			assertScratchOppContext(b, fixture.namespaces.Context())

@@ -434,9 +434,12 @@ pattern, and a substitution-group member whose type is a member of the head's
 restricted union; Xerces-J and libxml2 do the same for a restricted union
 nested in another union. xmlschema loses the constraint under a facet-free restriction of
 a restricted union. .NET rejects a union whose member is a restricted union.
-Cases: `project/corrections-restricted-union-nested`,
-`project/corrections-restricted-union-xsi` and
-`project/corrections-union-substitution-bad-member`.
+libxml2 also rejects an `xsi:type` member of a facet-free union on an element
+typed by a facet-free restriction of that union. Cases:
+`project/corrections-restricted-union-nested`,
+`project/corrections-restricted-union-xsi`,
+`project/corrections-union-substitution-bad-member` and
+`project/datatypes/unions/restricted-union-xsi-type-member`.
 
 ## I-011 — regex metacharacter grammar
 
@@ -1960,8 +1963,13 @@ Observed: Xerces-J 2.12.2 evaluates selector `.//.` as the context element
 alone, missing every descendant row, and counts a node reached through several
 field branches as several matches. libxml2 2.9.13 omits the context element
 from `.//.`. .NET 10.0.14 and xmlschema 4.3.2 follow the XPath meaning.
+Xerces-J also accepts a field `@a|@b` that selects two attributes of one
+element, whether or not either attribute has a fixed value, although clause 3
+asks for exactly one member; the other three reject it.
 
-Cases: `project/identity/field-union-nodes/overlap`,
+Cases: `project/identity/fixed-value-field/declared-attribute`,
+`project/identity/fixed-value-field/wildcard-attribute`,
+`project/identity/field-union-nodes/overlap`,
 `project/identity/selector-self-descendant-scopes` and
 `project/identity/selector-self-descendant-union-single-selection`.
 
@@ -3078,3 +3086,28 @@ xmlschema differ. The controls `required-empty-choice-after-overlap`,
 `optional-empty-choice-before-overlap`, `zero-occurrence-before-overlap`
 (libxml2 differs) and `reachable-overlap` are invalid, and
 `required-empty-choice-before-element` is valid.
+
+## I-053 — a reference the built-in backend cannot represent is an unavailable hint
+
+**Status:** decided by the specification text, the first rank of the
+[processor tie-break](#processor-tie-break).
+
+A `schemaLocation` or `xml:base` that is a valid anyURI after XLink escaping,
+but names no document the built-in backend can identify, makes the referenced
+document unavailable, and the schema compiles without it. The
+[import](https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#src-import)
+and include `schemaLocation` is only a hint, so a location that names no
+reachable document is not a schema error. `http://h:abc/x.xsd` and
+`http://a%41b/x.xsd` are not rejected by the anyURI lexical space, which
+`uriref` implements, so the built-in backend adds no URI error class of its
+own. A custom resolver still receives the raw reference.
+
+Xerces-J 2.12.2 and xmlschema 4.3.2 report these references as blocked
+acquisitions, as the oracle image has no network. .NET 10.0.14 rejects
+`http://h:abc/x.xsd` and `http://a%41b/x.xsd` as invalid URIs, and libxml2
+2.9.13 rejects `http://h:abc/x.xsd` as not a valid value of the `anyURI`
+type.
+
+Cases: `project/composition/import-location-invalid-port`,
+`project/composition/import-location-escaped-host` and
+`project/composition/import-xml-base-invalid-port` (schemas valid).

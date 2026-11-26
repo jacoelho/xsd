@@ -14,6 +14,10 @@ type SchemaBuild = schemaBuild
 
 var PublishSchema = publishSchema
 
+func compileSources(opts Options, sources []source.Source) (*Schema, error) {
+	return CompileMappedSources(opts, sources, func(src source.Source) source.Source { return src })
+}
+
 // ValidateBuildForTest checks construction invariants without consuming the
 // value builder, so fault-injection tests can validate then mutate a fixture.
 func ValidateBuildForTest(build *schemaBuild) error {
@@ -175,11 +179,9 @@ type (
 )
 
 var (
-	FormatExpandedName         = formatExpandedName
 	ModelParticle              = modelParticle
 	NewNameInterner            = newNameInterner
 	NewValueConstraintIdentity = newValueConstraintIdentity
-	ValidIdentityConstraintID  = validIdentityConstraintID
 )
 
 // ResizeSimpleTypeAvailabilityForTest shortens or extends the simple type
@@ -190,4 +192,12 @@ func ResizeSimpleTypeAvailabilityForTest(build *schemaBuild, delta int) {
 		return
 	}
 	build.simpleTypeUnavailable = append(build.simpleTypeUnavailable, make([]bool, delta)...)
+}
+
+// FormatExpandedName formats a namespace URI and local name as an expanded XML name.
+func FormatExpandedName(ns, local string) string {
+	if ns == "" {
+		return local
+	}
+	return "{" + ns + "}" + local
 }

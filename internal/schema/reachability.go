@@ -126,30 +126,43 @@ func (c *compiler) reachGlobalSimpleTypes(r *componentReach) error {
 }
 
 func (c *compiler) reachSimpleType(r *componentReach, id SimpleTypeID) error {
-	if id == NoSimpleType || id < value.BuiltinTypeCount {
-		return nil
-	}
-	if uint64(id-value.BuiltinTypeCount) >= uint64(len(r.simpleTypes)) {
-		return xsderrors.InternalInvariant("simple type reference is invalid", nil)
-	}
-	user := int(id - value.BuiltinTypeCount)
-	if r.simpleTypes[user] {
-		return nil
-	}
-	r.simpleTypes[user] = true
-	spec := &c.rt.SimpleTypes[id].ValueSpec
-	if err := c.reachSimpleType(r, spec.Base); err != nil {
+	fresh, err := r.markSimpleType(id)
+	if err != nil || !fresh {
 		return err
 	}
-	if err := c.reachSimpleType(r, spec.ListItem); err != nil {
+	view, ok := c.rt.valueBuilder.TypeView(id)
+	if !ok {
+		return xsderrors.InternalInvariant("reachable simple type has no value definition", nil)
+	}
+	if err := c.reachSimpleType(r, view.Base); err != nil {
 		return err
 	}
-	for _, member := range spec.Union {
+	if err := c.reachSimpleType(r, view.ListItem); err != nil {
+		return err
+	}
+	for _, member := range view.Union {
 		if err := c.reachSimpleType(r, member); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// markSimpleType records a user-defined simple type as reached and reports
+// whether it was not reached before.
+func (r *componentReach) markSimpleType(id SimpleTypeID) (bool, error) {
+	if id == NoSimpleType || id < value.BuiltinTypeCount {
+		return false, nil
+	}
+	user := int(id - value.BuiltinTypeCount)
+	if uint64(id-value.BuiltinTypeCount) >= uint64(len(r.simpleTypes)) {
+		return false, xsderrors.InternalInvariant("simple type reference is invalid", nil)
+	}
+	if r.simpleTypes[user] {
+		return false, nil
+	}
+	r.simpleTypes[user] = true
+	return true, nil
 }
 
 func (c *compiler) reachGlobalDeclarations(r *componentReach) error {

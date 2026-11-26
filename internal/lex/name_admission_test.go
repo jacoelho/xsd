@@ -30,9 +30,6 @@ func TestNameAdmissionAcrossEncodingBoundaries(t *testing.T) {
 			if got := IsNCName(test.input); got != test.ncname {
 				t.Errorf("IsNCName(%q) = %v, want %v", test.input, got, test.ncname)
 			}
-			if got := IsXMLNameBytes([]byte(test.input)); got != test.xml {
-				t.Errorf("IsXMLNameBytes(%q) = %v, want %v", test.input, got, test.xml)
-			}
 			if got := IsNCNameBytes([]byte(test.input)); got != test.ncname {
 				t.Errorf("IsNCNameBytes(%q) = %v, want %v", test.input, got, test.ncname)
 			}

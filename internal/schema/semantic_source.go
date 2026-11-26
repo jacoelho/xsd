@@ -36,13 +36,6 @@ type schemaTextPosition struct {
 	line, column int
 }
 
-func (n *schemaNode) ID() schemaNodeID {
-	if n == nil {
-		return 0
-	}
-	return n.id
-}
-
 func (n *schemaNode) schemaLocation() (path string, line int, column int) {
 	if n == nil || n.doc == nil {
 		return "", 0, 0

@@ -43,7 +43,7 @@ var valueSpaceResolver = Resolver{
 func builtinRestriction(local string) func(*testing.T) []TypeSpec {
 	return func(t *testing.T) []TypeSpec {
 		t.Helper()
-		base, ok := BuiltinTypeID(local)
+		base, ok := builtinTypeID(local)
 		if !ok {
 			t.Fatalf("no builtin %s", local)
 		}
@@ -65,8 +65,8 @@ func builtinRestriction(local string) func(*testing.T) []TypeSpec {
 
 func valueSpaceKinds(t *testing.T) []valueSpaceKind {
 	t.Helper()
-	decimal, _ := BuiltinTypeID("decimal")
-	dateTime, _ := BuiltinTypeID("dateTime")
+	decimal, _ := builtinTypeID("decimal")
+	dateTime, _ := builtinTypeID("dateTime")
 	listOf := func(item TypeID) func(*testing.T) []TypeSpec {
 		return func(*testing.T) []TypeSpec {
 			return []TypeSpec{{
@@ -161,8 +161,8 @@ func valueSpaceKinds(t *testing.T) []valueSpaceKind {
 		// Distinct kinds whose value fields coincide: only the kind separates
 		// their keys.
 		{name: "temporal union", specs: func(*testing.T) []TypeSpec {
-			gYear, _ := BuiltinTypeID("gYear")
-			date, _ := BuiltinTypeID("date")
+			gYear, _ := builtinTypeID("gYear")
+			date, _ := builtinTypeID("date")
 			return []TypeSpec{{
 				Variety: Union, Primitive: PrimitiveString, Union: []TypeID{dateTime, date, gYear},
 				Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType,
@@ -173,7 +173,7 @@ func valueSpaceKinds(t *testing.T) []valueSpaceKind {
 		// Mixed with decimal, base64 groups are value-keyed rather than
 		// text-keyed.
 		{name: "base64 union", specs: func(*testing.T) []TypeSpec {
-			base64, _ := BuiltinTypeID("base64Binary")
+			base64, _ := builtinTypeID("base64Binary")
 			return []TypeSpec{{
 				Variety: Union, Primitive: PrimitiveString, Union: []TypeID{decimal, base64},
 				Whitespace: WhitespaceCollapse, WhitespacePresent: true, Base: NoType, ListItem: NoType,

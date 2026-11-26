@@ -17,26 +17,22 @@ func TestPublicationChecksCanonicalNotationConstructorEdges(t *testing.T) {
 			}
 			notation := value.BuiltinType(value.PrimitiveNotation)
 			stringType := value.BuiltinType(value.PrimitiveString)
-			typ := simpleType{Name: name, ValueSpec: value.TypeSpec{
+			typ := simpleTypeDraft{decl: simpleType{Name: name}, spec: value.TypeSpec{
 				Base: value.AnySimpleTypeID, Variety: variety, Primitive: value.PrimitiveString,
 				Whitespace: value.WhitespaceCollapse, WhitespacePresent: true, ListItem: value.NoType,
 			}}
 			if variety == value.List {
-				typ.ValueSpec.ListItem = notation
+				typ.spec.ListItem = notation
 			} else {
-				typ.ValueSpec.Union = []value.TypeID{notation, stringType}
+				typ.spec.Union = []value.TypeID{notation, stringType}
 			}
-			id, err := c.addSimpleType(typ)
+			id, err := c.addSimpleType(typ.decl)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if err = c.completeSimpleType(id, typ); err != nil {
 				t.Fatal(err)
 			}
-			// Publication consumes the completed value program. A safe-looking
-			// construction record must not hide its invalid constructor edge.
-			c.rt.SimpleTypes[id].ValueSpec.ListItem = stringType
-			c.rt.SimpleTypes[id].ValueSpec.Union = []value.TypeID{stringType}
 			if err = c.compileReachedContentModelsForTest(); err != nil {
 				t.Fatal(err)
 			}

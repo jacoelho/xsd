@@ -22,7 +22,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	if !target.needsIdentity() {
 		t.Fatal("prepareElementValue() returned an inactive target")
 	}
-	if _, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1); err == nil {
+	if _, err = evaluation.prepareAttributeValue(fixture.attrName, 1); err == nil {
 		t.Fatal("prepareAttributeValue() accepted an overlapping target")
 	} else {
 		expectXSDCode(t, err, xsderrors.CodeInternalInvariant)
@@ -31,7 +31,7 @@ func TestIdentityEvaluationEnforcesOneOutstandingValueTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rejectValue() error = %v", err)
 	}
-	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
+	target, err = evaluation.prepareAttributeValue(fixture.attrName, 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue() after release error = %v", err)
 	}
@@ -148,7 +148,7 @@ func TestIdentityEvaluationResetInvalidatesBorrowedTarget(t *testing.T) {
 	}
 	err = evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 0, 0),
-		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    fixture.elemName,
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	})
@@ -163,7 +163,7 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 	fixture := startedIdentityEvaluationForTest(t)
 	evaluation := fixture.evaluation
 	ctx := identityTestContext("/root", 2, 3)
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
+	target, err := evaluation.prepareAttributeValue(fixture.attrName, 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
 	}
@@ -180,7 +180,7 @@ func TestIdentityEvaluationRejectsSecondIDAttributeOnElement(t *testing.T) {
 		t.Fatalf("commitValue(first) error = %v", err)
 	}
 
-	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
+	target, err = evaluation.prepareAttributeValue(fixture.attrName, 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(second) error = %v", err)
 	}
@@ -202,14 +202,14 @@ func TestIdentityEvaluationRejectsSecondIDAfterFirstIDRecordFails(t *testing.T) 
 	evaluation := fixture.evaluation
 	evaluation.limits.TupleBytes = 1
 	ctx := identityTestContext("/root", 2, 3)
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
+	target, err := evaluation.prepareAttributeValue(fixture.attrName, 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(first) error = %v", err)
 	}
 	err = evaluation.recordValue(ctx, target, identityValueForTest(t, "ID", "too-long", value.NeedIdentity))
 	expectXSDCode(t, err, xsderrors.CodeValidationLimit)
 
-	target, err = evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
+	target, err = evaluation.prepareAttributeValue(fixture.attrName, 1)
 	if err != nil {
 		t.Fatalf("prepareAttributeValue(second) error = %v", err)
 	}
@@ -275,7 +275,7 @@ func TestIdentityEvaluationStartTransactionRollsBackState(t *testing.T) {
 	}
 	err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root/child", 2, 3),
-		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    fixture.elemName,
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	})
@@ -321,7 +321,7 @@ func TestIdentityEvaluationRecordsIDBatchAtomically(t *testing.T) {
 	fixture := startedIdentityEvaluationForTest(t)
 	evaluation := fixture.evaluation
 	evaluation.limits.Entries = 1
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}, 1)
+	target, err := evaluation.prepareAttributeValue(fixture.attrName, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,8 +368,8 @@ func TestIdentityEvaluationFinishesOnlySelectionsAtCurrentDepth(t *testing.T) {
 type startedIdentityEvaluationFixture struct {
 	evaluation *identityEvaluation
 	elemID     xsdSchema.ElementID
-	elemName   xsdSchema.QName
-	attrName   xsdSchema.QName
+	elemName   xsdSchema.RuntimeName
+	attrName   xsdSchema.RuntimeName
 }
 
 func startedIdentityEvaluationForTest(t *testing.T) startedIdentityEvaluationFixture {
@@ -386,7 +386,7 @@ func startedIdentityEvaluationWithSelectorForTest(t *testing.T, selector string)
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
 		Context: identityTestContext("/root", 1, 1),
-		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    fixture.elemName,
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	}); err != nil {
@@ -396,7 +396,7 @@ func startedIdentityEvaluationWithSelectorForTest(t *testing.T, selector string)
 		evaluation: &evaluation,
 		elemID:     fixture.elemID,
 		elemName:   fixture.elemName,
-		attrName:   fixture.attrName,
+		attrName:   fixture.attrRuntime,
 	}
 }
 
@@ -471,11 +471,7 @@ func TestIdentityReporterAbortPreservesPendingSelections(t *testing.T) {
 
 func startIdentityRetryElement(tb testing.TB, ctx startContext, evaluation *identityEvaluation, local string) {
 	tb.Helper()
-	name, ok := evaluation.rt.LookupQName("", local)
-	if !ok {
-		tb.Fatalf("LookupQName(%q) failed", local)
-	}
-	runtimeName := xsdSchema.RuntimeName{Known: true, Name: name}
+	runtimeName := resolveKnownNameForTest(tb, evaluation.rt, "", local)
 	element, _, ok := evaluation.rt.GlobalElement(runtimeName)
 	if !ok {
 		tb.Fatalf("GlobalElement(%q) failed", local)
@@ -492,11 +488,8 @@ func startIdentityRetryElement(tb testing.TB, ctx startContext, evaluation *iden
 
 func captureIdentityRetryAttribute(tb testing.TB, ctx startContext, evaluation *identityEvaluation, local, lexical string) {
 	tb.Helper()
-	name, ok := evaluation.rt.LookupQName("", local)
-	if !ok {
-		tb.Fatalf("LookupQName(%q) failed", local)
-	}
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: name}, 2)
+	name := resolveKnownNameForTest(tb, evaluation.rt, "", local)
+	target, err := evaluation.prepareAttributeValue(name, 2)
 	if err != nil {
 		tb.Fatalf("prepareAttributeValue(%q) error = %v", local, err)
 	}

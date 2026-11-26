@@ -14,7 +14,7 @@ func TestGlobalLookupHelpers(t *testing.T) {
 	types := map[QName]TypeID{qnames["simple"]: SimpleRef(0)}
 	derivations := newTypeDerivationReadForTest(
 		t,
-		[]simpleType{testSimpleType(valuepkg.Atomic, NoSimpleType)},
+		[]simpleTypeDerivation{testSimpleType(valuepkg.Atomic, NoSimpleType)},
 		[]complexTypeMetadata{{Derivation: derivationKindNone}},
 	)
 	if typ, ok := globalTypeByName(types, derivations, qnames["simple"]); !ok || typ != SimpleRef(0) {

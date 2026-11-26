@@ -191,11 +191,8 @@ func TestCaptureXSIAttributeDropsOnlyConclusiveValueFailures(t *testing.T) {
     <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="@xsi:nil"/></xs:key>
   </xs:element>
 </xs:schema>`)
-	elemName, ok := rt.LookupQName("", "root")
-	if !ok {
-		t.Fatal("LookupQName(root) failed")
-	}
-	elemID, _, ok := rt.GlobalElement(xsdSchema.RuntimeName{Known: true, Name: elemName})
+	elemName := resolveKnownNameForTest(t, rt, "", "root")
+	elemID, _, ok := rt.GlobalElement(elemName)
 	if !ok {
 		t.Fatal("GlobalElement(root) failed")
 	}
@@ -217,13 +214,13 @@ func TestCaptureXSIAttributeDropsOnlyConclusiveValueFailures(t *testing.T) {
 			ctx := identityTestContext("/root", 1, 1)
 			if err := evaluation.startElement(identityElementStart{
 				Context: ctx,
-				Name:    xsdSchema.RuntimeName{Known: true, Name: elemName},
+				Name:    elemName,
 				Element: elemID,
 				Mode:    elementAssessed,
 			}); err != nil {
 				t.Fatalf("startElement() error = %v", err)
 			}
-			target, err := evaluation.prepareAttributeValue(resolveRuntimeName(rt, xsiNil), 1)
+			target, err := evaluation.prepareAttributeValue(rt.ResolveName(xsiNil.Space, xsiNil.Local), 1)
 			if err != nil {
 				t.Fatalf("prepareAttributeValue(xsi:nil) error = %v", err)
 			}

@@ -460,16 +460,11 @@ func (l *schemaSetLoader) registerDocument(item schemaLoadRequest, key string, d
 	src := item.source
 	var err error
 	l.parsedNodes += doc.nodes
-	if item.ref != nil {
-		if targetErr := l.validateLoadedReference(item.ref, doc); targetErr != nil {
-			return targetErr
-		}
-	}
 	doc.references, err = schemaDocumentReferences(doc)
 	if err != nil {
 		return err
 	}
-	if err := l.bindPendingReferences(key, doc); err != nil {
+	if err := l.bindPendingReferences(key); err != nil {
 		return err
 	}
 	fileName := ""
@@ -482,11 +477,6 @@ func (l *schemaSetLoader) registerDocument(item schemaLoadRequest, key string, d
 		content:      content,
 		explicitRoot: item.ref == nil,
 		fileName:     fileName,
-	}
-	for i := range doc.references {
-		if err := l.validateLoadedImportNamespace(&doc.references[i]); err != nil {
-			return err
-		}
 	}
 	return l.enqueueReferences(src, doc, queue)
 }
@@ -506,11 +496,6 @@ func (l *schemaSetLoader) readLoaded(
 	if compared && loaded.fileName == "" && src.ContentFixedByName() {
 		loaded.fileName = src.Name()
 		l.byKey[key] = loaded
-	}
-	if item.ref != nil {
-		if err := l.validateLoadedReference(item.ref, loaded.doc); err != nil {
-			return err
-		}
 	}
 	if item.ref == nil && !loaded.explicitRoot {
 		loaded.explicitRoot = true
@@ -615,9 +600,9 @@ func (l *schemaSetLoader) enqueueReferences(src source.Source, doc *schemaDocume
 		if !ref.hasLocation {
 			continue
 		}
-		base, baseNode, err := schemaReferenceBase(src.Name(), ref)
+		base, err := schemaReferenceBase(src.Name(), ref)
 		if err != nil {
-			return schemaReferenceCompileAt(src, baseNode, "invalid xml:base: "+err.Error())
+			return err
 		}
 		*queue = append(*queue, schemaLoadRequest{
 			source: src, ref: ref, base: base, referrer: src.Name(), requirement: schemaSourceOptional, resolve: true,
@@ -646,9 +631,12 @@ func (l *schemaSetLoader) resolveReference(request schemaLoadRequest) (schemaLoa
 	return schemaLoadRequest{source: next, ref: request.ref, referrer: request.referrer, requirement: schemaSourceOptional}, true, nil
 }
 
+// schemaResolutionError reports a failed reference resolution as a read
+// failure of the referencing document. An internal invariant is a defect of
+// this module, not of the read, so it is returned as it is.
 func schemaResolutionError(request schemaLoadRequest, err error) error {
-	if source.IsReferenceResolutionError(err) {
-		return schemaReferenceCompileAt(request.source, request.ref.sourceNode(), "invalid schemaLocation: "+err.Error())
+	if diagnostic, ok := errors.AsType[*xsderrors.Error](err); ok && diagnostic.Code() == xsderrors.CodeInternalInvariant {
+		return err
 	}
 	line, column := 0, 0
 	if node := request.ref.sourceNode(); node != nil {
@@ -661,7 +649,7 @@ func schemaResolutionError(request schemaLoadRequest, err error) error {
 // bindUnopenedReference handles a resolver answer that names an identity but
 // opens no source. Such an identity-only candidate is not authoritative: it
 // binds now only if that key is already loaded, and otherwise stays pending
-// until bindPendingReferences target-checks it before the document activates.
+// until bindPendingReferences binds it when the document loads.
 func (l *schemaSetLoader) bindUnopenedReference(request schemaLoadRequest, target string) error {
 	if target == "" || request.ref.target == target {
 		return nil
@@ -669,9 +657,6 @@ func (l *schemaSetLoader) bindUnopenedReference(request schemaLoadRequest, targe
 	if loaded, ok := l.byKey[target]; ok && loaded.doc != nil {
 		if request.ref.target != "" {
 			return schemaReferenceIdentityError(request)
-		}
-		if err := l.validateLoadedReference(request.ref, loaded.doc); err != nil {
-			return err
 		}
 		request.ref.target = target
 		return nil
@@ -691,14 +676,11 @@ func (l *schemaSetLoader) deferReferenceBinding(target string, ref *schemaRefere
 	l.pendingReferences[target] = append(l.pendingReferences[target], ref)
 }
 
-func (l *schemaSetLoader) bindPendingReferences(target string, doc *schemaDocument) error {
+func (l *schemaSetLoader) bindPendingReferences(target string) error {
 	pending := l.pendingReferences[target]
 	for _, ref := range pending {
 		if ref.target != "" && ref.target != target {
 			return schemaCompileAt(ref.sourceNode(), xsderrors.CodeSchemaReference, "schema reference resolves to different document identities across resolver contexts")
-		}
-		if err := l.validateLoadedReference(ref, doc); err != nil {
-			return err
 		}
 	}
 	for _, ref := range pending {
@@ -727,15 +709,12 @@ func schemaDocumentReferences(doc *schemaDocument) ([]schemaReference, error) {
 }
 
 type schemaDocumentReferenceContext struct {
-	validatedBase source.ReferenceBase
-	rootBase      uriref.Reference
-	hasRootBase   bool
+	rootBase    uriref.Reference
+	hasRootBase bool
 }
 
 func newSchemaDocumentReferenceContext(doc *schemaDocument) (schemaDocumentReferenceContext, error) {
-	context := schemaDocumentReferenceContext{
-		validatedBase: source.NewReferenceBase(doc.name),
-	}
+	var context schemaDocumentReferenceContext
 	rootBaseRaw, hasRootBase := doc.root.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
 	context.hasRootBase = hasRootBase
 	if !context.hasRootBase {
@@ -746,10 +725,6 @@ func newSchemaDocumentReferenceContext(doc *schemaDocument) (schemaDocumentRefer
 		return schemaDocumentReferenceContext{}, schemaCompileAt(doc.root, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
 	}
 	context.rootBase = rootBase
-	context.validatedBase, err = context.validatedBase.WithXMLBase(rootBase)
-	if err != nil {
-		return schemaDocumentReferenceContext{}, schemaCompileAt(doc.root, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-	}
 	return context, nil
 }
 
@@ -806,16 +781,13 @@ func parseSchemaReferenceLocation(child *schemaNode, kind schemaReferenceKind) (
 	return location, true, nil
 }
 
-func (c schemaDocumentReferenceContext) parseLocalBase(child *schemaNode) (uriref.Reference, bool, error) {
+func (schemaDocumentReferenceContext) parseLocalBase(child *schemaNode) (uriref.Reference, bool, error) {
 	raw, present := child.attrNS(vocab.XMLNamespaceURI, vocab.XMLAttrBase)
 	if !present {
 		return uriref.Reference{}, false, nil
 	}
 	localBase, err := uriref.Parse(raw)
 	if err != nil {
-		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
-	}
-	if _, err := c.validatedBase.WithXMLBase(localBase); err != nil {
 		return uriref.Reference{}, false, schemaCompileAt(child, xsderrors.CodeSchemaReference, "invalid xml:base: "+err.Error())
 	}
 	return localBase, true, nil
@@ -848,23 +820,31 @@ func schemaDocumentImports(refs []schemaReference) map[string]bool {
 	return imports
 }
 
-func schemaReferenceBase(name string, ref *schemaReference) (source.ReferenceBase, *schemaNode, error) {
+func schemaReferenceBase(name string, ref *schemaReference) (source.ReferenceBase, error) {
 	base := source.NewReferenceBase(name)
 	if ref.hasRootBase {
 		resolved, err := base.WithXMLBase(ref.rootBase)
 		if err != nil {
-			return source.ReferenceBase{}, ref.doc.root, err
+			return source.ReferenceBase{}, withSchemaNodeLocation(name, ref.doc.root, err)
 		}
 		base = resolved
 	}
 	if ref.hasLocalBase {
 		resolved, err := base.WithXMLBase(ref.localBase)
 		if err != nil {
-			return source.ReferenceBase{}, ref.sourceNode(), err
+			return source.ReferenceBase{}, withSchemaNodeLocation(name, ref.sourceNode(), err)
 		}
 		base = resolved
 	}
-	return base, nil, nil
+	return base, nil
+}
+
+func withSchemaNodeLocation(path string, node *schemaNode, err error) error {
+	line, column := 0, 0
+	if node != nil {
+		line, column = node.line, node.column
+	}
+	return xsderrors.WithLocation(path, line, column, err)
 }
 
 func schemaReferenceCompileAt(src source.Source, node *schemaNode, message string) error {
@@ -925,36 +905,6 @@ func (g *loadedSchemaGraph) validateViewReference(effectiveTarget string, ref *s
 		return nil
 	}
 	return validateReferenceTarget(effectiveTarget, ref, loaded.doc)
-}
-
-// validateLoadedImportNamespace and validateLoadedReference reject an edge
-// during loading, before its target's descendants are resolved, when the
-// outcome cannot depend on target contexts: the referencing document declares
-// its targetNamespace or was registered as an explicit root (whose
-// no-namespace view always exists), or the check reads only the import's
-// namespace.
-func (l *schemaSetLoader) validateLoadedImportNamespace(ref *schemaReference) error {
-	effective, fixed := l.fixedTargetNamespace(ref.doc)
-	if !fixed {
-		return nil
-	}
-	return validateImportNamespace(effective, ref)
-}
-
-func (l *schemaSetLoader) validateLoadedReference(ref *schemaReference, target *schemaDocument) error {
-	if target == nil {
-		return xsderrors.InternalInvariant("schema reference target validation requires a target", nil)
-	}
-	effective, fixed := l.fixedTargetNamespace(ref.doc)
-	if !fixed && ref.kind == schemaReferenceInclude {
-		return nil
-	}
-	return validateReferenceTarget(effective, ref, target)
-}
-
-func (l *schemaSetLoader) fixedTargetNamespace(doc *schemaDocument) (string, bool) {
-	loaded, ok := l.byKey[doc.key]
-	return guaranteedTargetNamespace(doc.defaults.TargetNamespace, ok && loaded.explicitRoot)
 }
 
 // guaranteedTargetNamespace owns which view a document has regardless of how

@@ -263,12 +263,12 @@ func (d *parserBenchmarkDigest) addToken(token Token, reader *Reader, attributeM
 	}
 	d.addName(token.End.Name)
 	d.addBytes(token.Data)
-	d.addBytes(token.Directive)
+	d.addBytes(token.Content)
 }
 
 func (s *parserBenchmarkSample) addToken(token Token, reader *Reader, attributeMode parserBenchmarkAttributeMode) {
 	s.tokens++
-	s.payload += len(token.Data) + len(token.Directive) + len(token.Start.Name.Space) + len(token.Start.Name.Local)
+	s.payload += len(token.Data) + len(token.Content) + len(token.Start.Name.Space) + len(token.Start.Name.Local)
 	for i := range token.Start.Attr {
 		if raw, ok := token.Start.Attr[i].RawValue(); ok && attributeMode == parserBenchmarkRawAttributes {
 			s.payload += len(raw)

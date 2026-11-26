@@ -262,14 +262,17 @@ func TestCacheKeyChangesWithTheBytesOfEveryRunFile(t *testing.T) {
 	files := map[string]string{"a.xsd": "<a/>", "b.xsd": "<b/>", "i.xml": "<i/>"}
 	writeTestTree(t, files)
 	c := &corpus.Case{ID: "project/a", Schema: &corpus.Schema{Documents: []corpus.Document{{File: "a.xsd"}, {File: "b.xsd"}}}}
-	in := phaseInputs(c, "i.xml")
-	base, err := cacheKey(testDigest, c, in)
+	in, err := phaseInputs(c, "i.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := new(fileDigests).cacheKey(testDigest, c, in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for name, data := range files {
 		writeTestTree(t, map[string]string{name: data + " "})
-		got, err := cacheKey(testDigest, c, in)
+		got, err := new(fileDigests).cacheKey(testDigest, c, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -278,6 +281,107 @@ func TestCacheKeyChangesWithTheBytesOfEveryRunFile(t *testing.T) {
 		}
 		writeTestTree(t, map[string]string{name: data})
 	}
+}
+
+func TestCacheKeyIsTheSameForIdenticalCheckoutsAtDifferentPaths(t *testing.T) {
+	c := &corpus.Case{ID: "project/a", Schema: &corpus.Schema{Documents: []corpus.Document{{File: "a/a.xsd"}}}}
+	keyAt := func(dir string) string {
+		t.Helper()
+		t.Chdir(dir)
+		writeTestTree(t, map[string]string{"a/a.xsd": "<a/>", "a/b.xsd": "<b/>"})
+		in, err := phaseInputs(c, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		key, err := new(fileDigests).cacheKey(testDigest, c, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return key
+	}
+	first, second := keyAt(t.TempDir()), keyAt(t.TempDir())
+	if first != second {
+		t.Fatalf("cacheKey() differs between checkouts: %s and %s", first, second)
+	}
+}
+
+func TestCacheKeyCoversUndeclaredFilesUnderMountRoot(t *testing.T) {
+	parent := t.TempDir()
+	mustWrite := func(rel, data string) {
+		t.Helper()
+		name := filepath.Join(parent, rel)
+		if err := os.MkdirAll(filepath.Dir(name), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	keyOf := func(c *corpus.Case) (string, runInputs) {
+		t.Helper()
+		in, err := phaseInputs(c, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		key, err := new(fileDigests).cacheKey(testDigest, c, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return key, in
+	}
+	schemaCase := func(files ...string) *corpus.Case {
+		c := &corpus.Case{ID: "x", Schema: &corpus.Schema{}}
+		for _, f := range files {
+			c.Schema.Documents = append(c.Schema.Documents, corpus.Document{File: f})
+		}
+		return c
+	}
+	if err := os.MkdirAll(filepath.Join(parent, "tests"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(parent)
+
+	t.Run("sibling imported but not declared", func(t *testing.T) {
+		mustWrite("tests/dir/a.xsd", "<a/>")
+		mustWrite("tests/dir/b.xsd", "<b/>")
+		c := schemaCase("dir/a.xsd")
+		base, _ := keyOf(c)
+		if again, _ := keyOf(c); again != base {
+			t.Fatal("key changed with nothing changed")
+		}
+		mustWrite("tests/dir/b.xsd", "<b2/>")
+		if got, _ := keyOf(c); got == base {
+			t.Error("key ignores an undeclared sibling under the root")
+		}
+	})
+	t.Run("undeclared file in a directory between declared files", func(t *testing.T) {
+		mustWrite("tests/dir/s1/a.xsd", "<a/>")
+		mustWrite("tests/dir/s2/b.xsd", "<b/>")
+		mustWrite("tests/dir/s3/c.xsd", "<c/>")
+		c := schemaCase("dir/s1/a.xsd", "dir/s2/b.xsd")
+		base, in := keyOf(c)
+		want, err := filepath.EvalSymlinks(filepath.Join(parent, "tests", "dir"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(in.args()[:2], []string{"--root", want}) {
+			t.Errorf("args() = %q, want --root %s first", in.args(), want)
+		}
+		mustWrite("tests/dir/s3/c.xsd", "<c2/>")
+		if got, _ := keyOf(c); got == base {
+			t.Error("key ignores an undeclared file under the deepest common directory")
+		}
+	})
+	t.Run("file outside the root", func(t *testing.T) {
+		mustWrite("tests/dir/a.xsd", "<a/>")
+		mustWrite("tests/outside.xsd", "<o/>")
+		c := schemaCase("dir/a.xsd")
+		base, _ := keyOf(c)
+		mustWrite("tests/outside.xsd", "<o2/>")
+		if got, _ := keyOf(c); got != base {
+			t.Error("key changed with an undeclared file outside the root")
+		}
+	})
 }
 
 func installFakeDocker(t *testing.T, runScript string) string {
@@ -565,7 +669,11 @@ func TestMeasurePhaseRunsAndCachesOnlyOnACacheMiss(t *testing.T) {
 	installFakeDocker(t, countingRun(passingRun))
 	c := schemaCase(t, "project/a")
 	m := &measurer{digest: testDigest, cache: t.TempDir()}
-	key, err := cacheKey(testDigest, c, phaseInputs(c, ""))
+	in, err := phaseInputs(c, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := new(fileDigests).cacheKey(testDigest, c, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -598,7 +706,11 @@ func TestMeasurePhaseFailsOnAnUnreadableCacheWithoutRunning(t *testing.T) {
 	installFakeDocker(t, countingRun(passingRun))
 	c := schemaCase(t, "project/a")
 	m := &measurer{digest: testDigest, cache: t.TempDir()}
-	key, err := cacheKey(testDigest, c, phaseInputs(c, ""))
+	in, err := phaseInputs(c, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := new(fileDigests).cacheKey(testDigest, c, in)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -38,7 +38,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxContentModelAnalysisSteps` | `16_777_216` | Max content-model traversal, determinization, and ambiguity-analysis work. Comparing two wildcard namespace lists, for ambiguity or for a wildcard restriction, costs one step per namespace looked up. |
 | `MaxSubstitutionClosureEntries` | `1_000_000` | Max aggregate transitive substitution-group relationships. |
 | `MaxSimpleUnionMemberEntries` | `1_000_000` | Max aggregate flattened simple-union members. |
-| `MaxSchemaPatternWork` | `536_870_912` | Max regular-expression matching work for one schema literal (enumeration, bound, fixed or default value). Same unit as `MaxInstancePatternWork`. Unsigned. |
+| `MaxSchemaPatternWork` | `536_870_912` | Max regular-expression matching work for one schema literal (enumeration, bound, fixed or default value), across all pattern facets, list items and union members. Same unit as `MaxInstancePatternWork`. Unsigned. |
 | `MaxSchemaTotalPatternWork` | `8_589_934_592` | Max regular-expression matching work summed over every schema-literal evaluation of one compilation. A facet literal can be charged for its base-type check and again for facet compilation; a fixed/default value is charged once. Same unit. |
 | `MaxSchemaPatternRetainedBytes` | `64 MiB` | Max estimated memory retained by compiled regular expressions, summed over the distinct pattern facets of one compilation. Identical pattern text is compiled and charged once. |
 
@@ -225,6 +225,14 @@ same whatever facets it has. Both are still compiled and
 checked first, so their patterns and facet literals charge the pattern,
 storage, type-count and work limits as a reached type's do.
 
+A restriction that declares a bound, enumeration or pattern retains a copy of
+its base's entries on that side, and the copy is charged to the value storage
+budget derived from `MaxSchemaTotalBytes` and `MaxSchemaInstantiatedNodes`. A
+restriction that adds nothing on a side shares its base's entries. A long
+restriction chain in which each step adds a bound therefore retains memory
+quadratic in its depth; exceeding the budget reports `schema.limit` naming
+both options.
+
 Each pattern is compiled under fixed structural bounds that are not options:
 source 1 MiB, 100,000 AST nodes, 100,000 NFA states (counted repeats expand
 into states), 1,000,000 retained character ranges, and nesting depth 1,024.
@@ -235,9 +243,13 @@ aggregate over a compilation.
 The retained-bytes estimate of one pattern is 256 bytes of fixed overhead plus
 the source length, plus 8 bytes per character range (each distinct range array
 counted once, by capacity), plus, for a run-length pattern, 48 bytes per atom
-and the literal text, or, for an NFA pattern, 48 bytes per state, 24 bytes per
-precomputed closure, 8 bytes per closure element and 8 bytes per closure
-bitset word. The default is a byte target, not a multiple of the per-pattern
+and the literal text, or, for an NFA pattern, 48 bytes per state plus, for the
+mode that retains them, 8 bytes per scalar successor (deterministic patterns of
+at most 64 states) or 8 bytes per closure bitset word (other patterns of at
+most 64 states); larger NFAs retain neither. Every retained array is charged by
+capacity, not length, which raises the estimate by the arrays' append slack:
+about 22% for a large NFA, and up to about 70% for a small one. A pattern set near the `MaxSchemaPatternRetainedBytes` default that
+compiles today can fail with `schema.limit`. The default is a byte target, not a multiple of the per-pattern
 caps: 64 MiB admits about 5 patterns at the per-pattern caps (about 13 MB each)
 and about 10,000 Unicode-category patterns of the `[\p{L}\p{N} ]` class. The
 largest aggregate observed across the W3C and project corpora under default
@@ -259,10 +271,10 @@ func validateWithLimits(engine *xsd.Engine, doc io.Reader) error {
 
 | Option | Default | Meaning |
 | --- | ---: | --- |
-| `MaxErrors` | `100` | Max collected recoverable validation errors. |
+| `MaxErrors` | `100` | Max collected recoverable validation errors. Once reached, validation stops semantic assessment but continues reading XML until a fatal error or the document end; a later fatal error takes precedence. |
 | `MaxIdentityScopes` | `10_000` | Max active identity-constraint scopes. |
 | `MaxIdentityEntries` | `100_000` | Independent max for stored ID, IDREF, key, unique, and keyref entries, pending identity-selector matches, and pending identity-field values. |
-| `MaxIdentityTupleBytes` | `4 KiB` | Max byte length of one stored identity key. |
+| `MaxIdentityTupleBytes` | `4 KiB` | Max canonical text bytes of one ID or IDREF value or one key/unique/keyref tuple: the sum of each field's canonical value length plus one byte between fields. This measures values, not stored bytes; stored keys add per-field framing. |
 | `MaxInstanceDepth` | `256` | Max nested XML elements. |
 | `MaxInstanceAttributes` | `4_096` | Max attributes on one XML element. |
 | `MaxInstanceTextBytes` | `4 MiB` | Max retained character data bytes. |

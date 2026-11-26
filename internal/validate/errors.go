@@ -95,26 +95,20 @@ func (s *session) locateCurrent(err error, line, col int) error {
 	return xsderrors.WithLocation(s.doc.PathString(), line, col, err)
 }
 
-func quotedName(name xsdSchema.RuntimeName) string {
-	if name.NS != "" || name.Local != "" {
-		return diagnostictext.ExpandedName(name.NS, name.Local)
-	}
-	return diagnostictext.Quote(name.Label())
-}
 func invalidAttributeMessage(name xsdSchema.RuntimeName) string {
-	return "invalid attribute " + quotedName(name)
+	return "invalid attribute " + name.Quoted()
 }
 func invalidWildcardAttributeMessage(name xsdSchema.RuntimeName) string {
-	return "invalid wildcard attribute " + quotedName(name)
+	return "invalid wildcard attribute " + name.Quoted()
 }
 func undeclaredAttributeMessage(name xsdSchema.RuntimeName) string {
-	return "attribute " + quotedName(name) + " is not allowed by the element's attribute declarations or wildcard"
+	return "attribute " + name.Quoted() + " is not allowed by the element's attribute declarations or wildcard"
 }
 func strictAttributeMessage(name xsdSchema.RuntimeName) string {
-	return "attribute " + quotedName(name) + " matches a strict wildcard, but no global attribute declaration is available"
+	return "attribute " + name.Quoted() + " matches a strict wildcard, but no global attribute declaration is available"
 }
-func fixedAttributeMessage(label, actual, expected string) string {
-	return "attribute " + diagnostictext.Quote(label) + " has value " + diagnostictext.Quote(actual) + "; expected fixed value " + diagnostictext.Quote(expected)
+func fixedAttributeMessage(name xsdSchema.RuntimeName, actual, expected string) string {
+	return "attribute " + name.Quoted() + " has value " + diagnostictext.Quote(actual) + "; expected fixed value " + diagnostictext.Quote(expected)
 }
 func fixedElementMessage[T ~string | ~[]byte](actual T, expected string) string {
 	return "element value " + diagnostictext.Quote(actual) + " does not match fixed value " + diagnostictext.Quote(expected)
@@ -133,10 +127,10 @@ func limitMessage(name, option string, observed, configured int64) string {
 }
 
 func unexpectedChildIssue(name xsdSchema.RuntimeName) validationIssue {
-	return validationIssue{code: xsderrors.CodeValidationElement, message: "unexpected child element " + quotedName(name) + "; no child elements are allowed here"}
+	return validationIssue{code: xsderrors.CodeValidationElement, message: "unexpected child element " + name.Quoted() + "; no child elements are allowed here"}
 }
 func strictMissingChildIssue(name xsdSchema.RuntimeName) validationIssue {
-	return validationIssue{code: xsderrors.CodeValidationElement, message: "element " + quotedName(name) + " matches a strict wildcard, but no global element declaration or xsi:type is available"}
+	return validationIssue{code: xsderrors.CodeValidationElement, message: "element " + name.Quoted() + " matches a strict wildcard, but no global element declaration or xsi:type is available"}
 }
 func nilledContentIssue() validationIssue {
 	return validationIssue{code: xsderrors.CodeValidationNil, message: msgNilledContent}
@@ -221,13 +215,13 @@ const (
 )
 
 func duplicateAttributeMessage(name xsdSchema.RuntimeName) string {
-	return "duplicate attribute " + quotedName(name)
+	return "duplicate attribute " + name.Quoted()
 }
 func simpleTypeAttributeMessage(name xsdSchema.RuntimeName) string {
-	return "attribute " + quotedName(name) + " is not allowed because the element has a simple type"
+	return "attribute " + name.Quoted() + " is not allowed because the element has a simple type"
 }
-func unavailableAttributeTypeMessage(name string) string {
-	return "attribute " + diagnostictext.Quote(name) + " has a type whose schema declaration was not loaded"
+func unavailableAttributeTypeMessage(name xsdSchema.RuntimeName) string {
+	return "attribute " + name.Quoted() + " has a type whose schema declaration was not loaded"
 }
 func requiredAttributeMessage(quotedName string) string {
 	return "missing required attribute " + quotedName
@@ -254,7 +248,7 @@ func (s *session) unexpectedContentIssue(parent *frame, name xsdSchema.RuntimeNa
 	if expected.Len() == 0 && !expected.More {
 		return unexpectedChildIssue(name)
 	}
-	return validationIssue{code: xsderrors.CodeValidationElement, message: "unexpected child element " + quotedName(name) + "; expected next child " + contentExpectationMessage(expected)}
+	return validationIssue{code: xsderrors.CodeValidationElement, message: "unexpected child element " + name.Quoted() + "; expected next child " + contentExpectationMessage(expected)}
 }
 func (s *session) incompleteContentIssue(parent *frame) validationIssue {
 	scratch := s.contentScratch(parent)

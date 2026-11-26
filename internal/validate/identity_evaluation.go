@@ -26,9 +26,32 @@ const (
 	identityTargetCaptured
 )
 
+// attributeFieldName is what attribute field paths match in an attribute
+// name: its QName when the schema knows the name, else its namespace. It
+// carries no rendering text, so field dispatch reads no name table.
+type attributeFieldName struct {
+	namespace string
+	name      xsdSchema.QName
+	known     bool
+}
+
+func attributeFieldNameOf(rn xsdSchema.RuntimeName) attributeFieldName {
+	if q, ok := rn.QName(); ok {
+		return attributeFieldName{name: q, known: true}
+	}
+	return attributeFieldName{namespace: rn.Namespace()}
+}
+
+func (n attributeFieldName) matches(names xsdSchema.IdentityNamespaceResolver, path xsdSchema.IdentityPathProgramRead) bool {
+	if n.known {
+		return path.KnownAttributeMatches(n.name)
+	}
+	return path.UnknownAttributeMatches(names, n.namespace)
+}
+
 // identityValueTarget is the one borrowed value target active at a time.
-// Callers prepare it, record the validated value, capture it into matched
-// fields, then commit; a validation failure rejects it from any active phase.
+// Callers prepare it and hand the validated value to assessValue, which owns
+// the rest of its sequence.
 type identityValueTarget struct {
 	generation uint64
 	depth      int
@@ -110,6 +133,7 @@ type identityEvaluation struct {
 	dispatch           identityDispatchState
 	limits             identityLimits
 	maxScopes          int
+	targetTextBytes    int
 	generation         uint64
 	targetKind         identityValueKind
 	targetPhase        identityValuePhase
@@ -221,14 +245,10 @@ func (e *identityEvaluation) advanceIdentitySelectors(ctx startContext) error {
 	depth := len(e.path)
 	hits := e.dispatch.selectorHits[:0]
 	name := e.path[len(e.path)-1]
-	if name.Known {
-		hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorExact(name.Name), depth)
+	if q, known := name.QName(); known {
+		hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorExact(q), depth)
 	}
-	namespace := name.NS
-	if name.Known {
-		namespace = e.rt.Namespace(name.Name.Namespace)
-	}
-	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorNamespace(namespace), depth)
+	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorNamespace(name.Namespace()), depth)
 	hits = e.appendIdentitySelectorHits(hits, e.dispatch.index.SelectorAny(), depth)
 	hits, err := e.appendSelfSelectorHits(hits, depth)
 	if err != nil {
@@ -384,14 +404,10 @@ func (e *identityEvaluation) dispatchElementFieldMatches() []identityFieldMatch 
 	name := e.path[depth-1]
 	self := e.dispatch.index.ElementSelf()
 	exact := xsdSchema.IdentityFieldDispatchReads{}
-	if name.Known {
-		exact = e.dispatch.index.ElementExact(name.Name)
+	if q, known := name.QName(); known {
+		exact = e.dispatch.index.ElementExact(q)
 	}
-	namespace := name.NS
-	if name.Known {
-		namespace = e.rt.Namespace(name.Name.Namespace)
-	}
-	ns := e.dispatch.index.ElementNamespace(namespace)
+	ns := e.dispatch.index.ElementNamespace(name.Namespace())
 	anyName := e.dispatch.index.ElementAny()
 	matches := e.matches[:0]
 	if self.Len()+exact.Len()+ns.Len()+anyName.Len() == 0 || len(e.selections) == 0 {
@@ -457,7 +473,7 @@ func (e *identityEvaluation) appendElementDispatchEntry(
 	return matches
 }
 
-func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.RuntimeName) ([]identityFieldMatch, error) {
+func (e *identityEvaluation) dispatchAttributeFieldMatches(name attributeFieldName) ([]identityFieldMatch, error) {
 	if len(e.path) == 0 || len(e.selections) == 0 || e.elements[len(e.elements)-1].mode == elementWildcardSkipped {
 		return nil, nil
 	}
@@ -474,8 +490,8 @@ func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.Runtim
 			return nil, internalIdentityMetadataError("identity attribute dispatch metadata is invalid")
 		}
 		var exact xsdSchema.IdentityCompiledFieldProgramReads
-		if name.Known {
-			exact = program.AttributeFields(name.Name)
+		if name.known {
+			exact = program.AttributeFields(name.name)
 		}
 		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, exact)
 		matches = e.appendAttributeProgramFieldMatches(matches, index, sel.depth, name, program.AttributeWildcardFields())
@@ -489,7 +505,7 @@ func (e *identityEvaluation) dispatchAttributeFieldMatches(name xsdSchema.Runtim
 func (e *identityEvaluation) appendAttributeProgramFieldMatches(
 	matches []identityFieldMatch,
 	selection, depth int,
-	name xsdSchema.RuntimeName,
+	name attributeFieldName,
 	fields xsdSchema.IdentityCompiledFieldProgramReads,
 ) []identityFieldMatch {
 	for fieldIndex := range fields.Len() {
@@ -499,7 +515,7 @@ func (e *identityEvaluation) appendAttributeProgramFieldMatches(
 		}
 		for pathIndex := range field.PathCount() {
 			path, ok := field.Path(pathIndex)
-			if !ok || !path.AttributeMatches(e.rt, name) || !path.Matches(e.rt, e.path, depth, len(e.path)) {
+			if !ok || !name.matches(e.rt, path) || !path.Matches(e.rt, e.path, depth, len(e.path)) {
 				continue
 			}
 			matches = e.appendIdentityFieldMatch(matches, selection, field.Field())
@@ -678,21 +694,31 @@ func (e *identityEvaluation) startElement(in identityElementStart) error {
 }
 
 func (e *identityEvaluation) prepareElementValue(depth int) (identityValueTarget, error) {
-	return e.prepareValue(identityElementValue, xsdSchema.RuntimeName{}, depth)
+	return e.prepareValue(identityElementValue, attributeFieldName{}, depth)
 }
 
 func (e *identityEvaluation) prepareAttributeValue(name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
-	return e.prepareValue(identityAttributeValue, name, depth)
+	return e.prepareValue(identityAttributeValue, attributeFieldNameOf(name), depth)
 }
 
-func (e *identityEvaluation) prepareValue(kind identityValueKind, name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
-	if !e.constraintsEnabled && e.targetPhase == identityTargetInactive && depth > 0 {
+// prepareDeclaredAttributeValue prepares the target of a declared attribute
+// known by its QName.
+func (e *identityEvaluation) prepareDeclaredAttributeValue(name xsdSchema.QName, depth int) (identityValueTarget, error) {
+	return e.prepareValue(identityAttributeValue, attributeFieldName{name: name, known: true}, depth)
+}
+
+func (e *identityEvaluation) prepareValue(kind identityValueKind, name attributeFieldName, depth int) (identityValueTarget, error) {
+	if e.dormant(depth) {
 		return identityValueTarget{depth: depth, kind: kind}, nil
 	}
 	return e.prepareFieldValue(kind, name, depth)
 }
 
-func (e *identityEvaluation) prepareFieldValue(kind identityValueKind, name xsdSchema.RuntimeName, depth int) (identityValueTarget, error) {
+func (e *identityEvaluation) dormant(depth int) bool {
+	return !e.constraintsEnabled && e.targetPhase == identityTargetInactive && depth > 0
+}
+
+func (e *identityEvaluation) prepareFieldValue(kind identityValueKind, name attributeFieldName, depth int) (identityValueTarget, error) {
 	if e.targetPhase != identityTargetInactive {
 		return identityValueTarget{}, xsderrors.InternalInvariant("identity value target already active", nil)
 	}
@@ -731,10 +757,39 @@ func (e *identityEvaluation) prepareFieldValue(kind identityValueKind, name xsdS
 	}
 	e.targetKind = kind
 	e.targetKey = ""
+	e.targetTextBytes = 0
 	e.targetPhase = identityTargetPrepared
 	target.generation = e.generation
 	target.matched = true
 	return target, nil
+}
+
+// assessValue is the one sequence that takes a value into identity state:
+// record, then fixed check, then capture, then commit. mismatch is the
+// diagnostic of a value that violates its fixed constraint, nil when none
+// applies. A mismatch rejects the target before capture, so the fields the
+// value matched become invalid exactly as for a type-invalid value and later
+// nodes selected by those fields are absorbed, leaving the one diagnostic of
+// the violation. A satisfied value is captured and committed. A value
+// no identity state reads, the common case on the attribute and element hot
+// paths, returns before any of these steps.
+func (e *identityEvaluation) assessValue(ctx startContext, target identityValueTarget, value xsdValue.Value, mismatch error) error {
+	if mismatch == nil && !target.matched && e.targetPhase == identityTargetInactive && !value.CarriesDocumentIdentity() {
+		return nil
+	}
+	if err := e.recordValue(ctx, target, value); err != nil {
+		return err
+	}
+	if mismatch != nil {
+		if err := e.rejectValue(target); err != nil {
+			return err
+		}
+		return mismatch
+	}
+	if err := e.captureValue(ctx, target); err != nil {
+		return err
+	}
+	return e.commitValue(target)
 }
 
 func (e *identityEvaluation) recordValue(ctx startContext, target identityValueTarget, value xsdValue.Value) error {
@@ -763,6 +818,7 @@ func (e *identityEvaluation) recordTargetValue(ctx startContext, target identity
 		return xsderrors.InternalInvariant("identity field value references invalid simple type", nil)
 	}
 	e.targetKey = key
+	e.targetTextBytes = value.IdentityTextBytes()
 	e.targetPhase = identityTargetRecorded
 	return nil
 }
@@ -835,7 +891,7 @@ func (e *identityEvaluation) captureValue(ctx startContext, target identityValue
 	if e.targetPhase != identityTargetRecorded {
 		return xsderrors.InternalInvariant("identity value target is not ready for capture", nil)
 	}
-	if err := e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: e.targetKey, state: identityFieldPresent}); err != nil {
+	if err := e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: e.targetKey, textBytes: e.targetTextBytes, state: identityFieldPresent}); err != nil {
 		e.releaseTarget()
 		return err
 	}
@@ -918,7 +974,7 @@ func (e *identityEvaluation) captureXSIAttribute(
 	if !identity.present {
 		return nil
 	}
-	return e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: identity.key, state: identityFieldPresent})
+	return e.captureFields(ctx, e.rt, e.matches, identityFieldValue{value: identity.key, textBytes: identity.textBytes, state: identityFieldPresent})
 }
 
 func (e *identityEvaluation) validateTarget(target identityValueTarget) error {
@@ -954,6 +1010,7 @@ func (e *identityEvaluation) releaseTarget() {
 	e.targetKind = 0
 	e.targetPhase = identityTargetInactive
 	e.targetKey = ""
+	e.targetTextBytes = 0
 }
 
 func (e *identityEvaluation) recordIdentityFields(ctx startContext, ids, idrefs string) error {
@@ -1014,8 +1071,8 @@ func (e *identityEvaluation) stageIdentityField(ctx startContext, value string) 
 	if e.limits.Entries > 0 && (e.entries >= e.limits.Entries || staged >= e.limits.Entries-e.entries) {
 		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity entry", "MaxIdentityEntries", int64(e.entries)+int64(staged)+1, int64(e.limits.Entries)))
 	}
-	if e.limits.TupleBytes > 0 && int64(len(value)) > e.limits.TupleBytes {
-		return validation(ctx, xsderrors.CodeValidationLimit, limitMessage("identity tuple byte", "MaxIdentityTupleBytes", int64(len(value)), e.limits.TupleBytes))
+	if err := checkIdentityTextBytes(ctx, int64(len(value)), e.limits); err != nil {
+		return err
 	}
 	e.fieldStaging.values = append(e.fieldStaging.values, value)
 	return nil

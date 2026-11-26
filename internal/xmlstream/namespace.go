@@ -156,25 +156,6 @@ func (s *stack) abortAdmission(mark int, previous uint32, err error) (frame, xml
 	return frame{}, xml.Name{}, err
 }
 
-// End validates a lexical closing name and releases the identified top frame.
-// A failed match leaves the frame live.
-func (s *stack) End(frame frame, end LexicalName) error {
-	if err := s.MatchEnd(frame, end); err != nil {
-		return err
-	}
-	s.pop()
-	return nil
-}
-
-// MatchEnd validates a lexical closing name without changing stack state.
-func (s *stack) MatchEnd(frame frame, end LexicalName) error {
-	current, err := s.ownedTop(frame)
-	if err != nil {
-		return err
-	}
-	return s.matchClosingName(current, end)
-}
-
 // matchClosingName validates a lexical closing name against an already-owned frame.
 // The caller must have obtained current from ownedTop and must not allow the
 // stack to mutate before this call. Keeping that proof at the Reader boundary

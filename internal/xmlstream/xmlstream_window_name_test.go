@@ -117,7 +117,7 @@ func parserOutcome(t *testing.T, reads []string, config Config) string {
 			out = append(out, entry)
 		case KindEnd:
 			out = append(out, "end "+qnameText(token.End.Name.Space, token.End.Name.Local))
-		case KindCharData, KindDirective, KindComment, KindPI:
+		case KindCharData, KindComment, KindPI:
 			// Name admission is observable only through element and attribute names.
 		}
 	}

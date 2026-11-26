@@ -93727,6 +93727,59 @@
           "role": "instance"
         }
       ]
+    },
+    {
+      "id": "project/datatypes/unions/restricted-union-xsi-type-member",
+      "expectedSource": "project",
+      "source": {
+        "kind": "project",
+        "package": "value",
+        "sourceFile": "tests/corpus/project/datatypes/unions/restricted-union-xsi-type-member/schema.xsd",
+        "specification": [
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cos-st-derived-OK"
+        ],
+        "description": "An element of a facetless restriction of a union accepts xsi:type naming a member of the restricted union, because a union restriction without facets passes through its members when testing derivation."
+      },
+      "schema": {
+        "expected": "valid",
+        "documents": [
+          {
+            "file": "corpus/project/datatypes/unions/restricted-union-xsi-type-member/schema.xsd",
+            "role": "principal"
+          }
+        ],
+        "rule": {
+          "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+          "clause": "xsi:type must name a type validly derived from the element's type; a member of a facetless union restriction's base derives from it (Type Derivation OK (Simple) clause 2.2.4)"
+        }
+      },
+      "instances": [
+        {
+          "testName": "xsi-type-member",
+          "file": "corpus/project/datatypes/unions/restricted-union-xsi-type-member/instance.xml",
+          "expected": "valid",
+          "rule": {
+            "specRef": "https://www.w3.org/TR/2004/REC-xmlschema-1-20041028/structures.html#cvc-elt",
+            "clause": "xsi:type must name a type validly derived from the element's type; a member of a facetless union restriction's base derives from it (Type Derivation OK (Simple) clause 2.2.4)"
+          },
+          "differences": {
+            "libxml2": {
+              "record": "I-010"
+            }
+          }
+        }
+      ],
+      "files": [
+        {
+          "file": "corpus/project/datatypes/unions/restricted-union-xsi-type-member/schema.xsd",
+          "role": "principal"
+        },
+        {
+          "file": "corpus/project/datatypes/unions/restricted-union-xsi-type-member/instance.xml",
+          "role": "instance"
+        }
+      ]
     }
   ]
 }

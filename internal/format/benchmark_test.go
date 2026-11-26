@@ -20,8 +20,8 @@ func BenchmarkXMLDuplicateAttributes(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		var out strings.Builder
-		if err := XML(&out, doc); err == nil {
-			b.Fatal("XML() succeeded")
+		if err := XMLWithOptions(&out, doc, Options{}); err == nil {
+			b.Fatal("XMLWithOptions() succeeded")
 		}
 	}
 }
@@ -33,7 +33,7 @@ func BenchmarkXMLLargeAttribute(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		var out strings.Builder
-		if err := XML(&out, doc); err != nil {
+		if err := XMLWithOptions(&out, doc, Options{}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -46,7 +46,7 @@ func BenchmarkXMLMixedEscapedAttribute(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		var out strings.Builder
-		if err := XML(&out, doc); err != nil {
+		if err := XMLWithOptions(&out, doc, Options{}); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -59,7 +59,7 @@ func BenchmarkXMLMixedEscapedAttributeWriterOnly(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		var out strings.Builder
-		if err := XML(benchmarkWriterOnly{w: &out}, doc); err != nil {
+		if err := XMLWithOptions(benchmarkWriterOnly{w: &out}, doc, Options{}); err != nil {
 			b.Fatal(err)
 		}
 	}

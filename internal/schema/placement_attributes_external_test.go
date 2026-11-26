@@ -23,7 +23,7 @@ type placementAttributeCase struct {
 func compilePlacementAttributeCase(t *testing.T, tc placementAttributeCase) {
 	t.Helper()
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">` + "\n" + tc.body + "\n</xs:schema>"
-	compiled, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	compiled, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if tc.wantMsg == "" {
 		if err != nil {
 			t.Fatalf("Compile() error = %v", err)

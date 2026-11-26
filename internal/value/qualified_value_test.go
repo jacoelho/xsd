@@ -135,7 +135,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fallback.Type() != union || fallback.SelectedType() != BuiltinType(PrimitiveQName) || !fallback.HasQualifiedNames() || fallback.CanonicalText() != "{urn:test}item" || fallback.IdentityKey() != "\x11\x1e{urn:test}item" {
+	if fallback.Type() != union || !fallback.HasQualifiedNames() || fallback.CanonicalText() != "{urn:test}item" || fallback.IdentityKey() != "\x11\x1e{urn:test}item" {
 		t.Fatalf("QName fallback = %#v", fallback)
 	}
 	_, err = p.Validate(restricted, "p:item", undeclared, NeedCanonical|NeedIdentity, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
@@ -146,7 +146,7 @@ func TestProgramQualifiedUnionEnumeration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if accepted.Type() != restricted || accepted.SelectedType() != BuiltinType(PrimitiveNotation) || !accepted.HasQualifiedNames() || accepted.CanonicalText() != "{urn:test}item" || accepted.IdentityKey() != "\x12\x1e{urn:test}item" {
+	if accepted.Type() != restricted || !accepted.HasQualifiedNames() || accepted.CanonicalText() != "{urn:test}item" || accepted.IdentityKey() != "\x12\x1e{urn:test}item" {
 		t.Fatalf("declared NOTATION = %#v", accepted)
 	}
 }

@@ -64,11 +64,14 @@ func (rt *schemaBuild) appendFlattenedUnionMember(
 	id SimpleTypeID,
 	seen map[SimpleTypeID]struct{},
 	remaining int,
-) (int, bool) {
-	typ := rt.SimpleTypes[id]
+) (int, bool, error) {
+	derivation, found, err := rt.SimpleTypeDerivation(id)
+	if err != nil {
+		return 0, false, err
+	}
 	members := []SimpleTypeID{id}
-	if typ.ValueSpec.Variety == value.Union && !typ.unionHasFacets {
-		members = typ.ValueSpec.Union
+	if flattened := unionMembers(derivation); found && len(flattened) != 0 {
+		members = flattened
 	}
 	added := 0
 	for _, member := range members {
@@ -76,28 +79,38 @@ func (rt *schemaBuild) appendFlattenedUnionMember(
 			continue
 		}
 		if added == remaining {
-			return added, false
+			return added, false, nil
 		}
 		seen[member] = struct{}{}
 		*dst = append(*dst, member)
 		added++
 	}
-	return added, true
+	return added, true, nil
 }
 
-// derivedSimpleType copies base as the starting point of a restriction step.
-// Completed-base union and facet storage is immutable and remains shared until
-// the restriction replaces a facet value or appends a persistent pattern step.
-func (rt *schemaBuild) derivedSimpleType(id SimpleTypeID, name QName) simpleType {
-	st := rt.SimpleTypes[id]
-	st.Name = name
-	st.Final = 0
-	spec := st.ValueSpec
-	spec.Base = id
-	spec.Facets = value.FacetSpec{}
-	spec.WhitespacePresent = false
-	st.ValueSpec = spec
-	return st
+// derivedSimpleType starts a restriction step of the completed type id: its
+// declaration facts from the build and its value structure, without facets
+// or an explicit whitespace, from the value builder.
+func (rt *schemaBuild) derivedSimpleType(id SimpleTypeID, name QName) (simpleTypeDraft, error) {
+	view, ok := rt.valueBuilder.TypeView(id)
+	if !ok || !validSimpleTypeID(id, len(rt.SimpleTypes)) {
+		return simpleTypeDraft{}, xsderrors.InternalInvariant("restriction base has no completed simple type", nil)
+	}
+	decl := rt.SimpleTypes[id]
+	decl.Name = name
+	decl.Final = 0
+	return simpleTypeDraft{
+		decl: decl,
+		spec: value.TypeSpec{
+			Union:      view.Union,
+			Base:       id,
+			ListItem:   view.ListItem,
+			Variety:    view.Variety,
+			Primitive:  view.Primitive,
+			Whitespace: view.Whitespace,
+			Builtin:    view.Builtin,
+		},
+	}, nil
 }
 
 func cloneValueConstraint(vc *valueConstraint) *valueConstraint {
@@ -157,12 +170,14 @@ func (c *compiler) validateAttributeUseSetBuild(set attributeUseSet) error {
 	return validateAttributeUseSetRecord(&c.rt.Names, &c.rt, set)
 }
 
-func (c *compiler) simpleListItemReachesList(id SimpleTypeID) bool {
-	if !validSimpleTypeID(id, len(c.rt.SimpleTypes)) {
-		return false
+// simpleListItemReachesList reports whether the completed type id is a list
+// or a union with a list among its flattened members.
+func (c *compiler) simpleListItemReachesList(id SimpleTypeID) (bool, error) {
+	view, ok := c.rt.valueBuilder.TypeView(id)
+	if !ok || !validSimpleTypeID(id, len(c.rt.SimpleTypes)) {
+		return false, xsderrors.InternalInvariant("list item or union member has no completed simple type", nil)
 	}
-	typ := c.rt.SimpleTypes[id]
-	return typ.ValueSpec.Variety == value.List || typ.unionContainsList
+	return view.Variety == value.List || c.rt.SimpleTypes[id].unionContainsList, nil
 }
 
 func (c *compiler) registerGlobalElement(q QName, decl elementDecl) (ElementID, error) {
@@ -272,6 +287,8 @@ func (c *compiler) completeComplexType(id ComplexTypeID, typ complexTypeMetadata
 	c.rt.ComplexTypes[id] = typ
 }
 
+// addSimpleType reserves the ID of a simple type and records its declaration;
+// completeSimpleType completes it, except for builtins, which value owns.
 func (c *compiler) addSimpleType(typ simpleType) (SimpleTypeID, error) {
 	id, err := nextSimpleTypeID(len(c.rt.SimpleTypes))
 	if err != nil {
@@ -288,17 +305,16 @@ func (c *compiler) addSimpleType(typ simpleType) (SimpleTypeID, error) {
 	}
 	typ.Scope = declarationScopeNonGlobal
 	c.rt.SimpleTypes = append(c.rt.SimpleTypes, typ)
-	unavailable := c.simpleTypeHasMissingDependency(typ)
-	c.rt.simpleTypeUnavailable = append(c.rt.simpleTypeUnavailable, unavailable)
+	c.rt.simpleTypeUnavailable = append(c.rt.simpleTypeUnavailable, typ.Missing)
 	return id, nil
 }
 
-func (c *compiler) completeSimpleType(id SimpleTypeID, typ simpleType) error {
-	typ.Scope = c.rt.SimpleTypes[id].Scope
-	c.rt.SimpleTypes[id] = typ
-	unavailable := c.simpleTypeHasMissingDependency(typ)
-	c.rt.simpleTypeUnavailable[id] = unavailable
-	return c.completeValueType(id, typ)
+func (c *compiler) completeSimpleType(id SimpleTypeID, draft simpleTypeDraft) error {
+	decl := draft.decl
+	decl.Scope = c.rt.SimpleTypes[id].Scope
+	c.rt.SimpleTypes[id] = decl
+	c.rt.simpleTypeUnavailable[id] = c.simpleTypeHasMissingDependency(draft)
+	return c.completeValueType(id, draft.spec)
 }
 
 // compileUnheldSimpleType compiles and checks the inline simple type n of a
@@ -394,23 +410,18 @@ func (c *compiler) chargeDroppedSimpleTypes(builder *value.Builder, next, keep S
 	return nil
 }
 
-func (c *compiler) simpleTypeHasMissingDependency(typ simpleType) bool {
-	if typ.Missing {
+func (c *compiler) simpleTypeHasMissingDependency(draft simpleTypeDraft) bool {
+	if draft.decl.Missing {
 		return true
 	}
-	base := typ.ValueSpec.Base
-	if base != NoSimpleType && validSimpleTypeID(base, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[base] {
+	spec := draft.spec
+	unavailable := func(id SimpleTypeID) bool {
+		return validSimpleTypeID(id, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[id]
+	}
+	if unavailable(spec.Base) || (spec.Variety == value.List && unavailable(spec.ListItem)) {
 		return true
 	}
-	if typ.ValueSpec.Variety == value.List && validSimpleTypeID(typ.ValueSpec.ListItem, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[typ.ValueSpec.ListItem] {
-		return true
-	}
-	for _, member := range typ.ValueSpec.Union {
-		if validSimpleTypeID(member, len(c.rt.simpleTypeUnavailable)) && c.rt.simpleTypeUnavailable[member] {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(spec.Union, unavailable)
 }
 
 func (c *compiler) completeIdentity(id IdentityConstraintID, identity identityConstraintSpec) {

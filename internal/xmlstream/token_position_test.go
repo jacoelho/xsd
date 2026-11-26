@@ -238,7 +238,7 @@ func TestOutsideRootFailureLocatedAtFirstContentByte(t *testing.T) {
 					t.Fatal(err)
 				}
 				_ = mustNextToken(t, &reader)
-				if err = reader.End(root); err != nil {
+				if err = reader.endForTest(root); err != nil {
 					t.Fatal(err)
 				}
 				for err == nil {

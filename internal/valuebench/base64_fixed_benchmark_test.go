@@ -108,7 +108,7 @@ func auditBase64BuiltinProgram(tb testing.TB) (*valuepkg.Program, valuepkg.TypeI
 	if err != nil {
 		tb.Fatal(err)
 	}
-	id, ok := valuepkg.BuiltinTypeID("base64Binary")
+	id, ok := builtinTypeID("base64Binary")
 	if !ok {
 		tb.Fatal("missing base64Binary builtin")
 	}

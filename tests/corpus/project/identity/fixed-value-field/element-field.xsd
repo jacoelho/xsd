@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="p"><xs:complexType><xs:sequence>
+    <xs:element name="c" maxOccurs="unbounded"><xs:complexType><xs:sequence>
+      <xs:element name="e" type="xs:string" minOccurs="0"/>
+      <xs:element name="f" type="xs:int" fixed="1" minOccurs="0"/>
+    </xs:sequence></xs:complexType></xs:element>
+  </xs:sequence></xs:complexType>
+  <xs:unique name="u"><xs:selector xpath="c"/><xs:field xpath="e|f"/></xs:unique>
+  </xs:element>
+</xs:schema>

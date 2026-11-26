@@ -185,8 +185,8 @@ func TestBuilderTypeViewOwnsUnionCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	validated, err := program.Validate(id, "true", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
-	if err != nil || validated.SelectedType() != builtinBoolean {
-		t.Fatalf("Validate(true) = type %d, %v; want boolean", validated.SelectedType(), err)
+	if err != nil || validated.Type() != id {
+		t.Fatalf("Validate(true) = type %d, %v; want %d through the boolean member", validated.Type(), err, id)
 	}
 }
 

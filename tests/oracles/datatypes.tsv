@@ -17621,6 +17621,14 @@ project/datatypes/unions/outer-pattern-member-order/token-first	schema	dotnet	sc
 project/datatypes/unions/outer-pattern-member-order/token-first	schema	libxml2	schema-valid	
 project/datatypes/unions/outer-pattern-member-order/token-first	schema	xerces	schema-valid	
 project/datatypes/unions/outer-pattern-member-order/token-first	schema	xmlschema	schema-valid	
+project/datatypes/unions/restricted-union-xsi-type-member	schema	dotnet	schema-valid	
+project/datatypes/unions/restricted-union-xsi-type-member	schema	libxml2	schema-valid	
+project/datatypes/unions/restricted-union-xsi-type-member	schema	xerces	schema-valid	
+project/datatypes/unions/restricted-union-xsi-type-member	schema	xmlschema	schema-valid	
+project/datatypes/unions/restricted-union-xsi-type-member	xsi-type-member	dotnet	valid	
+project/datatypes/unions/restricted-union-xsi-type-member	xsi-type-member	libxml2	invalid	instance.xml:1: element root: Schemas validity error : Element '{urn:test}root', attribute '{http://www.w3.org/2001/XMLSchema-instance}type': The type definition '{http://www.w3.org/2001/XMLSchema}int', specified by xsi:type, is blocked or not validly derived from the type definition of the element declaration.
+project/datatypes/unions/restricted-union-xsi-type-member	xsi-type-member	xerces	valid	
+project/datatypes/unions/restricted-union-xsi-type-member	xsi-type-member	xmlschema	valid	
 project/datatypes/uri/empty-authority	absolute-with-empty-query	dotnet	valid	
 project/datatypes/uri/empty-authority	absolute-with-empty-query	libxml2	valid	
 project/datatypes/uri/empty-authority	absolute-with-empty-query	xerces	valid	

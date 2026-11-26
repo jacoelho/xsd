@@ -37,8 +37,8 @@ func stringBytesEqual(s string, b []byte) bool {
 	return s == string(b)
 }
 
-// IsDOCTYPEDeclaration reports whether b is a DOCTYPE declaration body.
-func IsDOCTYPEDeclaration(b []byte) bool {
+// isDOCTYPEDeclaration reports whether b is a DOCTYPE declaration body.
+func isDOCTYPEDeclaration(b []byte) bool {
 	if len(b) <= len(doctypeDirective) {
 		return false
 	}

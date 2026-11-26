@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/jacoelho/xsd/internal/source"
-	"github.com/jacoelho/xsd/internal/value"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/xsderrors"
 )
@@ -162,7 +161,7 @@ func TestSchemaBuildBuiltinHandlesMatchRegisteredDeclarations(t *testing.T) {
 		"NMTOKEN", "NMTOKENS", "ENTITY", "ENTITIES",
 	}
 	for _, local := range simpleNames {
-		id, ok := value.BuiltinTypeID(local)
+		id, ok := builtinTypeID(local)
 		if !ok {
 			t.Fatalf("xs:%s has no value-program ID", local)
 		}

@@ -76,7 +76,7 @@ func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	integer, ok := value.BuiltinTypeID("integer")
+	integer, ok := builtinTypeID("integer")
 	if !ok {
 		t.Fatal("missing integer builtin")
 	}
@@ -108,13 +108,12 @@ func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
 					if needs != 0 {
 						canonical = test.input
 					}
-					if validationErr != nil || got.Type() != union || got.SelectedType() != fallback || got.CanonicalText() != canonical || got.HasIdentity() != (needs != 0) {
+					if validationErr != nil || got.Type() != union || got.CanonicalText() != canonical || got.HasIdentity() != (needs != 0) {
 						t.Fatalf("%s needs=%d fallback result = %#v, %v", api, needs, got, validationErr)
 					}
 				}
-				got, validationErr := diagnosticValidate(program, union, test.firstAccepted, api, 0)
-				if validationErr != nil || got.SelectedType() != first {
-					t.Fatalf("%s first-member result = %#v, %v", api, got, validationErr)
+				if _, validationErr := diagnosticValidate(program, first, test.firstAccepted, api, 0); validationErr != nil {
+					t.Fatalf("%s first member rejected %q: %v", api, test.firstAccepted, validationErr)
 				}
 			}
 		})
@@ -123,7 +122,7 @@ func TestUnionRejectedMemberDiagnosticsAreTerminal(t *testing.T) {
 
 func TestTerminalLexicalAndUnionDiagnostics(t *testing.T) {
 	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
-	integer, _ := value.BuiltinTypeID("integer")
+	integer, _ := builtinTypeID("integer")
 	union := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.Union, Base: value.NoType, ListItem: value.NoType, Union: []value.TypeID{value.BuiltinType(value.PrimitiveBoolean), integer}})
 	list := completeCanonicalProjectionType(t, builder, value.TypeSpec{Variety: value.List, Base: value.NoType, ListItem: integer, Whitespace: value.WhitespaceCollapse, WhitespacePresent: true})
 	program, err := sealAll(builder)
@@ -173,9 +172,9 @@ func TestConstrainedUnionDiagnostic(t *testing.T) {
 					t.Errorf("%s needs=%d: diagnostic %q lacks %q", api, needs, validationErr, fact)
 				}
 			}
-			for input, selected := range map[string]value.TypeID{"ready": ready, "waiting": waiting} {
+			for _, input := range []string{"ready", "waiting"} {
 				got, controlErr := diagnosticValidate(program, union, input, api, needs)
-				if controlErr != nil || got.SelectedType() != selected {
+				if controlErr != nil || got.Type() != union {
 					t.Fatalf("%s needs=%d input=%q: result=%#v error=%v", api, needs, input, got, controlErr)
 				}
 			}

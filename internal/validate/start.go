@@ -11,15 +11,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-// resolveRuntimeName returns name with its runtime QName when the schema knows it.
-func resolveRuntimeName(rt *xsdSchema.Schema, name xml.Name) xsdSchema.RuntimeName {
-	q, ok := rt.LookupQName(name.Space, name.Local)
-	if ok {
-		return xsdSchema.RuntimeName{Name: q, Known: true, NS: name.Space, Local: name.Local}
-	}
-	return xsdSchema.RuntimeName{Known: false, NS: name.Space, Local: name.Local}
-}
-
 // namespaceLookup resolves an XML namespace prefix to its URI.
 type namespaceLookup func(string) (string, bool)
 

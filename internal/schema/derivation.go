@@ -16,16 +16,29 @@ type simpleTypeDerivation struct {
 	UnionHasFacets bool
 }
 
-// newSimpleTypeDerivationForSimpleType returns the runtime derivation
-// projection for one simple type.
-func newSimpleTypeDerivationForSimpleType(st simpleType) simpleTypeDerivation {
-	spec := st.ValueSpec
-	return cloneSimpleTypeDerivation(simpleTypeDerivation{
-		Union:          spec.Union,
-		Base:           spec.Base,
-		Variety:        spec.Variety,
-		UnionHasFacets: st.unionHasFacets,
-	})
+// newSimpleTypeDerivation returns the derivation projection of a completed
+// simple type from its value-owned structure.
+func newSimpleTypeDerivation(view valuepkg.TypeView, constrained bool) simpleTypeDerivation {
+	return simpleTypeDerivation{
+		Union:          view.Union,
+		Base:           view.Base,
+		Variety:        view.Variety,
+		UnionHasFacets: constrained,
+	}
+}
+
+// valueSimpleTypeDerivation reads the derivation projection of id from the
+// builder.
+func valueSimpleTypeDerivation(builder *valuepkg.Builder, id SimpleTypeID) (simpleTypeDerivation, error) {
+	view, ok := builder.TypeView(id)
+	if !ok {
+		return simpleTypeDerivation{}, errSimpleDerivationNoValueType
+	}
+	constrained, ok := builder.UnionHasFacets(id)
+	if !ok {
+		return simpleTypeDerivation{}, errSimpleDerivationNoValueType
+	}
+	return newSimpleTypeDerivation(view, constrained), nil
 }
 
 // complexTypeDerivation is the graph metadata needed to test complex-type derivation.
@@ -66,6 +79,8 @@ type typeDerivationIndex struct {
 }
 
 var (
+	errSimpleDerivationNoValueType    = newBuildDefect("simple type has no value definition")
+	errSimpleDerivationTypeInvalid    = newBuildDefect("simple type derivation references invalid type")
 	errDerivationAnyTypeInvalid       = newBuildDefect("type derivation projection stores invalid anyType")
 	errSimpleDerivationCycle          = newBuildDefect("simple type derivation graph contains a cycle")
 	errComplexDerivationCycle         = newBuildDefect("complex type derivation graph contains a cycle")
@@ -75,29 +90,49 @@ var (
 	errDerivationKindInvalid          = newBuildDefect("complex type derivation graph stores invalid derivation kind")
 )
 
+// newTypeDerivationReadForTypes builds the derivation index, reading the
+// structure of every simple type from the builder that completed it.
 func newTypeDerivationReadForTypes(
 	anyType ComplexTypeID,
+	builder *valuepkg.Builder,
 	simpleTypes []simpleType,
+	complexTypes []complexTypeMetadata,
+) (typeDerivationRead, error) {
+	derivations := make([]simpleTypeDerivation, len(simpleTypes))
+	for i := range simpleTypes {
+		if simpleTypes[i].Missing {
+			derivations[i] = simpleTypeDerivation{Base: NoSimpleType}
+			continue
+		}
+		derivation, err := valueSimpleTypeDerivation(builder, SimpleTypeID(i))
+		if err != nil {
+			return typeDerivationRead{}, err
+		}
+		derivations[i] = derivation
+	}
+	return newTypeDerivationRead(anyType, derivations, complexTypes)
+}
+
+func newTypeDerivationRead(
+	anyType ComplexTypeID,
+	simpleTypes []simpleTypeDerivation,
 	complexTypes []complexTypeMetadata,
 ) (typeDerivationRead, error) {
 	if !validComplexTypeID(anyType, len(complexTypes)) {
 		return typeDerivationRead{}, errDerivationAnyTypeInvalid
 	}
 	index := &typeDerivationIndex{
-		simpleTypes: make([]simpleTypeDerivation, len(simpleTypes)),
+		simpleTypes: simpleTypes,
 		anyType:     anyType,
 	}
-	for i, typ := range simpleTypes {
-		index.simpleTypes[i] = newSimpleTypeDerivationForSimpleType(typ)
-	}
-	if err := buildTypeDerivationIndex(index, simpleTypes, complexTypes); err != nil {
+	if err := buildTypeDerivationIndex(index, complexTypes); err != nil {
 		return typeDerivationRead{}, err
 	}
 	return typeDerivationRead{index: index}, nil
 }
 
-func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, complexTypes []complexTypeMetadata) error {
-	simpleParents, err := simpleDerivationParents(simpleTypes)
+func buildTypeDerivationIndex(r *typeDerivationIndex, complexTypes []complexTypeMetadata) error {
+	simpleParents, err := simpleDerivationParents(r.simpleTypes)
 	if err != nil {
 		return err
 	}
@@ -107,7 +142,7 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	}
 	r.simpleIn = simpleForest.in
 	r.simpleOut = simpleForest.out
-	complexParents, err := complexDerivationParents(simpleTypes, complexTypes)
+	complexParents, err := complexDerivationParents(len(r.simpleTypes), complexTypes)
 	if err != nil {
 		return err
 	}
@@ -121,11 +156,11 @@ func buildTypeDerivationIndex(r *typeDerivationIndex, simpleTypes []simpleType, 
 	return populateComplexDerivationIndex(r, complexTypes, complexParents, complexForest.order)
 }
 
-func simpleDerivationParents(types []simpleType) ([]int, error) {
+func simpleDerivationParents(types []simpleTypeDerivation) ([]int, error) {
 	parents := make([]int, len(types))
 	for i := range parents {
 		parents[i] = -1
-		base := types[i].ValueSpec.Base
+		base := types[i].Base
 		if base == NoSimpleType {
 			continue
 		}
@@ -137,7 +172,7 @@ func simpleDerivationParents(types []simpleType) ([]int, error) {
 	return parents, nil
 }
 
-func complexDerivationParents(simpleTypes []simpleType, complexTypes []complexTypeMetadata) ([]int, error) {
+func complexDerivationParents(simpleCount int, complexTypes []complexTypeMetadata) ([]int, error) {
 	parents := make([]int, len(complexTypes))
 	for i := range parents {
 		parents[i] = -1
@@ -149,7 +184,7 @@ func complexDerivationParents(simpleTypes []simpleType, complexTypes []complexTy
 			parents[i] = int(base)
 			continue
 		}
-		if base, ok := complexTypes[i].Base.Simple(); ok && !validSimpleTypeID(base, len(simpleTypes)) {
+		if base, ok := complexTypes[i].Base.Simple(); ok && !validSimpleTypeID(base, simpleCount) {
 			return nil, errComplexDerivationSimpleInvalid
 		}
 	}
@@ -895,11 +930,11 @@ func simpleTypeDerivationMaskOf(
 	if err := work(2); err != nil {
 		return 0, false, err
 	}
-	st, ok, err := simpleTypeDerivationOf(rt, derived)
+	st, ok, err := rt.SimpleTypeDerivation(derived)
 	if err != nil || !ok {
 		return 0, false, err
 	}
-	baseType, ok, err := simpleTypeDerivationOf(rt, base)
+	baseType, ok, err := rt.SimpleTypeDerivation(base)
 	if err != nil || !ok {
 		return 0, false, err
 	}
@@ -956,21 +991,11 @@ func nextSimpleBaseDerivation(
 	if err := work(1); err != nil {
 		return simpleBaseDerivationStep{}, err
 	}
-	nextType, ok, err := simpleTypeDerivationOf(rt, next)
+	nextType, ok, err := rt.SimpleTypeDerivation(next)
 	if err != nil || !ok {
 		return simpleBaseDerivationStep{}, err
 	}
 	return simpleBaseDerivationStep{id: next, typ: nextType, valid: true}, nil
-}
-
-// simpleTypeDerivationOf returns the derivation of id, and false when id is a
-// missing type, which derives from nothing.
-func simpleTypeDerivationOf(rt *schemaBuild, id SimpleTypeID) (simpleTypeDerivation, bool, error) {
-	if !validSimpleTypeID(id, len(rt.SimpleTypes)) {
-		return simpleTypeDerivation{}, false, newBuildDefect("simple type derivation references invalid type")
-	}
-	st, ok := rt.SimpleTypeDerivation(id)
-	return st, ok, nil
 }
 
 type simpleTypeBaseChainCycle struct {
@@ -1045,21 +1070,18 @@ func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	if frame.derived == frame.base {
 		return true, nil
 	}
-	derived, base, ok := s.frameTypes(last, frame)
-	if !ok {
-		return false, nil
-	}
-	if handled, err := s.enter(last, frame); handled || err != nil {
+	types, open, err := s.open(last, frame)
+	if !open {
 		return false, err
 	}
-	members := unionMembers(base)
+	members := unionMembers(types.base)
 	memberCount := len(members)
 	if frame.next < memberCount {
 		return s.visitMember(frame, members[frame.next])
 	}
 	if frame.next == memberCount {
 		frame.next++
-		found, continued := s.visitBase(frame, derived)
+		found, continued := s.visitBase(frame, types.derived)
 		if found || continued {
 			return found, nil
 		}
@@ -1068,21 +1090,32 @@ func (s *simpleTypeUnionDerivationSearch) advance() (bool, error) {
 	return false, nil
 }
 
-func (s *simpleTypeUnionDerivationSearch) frameTypes(
+type simpleTypeDerivationFrameTypes struct {
+	derived simpleTypeDerivation
+	base    simpleTypeDerivation
+}
+
+// open reads the types of the top frame and enters it. It reports false, after
+// popping the frame, when either type is missing or the pair was already
+// searched, and false with the error of a failed read or work charge.
+func (s *simpleTypeUnionDerivationSearch) open(
 	last int,
 	frame *simpleTypeDerivationFrame,
-) (derived, base simpleTypeDerivation, valid bool) {
-	derived, ok := s.rt.SimpleTypeDerivation(frame.derived)
-	if !ok {
+) (simpleTypeDerivationFrameTypes, bool, error) {
+	derived, ok, err := s.rt.SimpleTypeDerivation(frame.derived)
+	if err != nil || !ok {
 		s.pop(last)
-		return simpleTypeDerivation{}, simpleTypeDerivation{}, false
+		return simpleTypeDerivationFrameTypes{}, false, err
 	}
-	base, ok = s.rt.SimpleTypeDerivation(frame.base)
-	if !ok {
+	base, ok, err := s.rt.SimpleTypeDerivation(frame.base)
+	if err != nil || !ok {
 		s.pop(last)
-		return simpleTypeDerivation{}, simpleTypeDerivation{}, false
+		return simpleTypeDerivationFrameTypes{}, false, err
 	}
-	return derived, base, true
+	if handled, err := s.enter(last, frame); handled || err != nil {
+		return simpleTypeDerivationFrameTypes{}, false, err
+	}
+	return simpleTypeDerivationFrameTypes{derived: derived, base: base}, true, nil
 }
 
 func (s *simpleTypeUnionDerivationSearch) enter(
@@ -1180,9 +1213,9 @@ func (w *unionMemberWalk) reaches(
 	if derived == base {
 		return true, nil
 	}
-	typ, ok := rt.SimpleTypeDerivation(base)
-	if !ok || len(unionMembers(typ)) == 0 {
-		return false, nil
+	typ, ok, err := rt.SimpleTypeDerivation(base)
+	if err != nil || !ok || len(unionMembers(typ)) == 0 {
+		return false, err
 	}
 	if words := (len(rt.SimpleTypes) + 63) / 64; len(w.seen) != words {
 		w.seen = make([]uint64, words)
@@ -1205,9 +1238,9 @@ func (w *unionMemberWalk) reaches(
 }
 
 func (w *unionMemberWalk) pushUnseenMembers(rt *schemaBuild, current SimpleTypeID, work func(int) error) error {
-	typ, ok := rt.SimpleTypeDerivation(current)
-	if !ok {
-		return nil
+	typ, ok, err := rt.SimpleTypeDerivation(current)
+	if err != nil || !ok {
+		return err
 	}
 	members := unionMembers(typ)
 	if err := work(1 + len(members)); err != nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/xmlstream"
+	"github.com/jacoelho/xsd/xsderrors"
 )
 
 func TestUnionMemberSourceAdmission(t *testing.T) {
@@ -104,12 +105,14 @@ func TestCompiledListItemQueryRejectsInvalidRoots(t *testing.T) {
 	if !ok {
 		t.Fatal("outer is not a simple type")
 	}
-	if c.simpleListItemReachesList(id) {
-		t.Fatal("compiled scalar union unexpectedly contains a list")
+	if reachesList, err := c.simpleListItemReachesList(id); err != nil || reachesList {
+		t.Fatalf("list-item query(outer) = %v, %v; want false for a scalar union", reachesList, err)
 	}
 	for _, invalid := range []SimpleTypeID{NoSimpleType, SimpleTypeID(1_000_000)} {
-		if c.simpleListItemReachesList(invalid) {
-			t.Fatalf("list-item query(%d) = true for invalid root", invalid)
+		reachesList, err := c.simpleListItemReachesList(invalid)
+		expectDiagnostic(t, err, xsderrors.CategoryInternal, xsderrors.CodeInternalInvariant)
+		if reachesList {
+			t.Fatalf("list-item query(%d) = true for an uncompleted type", invalid)
 		}
 	}
 }

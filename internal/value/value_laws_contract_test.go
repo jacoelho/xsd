@@ -285,7 +285,7 @@ func TestValueLawTablesCoverEveryPrimitive(t *testing.T) {
 	t.Parallel()
 	covered := make(map[value.TypeID]bool)
 	for _, table := range valueLawTables {
-		id, ok := value.BuiltinTypeID(table.builtin)
+		id, ok := builtinTypeID(table.builtin)
 		if !ok {
 			t.Fatalf("law table names unknown builtin %q", table.builtin)
 		}
@@ -358,7 +358,7 @@ type valueLaws struct {
 
 func newValueLaws(t *testing.T, table valueLawTable) valueLaws {
 	t.Helper()
-	builtin, ok := value.BuiltinTypeID(table.builtin)
+	builtin, ok := builtinTypeID(table.builtin)
 	if !ok {
 		t.Fatalf("unknown builtin %q", table.builtin)
 	}
@@ -728,7 +728,7 @@ const maxGridFailuresPerLaw = 12
 func newValueLawGrid(t *testing.T, table valueLawTable) *valueLawGrid {
 	t.Helper()
 	g := &valueLawGrid{t: t, table: table, forms: valueLawGrids[table.builtin], failures: map[string]int{}, gapsHit: map[valueLawGap]bool{}}
-	builtin, ok := value.BuiltinTypeID(table.builtin)
+	builtin, ok := builtinTypeID(table.builtin)
 	if !ok {
 		t.Fatalf("unknown builtin %q", table.builtin)
 	}
@@ -856,7 +856,7 @@ func (g *valueLawGrid) checkCanonical() {
 	if g.table.contextual {
 		return
 	}
-	builtin, _ := value.BuiltinTypeID(g.table.builtin)
+	builtin, _ := builtinTypeID(g.table.builtin)
 	for i, form := range g.forms {
 		canonical := g.values[i].CanonicalText()
 		again, err := g.program.Validate(builtin, canonical, lawResolver(), value.NeedIdentity, lawLimits(), nil)

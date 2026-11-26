@@ -28,7 +28,7 @@ func BenchmarkCompileRepeatedCategoryTerms(b *testing.B) {
 func BenchmarkCompileBitsetWhitespace(b *testing.B) {
 	const source = `(\s*[^\s]\s*)+`
 	pattern := benchmarkPattern(b, source)
-	if !pattern.bitset || pattern.deterministic || pattern.linear != nil {
+	if pattern.mode != modeBitset {
 		b.Fatal("benchmark requires the general bitset NFA")
 	}
 	if matched, _, err := pattern.MatchStringWithScratch(" a ", unlimitedWork, nil); err != nil || !matched {

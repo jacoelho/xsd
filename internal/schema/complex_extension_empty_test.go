@@ -120,7 +120,7 @@ func TestComplexContentExtensionEmptyModelValidatesSyntaxAndReferences(t *testin
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{
 				source.Bytes("schema.xsd", []byte(tt.schema)),
 			})
 			if err == nil {
@@ -173,7 +173,7 @@ func TestComplexContentExtensionEmptyModelKeepsAdmissionAndFinalChecks(t *testin
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+			_, err := compileSources(xsdSchema.Options{}, []source.Source{
 				source.Bytes("schema.xsd", []byte(tt.schema)),
 			})
 			if err == nil {

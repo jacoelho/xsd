@@ -25,8 +25,6 @@ const (
 	KindEnd
 	// KindCharData is a character-data token.
 	KindCharData
-	// KindDirective is a markup directive token.
-	KindDirective
 	// KindComment is an XML comment token.
 	KindComment
 	// KindPI is a processing-instruction token.
@@ -57,10 +55,12 @@ const (
 // fields as read-only. Byte slices in token fields are valid only until the
 // next parser call.
 type Token struct {
-	End       EndElement
-	Start     StartElement
-	Data      []byte
-	Directive []byte
+	End   EndElement
+	Start StartElement
+	// Data is character data, or a processing instruction's target. Content
+	// is a comment's text or a processing instruction's body.
+	Data    []byte
+	Content []byte
 	// StartOffset and EndOffset delimit the token's source bytes in the
 	// parser input. They are byte offsets in [StartOffset, EndOffset].
 	StartOffset int
@@ -88,9 +88,9 @@ func (t *Token) begin(kind TokenKind, line, column int) {
 		t.TextKind = CharacterDataInvalid
 	case KindPI:
 		t.Data = nil
-		t.Directive = nil
-	case KindComment, KindDirective:
-		t.Directive = nil
+		t.Content = nil
+	case KindComment:
+		t.Content = nil
 	}
 	t.StartOffset = 0
 	t.EndOffset = 0
@@ -663,7 +663,7 @@ func (p *parser) readMarkup(dst *Token, line, col int) (bool, error) {
 	case '[':
 		return p.readCDATAMarkup(dst, line, col)
 	default:
-		return p.readDirectiveMarkup(dst, b, line, col)
+		return p.readDirectiveMarkup(b, line, col)
 	}
 }
 
@@ -682,7 +682,7 @@ func (p *parser) readCommentMarkup(dst *Token, line, col int) (bool, error) {
 	data, err := p.readComment(p.directive)
 	p.directive = data
 	dst.begin(KindComment, line, col)
-	dst.Directive = data
+	dst.Content = data
 	return false, err
 }
 
@@ -701,7 +701,7 @@ func (p *parser) readCDATAMarkup(dst *Token, line, col int) (bool, error) {
 	return false, err
 }
 
-func (p *parser) readDirectiveMarkup(dst *Token, first byte, line, col int) (bool, error) {
+func (p *parser) readDirectiveMarkup(first byte, line, col int) (bool, error) {
 	p.directive = p.directive[:0]
 	if err := p.appendTokenByte(&p.directive, first); err != nil {
 		return false, err
@@ -709,12 +709,10 @@ func (p *parser) readDirectiveMarkup(dst *Token, first byte, line, col int) (boo
 	if err := p.readDirectivePrefix(); err != nil {
 		return false, err
 	}
-	if !IsDOCTYPEDeclaration(p.directive) {
+	if !isDOCTYPEDeclaration(p.directive) {
 		return false, fmt.Errorf("invalid markup declaration")
 	}
-	dst.begin(KindDirective, line, col)
-	dst.Directive = p.directive
-	return false, nil
+	return false, positionedParserError(errUnsupportedDTD, line, col)
 }
 
 func (p *parser) readDirectivePrefix() error {
@@ -1314,7 +1312,7 @@ func (p *parser) finishPIWithContent(dst *Token, position processingInstructionP
 	p.directive = data
 	dst.begin(KindPI, line, col)
 	dst.Data = p.nameBuf
-	dst.Directive = data
+	dst.Content = data
 	return false, nil
 }
 

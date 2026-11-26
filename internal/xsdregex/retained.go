@@ -9,37 +9,32 @@ const (
 	linearAtomBytes = 48
 	// runeRangeBytes estimates one runeRange (two runes).
 	runeRangeBytes = 8
-	// intBytes estimates one int element of a closure.
+	// intBytes estimates one int element of Pattern.scalarNext.
 	intBytes = 8
-	// sliceHeaderBytes estimates one []int header in Pattern.closures.
-	sliceHeaderBytes = 24
 	// wordBytes estimates one uint64 of Pattern.closureBits.
 	wordBytes = 8
 	// patternBytes estimates the fixed Pattern and linearPattern overhead.
 	patternBytes = 256
 )
 
-// RetainedBytes estimates the memory the compiled machine retains:
-// instructions or linear atoms, precomputed epsilon closures and closure
-// bitsets, each distinct character-range backing array once, and the source.
-// Every retained derived structure must be counted here; a new retained table
-// without a term here escapes admission.
+// RetainedBytes estimates the memory the compiled machine retains: every
+// retained slice is charged by capacity at its weight, since the allocator
+// keeps the capacity whatever the length. Instructions or linear atoms, the
+// scalar successor table and the closure bitsets are counted, each distinct
+// character-range backing array once, and the source. Every retained derived
+// structure must be counted here; a new retained table without a term here
+// escapes admission.
 func (p *Pattern) RetainedBytes() uint64 {
 	if p == nil {
 		return 0
 	}
 	total := uint64(patternBytes) + uint64(len(p.source)) + runeRangeBytes*p.retainedRanges
 	if p.linear != nil {
-		return total + linearAtomBytes*uint64(len(p.linear.atoms)) +
-			uint64(len(p.linear.literalText)) + uint64(len(p.linear.literalBytes))
+		return total + linearAtomBytes*uint64(cap(p.linear.atoms)) +
+			uint64(len(p.linear.literalText)) + uint64(cap(p.linear.literalBytes))
 	}
-	total += instructionBytes * uint64(len(p.states))
-	total += sliceHeaderBytes * uint64(len(p.closures))
-	ints := len(p.startClosure)
-	for _, c := range p.closures {
-		ints += len(c)
-	}
-	total += intBytes * uint64(ints)
-	total += wordBytes * uint64(len(p.closureBits))
+	total += instructionBytes * uint64(cap(p.states))
+	total += intBytes * uint64(cap(p.scalarNext))
+	total += wordBytes * uint64(cap(p.closureBits))
 	return total
 }

@@ -27,9 +27,6 @@ func TestBuilderTruncateReissuesTheFirstRemovedID(t *testing.T) {
 	if err := builder.Truncate(removed, NoType); err != nil {
 		t.Fatalf("Truncate(%d) error = %v", removed, err)
 	}
-	if got := builder.UserTypeCount(); got != 1 {
-		t.Fatalf("UserTypeCount() = %d, want 1", got)
-	}
 	if _, ok := builder.TypeView(kept); !ok {
 		t.Fatalf("TypeView(%d) reports no type, want the kept type", kept)
 	}
@@ -74,14 +71,18 @@ func TestBuilderTruncateRejectsAnUncommittedSlot(t *testing.T) {
 
 	builder := NewBuilder(BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	completed := reserveCompleted(t, builder)
-	if _, err := builder.Reserve(); err != nil {
+	reserved, err := builder.Reserve()
+	if err != nil {
 		t.Fatalf("Reserve() error = %v", err)
 	}
 	if err := builder.Truncate(completed, NoType); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("Truncate(%d) over a reserved slot error = %v, want ErrMetadata", completed, err)
 	}
-	if got := builder.UserTypeCount(); got != 2 {
-		t.Fatalf("UserTypeCount() after a rejected Truncate = %d, want 2", got)
+	if _, ok := builder.TypeView(completed); !ok {
+		t.Fatalf("TypeView(%d) after a rejected Truncate reports no type, want the completed type", completed)
+	}
+	if err := builder.Complete(reserved, minimalBuilderTypeSpec()); err != nil {
+		t.Fatalf("Complete(%d) after a rejected Truncate error = %v, want the slot still reserved", reserved, err)
 	}
 }
 
@@ -98,8 +99,8 @@ func TestBuilderTruncateRejectsIDsOutsideTheUserTypes(t *testing.T) {
 	if err := builder.Truncate(id+1, NoType); err != nil {
 		t.Fatalf("Truncate(%d), removing nothing, error = %v", id+1, err)
 	}
-	if got := builder.UserTypeCount(); got != 1 {
-		t.Fatalf("UserTypeCount() = %d, want 1", got)
+	if _, ok := builder.TypeView(id); !ok {
+		t.Fatalf("TypeView(%d) reports no type, want it kept by the rejected and empty truncations", id)
 	}
 }
 
@@ -122,9 +123,6 @@ func TestBuilderTruncateMovesTheKeptTypeToTheFirstRemovedID(t *testing.T) {
 	}
 	if err := builder.Truncate(first, keep); err != nil {
 		t.Fatalf("Truncate(%d, %d) error = %v", first, keep, err)
-	}
-	if got := builder.UserTypeCount(); got != 1 {
-		t.Fatalf("UserTypeCount() = %d, want 1, the kept type", got)
 	}
 	if view, ok := builder.TypeView(first); !ok || view.Primitive != PrimitiveBoolean {
 		t.Fatalf("TypeView(%d) = %+v, %v, want the kept boolean type", first, view, ok)
@@ -151,8 +149,11 @@ func TestBuilderTruncateRejectsAKeptTypeNamingARemovedType(t *testing.T) {
 	if err := builder.Truncate(removed, keep); !errors.Is(err, ErrMetadata) {
 		t.Fatalf("Truncate(%d, %d) error = %v, want ErrMetadata: the kept type's base is removed", removed, keep, err)
 	}
-	if got := builder.UserTypeCount(); got != 2 {
-		t.Fatalf("UserTypeCount() after a rejected Truncate = %d, want 2", got)
+	if _, ok := builder.TypeView(removed); !ok {
+		t.Fatalf("TypeView(%d) after a rejected Truncate reports no type, want it kept", removed)
+	}
+	if view, ok := builder.TypeView(keep); !ok || view.Base != removed {
+		t.Fatalf("TypeView(%d) after a rejected Truncate = %+v, %v, want it unmoved with base %d", keep, view, ok, removed)
 	}
 }
 

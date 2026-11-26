@@ -32,6 +32,7 @@ type referenceSimpleType struct {
 	members   []SimpleTypeID
 	listItem  SimpleTypeID
 	hasFacets bool
+	declares  bool
 }
 
 type referenceComplexType struct {
@@ -55,17 +56,23 @@ func generatedReferenceTypeGraph(rng *rand.Rand) referenceTypeGraph {
 			for k := range members {
 				members[k] = SimpleTypeID(rng.Uint32N(i))
 			}
-			g.simple = append(g.simple, referenceSimpleType{variety: valuepkg.Union, base: 0, members: members, hasFacets: rng.IntN(4) == 0})
+			g.simple = append(g.simple, referenceSimpleType{variety: valuepkg.Union, base: 0, members: members, hasFacets: rng.IntN(4) == 0, declares: false})
 		case 1:
-			g.simple = append(g.simple, referenceSimpleType{variety: valuepkg.List, base: 0, listItem: j})
+			item := j
+			if g.simple[item].variety == valuepkg.List {
+				item = 0
+			}
+			g.simple = append(g.simple, referenceSimpleType{variety: valuepkg.List, base: 0, listItem: item})
 		default:
 			parent := g.simple[j]
+			declares := parent.variety == valuepkg.Union && !parent.hasFacets && rng.IntN(2) == 0
 			g.simple = append(g.simple, referenceSimpleType{
 				variety:   parent.variety,
 				base:      j,
 				members:   parent.members,
 				listItem:  parent.listItem,
-				hasFacets: parent.variety == valuepkg.Union && (parent.hasFacets || rng.IntN(2) == 0),
+				hasFacets: parent.variety == valuepkg.Union && (parent.hasFacets || declares),
+				declares:  declares,
 			})
 		}
 		g.types = append(g.types, SimpleRef(SimpleTypeID(i)))
@@ -86,17 +93,74 @@ func generatedReferenceTypeGraph(rng *rand.Rand) referenceTypeGraph {
 	return g
 }
 
-func (g referenceTypeGraph) build() *schemaBuild {
-	b := &schemaBuild{AnyType: referenceAnyType}
-	for _, typ := range g.simple {
-		spec := valuepkg.TypeSpec{Variety: typ.variety, Base: typ.base, Union: typ.members}
-		if typ.variety == valuepkg.List {
-			spec.ListItem = typ.listItem
+// realSimple maps a reference simple type to its ID in a builder: reference
+// type 0 is xs:anySimpleType and the others follow the builtin types.
+func realSimple(id SimpleTypeID) SimpleTypeID {
+	if id == 0 {
+		return valuepkg.AnySimpleTypeID
+	}
+	return valuepkg.BuiltinTypeCount + id - 1
+}
+
+func realType(t TypeID) TypeID {
+	if id, ok := t.Simple(); ok {
+		return SimpleRef(realSimple(id))
+	}
+	return t
+}
+
+func (referenceTypeGraph) spec(typ referenceSimpleType) valuepkg.TypeSpec {
+	spec := valuepkg.TypeSpec{
+		Variety:           typ.variety,
+		Primitive:         valuepkg.PrimitiveString,
+		Whitespace:        valuepkg.WhitespaceCollapse,
+		WhitespacePresent: true,
+		Base:              realSimple(typ.base),
+		ListItem:          valuepkg.NoType,
+	}
+	switch typ.variety {
+	case valuepkg.Atomic:
+		spec.Whitespace = valuepkg.WhitespacePreserve
+	case valuepkg.List:
+		spec.ListItem = realSimple(typ.listItem)
+	case valuepkg.Union:
+		for _, member := range typ.members {
+			spec.Union = append(spec.Union, realSimple(member))
 		}
-		b.SimpleTypes = append(b.SimpleTypes, simpleType{ValueSpec: spec, unionHasFacets: typ.hasFacets})
+	}
+	if typ.declares || (typ.variety == valuepkg.Union && typ.hasFacets && typ.base == 0) {
+		spec.Facets.Enumeration = []valuepkg.LiteralSpec{{Lexical: "x", Type: valuepkg.NoType}}
+	}
+	return spec
+}
+
+// build completes every generated simple type through a value.Builder, the
+// owner of simple-type structure, and records builtin and user types at their
+// builder IDs.
+func (g referenceTypeGraph) build(t *testing.T) *schemaBuild {
+	t.Helper()
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+	b := &schemaBuild{AnyType: referenceAnyType, valueBuilder: builder}
+	b.SimpleTypes = make([]simpleType, valuepkg.BuiltinTypeCount)
+	for i, typ := range g.simple {
+		if i == 0 {
+			continue
+		}
+		id, err := builder.Reserve()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id != realSimple(SimpleTypeID(i)) {
+			t.Fatalf("reserved ID %d, want %d", id, realSimple(SimpleTypeID(i)))
+		}
+		if err := builder.Complete(id, g.spec(typ)); err != nil {
+			t.Fatalf("graph %v: Complete(%d) = %v", g, id, err)
+		}
+		b.SimpleTypes = append(b.SimpleTypes, simpleType{})
 	}
 	for _, typ := range g.complex {
-		b.ComplexTypes = append(b.ComplexTypes, complexTypeMetadata{Base: typ.base, Block: typ.block, Derivation: referenceDerivationKinds[typ.method]})
+		base := typ.base
+		b.ComplexTypes = append(b.ComplexTypes, complexTypeMetadata{Base: realType(base), Block: typ.block, Derivation: referenceDerivationKinds[typ.method]})
 	}
 	return b
 }
@@ -222,15 +286,16 @@ func TestTypeDerivationAgreesWithReferenceWalkOnGeneratedGraphs(t *testing.T) {
 	rng := rand.New(rand.NewPCG(seed, 1)) //nolint:gosec // Reproducible generated graphs, not security-sensitive randomness.
 	for range 2_000 {
 		g := generatedReferenceTypeGraph(rng)
-		rt := g.build()
-		read, err := newTypeDerivationReadForTypes(referenceAnyType, rt.SimpleTypes, rt.ComplexTypes)
+		rt := g.build(t)
+		read, err := newTypeDerivationReadForTypes(referenceAnyType, rt.valueBuilder, rt.SimpleTypes, rt.ComplexTypes)
 		if err != nil {
 			t.Fatalf("seed %#x, graph %v: newTypeDerivationReadForTypes() error = %v", seed, g, err)
 		}
 		var scratch TypeDerivationScratch
-		for _, derived := range g.types {
-			for _, base := range g.types {
-				wantMask, wantOK := g.derivation(derived, base)
+		for _, refDerived := range g.types {
+			for _, refBase := range g.types {
+				derived, base := realType(refDerived), realType(refBase)
+				wantMask, wantOK := g.derivation(refDerived, refBase)
 				walkMask, walkOK, err := deriveTypeMask(rt, derived, base, unboundedTypeDerivationWork)
 				if err != nil || walkMask != wantMask || walkOK != wantOK {
 					t.Fatalf("seed %#x, graph %v: deriveTypeMask(%v, %v) = %02b, %v, %v; want %02b, %v", seed, g, derived, base, walkMask, walkOK, err, wantMask, wantOK)
@@ -243,10 +308,40 @@ func TestTypeDerivationAgreesWithReferenceWalkOnGeneratedGraphs(t *testing.T) {
 					continue
 				}
 				blocks, err := substitutionTypeBlocks(rt, derived, base, unboundedTypeDerivationWork)
-				if want := g.substitutionBlocks(derived, base); err != nil || blocks != want {
+				if want := g.substitutionBlocks(refDerived, refBase); err != nil || blocks != want {
 					t.Fatalf("seed %#x, graph %v: substitutionTypeBlocks(%v, %v) = %02b, %v; want %02b", seed, g, derived, base, blocks, err, want)
 				}
 			}
 		}
+	}
+}
+
+func TestMissingSimpleTypeDerivesFromNothingButAnyType(t *testing.T) {
+	t.Parallel()
+
+	builder := valuepkg.NewBuilder(valuepkg.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
+	id, err := builder.Reserve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentinel := missingSimpleType(QName{})
+	if completeErr := builder.Complete(id, sentinel.spec); completeErr != nil {
+		t.Fatal(completeErr)
+	}
+	simple := make([]simpleType, int(id)+1)
+	simple[id] = sentinel.decl
+	read, err := newTypeDerivationReadForTypes(referenceAnyType, builder, simple, []complexTypeMetadata{{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scratch TypeDerivationScratch
+	missing := SimpleRef(id)
+	for _, base := range []TypeID{SimpleRef(valuepkg.BuiltinType(valuepkg.PrimitiveString)), SimpleRef(valuepkg.AnySimpleTypeID)} {
+		if mask, ok := read.derivation(missing, base, &scratch); ok {
+			t.Errorf("missing type derives from %v with mask %02b", base, mask)
+		}
+	}
+	if _, ok := read.derivation(missing, ComplexRef(referenceAnyType), &scratch); !ok {
+		t.Error("missing type does not derive from anyType")
 	}
 }

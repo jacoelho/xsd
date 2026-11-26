@@ -11,7 +11,7 @@ import (
 )
 
 func TestEnumerationDiagnostic(t *testing.T) {
-	tokenType, _ := value.BuiltinTypeID("token")
+	tokenType, _ := builtinTypeID("token")
 	// descending declares v<n-1> twice, then down to v0.
 	descending := func(n int) []string {
 		literals := []string{fmt.Sprintf("v%d", n-1)}

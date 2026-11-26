@@ -8,18 +8,12 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func testSimpleType(variety value.Variety, base SimpleTypeID, members ...SimpleTypeID) simpleType {
-	spec := value.TypeSpec{Variety: variety, Base: base}
-	switch variety {
-	case value.Atomic:
-	case value.List:
-		if len(members) != 0 {
-			spec.ListItem = members[0]
-		}
-	case value.Union:
-		spec.Union = append([]SimpleTypeID(nil), members...)
+func testSimpleType(variety value.Variety, base SimpleTypeID, members ...SimpleTypeID) simpleTypeDerivation {
+	typ := simpleTypeDerivation{Variety: variety, Base: base}
+	if variety == value.Union {
+		typ.Union = append([]SimpleTypeID(nil), members...)
 	}
-	return simpleType{ValueSpec: spec}
+	return typ
 }
 
 func TestCheckSimpleRestrictionBase(t *testing.T) {

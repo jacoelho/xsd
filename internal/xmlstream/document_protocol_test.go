@@ -29,8 +29,8 @@ func TestReaderEndOwnershipErrorsRemainStateErrors(t *testing.T) {
 		t.Fatalf("MatchEnd with non-top frame = %v, want %v", matchErr, ErrInvalidFrame)
 	}
 	boundary, ok := errors.AsType[*Error](matchErr)
-	if !ok || boundary.Kind != ErrorState {
-		t.Fatalf("MatchEnd error = %#v, want ErrorState", matchErr)
+	if !ok || boundary.kind != errorState {
+		t.Fatalf("MatchEnd error = %#v, want errorState", matchErr)
 	}
 	if err := reader.MatchEnd(childFrame); err != nil {
 		t.Fatal(err)
@@ -40,11 +40,11 @@ func TestReaderEndOwnershipErrorsRemainStateErrors(t *testing.T) {
 		t.Fatalf("CommitEnd with non-top frame = %v, want %v", commitErr, ErrInvalidFrame)
 	}
 	boundary, ok = errors.AsType[*Error](commitErr)
-	if !ok || boundary.Kind != ErrorState {
-		t.Fatalf("CommitEnd error = %#v, want ErrorState", commitErr)
+	if !ok || boundary.kind != errorState {
+		t.Fatalf("CommitEnd error = %#v, want errorState", commitErr)
 	}
-	if reader.Depth() != 2 {
-		t.Fatalf("depth after rejected CommitEnd = %d, want 2", reader.Depth())
+	if reader.ns.depth() != 2 {
+		t.Fatalf("depth after rejected CommitEnd = %d, want 2", reader.ns.depth())
 	}
 	if err := reader.CommitEnd(childFrame); err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ func TestReaderRejectsForeignHandlesWithoutConsumingTransitions(t *testing.T) {
 	if err := reader.CommitEnd(own); err != nil {
 		t.Fatal(err)
 	}
-	if reader.Depth() != 0 || other.Depth() != 1 {
-		t.Fatalf("depths after commit = %d, %d, want 0, 1", reader.Depth(), other.Depth())
+	if reader.ns.depth() != 0 || other.ns.depth() != 1 {
+		t.Fatalf("depths after commit = %d, %d, want 0, 1", reader.ns.depth(), other.ns.depth())
 	}
 }

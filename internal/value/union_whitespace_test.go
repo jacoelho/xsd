@@ -31,26 +31,25 @@ func TestUnionUsesSelectedMemberWhitespace(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name, lexical, canonical string
-		selected                 TypeID
 	}{
-		{name: "integer", lexical: " 7 ", canonical: "7", selected: builtinInt},
-		{name: "string fallback", lexical: "  x  ", canonical: "  x  ", selected: builtinString},
+		{name: "integer", lexical: " 7 ", canonical: "7"},
+		{name: "string fallback", lexical: "  x  ", canonical: "  x  "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := p.Validate(union, tc.lexical, Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("Validate(%q): %v", tc.lexical, err)
 			}
-			if got.SelectedType() != tc.selected || got.CanonicalText() != tc.canonical {
-				t.Fatalf("Validate(%q) = selected %d, canonical %q; want %d, %q", tc.lexical, got.SelectedType(), got.CanonicalText(), tc.selected, tc.canonical)
+			if got.CanonicalText() != tc.canonical {
+				t.Fatalf("Validate(%q) = canonical %q; want %q", tc.lexical, got.CanonicalText(), tc.canonical)
 			}
 
 			got, err = p.ValidateBytes(union, []byte(tc.lexical), Resolver{}, NeedCanonical, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 			if err != nil {
 				t.Fatalf("ValidateBytes(%q): %v", tc.lexical, err)
 			}
-			if got.SelectedType() != tc.selected || got.CanonicalText() != tc.canonical {
-				t.Fatalf("ValidateBytes(%q) = selected %d, canonical %q; want %d, %q", tc.lexical, got.SelectedType(), got.CanonicalText(), tc.selected, tc.canonical)
+			if got.CanonicalText() != tc.canonical {
+				t.Fatalf("ValidateBytes(%q) = canonical %q; want %q", tc.lexical, got.CanonicalText(), tc.canonical)
 			}
 		})
 	}
@@ -86,9 +85,6 @@ func TestUnionPatternUsesSelectedMemberWhitespaceWithoutProjection(t *testing.T)
 	value, err := p.Validate(union, "a   b", Resolver{}, 0, EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
 	if err != nil {
 		t.Fatalf("Validate without projection: %v", err)
-	}
-	if value.SelectedType() != builtinToken {
-		t.Fatalf("SelectedType() = %d, want token %d", value.SelectedType(), builtinToken)
 	}
 	if value.CanonicalText() != "" {
 		t.Fatalf("CanonicalText() = %q, want empty without projection", value.CanonicalText())
@@ -137,8 +133,8 @@ func TestUnionEnumerationUsesSelectedMemberValue(t *testing.T) {
 			if err != nil {
 				t.Fatalf("spaced literal: %v", err)
 			}
-			if got.SelectedType() != builtinString || got.CanonicalText() != "  x  " {
-				t.Fatalf("spaced literal = selected %d, canonical %q; want string %d and %q", got.SelectedType(), got.CanonicalText(), builtinString, "  x  ")
+			if got.CanonicalText() != "  x  " {
+				t.Fatalf("spaced literal = canonical %q; want %q", got.CanonicalText(), "  x  ")
 			}
 			if _, err := validate.run("x"); err == nil {
 				t.Fatal("unspaced literal matched the spaced string enumeration")
@@ -155,7 +151,6 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 		lexical   string
 		wantError bool
 		list      bool
-		selected  TypeID
 		canonical string
 	}{
 		{
@@ -163,7 +158,6 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 			members:   []TypeID{builtinToken, builtinString},
 			pattern:   `\S+ \S+`,
 			lexical:   "a   b",
-			selected:  builtinToken,
 			canonical: "a b",
 		},
 		{
@@ -178,7 +172,6 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 			members:   []TypeID{builtinNormalizedString, builtinString},
 			pattern:   `[a-z ]+`,
 			lexical:   "hello\nworld",
-			selected:  builtinNormalizedString,
 			canonical: "hello world",
 		},
 		{
@@ -217,7 +210,6 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 					t.Fatal(listErr)
 				}
 				test.members = []TypeID{list}
-				test.selected = list
 			}
 			union, err := b.Reserve()
 			if err != nil {
@@ -263,8 +255,8 @@ func TestUnionPatternUsesSelectedMemberWhitespace(t *testing.T) {
 					if err != nil {
 						t.Fatalf("Validate(%q): %v", test.lexical, err)
 					}
-					if got.SelectedType() != test.selected || got.CanonicalText() != test.canonical {
-						t.Fatalf("Validate(%q) = selected %d, canonical %q; want %d, %q", test.lexical, got.SelectedType(), got.CanonicalText(), test.selected, test.canonical)
+					if got.CanonicalText() != test.canonical {
+						t.Fatalf("Validate(%q) = canonical %q; want %q", test.lexical, got.CanonicalText(), test.canonical)
 					}
 				})
 			}
@@ -341,7 +333,7 @@ func TestListXMLWhitespaceAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, ok := BuiltinTypeID("NMTOKENS")
+	id, ok := builtinTypeID("NMTOKENS")
 	if !ok {
 		t.Fatal("missing NMTOKENS")
 	}

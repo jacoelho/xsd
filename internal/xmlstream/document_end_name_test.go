@@ -32,7 +32,7 @@ func TestReaderEndNameSurvivesTrailingWhitespaceRefills(t *testing.T) {
 		if token.Kind != KindEnd || token.End.Name != want || token.StartOffset != len(start) || token.EndOffset != len(input) {
 			t.Fatalf("end of %q = %+v", name, token)
 		}
-		if err := reader.End(handle); err != nil {
+		if err := reader.endForTest(handle); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := reader.Next(); !IsEOF(err) {
@@ -83,7 +83,7 @@ func TestReaderPendingEndPreservesLexicalNameUntilInvalidation(t *testing.T) {
 	if token.End.Name != (xml.Name{Local: "fresh"}) {
 		t.Fatalf("reset emitted stale synthetic end: %+v", token)
 	}
-	if err := reader.End(handle); err != nil {
+	if err := reader.endForTest(handle); err != nil {
 		t.Fatal(err)
 	}
 	reader.Detach()
@@ -113,8 +113,8 @@ func TestReaderAbortedStartRetainsItsSyntheticClosingName(t *testing.T) {
 		t.Fatalf("end after abort = %+v", token)
 	}
 	err = reader.MatchEnd(parent)
-	if err == nil || !strings.Contains(err.Error(), `end element "child" does not match start element "root"`) || reader.Depth() != 1 {
-		t.Fatalf("match after abort = %v, depth %d", err, reader.Depth())
+	if err == nil || !strings.Contains(err.Error(), `end element "child" does not match start element "root"`) || reader.ns.depth() != 1 {
+		t.Fatalf("match after abort = %v, depth %d", err, reader.ns.depth())
 	}
 	reader.Detach()
 }
@@ -142,8 +142,8 @@ func TestReaderEndNamesRequireLexicalEquality(t *testing.T) {
 		for range 2 {
 			err := reader.MatchEnd(handle)
 			boundary, ok := errors.AsType[*Error](err)
-			if !ok || boundary.Kind != ErrorSyntax || !strings.Contains(err.Error(), test.message) || reader.Depth() != 1 {
-				t.Fatalf("%q: match = %v, depth %d", test.input, err, reader.Depth())
+			if !ok || boundary.kind != errorSyntax || !strings.Contains(err.Error(), test.message) || reader.ns.depth() != 1 {
+				t.Fatalf("%q: match = %v, depth %d", test.input, err, reader.ns.depth())
 			}
 		}
 		reader.Detach()
@@ -171,7 +171,7 @@ func TestReaderSyntheticEndDoesNotChargeNameAgain(t *testing.T) {
 		if token.End.Name != (xml.Name{Local: "r"}) || token.StartOffset != 0 || token.EndOffset != len(test.input) {
 			t.Fatalf("synthetic end = %+v", token)
 		}
-		if err := reader.End(handle); err != nil {
+		if err := reader.endForTest(handle); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := reader.Next(); !IsEOF(err) {
@@ -193,7 +193,7 @@ func TestReaderValidatesEndQNameBeforeTagTail(t *testing.T) {
 		}
 		token, err := reader.Next()
 		boundary, ok := errors.AsType[*Error](err)
-		if token != nil || !ok || boundary.Kind != ErrorSyntax || boundary.Cause.Error() != "invalid XML qualified name" {
+		if token != nil || !ok || boundary.kind != errorSyntax || boundary.Cause.Error() != "invalid XML qualified name" {
 			t.Fatalf("%q: token = %+v, error = %v", end, token, err)
 		}
 		reader.Detach()
@@ -226,7 +226,7 @@ func readEndNames(source io.Reader, limits Limits) ([]xml.Name, error) {
 			handles = append(handles, handle)
 		case KindEnd:
 			names = append(names, token.End.Name)
-			if err := reader.End(handles[len(handles)-1]); err != nil {
+			if err := reader.endForTest(handles[len(handles)-1]); err != nil {
 				return names, err
 			}
 			handles = handles[:len(handles)-1]

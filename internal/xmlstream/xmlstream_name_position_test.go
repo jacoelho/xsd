@@ -47,7 +47,7 @@ func TestQualifiedNameErrorPosition(t *testing.T) {
 			for _, rc := range []readerCase{wholeInput, oneByteInput, chunkedInput(2)} {
 				_, err := recordReader(rc.open(test.input), Config{}, 0)
 				xerr, ok := errors.AsType[*Error](err)
-				if !ok || xerr.Kind != ErrorSyntax || !strings.Contains(err.Error(), "invalid XML qualified name") {
+				if !ok || xerr.kind != errorSyntax || !strings.Contains(err.Error(), "invalid XML qualified name") {
 					t.Fatalf("%s: error = %v, want qualified-name syntax error", rc.name, err)
 				}
 				if xerr.line != test.line || xerr.column != test.column {

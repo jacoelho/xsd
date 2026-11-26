@@ -131,18 +131,22 @@ func TestNameTableLimitStopsGrowthAfterFailure(t *testing.T) {
 func TestNameTableValidateRejectsInconsistentIndexes(t *testing.T) {
 	t.Parallel()
 
-	names, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
-	if err != nil {
-		t.Fatalf("NewNameTable() error = %v", err)
+	newNames := func() nameTable {
+		t.Helper()
+		names, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
+		if err != nil {
+			t.Fatalf("NewNameTable() error = %v", err)
+		}
+		return names
 	}
 
-	missingLocal := names.Clone()
+	missingLocal := newNames()
 	delete(missingLocal.localIndex, "type")
 	if err := missingLocal.Validate(testRequiredNamespaces, testRequiredNames); err == nil {
 		t.Fatal("Validate() accepted missing local reverse map")
 	}
 
-	staleNamespace := names.Clone()
+	staleNamespace := newNames()
 	staleNamespace.nsIndex[XSDNamespaceURI] = emptyNamespaceID
 	if err := staleNamespace.Validate(testRequiredNamespaces, testRequiredNames); err == nil {
 		t.Fatal("Validate() accepted stale namespace reverse map")
@@ -181,31 +185,9 @@ func TestRuntimeNameTableIncludesRequiredSeeds(t *testing.T) {
 		}
 	}
 
-	missing := names.Clone()
-	delete(missing.localIndex, "type")
-	if err := validateRuntimeNameTable(&missing); err == nil {
+	delete(names.localIndex, "type")
+	if err := validateRuntimeNameTable(&names); err == nil {
 		t.Fatal("ValidateRuntimeNameTable() accepted missing required name")
-	}
-}
-
-func TestNameTableCloneDoesNotAlias(t *testing.T) {
-	t.Parallel()
-
-	names, err := newNameTable(0, testRequiredNamespaces, testRequiredNames)
-	if err != nil {
-		t.Fatalf("NewNameTable() error = %v", err)
-	}
-	clone := names.Clone()
-	interner := newNameInterner(&names)
-	if _, err := interner.InternQName("urn:new", "new"); err != nil {
-		t.Fatalf("InternQName() error = %v", err)
-	}
-
-	if names.NameCount() == clone.NameCount() {
-		t.Fatal("clone name count changed with original")
-	}
-	if _, ok := clone.LookupQName("urn:new", "new"); ok {
-		t.Fatal("clone observed name interned after clone")
 	}
 }
 
@@ -317,4 +299,11 @@ func TestTheRuntimeNameSeedFitsTheFirstArenaChunk(t *testing.T) {
 	if bytes > nameArenaFirstChunk {
 		t.Fatalf("the runtime name seed stores %d bytes of names, more than the first arena chunk, %d", bytes, nameArenaFirstChunk)
 	}
+}
+
+// newNameTable returns a name table seeded with the given names, sized to
+// them. Every table reserves emptyNamespaceID for the empty namespace
+// independently of the seed order.
+func newNameTable(maxNames int, requiredNamespaces []string, requiredNames []ExpandedName) (nameTable, error) {
+	return newBoundedNameTable(maxNames, requiredNamespaces, requiredNames, len(requiredNamespaces), len(requiredNames))
 }

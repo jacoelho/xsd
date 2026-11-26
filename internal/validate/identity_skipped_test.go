@@ -94,8 +94,7 @@ func TestIdentitySkippedOwnerHasNoAttributeTargets(t *testing.T) {
 <xs:key name="k"><xs:selector xpath="."/><xs:field xpath="child/@xsi:nil"/></xs:key>
 </xs:element></xs:schema>`)
 	evaluation := newIdentityEvaluation(rt, identityLimits{})
-	name, _ := rt.LookupQName("", "root")
-	runtimeName := xsdSchema.RuntimeName{Known: true, Name: name}
+	runtimeName := resolveKnownNameForTest(t, rt, "", "root")
 	id, _, ok := rt.GlobalElement(runtimeName)
 	if !ok {
 		t.Fatal("compiled schema is missing its root element")
@@ -103,18 +102,12 @@ func TestIdentitySkippedOwnerHasNoAttributeTargets(t *testing.T) {
 	if err := evaluation.startElement(identityElementStart{Name: runtimeName, Element: id, Mode: elementAssessed}); err != nil {
 		t.Fatal(err)
 	}
-	childName, ok := rt.LookupQName("", "child")
-	if !ok {
-		t.Fatal("compiled field is missing its child name")
-	}
-	if err := evaluation.startElement(identityElementStart{Name: xsdSchema.RuntimeName{Known: true, Name: childName}, Element: xsdSchema.NoElement, Mode: elementWildcardSkipped}); err != nil {
+	childName := resolveKnownNameForTest(t, rt, "", "child")
+	if err := evaluation.startElement(identityElementStart{Name: childName, Element: xsdSchema.NoElement, Mode: elementWildcardSkipped}); err != nil {
 		t.Fatal(err)
 	}
-	attributeName, ok := rt.LookupQName("http://www.w3.org/2001/XMLSchema-instance", "nil")
-	if !ok {
-		t.Fatal("compiled field is missing its XSI attribute name")
-	}
-	target, err := evaluation.prepareAttributeValue(xsdSchema.RuntimeName{Known: true, Name: attributeName}, 2)
+	attributeName := resolveKnownNameForTest(t, rt, "http://www.w3.org/2001/XMLSchema-instance", "nil")
+	target, err := evaluation.prepareAttributeValue(attributeName, 2)
 	if err != nil {
 		t.Fatal(err)
 	}

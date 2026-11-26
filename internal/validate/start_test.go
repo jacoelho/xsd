@@ -14,24 +14,6 @@ import (
 	"github.com/jacoelho/xsd/xsderrors"
 )
 
-func TestResolveRuntimeName(t *testing.T) {
-	t.Parallel()
-
-	rt := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="known"/></xs:schema>`)
-	known, ok := rt.LookupQName("", "known")
-	if !ok {
-		t.Fatal("compiled runtime is missing known name")
-	}
-	got := resolveRuntimeName(rt, xml.Name{Local: "known"})
-	if !got.Known || got.Name != known || got.NS != "" || got.Local != "known" {
-		t.Fatalf("ResolveRuntimeName() known = %+v", got)
-	}
-	got = resolveRuntimeName(rt, xml.Name{Space: "urn:missing", Local: "unknown"})
-	if got.Known || got.NS != "urn:missing" || got.Local != "unknown" {
-		t.Fatalf("ResolveRuntimeName() unknown = %+v", got)
-	}
-}
-
 func TestResolveLexicalQName(t *testing.T) {
 	t.Parallel()
 
@@ -107,13 +89,13 @@ func TestXSIStartAttributeFlagsType(t *testing.T) {
 	if xsiStartAttributeFlagsFor(nil).Type {
 		t.Fatal("xsiStartAttributeFlagsFor(nil).Type = true, want false")
 	}
-	if xsiStartAttributeFlagsFor(startAttrs(startAttr("urn:xsi-like", vocab.XSIAttrType, ""))).Type {
+	if xsiStartAttributeFlagsFor(startAttrs(startAttr("urn:xsi-like", vocab.XSIAttrType))).Type {
 		t.Fatal("xsiStartAttributeFlagsFor(other namespace).Type = true, want false")
 	}
-	if xsiStartAttributeFlagsFor(startAttrs(xsiAttr(vocab.XSIAttrNil, "true"))).Type {
+	if xsiStartAttributeFlagsFor(startAttrs(xsiAttr(vocab.XSIAttrNil))).Type {
 		t.Fatal("xsiStartAttributeFlagsFor(xsi:nil).Type = true, want false")
 	}
-	if !xsiStartAttributeFlagsFor(startAttrs(startAttr("", "id", ""), xsiAttr(vocab.XSIAttrType, "p:D"))).Type {
+	if !xsiStartAttributeFlagsFor(startAttrs(startAttr("", "id"), xsiAttr(vocab.XSIAttrType))).Type {
 		t.Fatal("xsiStartAttributeFlagsFor(xsi:type).Type = false, want true")
 	}
 }
@@ -160,7 +142,7 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
   <xs:element name="blocked" type="t:Base" block="extension"/>
   <xs:element name="typeBlocked" type="t:TypeBlockedBase"/>
 </xs:schema>`
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{
+	rt, err := compileSources([]source.Source{
 		source.Bytes("schema.xsd", []byte(schema)),
 	})
 
@@ -182,12 +164,12 @@ func TestSessionStartOwnsXSITypeAndNilPolicy(t *testing.T) {
 	expectXSDCode(t, err, xsderrors.CodeValidationType)
 }
 
-func xsiAttr(local, value string) xmlstream.Attr {
-	return xmlstream.NewAttr(xml.Name{Space: vocab.XSINamespaceURI, Local: local}, value)
+func xsiAttr(local string) xmlstream.Attr {
+	return startAttr(vocab.XSINamespaceURI, local)
 }
 
-func startAttr(ns, local, value string) xmlstream.Attr {
-	return xmlstream.NewAttr(xml.Name{Space: ns, Local: local}, value)
+func startAttr(ns, local string) xmlstream.Attr {
+	return xmlstream.Attr{Name: xml.Name{Space: ns, Local: local}}
 }
 
 func startAttrs(attrs ...xmlstream.Attr) []xmlstream.Attr {
@@ -207,11 +189,20 @@ func expectXSDCode(t *testing.T, err error, code xsderrors.Code) {
 
 func compileRuntimeForTest(t *testing.T, schema string) *xsdSchema.Schema {
 	t.Helper()
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(schema))})
+	rt, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(schema))})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return rt
+}
+
+func resolveKnownNameForTest(tb testing.TB, rt *xsdSchema.Schema, ns, local string) xsdSchema.RuntimeName {
+	tb.Helper()
+	name := rt.ResolveName(ns, local)
+	if _, ok := name.QName(); !ok {
+		tb.Fatalf("ResolveName(%q, %q) is not known to the schema", ns, local)
+	}
+	return name
 }
 
 // Structures 3.3.4 Element Locally Valid (Element) 4.3 and Type Derivation OK

@@ -2,6 +2,9 @@ package tests_test
 
 import (
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -157,5 +160,82 @@ func TestResourceLimitsDocMatchesCodeDefaults(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestOptionDocCommentsLinkResourceLimits(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "docs", "RESOURCE_LIMITS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := string(data)
+	const linkPrefix = "docs/RESOURCE_LIMITS.md#"
+	fset := token.NewFileSet()
+	for _, entry := range []struct{ file, typeName string }{
+		{"compile.go", "CompileOptions"},
+		{"session.go", "ValidateOptions"},
+	} {
+		file, err := parser.ParseFile(fset, filepath.Join(repoRoot(t), entry.file), nil, parser.ParseComments)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields *ast.FieldList
+		for _, decl := range file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok || ts.Name.Name != entry.typeName {
+					continue
+				}
+				if st, ok := ts.Type.(*ast.StructType); ok {
+					fields = st.Fields
+				}
+			}
+		}
+		if fields == nil {
+			t.Fatalf("%s: type %s not found", entry.file, entry.typeName)
+		}
+		for _, field := range fields.List {
+			for _, name := range field.Names {
+				if !name.IsExported() {
+					continue
+				}
+				label := entry.typeName + "." + name.Name
+				if field.Doc == nil {
+					t.Errorf("%s has no doc comment", label)
+					continue
+				}
+				text := field.Doc.Text()
+				_, after, ok := strings.Cut(text, linkPrefix)
+				if !ok {
+					t.Errorf("%s doc does not link %s<anchor>", label, linkPrefix)
+					continue
+				}
+				anchor := after
+				if end := strings.IndexAny(after, xmlSpace+".,;)"); end >= 0 {
+					anchor = after[:end]
+				}
+				if anchor == "" {
+					t.Errorf("%s links %s with no anchor", label, linkPrefix)
+					continue
+				}
+				if !strings.Contains(doc, "\n## "+strings.ToUpper(anchor[:1])+anchor[1:]+"\n") {
+					t.Errorf("%s links #%s, which is not a level-two heading of docs/RESOURCE_LIMITS.md", label, anchor)
+					continue
+				}
+				if _, ok := docOptionTable(t, doc, strings.ToUpper(anchor[:1])+anchor[1:])[name.Name]; !ok {
+					t.Errorf("%s has no table row under #%s", label, anchor)
+				}
+				if !strings.HasPrefix(text, name.Name+" ") {
+					t.Errorf("%s doc must start with the field name", label)
+				}
+				if lines := len(field.Doc.List); lines > 3 {
+					t.Errorf("%s doc is %d lines; keep a summary, the zero rule and the link", label, lines)
+				}
+			}
+		}
 	}
 }

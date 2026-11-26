@@ -169,7 +169,7 @@ func sourceFunctionAllowed(path, root, schemaDir, name string) bool {
 		return false
 	}
 	switch name {
-	case "IsReferenceResolutionError", "Key", "NewReferenceBase":
+	case "Key", "NewReferenceBase":
 		return true
 	default:
 		return false

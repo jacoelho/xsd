@@ -14,7 +14,7 @@ func TestChildPolicies(t *testing.T) {
 		t.Fatalf("childFramePolicy(nilled) = %+v", got)
 	}
 
-	name := xsdSchema.RuntimeName{Local: "child"}
+	name := compileRuntimeForTest(t, `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`).ResolveName("", "child")
 	tests := []struct {
 		name          string
 		typ           xsdSchema.TypeID

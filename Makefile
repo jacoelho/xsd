@@ -38,6 +38,7 @@ fuzz-smoke:
 	go test -run '^$$' -fuzz='^FuzzValidateNeverPanics$$' -fuzztime=10s ./internal/validate
 	go test -run '^$$' -fuzz='^FuzzReferencePartsRoundTrip$$' -fuzztime=10s ./internal/uriref
 	go test -run '^$$' -fuzz='^FuzzResolveKeepsInheritedComponents$$' -fuzztime=10s ./internal/uriref
+	go test -run '^$$' -fuzz='^FuzzResolveAdmittedFailsOnlyOpaqueBase$$' -fuzztime=10s ./internal/uriref
 	go test -run '^$$' -fuzz='^FuzzXSDRegexSyntax$$' -fuzztime=10s ./internal/xsdregex
 
 .PHONY: bench
@@ -108,8 +109,16 @@ lint-config: $(BIN)/golangci-lint
 	$(BIN)/golangci-lint config verify
 
 .PHONY: lint
-lint: lint-config lint-workflows
+lint: lint-config lint-workflows lint-test-only-code
 	$(BIN)/golangci-lint run
+
+# Unexported production code reached only by tests is unused once tests are
+# excluded. The host build cannot see cmd/wasmxsd's js/wasm callers, so that
+# package is checked by the js/wasm pass.
+.PHONY: lint-test-only-code
+lint-test-only-code: $(BIN)/golangci-lint
+	$(BIN)/golangci-lint run --tests=false --enable-only unused $(shell go list -f '{{.Dir}}' ./... | grep -v '/cmd/wasmxsd$$' | sed 's|^$(CURDIR)|.|')
+	GOOS=js GOARCH=wasm $(BIN)/golangci-lint run --tests=false --enable-only unused ./...
 
 .PHONY: lint-workflows
 lint-workflows:

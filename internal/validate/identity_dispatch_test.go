@@ -100,7 +100,7 @@ func TestIdentityFieldDispatchCleansPartialAttributeFailure(t *testing.T) {
 	fixture := compiledIdentityRuntimeForTest(t)
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
-		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    fixture.elemName,
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	}); err != nil {
@@ -113,7 +113,7 @@ func TestIdentityFieldDispatchCleansPartialAttributeFailure(t *testing.T) {
 		fieldLen:   1,
 	})
 	evaluation.fieldValues = append(evaluation.fieldValues, identityFieldValue{})
-	attribute := xsdSchema.RuntimeName{Known: true, Name: fixture.attrName}
+	attribute := attributeFieldName{name: fixture.attrName, known: true}
 	_, err := evaluation.dispatchAttributeFieldMatches(attribute)
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok || diagnostic.Category() != xsderrors.CategoryInternal {
@@ -132,7 +132,7 @@ func TestIdentityFieldDispatchDoesNotAdmitBitmapWithoutMatches(t *testing.T) {
 	fixture := compiledIdentityRuntimeForTest(t)
 	evaluation := newIdentityEvaluation(fixture.rt, identityLimits{})
 	if err := evaluation.startElement(identityElementStart{
-		Name:    xsdSchema.RuntimeName{Known: true, Name: fixture.elemName},
+		Name:    fixture.elemName,
 		Element: fixture.elemID,
 		Mode:    elementAssessed,
 	}); err != nil {
@@ -142,7 +142,7 @@ func TestIdentityFieldDispatchDoesNotAdmitBitmapWithoutMatches(t *testing.T) {
 	if cap(evaluation.fieldDispatch.matched) != 0 {
 		t.Fatal("selection index construction admitted a field bitmap")
 	}
-	matches, err := evaluation.dispatchAttributeFieldMatches(xsdSchema.RuntimeName{NS: "urn:other", Local: "absent"})
+	matches, err := evaluation.dispatchAttributeFieldMatches(attributeFieldNameOf(fixture.rt.ResolveName("urn:other", "absent")))
 	if err != nil || len(matches) != 0 || cap(evaluation.fieldDispatch.matched) != 0 {
 		t.Fatalf("unmatched attribute admitted a field bitmap: %v, %v", matches, err)
 	}

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	xsdSchema "github.com/jacoelho/xsd/internal/schema"
 	"github.com/jacoelho/xsd/internal/source"
 	"github.com/jacoelho/xsd/internal/vocab"
 	"github.com/jacoelho/xsd/internal/xmlstream"
@@ -53,7 +52,7 @@ func (r *testXMLInput) Read(dst []byte) (int, error) {
 	return n, nil
 }
 
-func (d *emptyXMLDocument) ensureReader(start xmlstream.StartElement) error {
+func (d *emptyXMLDocument) ensureReader(start testXMLStartTag) error {
 	d.input.offset = 0
 	d.input.data = appendTestXMLStartBytes(d.input.data[:0], start)
 	if d.ready {
@@ -71,7 +70,7 @@ func (d *emptyXMLDocument) ensureReader(start xmlstream.StartElement) error {
 	return nil
 }
 
-func (d *emptyXMLDocument) PrepareStart(start xmlstream.StartElement, _ *struct{}, maxDepth, line, col int) (preparedXMLStart, error) {
+func (d *emptyXMLDocument) PrepareStart(start testXMLStartTag, _ *struct{}, maxDepth, line, col int) (preparedXMLStart, error) {
 	if maxDepth > 0 && d.Depth()+1 > maxDepth {
 		return preparedXMLStart{}, validation(d.context(line, col), xsderrors.CodeValidationLimit, "instance depth limit exceeded")
 	}
@@ -84,7 +83,7 @@ func (d *emptyXMLDocument) PrepareStart(start xmlstream.StartElement, _ *struct{
 	}
 	prepared, err := d.xmlDocument.PrepareStart(&d.reader, Limits{InstanceDepth: maxDepth}, line, col)
 	if err == nil {
-		d.pendingLexical = xmlstream.Lexical(start.Name)
+		d.pendingLexical = xmlstream.Lexical(start.name)
 	}
 	return prepared, err
 }
@@ -144,7 +143,7 @@ func (d *emptyXMLDocument) LookupNamespace(prefix string) (string, bool) {
 }
 
 func (d *emptyXMLDocument) CommitEnd() error {
-	if !d.ready || d.reader.Depth() == 0 {
+	if !d.ready || d.Depth() == 0 {
 		d.endReady = false
 		err := d.commitEndState()
 		if err == nil {
@@ -209,21 +208,15 @@ func (d *emptyXMLDocument) Reset(maxRetainedCap int) {
 	d.endReady = false
 }
 
-func testXMLStartBytes(start xmlstream.StartElement) []byte {
+func testXMLStartBytes(start testXMLStartTag) []byte {
 	var b strings.Builder
 	b.WriteByte('<')
-	testXMLName(&b, start.Name)
-	var owned xmlstream.Reader
-	for i := range start.Attr {
-		attr := &start.Attr[i]
-		value, err := owned.AttrValue(attr)
-		if err != nil {
-			panic(err)
-		}
+	testXMLName(&b, start.name)
+	for _, attr := range start.attrs {
 		b.WriteByte(' ')
-		testXMLName(&b, attr.Name)
+		testXMLName(&b, attr.name)
 		b.WriteString("=\"")
-		if err := xml.EscapeText(&b, []byte(value)); err != nil {
+		if err := xml.EscapeText(&b, []byte(attr.value)); err != nil {
 			panic(err)
 		}
 		b.WriteString("\"")
@@ -232,12 +225,12 @@ func testXMLStartBytes(start xmlstream.StartElement) []byte {
 	return []byte(b.String())
 }
 
-func appendTestXMLStartBytes(dst []byte, start xmlstream.StartElement) []byte {
-	if len(start.Attr) != 0 {
+func appendTestXMLStartBytes(dst []byte, start testXMLStartTag) []byte {
+	if len(start.attrs) != 0 {
 		return append(dst, testXMLStartBytes(start)...)
 	}
 	dst = append(dst, '<')
-	dst = appendTestXMLNameBytes(dst, start.Name)
+	dst = appendTestXMLNameBytes(dst, start.name)
 	return append(dst, '>')
 }
 
@@ -392,7 +385,7 @@ func TestXMLDocumentStateRequiresLexicallyMatchingEndTag(t *testing.T) {
 
 func TestXMLDocumentStateCompleteRejectsMissingAndPendingUnclosedRoot(t *testing.T) {
 	var doc emptyXMLDocument
-	requireCode(t, doc.Complete(), xsderrors.CodeValidationXML)
+	requireCode(t, streamError(startContext{}, doc.Complete(), Limits{}), xsderrors.CodeValidationXML)
 
 	var values struct{}
 	start, err := prepareXMLStartForTest(&doc, testXMLStart(xml.Name{Local: "root"}), &values, 0, 2, 3)
@@ -400,8 +393,8 @@ func TestXMLDocumentStateCompleteRejectsMissingAndPendingUnclosedRoot(t *testing
 		t.Fatal(err)
 	}
 	doc.CommitStart(start, struct{}{})
-	err = doc.Complete()
-	requireCode(t, err, xsderrors.CodeValidationXML)
+	err = streamError(startContext{}, doc.Complete(), Limits{})
+	requireCode(t, err, xsderrors.CodeInternalInvariant)
 	if !strings.Contains(err.Error(), "end token must be matched and committed before advancing") {
 		t.Fatalf("Complete() error = %v, want pending end-token error", err)
 	}
@@ -862,7 +855,7 @@ func TestXMLDocumentResetDropsOversizedPathNamespaceState(t *testing.T) {
 }
 
 func TestXMLSyntaxDiagnosticParity(t *testing.T) {
-	rt, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	rt, err := compileSources([]source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="a" type="xs:anyType"/>
 </xs:schema>`))})
@@ -906,17 +899,27 @@ func commitDocumentStart(t *testing.T, doc *emptyXMLDocument, values *struct{}, 
 
 func prepareXMLStartForTest(
 	doc *emptyXMLDocument,
-	start xmlstream.StartElement,
+	start testXMLStartTag,
 	values *struct{},
 	maxDepth, line, col int,
 ) (preparedXMLStart, error) {
 	return doc.PrepareStart(start, values, maxDepth, line, col)
 }
 
-func testXMLStart(name xml.Name, attrs ...xmlstream.Attr) xmlstream.StartElement {
-	return xmlstream.StartElement{Name: name, Attr: attrs}
+type testXMLStartTag struct {
+	name  xml.Name
+	attrs []testXMLAttribute
 }
 
-func testXMLAttr(name xml.Name, value string) xmlstream.Attr {
-	return xmlstream.NewAttr(name, value)
+type testXMLAttribute struct {
+	name  xml.Name
+	value string
+}
+
+func testXMLStart(name xml.Name, attrs ...testXMLAttribute) testXMLStartTag {
+	return testXMLStartTag{name: name, attrs: attrs}
+}
+
+func testXMLAttr(name xml.Name, value string) testXMLAttribute {
+	return testXMLAttribute{name: name, value: value}
 }

@@ -51,7 +51,7 @@ func TestRepeatedAttributeGroupMembersConsumeDependencyBudget(t *testing.T) {
 	}
 	schema.WriteString(`</xs:complexType></xs:element></xs:schema>`)
 	inputs := []source.Source{source.Bytes("schema.xsd", []byte(schema.String()))}
-	engine, err := xsdSchema.Compile(xsdSchema.Options{MaxSchemaDependencySteps: 4096}, inputs)
+	engine, err := compileSources(xsdSchema.Options{MaxSchemaDependencySteps: 4096}, inputs)
 	if err != nil {
 		t.Fatalf("Compile(adequate budget) error = %v", err)
 	}
@@ -64,7 +64,7 @@ func TestRepeatedAttributeGroupMembersConsumeDependencyBudget(t *testing.T) {
 	if err = validateWithRuntime(engine, `<r`+strings.Replace(attributes.String(), `a0="1"`, `a0="invalid"`, 1)+`/>`); err == nil {
 		t.Fatal("Validate() accepted an invalid shared attribute value")
 	}
-	engine, err = xsdSchema.Compile(xsdSchema.Options{MaxSchemaDependencySteps: 512}, inputs)
+	engine, err = compileSources(xsdSchema.Options{MaxSchemaDependencySteps: 512}, inputs)
 	expectCode(t, err, xsderrors.CodeSchemaLimit)
 	if engine != nil {
 		t.Fatal("Compile(insufficient budget) returned an engine")
@@ -72,7 +72,7 @@ func TestRepeatedAttributeGroupMembersConsumeDependencyBudget(t *testing.T) {
 }
 
 func TestAttributeGroupUnionRejectsDistinctUsesOfSameDeclaration(t *testing.T) {
-	_, err := xsdSchema.Compile(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
+	_, err := compileSources(xsdSchema.Options{}, []source.Source{source.Bytes("schema.xsd", []byte(`
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:attribute name="value" type="xs:int"/>
   <xs:attributeGroup name="left"><xs:attribute ref="value"/></xs:attributeGroup>

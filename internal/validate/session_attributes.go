@@ -101,20 +101,21 @@ func (s *session) markIntrinsicAttributePresent(set xsdSchema.AttributeUseSetRea
 	if !isXSIAttributeName(name) {
 		return
 	}
-	rn := s.runtimeName(name)
-	if !rn.Known {
+	q, known := s.runtimeName(name).QName()
+	if !known {
 		return
 	}
-	if _, slot, ok := set.DeclaredUse(rn.Name); ok {
+	if _, slot, ok := set.DeclaredUse(q); ok {
 		seen.mark(slot)
 	}
 }
 
 func (s *session) validateDeclaredAttribute(ctx startContext, set xsdSchema.AttributeUseSetRead, seen *attributeSeen, rn xsdSchema.RuntimeName, attr *xmlstream.Attr) (bool, error) {
-	if !rn.Known {
+	q, known := rn.QName()
+	if !known {
 		return false, nil
 	}
-	use, slot, ok := set.DeclaredUse(rn.Name)
+	use, slot, ok := set.DeclaredUse(q)
 	if !ok {
 		return false, nil
 	}
@@ -187,7 +188,7 @@ func (s *session) validateDeclaredAttributeUse(
 	if targetErr != nil {
 		return targetErr
 	}
-	if err := s.validateAttributeTypeAvailable(ctx, use.TypeID(), rn.Label()); err != nil {
+	if err := s.validateAttributeTypeAvailable(ctx, use.TypeID(), rn); err != nil {
 		return s.rejectAttributeIdentityValue(identityTarget, err)
 	}
 	input, ok := s.rt.ValueProgram().InputRequirements(use.TypeID())
@@ -257,14 +258,14 @@ func (s *session) validateDeclaredAttributeFast(ctx startContext, plan *declared
 		if err != nil {
 			return true, simpleValueError(ctx, xsderrors.CodeValidationFacet, invalidAttributeMessage(rn), err, s.limits.evaluation(&s.patternTotal))
 		}
-		return true, s.doc.identity.recordValue(ctx, plan.target, value)
+		return true, s.doc.identity.assessValue(ctx, plan.target, value, nil)
 	}
 	return false, nil
 }
 
 func validateFixedAttributeString(ctx startContext, value string, fixed xsdSchema.ValueConstraintRead, rn xsdSchema.RuntimeName) error {
 	if value != fixed.CanonicalText() {
-		return attributeValidation(ctx, fixedAttributeMessage(rn.Label(), value, fixed.CanonicalText()))
+		return attributeValidation(ctx, fixedAttributeMessage(rn, value, fixed.CanonicalText()))
 	}
 	return nil
 }
@@ -275,18 +276,11 @@ func (s *session) validateDeclaredAttributeValue(ctx startContext, plan *declare
 	if err != nil {
 		return s.declaredAttributeValueError(ctx, plan.target, rn, err)
 	}
-	if err := s.doc.identity.recordValue(ctx, plan.target, value); err != nil {
-		return err
-	}
-	if err := s.doc.identity.captureValue(ctx, plan.target); err != nil {
-		return err
-	}
+	var mismatch error
 	if plan.hasFixed {
-		if err := s.validateFixedAttributeValue(ctx, value, plan.fixed, plan.target, rn.Label(), lexical); err != nil {
-			return err
-		}
+		mismatch = fixedAttributeMismatch(ctx, value, plan.fixed, rn, lexical)
 	}
-	return s.doc.identity.commitValue(plan.target)
+	return s.doc.identity.assessValue(ctx, plan.target, value, mismatch)
 }
 
 func (s *session) declaredAttributeValueError(ctx startContext, target identityValueTarget, rn xsdSchema.RuntimeName, err error) error {
@@ -371,7 +365,7 @@ func (s *session) validateKnownWildcardAttribute(
 	if targetErr != nil {
 		return targetErr
 	}
-	if err := s.validateAttributeTypeAvailable(ctx, decl.TypeID(), rn.Label()); err != nil {
+	if err := s.validateAttributeTypeAvailable(ctx, decl.TypeID(), rn); err != nil {
 		return s.rejectAttributeIdentityValue(identityTarget, err)
 	}
 	fixed, hasFixed := decl.FixedValue()
@@ -407,47 +401,38 @@ type optionalFixedAttribute struct {
 }
 
 func (s *session) commitKnownWildcardAttributeValue(ctx startContext, identityTarget identityValueTarget, value xsdValue.Value, fixed optionalFixedAttribute, rn xsdSchema.RuntimeName, lexical string) error {
-	if err := s.doc.identity.recordValue(ctx, identityTarget, value); err != nil {
-		return err
-	}
+	var mismatch error
 	if fixed.present {
-		if err := s.validateFixedAttributeValue(ctx, value, fixed.value, identityTarget, rn.Label(), lexical); err != nil {
-			return err
-		}
+		mismatch = fixedAttributeMismatch(ctx, value, fixed.value, rn, lexical)
 	}
-	if err := s.doc.identity.captureValue(ctx, identityTarget); err != nil {
-		return err
-	}
-	return s.doc.identity.commitValue(identityTarget)
+	return s.doc.identity.assessValue(ctx, identityTarget, value, mismatch)
 }
 
-func (s *session) validateFixedAttributeValue(
+// fixedAttributeMismatch returns the diagnostic of an attribute value that
+// differs from its fixed value in value space, or nil when they agree.
+func fixedAttributeMismatch(
 	ctx startContext, actual xsdValue.Value,
 	fixed xsdSchema.ValueConstraintRead,
-	identityTarget identityValueTarget,
-	label string,
+	rn xsdSchema.RuntimeName,
 	lexical string,
 ) error {
 	equal, valid := fixedValueEqual(actual, fixed.Value())
 	if equal {
 		return nil
 	}
-	if invalidateErr := s.doc.identity.rejectValue(identityTarget); invalidateErr != nil {
-		return invalidateErr
-	}
 	if !valid {
 		return xsderrors.InternalInvariant("fixed attribute value-space identity is missing", nil)
 	}
-	return attributeValidation(ctx, fixedAttributeMessage(label, lexical, fixed.CanonicalText()))
+	return attributeValidation(ctx, fixedAttributeMessage(rn, lexical, fixed.CanonicalText()))
 }
 
-func (s *session) validateAttributeTypeAvailable(ctx startContext, id xsdSchema.SimpleTypeID, label string) error {
+func (s *session) validateAttributeTypeAvailable(ctx startContext, id xsdSchema.SimpleTypeID, rn xsdSchema.RuntimeName) error {
 	unavailable, ok := s.rt.SimpleTypeUnavailable(id)
 	if !ok {
 		return xsderrors.InternalInvariant("attribute type metadata is invalid", nil)
 	}
 	if unavailable {
-		return attributeValidation(ctx, unavailableAttributeTypeMessage(label))
+		return attributeValidation(ctx, unavailableAttributeTypeMessage(rn))
 	}
 	return nil
 }
@@ -520,21 +505,15 @@ func (s *session) validateDefaultAttribute(ctx startContext, set xsdSchema.Attri
 }
 
 func (s *session) applyDefaultAttributeValue(ctx startContext, use xsdSchema.AttributeUseRead, value xsdValue.Value) error {
-	target, err := s.doc.identity.prepareAttributeValue(knownIdentityAttributeName(use.Name()), s.doc.Depth())
+	target, err := s.doc.identity.prepareDeclaredAttributeValue(use.Name(), s.doc.Depth())
 	if err != nil {
 		return err
 	}
-	if err := s.doc.identity.recordValue(ctx, target, value); err != nil {
-		return err
-	}
-	if err := s.doc.identity.captureValue(ctx, target); err != nil {
-		return err
-	}
-	return s.doc.identity.commitValue(target)
+	return s.doc.identity.assessValue(ctx, target, value, nil)
 }
 
 func (s *session) validateXSIAttribute(name xml.Name, value string, line, col int) error {
-	rn := resolveRuntimeName(s.rt, name)
+	rn := s.runtimeName(name)
 	target, err := s.doc.identity.prepareAttributeValue(rn, s.doc.Depth())
 	if err != nil {
 		return err

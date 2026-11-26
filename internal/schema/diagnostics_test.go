@@ -13,13 +13,9 @@ import (
 )
 
 func TestSchemaDTDDiagnosticPreservesCause(t *testing.T) {
-	_, err := Compile(Options{}, []source.Source{source.Bytes("dtd.xsd", []byte("\n<!DOCTYPE xs:schema>"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`))})
+	_, err := compileSources(Options{}, []source.Source{source.Bytes("dtd.xsd", []byte("\n<!DOCTYPE xs:schema>"+`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"/>`))})
 	if feature, ok := xmlstream.UnsupportedFeatureOf(err); !ok || feature != xmlstream.UnsupportedDTD {
 		t.Fatalf("DTD cause lost: %v", err)
-	}
-	boundary, ok := errors.AsType[*xmlstream.Error](err)
-	if !ok || boundary.Kind != xmlstream.ErrorUnsupported {
-		t.Fatalf("stream cause = %+v, want unsupported", boundary)
 	}
 	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
 	if !ok || diagnostic.Line() != 2 || diagnostic.Column() != 1 {
@@ -29,12 +25,12 @@ func TestSchemaDTDDiagnosticPreservesCause(t *testing.T) {
 
 func TestContentExpectationsDoNotConsumeState(t *testing.T) {
 	for _, model := range []string{`<xs:sequence><xs:element name="a"/><xs:element name="b"/></xs:sequence>`, `<xs:all><xs:element name="a"/><xs:element name="b"/></xs:all>`} {
-		rt, err := Compile(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType>`+model+`</xs:complexType></xs:element></xs:schema>`))})
+		rt, err := compileSources(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType>`+model+`</xs:complexType></xs:element></xs:schema>`))})
 		if err != nil {
 			t.Fatal(err)
 		}
 		root, _ := rt.LookupQName("", "root")
-		element, decl, ok := rt.GlobalElement(RuntimeName{Known: true, Name: root, Local: "root"})
+		element, decl, ok := rt.GlobalElement(RuntimeName{known: true, name: root, local: "root"})
 		if !ok {
 			t.Fatal("root missing")
 		}
@@ -55,7 +51,7 @@ func TestContentExpectationsDoNotConsumeState(t *testing.T) {
 			}
 		}
 		first, _ := rt.LookupQName("", "a")
-		transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{Known: true, Name: first, Local: "a"}}, &scratch)
+		transition, status := rt.NextContent(state, ContentInput{Name: RuntimeName{known: true, name: first, local: "a"}}, &scratch)
 		if status != contentTransitionMatched || !transition.Commit(&state, &scratch) {
 			t.Fatal("diagnostic changed child admission")
 		}
@@ -79,12 +75,12 @@ func TestContentExpectationsBoundAlternativesAndTraversal(t *testing.T) {
 		model.WriteString(`"/>`)
 	}
 	model.WriteString(`</xs:choice>`)
-	rt, err := Compile(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType>`+model.String()+`</xs:complexType></xs:element></xs:schema>`))})
+	rt, err := compileSources(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType>`+model.String()+`</xs:complexType></xs:element></xs:schema>`))})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q, _ := rt.LookupQName("", "root")
-	element, decl, _ := rt.GlobalElement(RuntimeName{Known: true, Name: q, Local: "root"})
+	element, decl, _ := rt.GlobalElement(RuntimeName{known: true, name: q, local: "root"})
 	frame, _ := rt.ElementFrame(decl.Type, element)
 	state := frame.Content.ContentState()
 	scratch := NewContentScratch(nil, 0, 0)
@@ -106,12 +102,12 @@ func TestContentExpectationsBoundSkippedAllTerms(t *testing.T) {
 		model.WriteString(`"/>`)
 	}
 	model.WriteString(`</xs:all>`)
-	rt, err := Compile(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType>`+model.String()+`</xs:complexType></xs:element></xs:schema>`))})
+	rt, err := compileSources(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType>`+model.String()+`</xs:complexType></xs:element></xs:schema>`))})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q, _ := rt.LookupQName("", "root")
-	element, decl, _ := rt.GlobalElement(RuntimeName{Known: true, Name: q, Local: "root"})
+	element, decl, _ := rt.GlobalElement(RuntimeName{known: true, name: q, local: "root"})
 	frame, _ := rt.ElementFrame(decl.Type, element)
 	state := frame.Content.ContentState()
 	bits := make([]uint64, frame.Content.AllBitLen())
@@ -137,12 +133,12 @@ func TestContentExpectationsCopyOnlyTheDisplayedWildcardNamespaces(t *testing.T)
 		namespaces.WriteString(" urn:")
 		namespaces.WriteString(strconv.Itoa(100000 + i))
 	}
-	rt, err := Compile(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:any namespace="`+namespaces.String()+`"/></xs:sequence></xs:complexType></xs:element></xs:schema>`))})
+	rt, err := compileSources(Options{}, []source.Source{source.Bytes("test.xsd", []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"><xs:element name="root"><xs:complexType><xs:sequence><xs:any namespace="`+namespaces.String()+`"/></xs:sequence></xs:complexType></xs:element></xs:schema>`))})
 	if err != nil {
 		t.Fatal(err)
 	}
 	q, _ := rt.LookupQName("", "root")
-	element, decl, _ := rt.GlobalElement(RuntimeName{Known: true, Name: q, Local: "root"})
+	element, decl, _ := rt.GlobalElement(RuntimeName{known: true, name: q, local: "root"})
 	frame, _ := rt.ElementFrame(decl.Type, element)
 	state := frame.Content.ContentState()
 	scratch := NewContentScratch(nil, 0, 0)
@@ -185,5 +181,14 @@ func TestContentExpectationsListAnAlternativeOnceHoweverManyParticlesRenderIt(t 
 	}
 	if third, _ := got.At(2); third.IsWildcard || third.Name.Local != "last" {
 		t.Fatalf("third alternative = %+v, want element last", third)
+	}
+}
+
+func TestSchemaStreamErrorMapsReaderMisuseToInternalInvariant(t *testing.T) {
+	var reader xmlstream.Reader
+	err := schemaStreamError(&reader, reader.Complete(), Limits{})
+	diagnostic, ok := errors.AsType[*xsderrors.Error](err)
+	if !ok || diagnostic.Category() != xsderrors.CategoryInternal || diagnostic.Code() != xsderrors.CodeInternalInvariant {
+		t.Fatalf("error = %v, want internal.invariant", err)
 	}
 }

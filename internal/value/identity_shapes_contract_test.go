@@ -22,7 +22,7 @@ func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
 	}
 	builder := value.NewBuilder(value.BuilderOptions{MaxPatternWork: 1 << 30, MaxTotalPatternWork: 1 << 62})
 	builtin := func(name string) value.TypeID {
-		id, ok := value.BuiltinTypeID(name)
+		id, ok := builtinTypeID(name)
 		if !ok {
 			t.Fatalf("builtin %s missing", name)
 		}
@@ -96,8 +96,8 @@ func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		shape, lexical, canonical, ids, idrefs string
-		// selected names the shape the union must select, when asserted.
-		selected     string
+		// member names the shape whose value the union value must equal, when asserted.
+		member       string
 		carriesID    bool
 		facetFailure bool
 	}{
@@ -120,7 +120,7 @@ func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
 		{shape: "list(IDREF)", lexical: ""},
 		{shape: "list(IDREF)", lexical: "  \t "},
 		{shape: "list(union(int,ID))", lexical: "", carriesID: true},
-		{shape: "union(list(IDREF),string)", lexical: "", selected: "list(IDREF)"},
+		{shape: "union(list(IDREF),string)", lexical: "", member: "list(IDREF)"},
 		{shape: "restriction of list(IDREF)", lexical: "a  b", canonical: "a b", idrefs: "a b"},
 		{shape: "restriction of list(IDREF)", lexical: "a b c d", facetFailure: true},
 		{shape: "list(IDREF)", lexical: " a\tb ", canonical: "a b", idrefs: "a b"},
@@ -163,8 +163,11 @@ func TestDocumentIdentityProjectionAcrossShapes(t *testing.T) {
 					if got.IDTyped() != tc.carriesID {
 						t.Fatalf("needs %d: IDTyped=%t, want %t", needs, got.IDTyped(), tc.carriesID)
 					}
-					if tc.selected != "" && got.SelectedType() != shapes[tc.selected] {
-						t.Fatalf("needs %d: selected type %d, want %s (%d)", needs, got.SelectedType(), tc.selected, shapes[tc.selected])
+					if tc.member != "" && needs.Has(value.NeedIdentity) {
+						member, memberErr := program.Validate(shapes[tc.member], tc.lexical, value.Resolver{}, value.NeedIdentity, value.EvaluationLimits{Work: 16 << 20, PatternWork: 1 << 30, PatternTotal: testPatternTotal()}, nil)
+						if memberErr != nil || got.IdentityKey() != member.IdentityKey() {
+							t.Fatalf("needs %d: identity %q, want %s identity %q, %v", needs, got.IdentityKey(), tc.member, member.IdentityKey(), memberErr)
+						}
 					}
 					wantCanonical := ""
 					if needs.Has(value.NeedCanonical) {

@@ -366,6 +366,54 @@ project/identity/field-union-nodes/overlap	two-equal-values	dotnet	invalid	overl
 project/identity/field-union-nodes/overlap	two-equal-values	libxml2	invalid	overlap-two-equal-values.xml:1: element v: Schemas validity error : Element '{urn:field-union}v': The XPath 'p:v | p:* | * | p:v' of a field of unique identity-constraint '{urn:field-union}one' evaluates to a node-set with more than one member.
 project/identity/field-union-nodes/overlap	two-equal-values	xerces	invalid	overlap-two-equal-values.xml:1:39: cvc-identity-constraint.3: Field "./p:v|./p:*|./*|./p:v" of identity constraint "one" matches more than one value within the scope of its selector; fields must match unique values.
 project/identity/field-union-nodes/overlap	two-equal-values	xmlschema	invalid	line None: XsdFieldSelector(path='p:v | p:* | * | p:v') field selects multiple values! (path /root)
+project/identity/fixed-value-field/declared-attribute	satisfied-duplicate	dotnet	invalid	declared-attribute-satisfied-duplicate.xml:1:13: The field 'b' is expecting at the most one value.
+project/identity/fixed-value-field/declared-attribute	satisfied-duplicate	libxml2	invalid	declared-attribute-satisfied-duplicate.xml:1: element c: Schemas validity error : Element 'c', attribute 'b': The XPath '@a|@b' of a field of unique identity-constraint 'u' evaluates to a node-set with more than one member.
+project/identity/fixed-value-field/declared-attribute	satisfied-duplicate	xerces	valid	
+project/identity/fixed-value-field/declared-attribute	satisfied-duplicate	xmlschema	invalid	line None: XsdFieldSelector(path='@a|@b') field selects multiple values! (path /p/c)
+project/identity/fixed-value-field/declared-attribute	schema	dotnet	schema-valid	
+project/identity/fixed-value-field/declared-attribute	schema	libxml2	schema-valid	
+project/identity/fixed-value-field/declared-attribute	schema	xerces	schema-valid	
+project/identity/fixed-value-field/declared-attribute	schema	xmlschema	schema-valid	
+project/identity/fixed-value-field/declared-attribute	single-node	dotnet	valid	
+project/identity/fixed-value-field/declared-attribute	single-node	libxml2	valid	
+project/identity/fixed-value-field/declared-attribute	single-node	xerces	valid	
+project/identity/fixed-value-field/declared-attribute	single-node	xmlschema	valid	
+project/identity/fixed-value-field/declared-attribute	violation	dotnet	invalid	declared-attribute-violation.xml:1:13: The value of the 'b' attribute does not equal its fixed value.
+project/identity/fixed-value-field/declared-attribute	violation	libxml2	invalid	declared-attribute-violation.xml:1: element c: Schemas validity error : Element 'c', attribute 'b': The XPath '@a|@b' of a field of unique identity-constraint 'u' evaluates to a node-set with more than one member.
+project/identity/fixed-value-field/declared-attribute	violation	xerces	invalid	declared-attribute-violation.xml:1:20: cvc-complex-type.3.1: Value '2' of attribute 'b' of element 'c' is not valid with respect to the corresponding attribute use. Attribute 'b' has a fixed value of '1'.
+project/identity/fixed-value-field/declared-attribute	violation	xmlschema	invalid	line None: attribute 'b' has a fixed value '1' (path /p/c)
+project/identity/fixed-value-field/element-field	satisfied-duplicate	dotnet	invalid	element-field-satisfied-duplicate.xml:1:22: The field 'f' is expecting at the most one value.
+project/identity/fixed-value-field/element-field	satisfied-duplicate	libxml2	invalid	element-field-satisfied-duplicate.xml:1: element f: Schemas validity error : Element 'f': The actual value '01' does not match the fixed value constraint '1'.
+project/identity/fixed-value-field/element-field	satisfied-duplicate	xerces	invalid	element-field-satisfied-duplicate.xml:1:24: cvc-identity-constraint.3: Field "./e|./f" of identity constraint "u" matches more than one value within the scope of its selector; fields must match unique values.
+project/identity/fixed-value-field/element-field	satisfied-duplicate	xmlschema	invalid	line None: XsdFieldSelector(path='e|f') field selects multiple values! (path /p/c)
+project/identity/fixed-value-field/element-field	schema	dotnet	schema-valid	
+project/identity/fixed-value-field/element-field	schema	libxml2	schema-valid	
+project/identity/fixed-value-field/element-field	schema	xerces	schema-valid	
+project/identity/fixed-value-field/element-field	schema	xmlschema	schema-valid	
+project/identity/fixed-value-field/element-field	single-node	dotnet	valid	
+project/identity/fixed-value-field/element-field	single-node	libxml2	valid	
+project/identity/fixed-value-field/element-field	single-node	xerces	valid	
+project/identity/fixed-value-field/element-field	single-node	xmlschema	valid	
+project/identity/fixed-value-field/element-field	violation	dotnet	invalid	element-field-violation.xml:1:21: The value of the 'f' element does not equal its fixed value.
+project/identity/fixed-value-field/element-field	violation	libxml2	invalid	element-field-violation.xml:1: element f: Schemas validity error : Element 'f': The actual value '2' does not match the fixed value constraint '1'.
+project/identity/fixed-value-field/element-field	violation	xerces	invalid	element-field-violation.xml:1:23: cvc-elt.5.2.2.2.2: The value '2' of element 'f' does not match the {value constraint} value '1'.
+project/identity/fixed-value-field/element-field	violation	xmlschema	invalid	line None: must have the fixed value '1' (path /p/c/f)
+project/identity/fixed-value-field/wildcard-attribute	satisfied-duplicate	dotnet	invalid	wildcard-attribute-satisfied-duplicate.xml:1:13: The field 'b' is expecting at the most one value.
+project/identity/fixed-value-field/wildcard-attribute	satisfied-duplicate	libxml2	invalid	wildcard-attribute-satisfied-duplicate.xml:1: element c: Schemas validity error : Element 'c', attribute 'b': The XPath '@a|@b' of a field of unique identity-constraint 'u' evaluates to a node-set with more than one member.
+project/identity/fixed-value-field/wildcard-attribute	satisfied-duplicate	xerces	valid	
+project/identity/fixed-value-field/wildcard-attribute	satisfied-duplicate	xmlschema	invalid	line None: XsdFieldSelector(path='@a|@b') field selects multiple values! (path /p/c)
+project/identity/fixed-value-field/wildcard-attribute	schema	dotnet	schema-valid	
+project/identity/fixed-value-field/wildcard-attribute	schema	libxml2	schema-valid	
+project/identity/fixed-value-field/wildcard-attribute	schema	xerces	schema-valid	
+project/identity/fixed-value-field/wildcard-attribute	schema	xmlschema	schema-valid	
+project/identity/fixed-value-field/wildcard-attribute	single-node	dotnet	valid	
+project/identity/fixed-value-field/wildcard-attribute	single-node	libxml2	valid	
+project/identity/fixed-value-field/wildcard-attribute	single-node	xerces	valid	
+project/identity/fixed-value-field/wildcard-attribute	single-node	xmlschema	valid	
+project/identity/fixed-value-field/wildcard-attribute	violation	dotnet	invalid	wildcard-attribute-violation.xml:1:13: The value of the 'b' attribute does not equal its fixed value.
+project/identity/fixed-value-field/wildcard-attribute	violation	libxml2	invalid	wildcard-attribute-violation.xml:1: element c: Schemas validity error : Element 'c', attribute 'b': The XPath '@a|@b' of a field of unique identity-constraint 'u' evaluates to a node-set with more than one member.
+project/identity/fixed-value-field/wildcard-attribute	violation	xerces	invalid	wildcard-attribute-violation.xml:1:20: cvc-attribute.4: The value '2' of attribute 'b' on element 'c' is not valid with respect to its fixed {value constraint}. The attribute must have a value of '1'.
+project/identity/fixed-value-field/wildcard-attribute	violation	xmlschema	invalid	line None: attribute 'b' has a fixed value '1' (path /p/c)
 project/identity/id-carriers/element-content	distinct	dotnet	valid	
 project/identity/id-carriers/element-content	distinct	libxml2	valid	
 project/identity/id-carriers/element-content	distinct	xerces	valid	
