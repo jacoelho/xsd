@@ -451,23 +451,38 @@ func (e *identityEvaluation) appendElementDispatchEntry(
 	entry xsdSchema.IdentityFieldDispatchRead,
 	depth int,
 ) []identityFieldMatch {
+	if len(e.fieldDispatch.selections) == 0 {
+		return e.appendScannedFieldMatches(matches, entry, depth)
+	}
+	return e.appendIndexedFieldMatches(matches, entry, depth)
+}
+
+func (e *identityEvaluation) appendScannedFieldMatches(
+	matches []identityFieldMatch,
+	entry xsdSchema.IdentityFieldDispatchRead,
+	depth int,
+) []identityFieldMatch {
 	constraint := entry.Constraint()
 	path := entry.Path()
-	indexed := len(e.fieldDispatch.selections) != 0
-	var candidates []identitySelectionCandidate
-	count := len(e.selections)
-	if indexed {
-		candidates = e.fieldDispatch.forConstraint(constraint)
-		count = len(candidates)
-	}
-	for position := range count {
-		index := position //nolint:copyloopvar // Separate candidate position from selection index, preserving measured compiler spill layout.
-		if indexed {
-			index = candidates[position].selection
-		}
-		sel := e.selections[index]
+	for index, sel := range e.selections {
 		if sel.constraint == constraint && path.Matches(e.rt, e.path, sel.depth, depth) {
 			matches = e.appendIdentityFieldMatch(matches, index, entry.Field())
+		}
+	}
+	return matches
+}
+
+func (e *identityEvaluation) appendIndexedFieldMatches(
+	matches []identityFieldMatch,
+	entry xsdSchema.IdentityFieldDispatchRead,
+	depth int,
+) []identityFieldMatch {
+	constraint := entry.Constraint()
+	path := entry.Path()
+	for _, candidate := range e.fieldDispatch.forConstraint(constraint) {
+		sel := e.selections[candidate.selection]
+		if sel.constraint == constraint && path.Matches(e.rt, e.path, sel.depth, depth) {
+			matches = e.appendIdentityFieldMatch(matches, candidate.selection, entry.Field())
 		}
 	}
 	return matches

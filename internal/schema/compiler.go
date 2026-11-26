@@ -114,15 +114,12 @@ func (c *compiler) reserveIndexedComponentStorage() error {
 
 // Compiler bindings borrow completed plan rows through deferred compilation.
 type schemaComponent struct {
-	ctx *schemaSetDocument
-	id  schemaNodeID
+	ctx  *schemaSetDocument
+	node *schemaNode
 }
 
 func (c schemaComponent) sourceNode() *schemaNode {
-	if c.ctx == nil {
-		return nil
-	}
-	return c.ctx.doc.node(c.id)
+	return c.node
 }
 
 type compilerIndexState struct {
@@ -539,11 +536,7 @@ func (c *compiler) compileSimpleByQName(q QName) (result SimpleTypeID, err error
 		return NoSimpleType, err
 	}
 	raw, exists := c.simpleComponents[q]
-	var sourceNode *schemaNode
-	if exists {
-		sourceNode = raw.sourceNode()
-	}
-	if err = c.spendComponentDependency(sourceNode); err != nil {
+	if err = c.spendComponentDependency(raw.sourceNode()); err != nil {
 		return NoSimpleType, err
 	}
 	if id, ok := c.rt.GlobalTypes[q].Simple(); ok {

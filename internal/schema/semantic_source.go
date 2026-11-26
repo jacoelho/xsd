@@ -13,8 +13,8 @@ import (
 )
 
 // schemaNode is the compact immutable semantic source record consumed by the
-// compiler. XML syntax nodes are used only during admission; compiler state
-// reaches child components through document-local IDs.
+// compiler. XML syntax nodes are used only during admission. Children are
+// linked through document-local IDs; compiler bindings hold node pointers.
 type schemaNode struct {
 	semantic schemaSemanticSource
 	doc      *schemaDocument

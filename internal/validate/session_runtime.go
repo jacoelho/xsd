@@ -413,9 +413,6 @@ func (t *sessionStartTransaction) commit() error {
 	if err != nil {
 		return err
 	}
-	if t.transition.IsPlanned() && parent == nil {
-		return xsderrors.InternalInvariant("root start has a parent content transition", nil)
-	}
 	if err := t.s.doc.identity.validateStartCommit(); err != nil {
 		return err
 	}
@@ -441,6 +438,9 @@ func (t *sessionStartTransaction) parentFrame() (*frame, bool, error) {
 func (t *sessionStartTransaction) commitContentTransition(parent *frame) error {
 	if !t.transition.IsPlanned() {
 		return nil
+	}
+	if parent == nil {
+		return xsderrors.InternalInvariant("root start has a parent content transition", nil)
 	}
 	scratch := t.s.contentScratch(parent)
 	if !t.transition.Commit(&parent.Content, &scratch) {

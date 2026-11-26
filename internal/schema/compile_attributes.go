@@ -10,11 +10,7 @@ import (
 
 func (c *compiler) compileAttributeByQName(q QName) (result AttributeID, err error) {
 	raw, exists := c.attributeComponents[q]
-	var source *schemaNode
-	if exists {
-		source = raw.sourceNode()
-	}
-	if err = c.spendComponentDependency(source); err != nil {
+	if err = c.spendComponentDependency(raw.sourceNode()); err != nil {
 		return 0, err
 	}
 	if id, ok := c.rt.GlobalAttributes[q]; ok {
@@ -662,11 +658,7 @@ func (c *compiler) compileAttributeGroupByQNameID(q QName) (result attributeUseS
 		err = schemaComponentRecursionError(schemaComponentAttributeGroup, label)
 		return noAttributeUseSet, withSchemaCompileLocation(raw.sourceNode(), err)
 	}
-	var source *schemaNode
-	if exists {
-		source = raw.sourceNode()
-	}
-	if err = c.spendComponentDependency(source); err != nil {
+	if err = c.spendComponentDependency(raw.sourceNode()); err != nil {
 		return noAttributeUseSet, err
 	}
 	if id, ok := c.attrGroupDone[q]; ok {
