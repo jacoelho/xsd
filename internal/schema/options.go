@@ -29,6 +29,10 @@ const (
 	// defaultMaxSchemaPatternRetainedBytes is derived from a byte target, not
 	// from the per-pattern caps; docs/RESOURCE_LIMITS.md gives the derivation.
 	defaultMaxSchemaPatternRetainedBytes = int64(64 << 20)
+	// defaultMaxSchemaPatternAnalysisSteps admits 2,048 patterns that each
+	// spend the largest xsdregex.Pattern.AnalysisSteps;
+	// docs/RESOURCE_LIMITS.md gives the derivation.
+	defaultMaxSchemaPatternAnalysisSteps = 1 << 28
 )
 
 // Options controls schema compilation resource limits.
@@ -52,6 +56,7 @@ type Options struct {
 	MaxSchemaPatternWork          uint64
 	MaxSchemaTotalPatternWork     uint64
 	MaxSchemaPatternRetainedBytes int64
+	MaxSchemaPatternAnalysisSteps int
 }
 
 // Limits is the normalized internal form of Options.
@@ -75,6 +80,7 @@ type Limits struct {
 	MaxSchemaPatternWork          uint64
 	MaxSchemaTotalPatternWork     uint64
 	MaxSchemaPatternRetainedBytes int64
+	MaxSchemaPatternAnalysisSteps int
 }
 
 // NormalizeOptions validates options and fills default limits.
@@ -92,6 +98,9 @@ func NormalizeOptions(opts Options) (Limits, error) {
 	limits.MaxFiniteOccurs = opts.MaxFiniteOccurs
 	var err error
 	if limits.MaxSchemaPatternRetainedBytes, err = byteLimitOrDefault("MaxSchemaPatternRetainedBytes", opts.MaxSchemaPatternRetainedBytes, defaultMaxSchemaPatternRetainedBytes); err != nil {
+		return Limits{}, err
+	}
+	if limits.MaxSchemaPatternAnalysisSteps, err = limitOrDefault("MaxSchemaPatternAnalysisSteps", opts.MaxSchemaPatternAnalysisSteps, defaultMaxSchemaPatternAnalysisSteps); err != nil {
 		return Limits{}, err
 	}
 	return limits, nil

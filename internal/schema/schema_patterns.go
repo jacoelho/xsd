@@ -9,28 +9,36 @@ import (
 
 // schemaPatterns admits the xs:pattern values of one schema set. It compiles
 // each distinct pattern text once, at the start tag of the first facet that
-// names it in document load order, and charges the compiled pattern's retained
-// estimate against MaxSchemaPatternRetainedBytes before it keeps the pattern;
-// a later facet with the same text shares that *xsdregex.Pattern and is not
-// charged again. Sharing is sound because Compile takes no other input and a
-// Pattern is immutable. The compiler owns it and lends it to start-tag
-// admission while the set loads; MaxSchemaInstantiatedNodes bounds its entries.
+// names it in document load order, and charges the compiled pattern's analysis
+// steps against MaxSchemaPatternAnalysisSteps and its retained estimate against
+// MaxSchemaPatternRetainedBytes before it keeps the pattern; a later facet with
+// the same text shares that *xsdregex.Pattern and is not charged again. Sharing
+// is sound because Compile takes no other input and a Pattern is immutable. The
+// compiler owns it and lends it to start-tag admission while the set loads;
+// MaxSchemaInstantiatedNodes bounds its entries.
 type schemaPatterns struct {
 	byText   map[string]*xsdregex.Pattern
+	analysis workBudget
 	limit    int64
 	retained int64
 }
 
 // newSchemaPatterns returns an empty pattern admission charged against
-// limits.MaxSchemaPatternRetainedBytes.
+// limits.MaxSchemaPatternAnalysisSteps and limits.MaxSchemaPatternRetainedBytes.
 func newSchemaPatterns(limits Limits) schemaPatterns {
-	return schemaPatterns{limit: limits.MaxSchemaPatternRetainedBytes}
+	return schemaPatterns{
+		analysis: newWorkBudget(patternAnalysisWorkBudget, limits.MaxSchemaPatternAnalysisSteps),
+		limit:    limits.MaxSchemaPatternRetainedBytes,
+	}
 }
 
 // admit returns the compiled pattern of text. A text that is no regular
 // expression or exceeds a fixed xsdregex compile limit is reported as
-// schemaRegexError maps it; a pattern whose retained estimate does not fit the
-// remaining MaxSchemaPatternRetainedBytes is a schema.limit violation.
+// schemaRegexError maps it; a pattern whose analysis steps do not fit the
+// remaining MaxSchemaPatternAnalysisSteps, or whose retained estimate does not
+// fit the remaining MaxSchemaPatternRetainedBytes, is a schema.limit violation.
+// The steps are charged after Compile spends them, so the budget is overrun by
+// at most one pattern's steps.
 func (p *schemaPatterns) admit(text string) (*xsdregex.Pattern, error) {
 	if p == nil {
 		return nil, xsderrors.InternalInvariant("pattern admission has no schema pattern set", nil)
@@ -41,6 +49,9 @@ func (p *schemaPatterns) admit(text string) (*xsdregex.Pattern, error) {
 	pattern, err := xsdregex.Compile(text)
 	if err != nil {
 		return nil, schemaRegexError(err)
+	}
+	if err := p.analysis.spend(int(pattern.AnalysisSteps())); err != nil { //nolint:gosec // AnalysisSteps is at most the fixed xsdregex step bound.
+		return nil, err
 	}
 	n := pattern.RetainedBytes()
 	// The charged total never exceeds the normalized, non-negative limit.

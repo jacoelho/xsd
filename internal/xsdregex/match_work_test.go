@@ -28,13 +28,17 @@ func matchers() map[string]matcherFunc {
 func TestZeroMaxWorkAdmitsNothing(t *testing.T) {
 	t.Parallel()
 	for _, source := range []string{`abc`, `[a-z]*`, `(a|aa)*b`, `a`, ``} {
-		pattern := mustCompile(t, source)
-		for _, input := range []string{"", "abc"} {
-			for name, match := range matchers() {
-				if _, _, err := match(pattern, input, MatchOptions{}, nil); !IsLimit(err) {
-					t.Errorf("%s %q on %q: error = %v, want limit", name, source, input, err)
+		for label, pattern := range compilations(t, source) {
+			t.Run(source+"/"+label, func(t *testing.T) {
+				t.Parallel()
+				for _, input := range []string{"", "abc"} {
+					for name, match := range matchers() {
+						if _, _, err := match(pattern, input, MatchOptions{}, nil); !IsLimit(err) {
+							t.Errorf("%s %q on %q: error = %v, want limit", name, source, input, err)
+						}
+					}
 				}
-			}
+			})
 		}
 	}
 }
@@ -45,32 +49,36 @@ func TestMatchWorkIsExactBudget(t *testing.T) {
 		{`abc`, "abc"}, {`[a-z]+`, "hello"}, {`[A-Z]{2}\d{4}`, "AB1234"},
 		{`(a|aa)*b`, "aab"}, {`(a|b)*c`, "abababc"}, {`[a-z]+`, strings.Repeat("é", 300)},
 	} {
-		pattern := mustCompile(t, test.source)
-		for name, match := range matchers() {
-			for _, scratch := range []*Scratch{nil, new(Scratch)} {
-				matched, work, err := match(pattern, test.input, unlimitedWork, scratch)
-				if err != nil {
-					t.Fatalf("%s %q: %v", name, test.source, err)
+		for label, pattern := range compilations(t, test.source) {
+			t.Run(test.source+"/"+label, func(t *testing.T) {
+				t.Parallel()
+				for name, match := range matchers() {
+					for _, scratch := range []*Scratch{nil, new(Scratch)} {
+						matched, work, err := match(pattern, test.input, unlimitedWork, scratch)
+						if err != nil {
+							t.Fatalf("%s %q: %v", name, test.source, err)
+						}
+						if work < uint64(len(test.input)) {
+							t.Errorf("%s %q: work %d below input bytes %d", name, test.source, work, len(test.input))
+						}
+						got, again, err := match(pattern, test.input, MatchOptions{MaxWork: work}, scratch)
+						if err != nil || got != matched || again != work {
+							t.Errorf("%s %q at budget=work: %v, %d, %v; want %v, %d, nil", name, test.source, got, again, err, matched, work)
+						}
+						if _, _, err := match(pattern, test.input, MatchOptions{MaxWork: work - 1}, scratch); !IsLimit(err) {
+							t.Errorf("%s %q at work-1: error = %v, want limit", name, test.source, err)
+						}
+					}
 				}
-				if work < uint64(len(test.input)) {
-					t.Errorf("%s %q: work %d below input bytes %d", name, test.source, work, len(test.input))
+				_, s, errString := matchers()["string"](pattern, test.input, unlimitedWork, nil)
+				_, b, errBytes := matchers()["bytes"](pattern, test.input, unlimitedWork, nil)
+				if errString != nil || errBytes != nil {
+					t.Fatalf("%q: string error %v, bytes error %v", test.source, errString, errBytes)
 				}
-				got, again, err := match(pattern, test.input, MatchOptions{MaxWork: work}, scratch)
-				if err != nil || got != matched || again != work {
-					t.Errorf("%s %q at budget=work: %v, %d, %v; want %v, %d, nil", name, test.source, got, again, err, matched, work)
+				if s != b {
+					t.Errorf("%q: string work %d != bytes work %d", test.source, s, b)
 				}
-				if _, _, err := match(pattern, test.input, MatchOptions{MaxWork: work - 1}, scratch); !IsLimit(err) {
-					t.Errorf("%s %q at work-1: error = %v, want limit", name, test.source, err)
-				}
-			}
-		}
-		_, s, errString := matchers()["string"](pattern, test.input, unlimitedWork, nil)
-		_, b, errBytes := matchers()["bytes"](pattern, test.input, unlimitedWork, nil)
-		if errString != nil || errBytes != nil {
-			t.Fatalf("%q: string error %v, bytes error %v", test.source, errString, errBytes)
-		}
-		if s != b {
-			t.Errorf("%q: string work %d != bytes work %d", test.source, s, b)
+			})
 		}
 	}
 }
@@ -78,23 +86,27 @@ func TestMatchWorkIsExactBudget(t *testing.T) {
 func TestMatchWorkRepeatsWithReusedScratch(t *testing.T) {
 	t.Parallel()
 	for _, source := range []string{`(a|aa)*b`, `[a-z]+`, `(a|b)*c`} {
-		pattern := mustCompile(t, source)
-		input := strings.Repeat("a", 500) + "b"
-		for name, match := range matchers() {
-			var scratch Scratch
-			_, first, err := match(pattern, input, unlimitedWork, &scratch)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for range 3 {
-				if _, again, err := match(pattern, input, unlimitedWork, &scratch); err != nil || again != first {
-					t.Errorf("%s %q: repeated work = %d, %v; want %d", name, source, again, err, first)
+		for label, pattern := range compilations(t, source) {
+			t.Run(source+"/"+label, func(t *testing.T) {
+				t.Parallel()
+				input := strings.Repeat("a", 500) + "b"
+				for name, match := range matchers() {
+					var scratch Scratch
+					_, first, err := match(pattern, input, unlimitedWork, &scratch)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for range 3 {
+						if _, again, err := match(pattern, input, unlimitedWork, &scratch); err != nil || again != first {
+							t.Errorf("%s %q: repeated work = %d, %v; want %d", name, source, again, err, first)
+						}
+					}
+					scratch.Reset(16)
+					if _, again, err := match(pattern, input, unlimitedWork, &scratch); err != nil || again != first {
+						t.Errorf("%s %q: work after Reset = %d, %v; want %d", name, source, again, err, first)
+					}
 				}
-			}
-			scratch.Reset(16)
-			if _, again, err := match(pattern, input, unlimitedWork, &scratch); err != nil || again != first {
-				t.Errorf("%s %q: work after Reset = %d, %v; want %d", name, source, again, err, first)
-			}
+			})
 		}
 	}
 }
@@ -110,14 +122,18 @@ func TestLongInputIsNotCappedByStateCount(t *testing.T) {
 		{`(a|b)*c`, strings.Repeat("ab", 100_000) + "c", true},
 		{`(a|b)*c`, strings.Repeat("ab", 100_000), false},
 	} {
-		pattern := mustCompile(t, test.source)
-		for name, match := range matchers() {
-			for _, scratch := range []*Scratch{nil, new(Scratch)} {
-				got, _, err := match(pattern, test.input, unlimitedWork, scratch)
-				if err != nil || got != test.want {
-					t.Errorf("%s %q (%d bytes): %v, %v; want %v, nil", name, test.source, len(test.input), got, err, test.want)
+		for label, pattern := range compilations(t, test.source) {
+			t.Run(test.source+"/"+label, func(t *testing.T) {
+				t.Parallel()
+				for name, match := range matchers() {
+					for _, scratch := range []*Scratch{nil, new(Scratch)} {
+						got, _, err := match(pattern, test.input, unlimitedWork, scratch)
+						if err != nil || got != test.want {
+							t.Errorf("%s %q (%d bytes): %v, %v; want %v, nil", name, test.source, len(test.input), got, err, test.want)
+						}
+					}
 				}
-			}
+			})
 		}
 	}
 }
@@ -130,7 +146,7 @@ func TestMatchWorkIsBoundedByRunesTimesStates(t *testing.T) {
 	t.Parallel()
 	const k = 72
 	for _, source := range []string{`(a|aa)*b`, `(a{1,20}|b)*c`, `(a|ab){1,60}x`} {
-		pattern := mustCompile(t, source)
+		pattern := mustCompileWithoutDFA(t, source)
 		states := uint64(pattern.trackedSlots()) //nolint:gosec // tracked slots are bounded by the compile limit.
 		if source == `(a|ab){1,60}x` && pattern.mode != modeGeneral {
 			t.Fatalf("%q: runner %s, want general", source, modeName(pattern))
@@ -171,7 +187,7 @@ func TestCountedRepeatWorkGrowsLinearlyWithBoundUnlessMinimumIsLarge(t *testing.
 		var previous uint64
 		for _, bound := range []int{100, 200, 400} {
 			source := fmt.Sprintf(c.source, bound)
-			pattern := mustCompile(t, source)
+			pattern := mustCompileWithoutDFA(t, source)
 			if pattern.mode != modeGeneral {
 				t.Fatalf("%s: runner %s, want general", source, modeName(pattern))
 			}
@@ -189,12 +205,12 @@ func TestCountedRepeatWorkGrowsLinearlyWithBoundUnlessMinimumIsLarge(t *testing.
 
 func TestMatchWorkIndependentOfScratchHistory(t *testing.T) {
 	t.Parallel()
-	pattern := mustCompile(t, `(a|ab){1,60}x`)
-	if pattern.mode == modeBitset || pattern.mode == modeScalar {
+	pattern := mustCompileWithoutDFA(t, `(a|ab){1,60}x`)
+	if pattern.mode != modeGeneral {
 		t.Fatal("precondition: pattern must use the general NFA matcher")
 	}
-	small := mustCompile(t, `(a|ab){1,20}x`)
-	if small.mode == modeBitset || small.mode == modeScalar || small.trackedSlots() >= pattern.trackedSlots() {
+	small := mustCompileWithoutDFA(t, `(a|ab){1,20}x`)
+	if small.mode != modeGeneral || small.trackedSlots() >= pattern.trackedSlots() {
 		t.Fatal("precondition: smaller NFA pattern required")
 	}
 	input := strings.Repeat("a", 30) + "x"
@@ -258,7 +274,7 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			small, large := mustCompile(t, test.small), mustCompile(t, test.large)
+			small, large := mustCompileWithoutDFA(t, test.small), mustCompileWithoutDFA(t, test.large)
 			if small.counted == nil || large.counted == nil {
 				t.Fatal("precondition: two counted patterns")
 			}
@@ -300,7 +316,10 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 
 func TestScratchResetClearsDominanceMarkers(t *testing.T) {
 	t.Parallel()
-	pattern := mustCompile(t, `(a|ab){1,20}x(b|bc){1,40}y`)
+	pattern := mustCompileWithoutDFA(t, `(a|ab){1,20}x(b|bc){1,40}y`)
+	if pattern.counted == nil {
+		t.Fatal("precondition: a counted machine")
+	}
 	input := "aax" + strings.Repeat("b", 20) + "y"
 	for name, match := range matchers() {
 		wantMatched, wantWork, err := match(pattern, input, unlimitedWork, nil)

@@ -59,12 +59,20 @@ func IsLimit(err error) bool {
 // Repetitions are never expanded into one AST node per occurrence. The
 // aggregate over patterns is admitted by the caller from
 // Pattern.RetainedBytes.
+//
+// dfaStates, dfaEntries and dfaSteps bound the DFA attempt: the unrolled
+// machine it starts from, the table it retains and the construction work it
+// spends. A pattern over one of them is not rejected; it compiles to another
+// matcher.
 type compileLimits struct {
 	patternBytes   uint64
 	nodes          uint64
 	states         uint64
 	retainedRanges uint64
 	depth          uint64
+	dfaStates      uint64
+	dfaEntries     uint64
+	dfaSteps       uint64
 }
 
 // fixedCompileLimits are the bounds Compile applies; docs/RESOURCE_LIMITS.md
@@ -75,11 +83,16 @@ var fixedCompileLimits = compileLimits{
 	states:         100_000,
 	retainedRanges: 1_000_000,
 	depth:          1_024,
+	dfaStates:      8_192,
+	dfaEntries:     8_192,
+	dfaSteps:       1 << 17,
 }
 
 // MatchOptions bounds one match. MaxWork counts:
 //   - one unit per input byte, charged first;
 //   - nothing further for literal patterns;
+//   - for DFA patterns, one unit per rune stepped over: every rune, or those
+//     up to the first after which no continuation matches;
 //   - for linear patterns, 4*(runes+1)+1 per atom, every atom including
 //     literal atoms of a non-literal pattern and exact-count atoms;
 //   - for NFA patterns, one unit per set-state test and per split, jump or
@@ -95,51 +108,52 @@ type MatchOptions struct {
 	MaxWork uint64
 }
 
-// Pattern is an immutable compiled XSD regular expression. Concatenations of
-// character sets use the bounded run-length matcher; general expressions use
-// the Thompson machine. Pattern is immutable after Compile; all match state
-// lives in the caller's Scratch, so one Pattern may be shared.
+// Pattern is an immutable compiled XSD regular expression. A pattern whose
+// deterministic automaton fits the fixed DFA bounds matches by table lookup;
+// other concatenations of character sets use the bounded run-length matcher,
+// and the rest use the Thompson machine. Pattern is immutable after Compile;
+// all match state lives in the caller's Scratch, so one Pattern may be shared.
 //
 // The fields stay flat. Rejected: embedding compiler return records
 // (compiledNFA, bitsetNFA), because the aggregate copies introduce bulk write
 // barriers and enlarge frames active during graph and bitset allocations.
 //
-// Each runnerMode retains only the tables its runner reads: scalar keeps
-// states, scalarStart and scalarNext; bitset keeps states, start, closureBits,
+// Each runnerMode retains only the tables its runner reads: DFA keeps only
+// dfa; linear keeps only linear; bitset keeps states, start, closureBits,
 // startBits and acceptBits; general keeps states, start and, when some repeat
-// compiled to a counter, counted; linear keeps only linear.
+// compiled to a counter, counted.
 type Pattern struct {
 	linear      *linearPattern
+	dfa         *dfa
 	source      string
 	states      []instruction
 	counted     *countedRepeats
-	scalarNext  []int
 	closureBits []uint64
 	start       int
-	scalarStart int
 	startBits   uint64
 	acceptBits  uint64
 	mode        runnerMode
 
 	// retainedRanges counts runeRange elements in distinct backing arrays.
 	retainedRanges uint64
+	analysisSteps  uint64
 }
 
-// runnerMode selects the matcher a Pattern runs. The modes are tried in this
-// order: linear when compileLinear succeeds, scalar for a deterministic NFA of
-// at most 64 states, bitset for any other NFA of at most 64 states whose
-// closures precompute, and general otherwise. A machine with a counter is
-// always general, because the other runners hold no counts. General is also
-// the mode of an NFA of at most 64 states whose closure precomputation fails;
-// it computes closures on demand. The zero value is general, which rejects a Pattern with
-// no states.
+// runnerMode selects the matcher a Pattern runs: linear for a literal; DFA for
+// any other pattern whose deterministic automaton fits the DFA bounds of
+// compileLimits; linear for a remaining pattern compileLinear accepts; bitset
+// for a remaining NFA of at most 64 states whose closures precompute; general
+// for the rest. A machine with a counter is always general, because the bitset
+// runner holds no counts. General is also the mode of an NFA of at most 64
+// states whose closure precomputation fails; it computes closures on demand.
+// The zero value is general, which rejects a Pattern with no states.
 type runnerMode uint8
 
 const (
 	modeGeneral runnerMode = iota
 	modeLinear
-	modeScalar
 	modeBitset
+	modeDFA
 )
 
 // Compile parses and compiles one XSD 1.0 regular expression under the fixed
@@ -164,10 +178,19 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 	if err != nil {
 		return nil, err
 	}
-	if linear, ok := compileLinear(root, options); ok {
+	linear, isLinear := compileLinear(root, options)
+	if isLinear && linear.literal {
 		return &Pattern{source: source, linear: linear, mode: modeLinear, retainedRanges: p.retainedRanges}, nil
 	}
-	nfa, err := compileNFA(root, options)
+	plan := newRepeatPlan(root)
+	table, steps, ok := compileDFA(root, plan.unrolled, options)
+	if ok {
+		return &Pattern{source: source, dfa: table, mode: modeDFA, analysisSteps: steps}, nil
+	}
+	if isLinear {
+		return &Pattern{source: source, linear: linear, mode: modeLinear, retainedRanges: p.retainedRanges, analysisSteps: steps}, nil
+	}
+	nfa, err := compileNFA(root, plan, options)
 	if err != nil {
 		return nil, err
 	}
@@ -177,12 +200,7 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 		states:         nfa.states,
 		counted:        nfa.counted,
 		retainedRanges: p.retainedRanges,
-	}
-	if isDeterministicNFA(nfa.states, nfa.closures, nfa.startTargets) {
-		pattern.mode = modeScalar
-		pattern.scalarStart = nfa.startTargets[0]
-		pattern.scalarNext = scalarNextStates(nfa.states, nfa.closures)
-		return pattern, nil
+		analysisSteps:  steps,
 	}
 	if bitset := buildBitsetNFA(nfa.states, nfa.closures, nfa.startTargets); bitset.enabled {
 		pattern.mode = modeBitset
@@ -191,6 +209,17 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 		pattern.acceptBits = bitset.acceptBits
 	}
 	return pattern, nil
+}
+
+// AnalysisSteps returns the steps Compile spent determinising the pattern,
+// whether or not the pattern kept the table. A literal and a pattern over the
+// DFA state bound spend none, and no pattern spends more than the DFA step
+// bound. The count depends only on the pattern text.
+func (p *Pattern) AnalysisSteps() uint64 {
+	if p == nil {
+		return 0
+	}
+	return p.analysisSteps
 }
 
 // Source returns the original pattern text.

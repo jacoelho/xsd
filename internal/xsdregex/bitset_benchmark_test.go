@@ -15,7 +15,7 @@ func BenchmarkBitsetMatch(b *testing.B) {
 	} {
 		for _, length := range []int{16, 4096} {
 			b.Run(fmt.Sprintf("%s/%d", shape.name, length), func(b *testing.B) {
-				pattern := benchmarkPattern(b, shape.pattern)
+				pattern := mustCompileWithoutDFA(b, shape.pattern)
 				if pattern.mode != modeBitset {
 					b.Fatal("benchmark requires the general bitset NFA")
 				}
@@ -49,7 +49,7 @@ func BenchmarkBitsetMatch(b *testing.B) {
 }
 
 func BenchmarkBitsetMatchUnicode(b *testing.B) {
-	pattern := benchmarkPattern(b, `(a|aa|é)*b`)
+	pattern := mustCompileWithoutDFA(b, `(a|aa|é)*b`)
 	if pattern.mode != modeBitset {
 		b.Fatal("benchmark requires the general bitset NFA")
 	}

@@ -31,22 +31,29 @@ func TestFixedPatternLanguageAndReuse(t *testing.T) {
 		{`a{1,2}`, "aa", true},
 		{`a{1,2}`, "aaa", false},
 	} {
-		pattern := mustCompile(t, test.source)
-		var reused Scratch
-		for _, scratch := range []*Scratch{nil, &reused, &reused} {
-			for representation, match := range fixedContractMatchers(pattern) {
-				matched, err := match(test.input, unlimitedWork, scratch)
-				if err != nil || matched != test.matched {
-					t.Fatalf("pattern=%q input=%q representation=%d: %v, %v; want %v", test.source, test.input, representation, matched, err, test.matched)
+		for label, pattern := range compilations(t, test.source) {
+			t.Run(test.source+"/"+label, func(t *testing.T) {
+				t.Parallel()
+				var reused Scratch
+				for _, scratch := range []*Scratch{nil, &reused, &reused} {
+					for representation, match := range fixedContractMatchers(pattern) {
+						matched, err := match(test.input, unlimitedWork, scratch)
+						if err != nil || matched != test.matched {
+							t.Fatalf("pattern=%q input=%q representation=%d: %v, %v; want %v", test.source, test.input, representation, matched, err, test.matched)
+						}
+					}
 				}
-			}
+			})
 		}
 	}
 }
 
 func TestFixedPatternResourceBoundaries(t *testing.T) {
 	t.Parallel()
-	pattern := mustCompile(t, `[A-Z]{2}\d{4}`)
+	pattern := mustCompileWithoutDFA(t, `[A-Z]{2}\d{4}`)
+	if pattern.mode != modeLinear {
+		t.Fatalf("precondition: runner %s, want linear", modeName(pattern))
+	}
 	for _, test := range []struct {
 		input, failure string
 		work           uint64
@@ -80,7 +87,10 @@ func TestFixedPatternResourceBoundaries(t *testing.T) {
 
 func TestFixedPatternLongScratchAndLiteralBudget(t *testing.T) {
 	t.Parallel()
-	pattern := mustCompile(t, `[A-Z]{129}`)
+	pattern := mustCompileWithoutDFA(t, `[A-Z]{129}`)
+	if pattern.mode != modeLinear {
+		t.Fatalf("precondition: runner %s, want linear", modeName(pattern))
+	}
 	input := strings.Repeat("A", 129)
 	var reused Scratch
 	for representation, match := range fixedContractMatchers(pattern) {

@@ -40,6 +40,7 @@ fuzz-smoke:
 	go test -run '^$$' -fuzz='^FuzzResolveKeepsInheritedComponents$$' -fuzztime=10s ./internal/uriref
 	go test -run '^$$' -fuzz='^FuzzResolveAdmittedFailsOnlyOpaqueBase$$' -fuzztime=10s ./internal/uriref
 	go test -run '^$$' -fuzz='^FuzzXSDRegexSyntax$$' -fuzztime=10s ./internal/xsdregex
+	go test -run '^$$' -fuzz='^FuzzDFAMatchesFallback$$' -fuzztime=10s ./internal/xsdregex
 
 .PHONY: bench
 bench:

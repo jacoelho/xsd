@@ -14,20 +14,22 @@ type workBudget struct {
 	kind      workBudgetKind
 }
 
-// workBudgetKind names the two public budgets. Dependency work is shared by
+// workBudgetKind names the three public budgets. Dependency work is shared by
 // source loading, effective-context planning, registration and component
 // resolution; content-model work is shared by element-declaration consistency,
 // restriction, the walk to the models complex types reach, UPA, compilation and
 // sealing. Dependency work also covers
 // records appended to or retained by compiled components: content-model
 // particles and models, compiled content-model tables, attribute-use sets and
-// wildcard namespaces. Spent work is never refunded,
+// wildcard namespaces. Pattern-analysis work is the steps xsdregex spends
+// determinising each distinct pattern text. Spent work is never refunded,
 // including when publication fails.
 type workBudgetKind uint8
 
 const (
 	dependencyWorkBudget workBudgetKind = iota
 	contentModelWorkBudget
+	patternAnalysisWorkBudget
 )
 
 func newWorkBudget(kind workBudgetKind, limit int) workBudget {
@@ -57,8 +59,12 @@ func (b *workBudget) spendProduct(left, right int) error {
 
 func (b *workBudget) exceeded() error {
 	option := "MaxSchemaDependencySteps"
-	if b.kind == contentModelWorkBudget {
+	switch b.kind {
+	case contentModelWorkBudget:
 		option = "MaxContentModelAnalysisSteps"
+	case patternAnalysisWorkBudget:
+		option = "MaxSchemaPatternAnalysisSteps"
+	case dependencyWorkBudget:
 	}
 	return xsderrors.SchemaCompile(
 		xsderrors.CodeSchemaLimit,

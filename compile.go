@@ -73,6 +73,9 @@ type CompileOptions struct {
 	// MaxSchemaPatternRetainedBytes caps the estimated memory retained by compiled regular expressions. Zero uses the default.
 	// See docs/RESOURCE_LIMITS.md#compilation.
 	MaxSchemaPatternRetainedBytes int64
+	// MaxSchemaPatternAnalysisSteps caps the automaton-construction work of compiling regular expressions, summed over one compilation. Zero uses the default.
+	// See docs/RESOURCE_LIMITS.md#compilation.
+	MaxSchemaPatternAnalysisSteps int
 }
 
 // Compile compiles schema sources into a concurrently reusable validation engine.

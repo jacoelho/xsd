@@ -7,13 +7,60 @@ import (
 	"testing"
 )
 
-func mustCompile(t *testing.T, source string) *Pattern {
-	t.Helper()
+func mustCompile(tb testing.TB, source string) *Pattern {
+	tb.Helper()
 	pattern, err := Compile(source)
 	if err != nil {
-		t.Fatalf("Compile(%q) error = %v", source, err)
+		tb.Fatalf("Compile(%q) error = %v", source, err)
 	}
 	return pattern
+}
+
+// mustCompileWithoutDFA compiles source under the fixed bounds with the DFA
+// attempt disabled, so a test reaches the matcher a DFA would stand in for.
+func mustCompileWithoutDFA(tb testing.TB, source string) *Pattern {
+	tb.Helper()
+	limits := fixedCompileLimits
+	limits.dfaStates = 0
+	pattern, err := compileWithLimits(source, limits)
+	if err != nil {
+		tb.Fatalf("compileWithLimits(%q) without DFA error = %v", source, err)
+	}
+	if pattern.mode == modeDFA {
+		tb.Fatalf("%q compiled to a DFA with the attempt disabled", source)
+	}
+	return pattern
+}
+
+// compilations returns source compiled as Compile does and, when that is a
+// DFA, also compiled without one.
+func compilations(tb testing.TB, source string) map[string]*Pattern {
+	tb.Helper()
+	patterns := map[string]*Pattern{"default": mustCompile(tb, source)}
+	if patterns["default"].mode == modeDFA {
+		patterns["without DFA"] = mustCompileWithoutDFA(tb, source)
+	}
+	return patterns
+}
+
+// matchEvery matches input through every compilation of source and both entry
+// points, fails the test unless all agree, and returns their answer.
+func matchEvery(tb testing.TB, source, input string) bool {
+	tb.Helper()
+	answers := map[bool][]string{}
+	for label, pattern := range compilations(tb, source) {
+		for name, match := range matchers() {
+			matched, _, err := match(pattern, input, unlimitedWork, nil)
+			if err != nil {
+				tb.Fatalf("%q on %q (%s, %s, runner %s): %v", source, input, label, name, modeName(pattern), err)
+			}
+			answers[matched] = append(answers[matched], label+" "+name)
+		}
+	}
+	if len(answers) != 1 {
+		tb.Fatalf("%q on %q: matched by %v, not matched by %v", source, input, answers[true], answers[false])
+	}
+	return len(answers[true]) != 0
 }
 
 func TestWholeStringAndLiteralAnchors(t *testing.T) {
@@ -37,10 +84,7 @@ func TestWholeStringAndLiteralAnchors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			got := matchEvery(t, test.pattern, test.input)
 			if got != test.want {
 				t.Fatalf("MatchString(%q) = %v, want %v", test.input, got, test.want)
 			}
@@ -74,10 +118,7 @@ func TestEscapesAndShorthands(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			got := matchEvery(t, test.pattern, test.input)
 			if got != test.want {
 				t.Fatalf("MatchString(%q) = %v, want %v", test.input, got, test.want)
 			}
@@ -99,11 +140,7 @@ func TestUnicodeVersionForDecimalDigitEscapes(t *testing.T) {
 		{`\D`, "፱", false},
 	}
 	for _, test := range tests {
-		p := mustCompile(t, test.pattern)
-		got, _, err := p.MatchStringWithScratch(test.input, unlimitedWork, nil)
-		if err != nil {
-			t.Fatalf("%s.MatchString(%q): %v", test.pattern, test.input, err)
-		}
+		got := matchEvery(t, test.pattern, test.input)
 		if got != test.want {
 			t.Errorf("%s.MatchString(%q) = %v, want %v", test.pattern, test.input, got, test.want)
 		}
@@ -113,10 +150,8 @@ func TestUnicodeVersionForDecimalDigitEscapes(t *testing.T) {
 func TestXMLCharactersExtendThroughUnicodeMaxRune(t *testing.T) {
 	t.Parallel()
 	for _, pattern := range []string{`[\I]+`, `[\C]+`} {
-		p := mustCompile(t, pattern)
-		got, _, err := p.MatchStringWithScratch("\U000F0000\U0010FFFE", unlimitedWork, nil)
-		if err != nil || !got {
-			t.Errorf("%s.MatchString(high XML characters) = %v, %v; want true", pattern, got, err)
+		if !matchEvery(t, pattern, "\U000F0000\U0010FFFE") {
+			t.Errorf("%s does not match high XML characters", pattern)
 		}
 	}
 }
@@ -142,10 +177,7 @@ func TestBlocksAndSubtraction(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			got := matchEvery(t, test.pattern, test.input)
 			if got != test.want {
 				t.Fatalf("MatchString(%q) = %v, want %v", test.input, got, test.want)
 			}
@@ -173,10 +205,7 @@ func TestUnicodeBlocksAndXMLNameBoundaries(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			got := matchEvery(t, test.pattern, test.input)
 			if got != test.want {
 				t.Fatalf("MatchString(%q) = %v, want %v", test.input, got, test.want)
 			}
@@ -186,22 +215,14 @@ func TestUnicodeBlocksAndXMLNameBoundaries(t *testing.T) {
 
 func TestCountedRepeatsBeyondGoLimit(t *testing.T) {
 	t.Parallel()
-	p := mustCompile(t, `0{1001}`)
-	got, _, err := p.MatchStringWithScratch(strings.Repeat("0", 1001), unlimitedWork, nil)
-	if err != nil || !got {
-		t.Fatalf("exact repeat error = %v, matched = %v", err, got)
+	if !matchEvery(t, `0{1001}`, strings.Repeat("0", 1001)) {
+		t.Fatal("exact repeat did not match its count")
 	}
-	got, _, err = p.MatchStringWithScratch(strings.Repeat("0", 1000), unlimitedWork, nil)
-	if err != nil {
-		t.Fatal(err)
+	if matchEvery(t, `0{1001}`, strings.Repeat("0", 1000)) {
+		t.Fatal("exact repeat matched one fewer")
 	}
-	if got {
-		t.Fatal("exact repeat did not match")
-	}
-	p = mustCompile(t, `a{1001,}`)
-	got, _, err = p.MatchStringWithScratch(strings.Repeat("a", 2_000), unlimitedWork, nil)
-	if err != nil || !got {
-		t.Fatalf("open repeat error = %v, matched = %v", err, got)
+	if !matchEvery(t, `a{1001,}`, strings.Repeat("a", 2_000)) {
+		t.Fatal("open repeat did not match above its minimum")
 	}
 }
 
@@ -239,11 +260,11 @@ func TestExactMaxUint64RepeatIsNotTheUnboundedForm(t *testing.T) {
 	}
 	child := &node{kind: nodeSet, set: singletonSet('a')}
 	exactNode := &node{kind: nodeRepeat, children: []*node{child}, min: 1, max: maxRepeat}
-	if _, err := compileNFA(exactNode, compileLimits{states: 3}); !IsLimit(err) {
+	if _, err := compileNFA(exactNode, newRepeatPlan(exactNode), compileLimits{states: 3}); !IsLimit(err) {
 		t.Fatalf("exact max repeat compilation error = %v, want limit", err)
 	}
 	openNode := &node{kind: nodeRepeat, children: []*node{child}, min: 1, max: maxRepeat, unbounded: true}
-	if _, err := compileNFA(openNode, compileLimits{states: 4}); err != nil {
+	if _, err := compileNFA(openNode, newRepeatPlan(openNode), compileLimits{states: 4}); err != nil {
 		t.Fatalf("unbounded repeat compilation error = %v", err)
 	}
 }
@@ -326,11 +347,7 @@ func TestCharacterClassLiteralCaretAndDashSubtraction(t *testing.T) {
 		{`[\--a]`, "b", false},
 	}
 	for _, test := range tests {
-		p := mustCompile(t, test.pattern)
-		got, _, err := p.MatchStringWithScratch(test.input, unlimitedWork, nil)
-		if err != nil {
-			t.Fatalf("%s.MatchString(%q): %v", test.pattern, test.input, err)
-		}
+		got := matchEvery(t, test.pattern, test.input)
 		if got != test.want {
 			t.Errorf("%s.MatchString(%q) = %v, want %v", test.pattern, test.input, got, test.want)
 		}
@@ -362,10 +379,7 @@ func TestCharacterClassCaretRangeEndpoints(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.pattern+"/"+test.input, func(t *testing.T) {
 			t.Parallel()
-			got, _, err := mustCompile(t, test.pattern).MatchStringWithScratch(test.input, unlimitedWork, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
+			got := matchEvery(t, test.pattern, test.input)
 			if got != test.want {
 				t.Fatalf("MatchString(%q) = %v, want %v", test.input, got, test.want)
 			}
@@ -399,9 +413,10 @@ func TestMatchLimits(t *testing.T) {
 	if _, _, err := mustCompile(t, `abc`).MatchStringWithScratch("abc", MatchOptions{MaxWork: 2}, nil); !IsLimit(err) {
 		t.Fatalf("literal work limit error = %v, want limit", err)
 	}
-	p := mustCompile(t, `(a|aa)*b`)
-	if _, _, err := p.MatchStringWithScratch(strings.Repeat("a", 2_000)+"b", MatchOptions{MaxWork: 10}, nil); !IsLimit(err) {
-		t.Fatalf("bounded match error = %v, want limit", err)
+	for label, p := range compilations(t, `(a|aa)*b`) {
+		if _, _, err := p.MatchStringWithScratch(strings.Repeat("a", 2_000)+"b", MatchOptions{MaxWork: 10}, nil); !IsLimit(err) {
+			t.Fatalf("%s: bounded match error = %v, want limit", label, err)
+		}
 	}
 }
 
@@ -494,7 +509,7 @@ func sharesRangeStorage(a, b rangeSet) bool {
 
 func TestMatchLimitsBoundScratchAndAdversarialClosure(t *testing.T) {
 	t.Parallel()
-	p := mustCompile(t, `(a|aa)*b`)
+	p := mustCompileWithoutDFA(t, `(a|aa)*b`)
 	var scratch Scratch
 	if _, _, err := p.MatchStringWithScratch("", MatchOptions{MaxWork: 1}, &scratch); !IsLimit(err) {
 		t.Fatalf("initial closure with tiny work budget = %v, want limit", err)
@@ -502,7 +517,10 @@ func TestMatchLimitsBoundScratchAndAdversarialClosure(t *testing.T) {
 }
 
 func TestScratchResetClearsNFAGenerationMarkers(t *testing.T) {
-	p := mustCompile(t, `\d{1,5}\s([A-Z][a-z]{1,20}\s){4}Street\n([A-Z][a-z]{1,20}\s){2},\s[A-Z]{2}\s12848`)
+	p := mustCompileWithoutDFA(t, `\d{1,5}\s([A-Z][a-z]{1,20}\s){4}Street\n([A-Z][a-z]{1,20}\s){2},\s[A-Z]{2}\s12848`)
+	if p.counted == nil {
+		t.Fatal("precondition: a counted machine")
+	}
 	inputs := []string{
 		"27951 Frameworks Library Them Objects Street\nRegard As , DC 12848",
 		"7 Of Typical To Original Street\nIn Prominent , AK 12848",
@@ -524,15 +542,16 @@ func TestScratchResetClearsNFAGenerationMarkers(t *testing.T) {
 
 func TestMatchBytes(t *testing.T) {
 	t.Parallel()
-	p := mustCompile(t, `\p{L}+`)
-	got, _, err := p.MatchBytesWithScratch([]byte("héllo"), unlimitedWork, nil)
-	if err != nil || !got {
-		t.Fatalf("MatchBytes valid input error = %v, matched = %v", err, got)
+	if !matchEvery(t, `\p{L}+`, "héllo") {
+		t.Fatal("letters do not match a letter class")
 	}
 }
 
 func TestShortLinearMatchesDoNotAllocate(t *testing.T) {
-	pattern := mustCompile(t, `[A-Z]{2}\d{4}`)
+	pattern := mustCompileWithoutDFA(t, `[A-Z]{2}\d{4}`)
+	if pattern.mode != modeLinear {
+		t.Fatalf("precondition: runner %s, want linear", modeName(pattern))
+	}
 	for _, input := range []string{"AB1234", "AB12345"} {
 		t.Run(input, func(t *testing.T) {
 			raw := []byte(input)

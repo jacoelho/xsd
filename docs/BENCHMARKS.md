@@ -61,6 +61,8 @@ commits can be compared on the same harness:
 | Peak in-document heap, identity | `BenchmarkLargeIdentityPeakHeap` (`tests`) |
 | Retained compiled engine | `BenchmarkCompileRetainedContentModels` (root) |
 | Pattern matching per rune | `BenchmarkPatternStress` (`internal/xsdregex`) |
+| Pattern matching per value | `BenchmarkPatternValues`, `BenchmarkPatternValueRotation` (`internal/xsdregex`) |
+| Pattern compilation | `BenchmarkPatternValueCompile` (`internal/xsdregex`) |
 
 `BenchmarkLargeIdentityPeakHeap` reports `peak-HeapInuse-delta-B` and
 `peak-HeapInuse-B` from a 1 ms `HeapInuse` sampler with GC percent pinned to 100.
@@ -72,7 +74,13 @@ lower bound on the true peak; run it at `-benchtime=1x` with several `-count`
 samples and `-cpu` of at least 2, so the sampler is not starved by validation.
 `BenchmarkPatternStress` reports `ns/rune` and `work/rune` for
 character-class, active-state, counted-repeat, backtracking-prone and
-early-rejection patterns at two input lengths.
+early-rejection patterns at two input lengths. Its cases cover every matcher a
+pattern can compile to. `BenchmarkPatternValues` matches one value of the
+length schemas restrict against each of 13 patterns, and
+`BenchmarkPatternValueRotation` matches them in turn and reports `ns/match`, so
+consecutive matches run different patterns. `BenchmarkPatternValueCompile`
+compiles the same patterns; a change that speeds matching by building more at
+compile time shows its cost there.
 
 Function placement in the linked binary can move a benchmark by 1–2% when
 only unrelated packages change. Before attributing such a delta to a commit,

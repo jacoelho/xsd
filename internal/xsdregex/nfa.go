@@ -110,38 +110,30 @@ type bitsetNFA struct {
 // its frame stays live during bitset allocation and enlarges that allocation
 // call chain; reopen only with evidence of non-increasing stack retention,
 // which removing intermediate records and preserving field layout do not give.
-func compileNFA(root *node, options compileLimits) (compiledNFA, error) {
-	plan := newRepeatPlan(root)
+func compileNFA(root *node, plan repeatPlan, options compileLimits) (compiledNFA, error) {
 	// Admission charges the unrolled size so counted repeats admit exactly the
 	// patterns their unrolled form does.
 	if plan.unrolled > options.states {
 		return compiledNFA{}, &Error{Kind: ErrorLimit, Offset: -1, What: stateLimitError}
 	}
 	c := nfaCompiler{limit: options.states, counted: plan.counted}
-	rootFragment, err := c.compile(root)
+	start, err := c.compileRoot(root)
 	if err != nil {
 		return compiledNFA{}, err
 	}
-	accept, err := c.emit(instruction{kind: instructionAccept, out: -1, out1: -1})
-	if err != nil {
-		return compiledNFA{}, err
-	}
-	if err := c.patch(rootFragment.outs, accept); err != nil {
-		return compiledNFA{}, err
-	}
-	nfa := compiledNFA{states: c.states, start: rootFragment.start}
+	nfa := compiledNFA{states: c.states, start: start}
 	if len(c.counters) != 0 {
 		slots, tracked := layoutSlots(len(c.states), c.counters, c.regions)
 		nfa.counted = &countedRepeats{counters: c.counters, slots: slots, trackedSlots: tracked}
 		return nfa, nil
 	}
-	// Precomputed closures are only useful to the compact scalar and
-	// bitset runners, and the Pattern retains tables derived from them rather
-	// than the closures. Larger machines use the bounded on-demand walk and avoid carrying
-	// a potentially quadratic derived graph through compilation. Those runners
-	// hold no counts, so a machine with counters always takes the walk.
+	// Precomputed closures are only useful to the bitset runner, and the
+	// Pattern retains tables derived from them rather than the closures.
+	// Larger machines use the bounded on-demand walk and avoid carrying a
+	// potentially quadratic derived graph through compilation. The bitset
+	// runner holds no counts, so a machine with counters always takes the walk.
 	if len(c.states) <= compactStateLimit {
-		nfa.closures, nfa.startTargets = precomputeClosures(c.states, rootFragment.start)
+		nfa.closures, nfa.startTargets = precomputeClosures(c.states, start)
 	}
 	return nfa, nil
 }
@@ -202,31 +194,6 @@ func precomputeClosures(states []instruction, start int) ([][]int, []int) {
 		closures[pc] = targets
 	}
 	return closures, startTargets
-}
-
-// scalarNextStates returns, for each set state, the one state its match leads
-// to, and -1 for every other state. The slice has exactly one entry per state.
-func scalarNextStates(states []instruction, closures [][]int) []int {
-	next := make([]int, len(states))
-	for pc, instruction := range states {
-		next[pc] = -1
-		if instruction.kind == instructionSet {
-			next[pc] = closures[pc][0]
-		}
-	}
-	return next
-}
-
-func isDeterministicNFA(states []instruction, closures [][]int, startTargets []int) bool {
-	if len(closures) == 0 || len(startTargets) != 1 {
-		return false
-	}
-	for pc, instruction := range states {
-		if instruction.kind == instructionSet && len(closures[pc]) != 1 {
-			return false
-		}
-	}
-	return true
 }
 
 func buildBitsetNFA(states []instruction, closures [][]int, startTargets []int) bitsetNFA {
@@ -355,6 +322,23 @@ func walkEpsilonState(state instruction, pc int, stack *[]int, targets *[]int) b
 		// Closures are precomputed only for machines without counters.
 	}
 	return false
+}
+
+// compileRoot compiles the whole pattern, ending in the accept state, and
+// returns its start state.
+func (c *nfaCompiler) compileRoot(root *node) (int, error) {
+	whole, err := c.compile(root)
+	if err != nil {
+		return 0, err
+	}
+	accept, err := c.emit(instruction{kind: instructionAccept, out: -1, out1: -1})
+	if err != nil {
+		return 0, err
+	}
+	if err := c.patch(whole.outs, accept); err != nil {
+		return 0, err
+	}
+	return whole.start, nil
 }
 
 func (c *nfaCompiler) emit(instruction instruction) (int, error) {
@@ -595,8 +579,7 @@ func (c *nfaCompiler) compileCounter(bounds counter, child *node) (fragment, err
 //
 // counted holds exactly the repeats that compile to a counter, each with its
 // bounds. A machine whose unrolled form has at most compactStateLimit states
-// counts none, so the scalar and bitset runners, which hold no counts, still
-// apply.
+// counts none, so the bitset runner, which holds no counts, still applies.
 type repeatPlan struct {
 	counted map[*node]counter
 	lengths map[*node]matchLength
@@ -606,8 +589,7 @@ type repeatPlan struct {
 	unrolled uint64
 }
 
-// compactStateLimit is the largest machine the scalar and bitset runners
-// take.
+// compactStateLimit is the largest machine the bitset runner takes.
 const compactStateLimit = 64
 
 type matchLength struct {

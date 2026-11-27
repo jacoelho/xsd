@@ -165,7 +165,7 @@ func (p *linearPattern) matchBytes(input []byte, budget *matchBudget, scratch *S
 
 // linearInput is the runtime-tagged string/byte carrier for the linear
 // matcher's no-scratch path. Rejected: extending it to all regex loops,
-// because matched scalar and retained-scratch workloads exceeded the allowed
+// because matched small-machine and retained-scratch workloads exceeded the allowed
 // 3% median CPU loss; representation-specific rune loops keep compiler
 // specialization.
 type linearInput struct {

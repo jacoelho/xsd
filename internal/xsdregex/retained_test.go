@@ -16,8 +16,8 @@ func TestRetainedBytesNilIsZero(t *testing.T) {
 func TestRetainedBytesChargesSharedRangeArrayOnce(t *testing.T) {
 	t.Parallel()
 	const copies = 5000
-	one := mustCompile(t, `\p{L}`)
-	many := mustCompile(t, strings.Repeat(`\p{L}`, copies))
+	one := mustCompileWithoutDFA(t, `\p{L}`)
+	many := mustCompileWithoutDFA(t, strings.Repeat(`\p{L}`, copies))
 	setRanges := uint64(len(one.linear.atoms[0].set.ranges))
 	if setRanges == 0 {
 		t.Fatal("\\p{L} compiled to an empty set")
@@ -30,7 +30,7 @@ func TestRetainedBytesChargesSharedRangeArrayOnce(t *testing.T) {
 
 func TestRetainedBytesCountsClosureBitsets(t *testing.T) {
 	t.Parallel()
-	p := mustCompile(t, `(a?){1,15}b`)
+	p := mustCompileWithoutDFA(t, `(a?){1,15}b`)
 	if p.mode != modeBitset || len(p.closureBits) == 0 {
 		t.Fatalf("pattern is not in bitset mode with closure bitsets (mode=%d, words=%d)", p.mode, len(p.closureBits))
 	}
@@ -42,8 +42,8 @@ func TestRetainedBytesCountsClosureBitsets(t *testing.T) {
 
 func TestRetainedBytesGrowsWithDistinctRangeArrays(t *testing.T) {
 	t.Parallel()
-	small := mustCompile(t, `[^\p{L}]`)
-	large := mustCompile(t, strings.Repeat(`[^\p{L}]`, 50))
+	small := mustCompileWithoutDFA(t, `[^\p{L}]`)
+	large := mustCompileWithoutDFA(t, strings.Repeat(`[^\p{L}]`, 50))
 	if large.RetainedBytes() <= small.RetainedBytes() {
 		t.Fatalf("RetainedBytes did not grow with distinct class arrays: %d <= %d", large.RetainedBytes(), small.RetainedBytes())
 	}

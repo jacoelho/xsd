@@ -41,6 +41,7 @@ func compileWithLimits(schema []byte) (*xsd.Engine, error) {
 | `MaxSchemaPatternWork` | `536_870_912` | Max regular-expression matching work for one schema literal (enumeration, bound, fixed or default value), across all pattern facets, list items and union members. Same unit as `MaxInstancePatternWork`. Unsigned. |
 | `MaxSchemaTotalPatternWork` | `8_589_934_592` | Max regular-expression matching work summed over every schema-literal evaluation of one compilation. A facet literal can be charged for its base-type check and again for facet compilation; a fixed/default value is charged once. Same unit. |
 | `MaxSchemaPatternRetainedBytes` | `64 MiB` | Max estimated memory retained by compiled regular expressions, summed over the distinct pattern facets of one compilation. Identical pattern text is compiled and charged once. |
+| `MaxSchemaPatternAnalysisSteps` | `268_435_456` | Max automaton-construction work spent compiling regular expressions, summed over the distinct pattern facets of one compilation. Identical pattern text is compiled and charged once. |
 
 These limits apply to explicit sources and resolver-loaded includes/imports.
 Finite `minOccurs` and `maxOccurs` values cannot exceed `4294967295`.
@@ -239,25 +240,72 @@ charged as if its body were written out once per iteration, even when it
 compiles to a counter), 1,000,000 retained character ranges, and nesting depth
 1,024.
 Exceeding one reports `schema.limit`. These bound one compiled machine, not the
-length of the values it matches. `MaxSchemaPatternRetainedBytes` is the
-aggregate over a compilation.
+length of the values it matches. `MaxSchemaPatternRetainedBytes` and
+`MaxSchemaPatternAnalysisSteps` are the aggregates over a compilation.
+
+A pattern other than a literal is first built as a table: one row per state of
+its deterministic automaton and one column per class of characters its sets do
+not tell apart. Three more fixed bounds apply to that attempt: 8,192 unrolled
+states of the machine it starts from, 8,192 table entries, and 131,072
+construction steps. A pattern over one of them is not an error; it compiles to
+a run-length matcher or an NFA instead. So does a pattern whose sets tell apart
+more than 256 classes of characters or divide the non-ASCII characters into
+more than 65,536 runs of one class, and one whose construction meets two
+automaton states with the same 64-bit hash.
+
+The steps an attempt spends, whether the table is kept or abandoned, are
+charged to `MaxSchemaPatternAnalysisSteps`, and a compilation whose distinct
+patterns spend more reports `schema.limit`. A literal and a pattern over the
+unrolled-state bound attempt no table and spend none. The fixed bound limits
+one pattern to 131,072 steps, but the number of distinct patterns is limited
+only by the schema's size, so without the aggregate a schema of short patterns
+that each defeat the table would compile in time proportional to their count.
+
+Measured on one machine, a step takes 1 to 13 ns. An abandoned attempt costs at
+most about 0.75 ms and allocates about 1.6 MB, released when it ends; compiling
+an NFA at the 100,000-state bound costs about 6 ms and 30 MB. The default
+admits 2,048 patterns that each spend the per-pattern bound, such as
+`(a?){1,2000}`; they compile in about 1.4 s. The costliest shape measured per
+step, `[a-c]{8190}`, spends 32,904 steps in 0.4 ms, so about 8,150 of them fit
+and compile in about 3.5 s. Lower the option to tighten that bound for schemas
+from untrusted sources. Ordinary patterns spend far less: the median pattern
+of the W3C and project corpora spends about 550 steps, the largest total of
+one compilation there is 131,072 (one abandoned pattern), and 3,000
+Unicode-category patterns `[\p{L}\p{N} ]{1,n}` with n from 1 to 3,000 spend
+about 133.5 million, half the default.
 
 The retained-bytes estimate of one pattern is 256 bytes of fixed overhead plus
-the source length, plus 8 bytes per character range (each distinct range array
-counted once, by capacity), plus, for a run-length pattern, 48 bytes per atom
-and the literal text, or, for an NFA pattern, 48 bytes per state plus, for the
-mode that retains them, 8 bytes per scalar successor (deterministic patterns of
-at most 64 states) or 8 bytes per closure bitset word (other patterns of at
-most 64 states); larger NFAs retain neither. A pattern whose counted repeats
-compile to counters adds 64 bytes for counter tables, 12 bytes per counter and
-12 bytes per state of a machine with counters. Every retained array is charged by
-capacity, not length, which raises the estimate by the arrays' append slack:
-about 22% for a large NFA, and up to about 70% for a small one. A pattern set near the `MaxSchemaPatternRetainedBytes` default that
-compiles today can fail with `schema.limit`. The default is a byte target, not a multiple of the per-pattern
-caps: 64 MiB admits about 5 patterns at the per-pattern caps (about 13 MB each)
-and about 10,000 Unicode-category patterns of the `[\p{L}\p{N} ]` class. The
-largest aggregate observed across the W3C and project corpora under default
-options is about 111 KB, so the default leaves large headroom.
+the source length. A table pattern adds 224 bytes, 2 bytes per table entry and
+per alphabet page, and 4 bytes per alphabet run (a maximal run of non-ASCII
+characters of one class); it retains no character ranges. Any other pattern
+adds 8 bytes per character range (each distinct range array counted once, by
+capacity), plus, for a run-length pattern, 48 bytes per atom and the literal
+text, or, for an NFA pattern, 48 bytes per state plus 8 bytes per closure
+bitset word when it has at most 64 states; larger NFAs retain no bitsets. A
+pattern whose counted repeats compile to counters adds 64 bytes for counter
+tables, 12 bytes per counter and 12 bytes per state of a machine with counters.
+Every retained array is charged by capacity, not length, which raises the
+estimate by the arrays' append slack: about 22% for a large NFA, and up to
+about 70% for a small one.
+
+A table can retain more than the matcher it stands in for. `[A-Z]{2}` retains
+512 bytes as a table and 320 as a run-length matcher, and a bounded repeat
+grows with its bound: `[a-z]{1,2048}` retains about 8.7 KB and
+`[a-z]{1,4094}`, whose table reaches the entry bound, about 16.9 KB, where the
+run-length matcher retains 325 bytes for either. A table can also retain far
+less: `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,2048}` retains about 12.8 KB as a
+table and about 451 KB as an NFA. A pattern set near the
+`MaxSchemaPatternRetainedBytes` default that compiled with run-length matchers
+can therefore fail with `schema.limit`. The default is a byte target, not a
+multiple of the per-pattern caps: 64 MiB admits about 5 patterns at the
+per-pattern NFA caps (about 13 MB each), about 3,900 tables at the entry
+bound, and about 6,000 Unicode-category patterns of the `[\p{L}\p{N} ]` class
+(about 10.7 KB each). `MaxSchemaPatternAnalysisSteps` does not bind before it
+for these: a table at the entry bound spends about 57,000 steps and
+`[\p{L}\p{N} ]{1,70}` about 24,500, so its default admits about 4,600 and
+10,900 of them. The largest aggregate observed across the W3C and project
+corpora under default options is about 42 KB, so the default leaves large
+headroom.
 
 ## Validation
 
@@ -314,9 +362,16 @@ a fresh total. A match costs:
 
 - one unit per input byte, charged before the input is decoded;
 - literal patterns: nothing further, so input bytes only;
-- linear patterns (concatenations of repeated character sets): `4 * (runes + 1) + 1`
-  per atom, literal atoms and exact-count atoms included. Example: `x[a-z]+` on
-  `x` followed by 1000 `a` costs 1001 + 2 * (4 * 1002 + 1) = 9019;
+- table patterns: one unit per character stepped over, which is every
+  character of the value, or those up to the first after which no continuation
+  can match. Work is therefore at most twice the input bytes. Example:
+  `[a-z]+` on 1000 `a` costs 2000, and on `ab1` followed by 997 `a` costs
+  1000 + 3 = 1003;
+- run-length patterns (concatenations of repeated character sets that are not
+  built as a table, such as `[a-z]{1,5000}`): `4 * (runes + 1) + 1`
+  per atom, literal atoms and exact-count atoms included. Example:
+  `x[a-z]{1,5000}` on `x` followed by 1000 `a` costs
+  1001 + 2 * (4 * 1002 + 1) = 9019;
 - NFA patterns: one unit per set-state test and per split, jump or counter
   step followed during epsilon closure, and two per closure step in a machine
   with counters, whose steps take longer, so work is at most
@@ -354,9 +409,11 @@ text:
 
 | Pattern | Work | Time |
 | --- | ---: | ---: |
-| `[a-z]+` | 20,971,525 | 18 ms |
-| `(a\|b)*c` | 33,554,435 | 52 ms |
-| `(a\|aa){1,300}(a{1,100}){1,300}b` (counted repeats, non-matching) | 42,226,290 | 99 ms |
+| `[a-z]+` (table) | 8,388,608 | 6 ms |
+| `(a\|b)*c` (table, non-matching) | 8,388,608 | 6 ms |
+| `[a-z]{1,9000}[a-z]*` (run-length) | 37,748,746 | 30 ms |
+| `(a\|b)*a(a\|b){12}` (NFA of at most 64 states, non-matching) | 138,411,903 | 202 ms |
+| `(a\|aa){1,300}(a{1,100}){1,300}b` (counted repeats, non-matching) | 42,226,290 | 93 ms |
 | `(a\|b)*a(a\|b){24000}` (72,007 states, non-matching) | exceeds the default | about 1.4 s until `MaxInstancePatternWork` is reached |
 
 At `1 << 30` the last case takes 2.8 s before reaching the per-value limit, so

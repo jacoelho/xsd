@@ -70,30 +70,34 @@ func TestCountedRepeatsAcceptSameLanguageAsGoRegexp(t *testing.T) {
 
 func assertRepeatLanguage(t *testing.T, body string, inputs []string) {
 	t.Helper()
-	counters := 0
+	runners := map[string]int{}
 	for _, source := range repeatLanguageSources(body) {
 		oracle, err := regexp.Compile(`^(?:` + source + `)$`)
 		if err != nil {
 			t.Fatalf("regexp.Compile(%q): %v", source, err)
 		}
-		pattern := mustCompile(t, source)
-		if pattern.counted != nil {
-			counters++
-		}
-		for name, match := range matchers() {
-			for _, input := range inputs {
-				matched, _, err := match(pattern, input, unlimitedWork, nil)
-				if err != nil {
-					t.Fatalf("%s %q on %q: %v", name, source, input, err)
-				}
-				if want := oracle.MatchString(input); matched != want {
-					t.Fatalf("%s %q (runner %s) on %q: matched = %v, want %v", name, source, modeName(pattern), input, matched, want)
+		for label, pattern := range compilations(t, source) {
+			runners[modeName(pattern)]++
+			if pattern.counted != nil {
+				runners["counted"]++
+			}
+			for name, match := range matchers() {
+				for _, input := range inputs {
+					matched, _, err := match(pattern, input, unlimitedWork, nil)
+					if err != nil {
+						t.Fatalf("%s %s %q on %q: %v", label, name, source, input, err)
+					}
+					if want := oracle.MatchString(input); matched != want {
+						t.Fatalf("%s %s %q (runner %s) on %q: matched = %v, want %v", label, name, source, modeName(pattern), input, matched, want)
+					}
 				}
 			}
 		}
 	}
-	if counters == 0 {
-		t.Errorf("body %q: no pattern compiled to a counter", body)
+	for _, runner := range []string{"dfa", "bitset", "general", "counted"} {
+		if runners[runner] == 0 {
+			t.Errorf("body %q: no pattern ran on the %s runner", body, runner)
+		}
 	}
 }
 
@@ -101,7 +105,7 @@ func TestCountedMachineTracksAtMostThreeTimesUnrolledStates(t *testing.T) {
 	t.Parallel()
 	large := []string{`(a|aa){1,19000}`, `([a-z]+[0-9]){1,19000}`, `(a?){2,24000}`, `((ab){2}c?){1,9000}`, `(a|b)*a(a|b){1,24000}`}
 	for _, source := range large {
-		if mustCompile(t, source).counted == nil {
+		if mustCompileWithoutDFA(t, source).counted == nil {
 			t.Fatalf("%q: no counter", source)
 		}
 	}
@@ -111,7 +115,7 @@ func TestCountedMachineTracksAtMostThreeTimesUnrolledStates(t *testing.T) {
 	}
 	for _, source := range sources {
 		unrolled := newRepeatPlan(mustParse(t, source)).unrolled
-		if tracked := uint64(mustCompile(t, source).trackedSlots()); tracked > 3*unrolled { //nolint:gosec // tracked slots are bounded by the compile limit.
+		if tracked := uint64(mustCompileWithoutDFA(t, source).trackedSlots()); tracked > 3*unrolled { //nolint:gosec // tracked slots are bounded by the compile limit.
 			t.Errorf("%q: %d tracked states, want at most 3 * %d unrolled", source, tracked, unrolled)
 		}
 	}
@@ -126,16 +130,8 @@ func TestRepeatPlanUnrolledCountEqualsUnrolledMachine(t *testing.T) {
 	for _, source := range sources {
 		root := mustParse(t, source)
 		c := nfaCompiler{limit: fixedCompileLimits.states}
-		fragment, err := c.compile(root)
-		if err != nil {
+		if _, err := c.compileRoot(root); err != nil {
 			t.Fatalf("compile %q: %v", source, err)
-		}
-		accept, err := c.emit(instruction{kind: instructionAccept, out: -1, out1: -1})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := c.patch(fragment.outs, accept); err != nil {
-			t.Fatal(err)
 		}
 		if got, want := newRepeatPlan(root).unrolled, uint64(len(c.states)); got != want {
 			t.Errorf("%q: plan counts %d unrolled states, compiler emits %d", source, got, want)

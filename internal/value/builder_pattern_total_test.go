@@ -13,7 +13,7 @@ import (
 // compile-time proof that no uncharged path exists is the absence of any
 // Builder method that evaluates without the aggregate account.
 
-const patternTotalUnit = 5_005 // 1,000 ASCII runes against [a-z]+
+const patternTotalUnit = 2_000 // 1,000 ASCII runes against [a-z]+
 
 func patternItemType(t *testing.T, builder *value.Builder) value.TypeID {
 	t.Helper()

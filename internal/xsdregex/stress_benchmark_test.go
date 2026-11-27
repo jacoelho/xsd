@@ -46,8 +46,10 @@ var stressCases = []stressCase{
 	{"states/overlapping-alternation", `([a-z]|[a-z][a-z]|[a-z][a-z][a-z])*`, "abcdefghij", "", true},
 	{"states/deterministic-unrolled", strings.Repeat(`(a|b)c`, 16) + `[abc]*`, "ac", "", true},
 	{"states/wide-general", `(a|b)*a` + strings.Repeat(`(a|b)`, 20), "ab", "", false},
+	{"states/wide-bitset", `(a|b)*a` + strings.Repeat(`(a|b)`, 12), "ab", "", false},
 	{"repeat/bounded-class", `[0-9a-zA-Z/\-\?:\(\)\.\n\r,'\+ ]{1,2048}`, stressASCIIText, "", true},
 	{"repeat/bounded-alternation", `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,2048}`, stressASCIIText, "", true},
+	{"repeat/bounded-class-large", `[0-9a-zA-Z/\-\?:\(\)\.\n\r,'\+ ]{1,8192}`, stressASCIIText, "", true},
 	{"repeat/bounded-group", `([a-z]+[0-9]){1,512}`, "abc1", "", true},
 	{"repeat/nullable-body", `([a-z]*[0-9]?){1,512}`, "abc1", "", true},
 	{"repeat/ambiguous-optional", `([a-z]+){1,512}`, "abcdefghij", "", true},
@@ -56,28 +58,39 @@ var stressCases = []stressCase{
 	{"backtrack/overlapping-alternation", `(a|aa)+`, "a", "c", false},
 	{"backtrack/nested-plus", `([a-z]+)+[0-9]`, "abcdefghij", "", false},
 	{"backtrack/whitespace-token-blank", `(\s*[^\s]\s*)+`, " ", "", false},
-	{"reject/general-first-rune", `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,2048}`, "~" + stressASCIIText, "", false},
-	{"reject/general-over-length", `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,20}`, stressASCIIText, "", false},
-	{"reject/bitset-first-rune", `(a|b)*c`, "xab", "", false},
-	{"reject/scalar-fourth-rune", `(\d{3}-){2}\d{4}`, "1234567890", "", false},
-	{"reject/linear-first-rune", `[A-Z]{2}[0-9]{2}[A-Za-z0-9]{1,2048}`, "1" + stressASCIIText, "", false},
+	{"reject/first-rune-bounded-alternation", `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,2048}`, "~" + stressASCIIText, "", false},
+	{"reject/over-length-alternation", `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,20}`, stressASCIIText, "", false},
+	{"reject/first-rune-star", `(a|b)*c`, "xab", "", false},
+	{"reject/fourth-rune-fixed", `(\d{3}-){2}\d{4}`, "1234567890", "", false},
+	{"reject/first-rune-bounded-class", `[A-Z]{2}[0-9]{2}[A-Za-z0-9]{1,2048}`, "1" + stressASCIIText, "", false},
 }
 
 var stressLengths = []int{32, 1024}
 
 func TestStressCasesMatchAsDeclared(t *testing.T) {
 	for _, c := range stressCases {
-		pattern := mustCompile(t, c.pattern)
 		for _, runes := range stressLengths {
-			for name, match := range matchers() {
-				matched, _, err := match(pattern, c.input(runes), unlimitedWork, nil)
-				if err != nil {
-					t.Fatalf("%s/%d %s: %v", c.name, runes, name, err)
-				}
-				if matched != c.match {
-					t.Fatalf("%s/%d %s: matched = %v, want %v", c.name, runes, name, matched, c.match)
-				}
+			if matched := matchEvery(t, c.pattern, c.input(runes)); matched != c.match {
+				t.Fatalf("%s/%d: matched = %v, want %v", c.name, runes, matched, c.match)
 			}
+		}
+	}
+}
+
+func TestStressCasesCoverEveryRunner(t *testing.T) {
+	t.Parallel()
+	covered := map[string]bool{}
+	for _, c := range stressCases {
+		pattern := mustCompile(t, c.pattern)
+		runner := modeName(pattern)
+		if pattern.counted != nil {
+			runner += " with counters"
+		}
+		covered[runner] = true
+	}
+	for _, runner := range []string{"dfa", "linear", "bitset", "general", "general with counters"} {
+		if !covered[runner] {
+			t.Errorf("no stress case runs the %s runner", runner)
 		}
 	}
 }

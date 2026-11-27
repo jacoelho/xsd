@@ -30,16 +30,11 @@ var valueCases = []valueCase{
 func TestValueCasesMatch(t *testing.T) {
 	t.Parallel()
 	for _, c := range valueCases {
-		pattern := mustCompile(t, c.pattern)
-		for name, match := range matchers() {
-			matched, _, err := match(pattern, c.value, unlimitedWork, nil)
-			if err != nil || !matched {
-				t.Errorf("%s %s: matched = %v, %v, want true", c.name, name, matched, err)
-			}
-			matched, _, err = match(pattern, c.value+"\n", unlimitedWork, nil)
-			if err != nil || matched {
-				t.Errorf("%s %s with a trailing line feed: matched = %v, %v, want false", c.name, name, matched, err)
-			}
+		if !matchEvery(t, c.pattern, c.value) {
+			t.Errorf("%s: %q does not match %q", c.name, c.pattern, c.value)
+		}
+		if matchEvery(t, c.pattern, c.value+"\n") {
+			t.Errorf("%s: %q matches its value with a trailing line feed", c.name, c.pattern)
 		}
 	}
 }
@@ -64,6 +59,43 @@ func BenchmarkPatternValues(b *testing.B) {
 			for b.Loop() {
 				if matched, _, err := pattern.MatchStringWithScratch(c.value, unlimitedWork, &scratch); err != nil || !matched {
 					b.Fatalf("matched = %v, %v", matched, err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkPatternValueRotation matches each value case once per iteration, so
+// consecutive matches run different patterns, as consecutive values of a
+// document do.
+func BenchmarkPatternValueRotation(b *testing.B) {
+	patterns := make([]*Pattern, len(valueCases))
+	inputs := make([][]byte, len(valueCases))
+	for index, c := range valueCases {
+		patterns[index] = benchmarkPattern(b, c.pattern)
+		inputs[index] = []byte(c.value)
+	}
+	var scratch Scratch
+	b.ReportAllocs()
+	for b.Loop() {
+		for index, pattern := range patterns {
+			if matched, _, err := pattern.MatchBytesWithScratch(inputs[index], unlimitedWork, &scratch); err != nil || !matched {
+				b.Fatalf("%s: matched = %v, %v", valueCases[index].name, matched, err)
+			}
+		}
+	}
+	b.ReportMetric(float64(b.Elapsed().Nanoseconds())/float64(b.N)/float64(len(patterns)), "ns/match")
+}
+
+// BenchmarkPatternValueCompile compiles each value case, the cost a schema
+// pays once per distinct pattern.
+func BenchmarkPatternValueCompile(b *testing.B) {
+	for _, c := range valueCases {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := Compile(c.pattern); err != nil {
+					b.Fatal(err)
 				}
 			}
 		})

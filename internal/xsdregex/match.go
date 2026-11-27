@@ -105,14 +105,12 @@ type nfaRunner struct {
 	budget   *matchBudget
 	slots    []stateSlots
 	counters []counter
-	single   int
 	// popCost is the work charged per closure pop: countedPopCost in a
 	// machine with counters, whose visit and dominance checks take about a
 	// third longer than a counter-free pop. The per-value work default is
 	// calibrated in time (docs/RESOURCE_LIMITS.md).
 	popCost   uint64
 	current   uint64
-	scalar    bool
 	bitset    bool
 	displaced bool
 }
@@ -128,7 +126,6 @@ func newRunner(pattern *Pattern, budget *matchBudget, scratch *Scratch) (nfaRunn
 		pattern: pattern,
 		scratch: scratch,
 		budget:  budget,
-		single:  -1,
 		popCost: 1,
 		bitset:  pattern.mode == modeBitset,
 	}
@@ -141,7 +138,7 @@ func newRunner(pattern *Pattern, budget *matchBudget, scratch *Scratch) (nfaRunn
 }
 
 func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
-	if pattern.mode == modeScalar || pattern.mode == modeBitset {
+	if pattern.mode == modeBitset {
 		return nil
 	}
 	if scratch == nil {
@@ -279,16 +276,16 @@ func (r *nfaRunner) dropDominated(threads []thread) []thread {
 }
 
 func (r *nfaRunner) processClosureInstruction(dst *[]thread, current thread) error {
-	instruction := r.pattern.states[current.pc]
-	switch instruction.kind {
+	state := r.pattern.states[current.pc]
+	switch state.kind {
 	case instructionSplit:
-		return r.processClosureSplit(instruction, current.count)
+		return r.processClosureSplit(state, current.count)
 	case instructionJump:
-		return r.processClosureJump(instruction, current.count)
+		return r.processClosureJump(state, current.count)
 	case instructionSet, instructionAccept:
 		return r.processClosureTarget(dst, current)
 	case instructionCountHead:
-		return r.processClosureHead(instruction, current)
+		return r.processClosureHead(state, current)
 	default:
 		return &Error{Kind: ErrorSyntax, Offset: -1, What: "invalid NFA instruction"}
 	}
@@ -345,15 +342,9 @@ func (r *nfaRunner) processClosureTarget(dst *[]thread, current thread) error {
 }
 
 func (r *nfaRunner) start() error {
-	switch r.pattern.mode {
-	case modeScalar:
-		r.scalar = true
-		r.single = r.pattern.scalarStart
-		return nil
-	case modeBitset:
+	if r.bitset {
 		r.current = r.pattern.startBits
 		return nil
-	case modeLinear, modeGeneral:
 	}
 	r.beginClosure()
 	if err := r.addClosure(&r.scratch.current, thread{pc: uint32(r.pattern.start)}); err != nil { //nolint:gosec // newRunner checked start against the state count.
@@ -364,9 +355,6 @@ func (r *nfaRunner) start() error {
 }
 
 func (r *nfaRunner) rune(value rune) error {
-	if r.scalar {
-		return r.scalarRune(value)
-	}
 	if r.bitset {
 		return r.bitsetRune(value)
 	}
@@ -427,37 +415,6 @@ func (r *nfaRunner) advanceNFAState(value rune, current thread) error {
 	return r.addClosure(&r.scratch.next, thread{pc: uint32(state.out), count: current.count}) //nolint:gosec // states are bounded by the compile limit.
 }
 
-func (r *nfaRunner) scalarRune(value rune) error {
-	work := uint64(1)
-	if r.single < 0 {
-		return r.budget.step(work)
-	}
-	state := r.pattern.states[r.single]
-	work++
-	matched := false
-	if state.kind == instructionSet {
-		ranges := state.set.ranges
-		if len(ranges) == 1 {
-			matched = ranges[0].lo <= value && value <= ranges[0].hi
-		} else {
-			matched = state.set.contains(value)
-		}
-	}
-	if !matched {
-		r.single = -1
-		return r.budget.step(work)
-	}
-	r.single = r.pattern.scalarNext[r.single]
-	return r.budget.step(work)
-}
-
-func (r *nfaRunner) scalarAccepts() (bool, error) {
-	if err := r.budget.step(1); err != nil {
-		return false, err
-	}
-	return r.single >= 0 && r.pattern.states[r.single].kind == instructionAccept, nil
-}
-
 func matchesRune(set rangeSet, value rune) bool {
 	if len(set.ranges) == 1 {
 		current := set.ranges[0]
@@ -467,9 +424,6 @@ func matchesRune(set rangeSet, value rune) bool {
 }
 
 func (r *nfaRunner) accepts() (bool, error) {
-	if r.scalar {
-		return r.scalarAccepts()
-	}
 	if r.bitset {
 		if err := r.budget.step(bitCount(r.current)); err != nil {
 			return false, err
@@ -498,7 +452,11 @@ func matchString(pattern *Pattern, input string, options MatchOptions, scratch *
 	return matched, budget.work, err
 }
 
+//nolint:dupl // String and []byte inputs keep separate loops so each decodes its own representation without conversion.
 func matchStringCharged(pattern *Pattern, input string, budget *matchBudget, scratch *Scratch) (bool, error) {
+	if pattern.mode == modeDFA {
+		return pattern.dfa.matchString(input, budget)
+	}
 	if pattern.mode == modeLinear {
 		return pattern.linear.matchString(input, budget, scratch)
 	}
@@ -512,9 +470,6 @@ func matchStringCharged(pattern *Pattern, input string, budget *matchBudget, scr
 	}
 	if err := runner.start(); err != nil {
 		return false, err
-	}
-	if runner.scalar {
-		return matchScalarString(&runner, input)
 	}
 	offset := 0
 	for offset < len(input) {
@@ -536,7 +491,11 @@ func matchBytes(pattern *Pattern, input []byte, options MatchOptions, scratch *S
 	return matched, budget.work, err
 }
 
+//nolint:dupl // String and []byte inputs keep separate loops so each decodes its own representation without conversion.
 func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scratch *Scratch) (bool, error) {
+	if pattern.mode == modeDFA {
+		return pattern.dfa.matchBytes(input, budget)
+	}
 	if pattern.mode == modeLinear {
 		return pattern.linear.matchBytes(input, budget, scratch)
 	}
@@ -551,9 +510,6 @@ func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scra
 	if err := runner.start(); err != nil {
 		return false, err
 	}
-	if runner.scalar {
-		return matchScalarBytes(&runner, input)
-	}
 	offset := 0
 	for offset < len(input) {
 		value, size := utf8.DecodeRune(input[offset:])
@@ -563,28 +519,4 @@ func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scra
 		offset += size
 	}
 	return runner.accepts()
-}
-
-func matchScalarString(runner *nfaRunner, input string) (bool, error) {
-	offset := 0
-	for offset < len(input) {
-		value, size := utf8.DecodeRuneInString(input[offset:])
-		if err := runner.scalarRune(value); err != nil {
-			return false, err
-		}
-		offset += size
-	}
-	return runner.scalarAccepts()
-}
-
-func matchScalarBytes(runner *nfaRunner, input []byte) (bool, error) {
-	offset := 0
-	for offset < len(input) {
-		value, size := utf8.DecodeRune(input[offset:])
-		if err := runner.scalarRune(value); err != nil {
-			return false, err
-		}
-		offset += size
-	}
-	return runner.scalarAccepts()
 }

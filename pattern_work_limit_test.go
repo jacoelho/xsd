@@ -43,16 +43,22 @@ func TestMaxInstancePatternWorkFollowsDocumentedUnit(t *testing.T) {
 		name, pattern, value string
 		work                 uint64
 	}{
-		// 1000 bytes + one linear atom: 4*1001+1.
-		{"single linear atom", "[a-z]+", strings.Repeat("a", 1_000), 5_005},
-		// 1001 bytes + 2 linear atoms, literal atom included: 2*(4*1002+1).
-		{"literal atom plus set", "x[a-z]+", "x" + strings.Repeat("a", 1_000), 9_019},
+		// Table: 1000 bytes + 1000 characters.
+		{"table", "[a-z]+", strings.Repeat("a", 1_000), 2_000},
+		// Table: 1000 bytes + 500 characters of two bytes each.
+		{"table over two-byte characters", "[à-ÿ]+", strings.Repeat("é", 500), 1_500},
+		// Table: 4 bytes + 4 characters.
+		{"table for exact counts", "a{3}b", "aaab", 8},
+		// 1000 bytes + one run-length atom: 4*1001+1.
+		{"single run-length atom", "[a-z]{1,5000}", strings.Repeat("a", 1_000), 5_005},
+		// 1001 bytes + 2 run-length atoms, literal atom included: 2*(4*1002+1).
+		{"literal atom plus set", "x[a-z]{1,5000}", "x" + strings.Repeat("a", 1_000), 9_019},
 		// Atom order is irrelevant.
-		{"set plus literal atom", "[a-z]+x", strings.Repeat("a", 1_000) + "x", 9_019},
+		{"set plus literal atom", "[a-z]{1,5000}x", strings.Repeat("a", 1_000) + "x", 9_019},
+		// 5001 bytes + 2 atoms of 4*5002+1, exact-count atoms charged too.
+		{"run-length exact count", "a{5000}b", strings.Repeat("a", 5_000) + "b", 45_019},
 		// Literal pattern: input bytes only.
 		{"literal", "abc", "abc", 3},
-		// 4 bytes + 2 atoms of 4*5+1, exact-count atoms charged too.
-		{"exact count", "a{3}b", "aaab", 46},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			engine := compilePatternSchema(t, test.pattern)
@@ -166,7 +172,7 @@ func TestPatternWorkOptionsAcceptFullUnsignedRange(t *testing.T) {
 
 // MaxSchemaPatternWork is a per-literal budget. Each enumeration item below is
 // 1,000 ASCII runes matched against [a-z]+, which the documented unit
-// definition prices at 5*1000+5 = 5,005 units, so a budget of exactly one
+// definition prices at 1000 bytes + 1000 characters = 2,000 units, so a budget of exactly one
 // literal's cost must admit any number of such literals on one type.
 func TestMaxSchemaPatternWorkIsPerLiteral(t *testing.T) {
 	var enumerations strings.Builder
@@ -179,22 +185,22 @@ func TestMaxSchemaPatternWorkIsPerLiteral(t *testing.T) {
   <xs:simpleType name="T"><xs:restriction base="Items">` + enumerations.String() + `</xs:restriction></xs:simpleType>
   <xs:element name="root" type="T"/>
 </xs:schema>`)
-	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 5_005}, xsd.Bytes("enum.xsd", schema)); err != nil {
+	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 2_000}, xsd.Bytes("enum.xsd", schema)); err != nil {
 		t.Fatalf("budget of one literal: %v", err)
 	}
-	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 5_004}, xsd.Bytes("enum.xsd", schema))
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 1_999}, xsd.Bytes("enum.xsd", schema))
 	requireDiagnostic(t, err, xsderrors.CodeSchemaLimit, "MaxSchemaPatternWork")
 	// The per-literal pair is unchanged under a large aggregate.
 	const large = 1 << 40
-	if _, err = xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 5_005, MaxSchemaTotalPatternWork: large}, xsd.Bytes("enum.xsd", schema)); err != nil {
+	if _, err = xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 2_000, MaxSchemaTotalPatternWork: large}, xsd.Bytes("enum.xsd", schema)); err != nil {
 		t.Fatalf("one literal per value under a large total: %v", err)
 	}
-	_, err = xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 5_004, MaxSchemaTotalPatternWork: large}, xsd.Bytes("enum.xsd", schema))
-	requireDiagnostic(t, err, xsderrors.CodeSchemaLimit, "MaxSchemaPatternWork=5004")
+	_, err = xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 1_999, MaxSchemaTotalPatternWork: large}, xsd.Bytes("enum.xsd", schema))
+	requireDiagnostic(t, err, xsderrors.CodeSchemaLimit, "MaxSchemaPatternWork=1999")
 }
 
 // Every compile-time evaluation is charged to the aggregate. Each of the five
-// enumeration literals costs T1 = 5,005 per evaluation and is evaluated at
+// enumeration literals costs T1 = 2,000 per evaluation and is evaluated at
 // least once, so 5*T1-1 fails. A facet literal is charged by its base-type
 // check and again by facet compilation, so 2*5*T1 is the documented ceiling.
 func TestMaxSchemaTotalPatternWorkSumsLiterals(t *testing.T) {
@@ -208,7 +214,7 @@ func TestMaxSchemaTotalPatternWorkSumsLiterals(t *testing.T) {
   <xs:simpleType name="T"><xs:restriction base="Items">` + enumerations.String() + `</xs:restriction></xs:simpleType>
   <xs:element name="root" type="T"/>
 </xs:schema>`)
-	const t1, evaluations = 5_005, 5
+	const t1, evaluations = 2_000, 5
 	compile := func(total uint64) error {
 		_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: t1, MaxSchemaTotalPatternWork: total}, xsd.Bytes("enum.xsd", schema))
 		return err
@@ -221,9 +227,9 @@ func TestMaxSchemaTotalPatternWorkSumsLiterals(t *testing.T) {
 
 // Default and fixed value constraints are evaluated once, and publication
 // never re-evaluates them. Each literal is 1,000
-// ASCII runes matched against [a-z]+, priced at 5*1000+5 = 5,005 units.
+// ASCII runes matched against [a-z]+, priced at 2*1000 = 2,000 units.
 func TestMaxSchemaTotalPatternWorkChargesValueConstraintsOnce(t *testing.T) {
-	const cost = 5_005
+	const cost = 2_000
 	literal := strings.Repeat("a", 1_000)
 	tests := []struct {
 		name     string
@@ -254,10 +260,10 @@ func TestMaxSchemaTotalPatternWorkChargesValueConstraintsOnce(t *testing.T) {
 	}
 }
 
-// k elements of cost C = 9,019 (x[a-z]+ on "x" and 1,000 "a") are charged to
+// k elements of cost C = 2,002 (x[a-z]+ on "x" and 1,000 "a") are charged to
 // one document total.
 func TestMaxInstanceTotalPatternWorkSumsValues(t *testing.T) {
-	const cost, k = 9_019, 4
+	const cost, k = 2_002, 4
 	engine := compileRepeatedPatternSchema(t, "x[a-z]+")
 	document := repeatedValues(k, "x"+strings.Repeat("a", 1_000))
 	validate := func(total uint64) error {
@@ -287,7 +293,7 @@ func TestMaxInstanceTotalPatternWorkCountsLiteralPatterns(t *testing.T) {
 }
 
 func TestManyValuesWithinPerValueLimitPassUnderLargeTotal(t *testing.T) {
-	const cost = 9_019
+	const cost = 2_002
 	engine := compileRepeatedPatternSchema(t, "x[a-z]+")
 	document := repeatedValues(50, "x"+strings.Repeat("a", 1_000))
 	err := engine.ValidateWithOptions(strings.NewReader(document), xsd.ValidateOptions{MaxInstancePatternWork: cost, MaxInstanceTotalPatternWork: 1 << 40, MaxInstanceValueWork: 1 << 40})
@@ -297,7 +303,7 @@ func TestManyValuesWithinPerValueLimitPassUnderLargeTotal(t *testing.T) {
 }
 
 func TestMaxInstanceTotalPatternWorkSessionReuse(t *testing.T) {
-	const cost, k = 9_019, 4
+	const cost, k = 2_002, 4
 	engine := compileRepeatedPatternSchema(t, "x[a-z]+")
 	value := "x" + strings.Repeat("a", 1_000)
 	full, one := repeatedValues(k, value), repeatedValues(1, value)
@@ -333,7 +339,7 @@ func TestMaxInstanceTotalPatternWorkSessionReuse(t *testing.T) {
 
 func TestMaxInstanceTotalPatternWorkIsPerDocumentAcrossGoroutines(t *testing.T) {
 	t.Parallel()
-	const cost, k = 9_019, 4
+	const cost, k = 2_002, 4
 	engine := compileRepeatedPatternSchema(t, "x[a-z]+")
 	document := repeatedValues(k, "x"+strings.Repeat("a", 1_000))
 	for i := range 8 {
@@ -365,7 +371,7 @@ func repeatedValues(n int, value string) string {
 	return "<root>" + strings.Repeat("<v>"+value+"</v>", n) + "</root>"
 }
 
-// x[a-z]+ on "x"+1000 "a": 1001 bytes + 2 atoms of 4*1002+1 = 9019.
+// x[a-z]+ on "x"+1000 "a": 1001 bytes + 1001 characters = 2002.
 func TestMaxSchemaPatternWorkFollowsDocumentedUnit(t *testing.T) {
 	var enumerations strings.Builder
 	for _, r := range "abcde" {
@@ -376,10 +382,10 @@ func TestMaxSchemaPatternWorkFollowsDocumentedUnit(t *testing.T) {
   <xs:simpleType name="T"><xs:restriction base="Item">` + enumerations.String() + `</xs:restriction></xs:simpleType>
   <xs:element name="root" type="T"/>
 </xs:schema>`)
-	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 9_019}, xsd.Bytes("enum.xsd", schema)); err != nil {
+	if _, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 2_002}, xsd.Bytes("enum.xsd", schema)); err != nil {
 		t.Fatalf("budget of one literal: %v", err)
 	}
-	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 9_018}, xsd.Bytes("enum.xsd", schema))
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternWork: 2_001}, xsd.Bytes("enum.xsd", schema))
 	requireDiagnostic(t, err, xsderrors.CodeSchemaLimit, "MaxSchemaPatternWork")
 }
 
@@ -436,7 +442,7 @@ func compileTotal(t *testing.T, total uint64, schema string) error {
 // prove that publication replay was removed; that is the deletion of
 // Builder.ValidateUncharged.
 func TestMaxSchemaTotalPatternWorkSharedFixedAcrossUseSets(t *testing.T) {
-	const cost = 5_005
+	const cost = 2_000
 	for _, n := range []int{1, 2000} {
 		var types strings.Builder
 		for i := range n {
@@ -450,13 +456,13 @@ func TestMaxSchemaTotalPatternWorkSharedFixedAcrossUseSets(t *testing.T) {
 		if err := compileTotal(t, cost, schema); err != nil {
 			t.Fatalf("N=%d total %d: %v", n, cost, err)
 		}
-		requireDiagnostic(t, compileTotal(t, cost-1, schema), xsderrors.CodeSchemaLimit, "MaxSchemaTotalPatternWork=5004")
+		requireDiagnostic(t, compileTotal(t, cost-1, schema), xsderrors.CodeSchemaLimit, "MaxSchemaTotalPatternWork=1999")
 	}
 }
 
 // The facet-literal base-type check is charged, not exempt.
 func TestMaxSchemaTotalPatternWorkChargesFacetLiteralBaseCheck(t *testing.T) {
-	const cost = 5_005
+	const cost = 2_000
 	literal := strings.Repeat("a", 1_000)
 	schema := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:simpleType name="T"><xs:restriction base="xs:string"><xs:pattern value="[a-z]+"/></xs:restriction></xs:simpleType>
@@ -466,7 +472,7 @@ func TestMaxSchemaTotalPatternWorkChargesFacetLiteralBaseCheck(t *testing.T) {
 	if err := compileTotal(t, cost, schema); err != nil {
 		t.Fatalf("total %d: %v", cost, err)
 	}
-	requireDiagnostic(t, compileTotal(t, cost-1, schema), xsderrors.CodeSchemaLimit, "MaxSchemaTotalPatternWork=5004")
+	requireDiagnostic(t, compileTotal(t, cost-1, schema), xsderrors.CodeSchemaLimit, "MaxSchemaTotalPatternWork=1999")
 
 	// No pattern anywhere: nothing to charge.
 	noPattern := `<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
@@ -483,7 +489,7 @@ func TestMaxSchemaTotalPatternWorkChargesFacetLiteralBaseCheck(t *testing.T) {
   <xs:simpleType name="E"><xs:restriction base="D"><xs:minInclusive value="` + strings.Repeat("1", 1_000) + `"/></xs:restriction></xs:simpleType>
   <xs:element name="root" type="E"/>
 </xs:schema>`
-	const c = 5_005 // one evaluation of the 1,000-digit literal, measured
+	const c = 2_000 // one evaluation of the 1,000-digit literal, measured
 	if err := compileTotal(t, c, bound); err != nil {
 		t.Fatalf("total C=%d: %v", c, err)
 	}
