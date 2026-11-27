@@ -206,13 +206,15 @@ It parses `internal/source` inputs through `internal/xmlstream` into a closed
 graph before compiling; planning performs no I/O. `internal/value` owns builtin
 IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
-`workBudgetKind` lists the work of the two compilation budgets.
+`workBudgetKind` lists the work of the three compilation budgets.
 `MaxSchemaDependencySteps` bounds loading, planning, registration and
 resolution, and the records compiled components retain: content-model
 particles and models, compiled content-model tables, attribute-use sets and
 wildcard namespaces. `MaxContentModelAnalysisSteps` bounds the content-model
 work of the whole compilation, and through the work spent on one model the
-heap its automaton construction uses. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)
+heap its automaton construction uses. `MaxSchemaPatternAnalysisSteps` bounds
+the steps `internal/xsdregex` spends building tables for the distinct pattern
+texts of the whole compilation. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)
 gives the bound per step. The admission comment above `appendWildcard`,
 `appendModelParticles` and `contentModelCompiler` state what is charged when a
 record is retained. Spent work is never refunded, and the builtin components

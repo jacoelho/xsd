@@ -7,9 +7,9 @@ import (
 	"unicode/utf8"
 )
 
-// linearPattern is the old bounded run-length matcher expressed directly
-// from the shared AST. It covers concatenations of character sets and their
-// repeats; all other patterns use the Thompson machine.
+// linearPattern is the bounded run-length matcher, built directly from the
+// AST. It matches a literal, and a concatenation of character sets and their
+// repeats that Compile builds no table for.
 //
 // literal takes priority over fixed. A fixed pattern (every atom has equal
 // minimum and maximum counts) is matched by one cursor over the atom sets;
@@ -80,20 +80,21 @@ func (s *multiRangeSet) containsAll(runes []rune) bool {
 	return true
 }
 
-// indexASCII builds ascii. Compile calls it when it selects the run-length
-// matcher, so a pattern that compiles to a table does not pay for it.
-func (p *linearPattern) indexASCII() {
+// newASCIISets returns the ASCII members of each atom's set, or nil when every
+// set is one range.
+func newASCIISets(atoms []linearAtom) []asciiSet {
 	multi := false
-	for _, atom := range p.atoms {
+	for _, atom := range atoms {
 		multi = multi || len(atom.set.ranges) != 1
 	}
 	if !multi {
-		return
+		return nil
 	}
-	p.ascii = make([]asciiSet, len(p.atoms))
-	for index, atom := range p.atoms {
-		p.ascii[index] = newASCIISet(atom.set)
+	sets := make([]asciiSet, len(atoms))
+	for index, atom := range atoms {
+		sets[index] = newASCIISet(atom.set)
 	}
+	return sets
 }
 
 // multiRange returns the set of atom index, which is not one range.
@@ -121,19 +122,28 @@ const (
 	linearStackStates = 2 * (linearStackRunes + 1)
 )
 
-func compileLinear(root *node, options compileLimits) (*linearPattern, bool) {
-	collector := linearCollector{pattern: &linearPattern{}}
-	if !collector.visit(root) || !linearAtomsWithinLimit(collector.pattern.atoms, options.states) {
+// linearAtoms returns the atoms of a pattern that is a concatenation of
+// character sets and their repeats. It reports false for any other pattern
+// and for a repeat count above options.states.
+func linearAtoms(root *node, options compileLimits) ([]linearAtom, bool) {
+	var collector linearCollector
+	if !collector.visit(root) || !linearAtomsWithinLimit(collector.atoms, options.states) {
 		return nil, false
 	}
-	linear := collector.pattern
-	linear.fixed = linearFixed(linear.atoms)
-	if literal, ok := linearLiteral(linear.atoms); ok {
-		linear.literal = true
-		linear.literalText = literal
-		linear.literalBytes = []byte(literal)
-	}
-	return linear, true
+	return collector.atoms, true
+}
+
+// newLiteralPattern returns the matcher of atoms that linearLiteral reads as
+// literal. It compares bytes, so it builds no ASCII sets.
+func newLiteralPattern(atoms []linearAtom, literal string) *linearPattern {
+	return &linearPattern{atoms: atoms, fixed: true, literal: true, literalText: literal, literalBytes: []byte(literal)}
+}
+
+// newRunLengthPattern returns the matcher of atoms that are not a literal.
+// Compile calls it once it has selected the run-length matcher, so a pattern
+// that compiles to a table builds no ASCII sets.
+func newRunLengthPattern(atoms []linearAtom) *linearPattern {
+	return &linearPattern{atoms: atoms, fixed: linearFixed(atoms), ascii: newASCIISets(atoms)}
 }
 
 func linearFixed(atoms []linearAtom) bool {
@@ -146,7 +156,7 @@ func linearFixed(atoms []linearAtom) bool {
 }
 
 type linearCollector struct {
-	pattern *linearPattern
+	atoms []linearAtom
 }
 
 func (c *linearCollector) visit(current *node) bool {
@@ -157,7 +167,7 @@ func (c *linearCollector) visit(current *node) bool {
 	case nodeEmpty:
 		return true
 	case nodeSet:
-		c.pattern.atoms = append(c.pattern.atoms, linearAtom{set: current.set, min: 1, max: 1})
+		c.atoms = append(c.atoms, linearAtom{set: current.set, min: 1, max: 1})
 		return true
 	case nodeConcat:
 		return c.visitConcat(current.children)
@@ -182,7 +192,7 @@ func (c *linearCollector) visitRepeat(current *node) bool {
 	if len(current.children) != 1 || current.children[0] == nil || current.children[0].kind != nodeSet {
 		return false
 	}
-	c.pattern.atoms = append(c.pattern.atoms, linearAtom{
+	c.atoms = append(c.atoms, linearAtom{
 		set:       current.children[0].set,
 		min:       current.min,
 		max:       current.max,

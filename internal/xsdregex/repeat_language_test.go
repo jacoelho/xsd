@@ -114,7 +114,7 @@ func TestCountedMachineTracksAtMostThreeTimesUnrolledStates(t *testing.T) {
 		sources = append(sources, repeatLanguageSources(body)...)
 	}
 	for _, source := range sources {
-		unrolled := newRepeatPlan(mustParse(t, source)).unrolled
+		unrolled := newRepeatPlan(mustParse(t, source), 0).unrolled
 		if tracked := uint64(mustCompileWithoutDFA(t, source).trackedSlots()); tracked > 3*unrolled { //nolint:gosec // tracked slots are bounded by the compile limit.
 			t.Errorf("%q: %d tracked states, want at most 3 * %d unrolled", source, tracked, unrolled)
 		}
@@ -133,7 +133,7 @@ func TestRepeatPlanUnrolledCountEqualsUnrolledMachine(t *testing.T) {
 		if _, err := c.compileRoot(root); err != nil {
 			t.Fatalf("compile %q: %v", source, err)
 		}
-		if got, want := newRepeatPlan(root).unrolled, uint64(len(c.states)); got != want {
+		if got, want := newRepeatPlan(root, 0).unrolled, uint64(len(c.states)); got != want {
 			t.Errorf("%q: plan counts %d unrolled states, compiler emits %d", source, got, want)
 		}
 	}

@@ -24,30 +24,42 @@ func patternsSchema(patterns ...string) []byte {
 	return []byte(b.String())
 }
 
-func compileRetained(limit int64, sources ...xsd.SchemaSource) error {
-	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternRetainedBytes: limit}, sources...)
-	return err
+func patternsSource(patterns ...string) xsd.SchemaSource {
+	return xsd.Bytes("p.xsd", patternsSchema(patterns...))
 }
 
-// retainedThreshold returns the smallest MaxSchemaPatternRetainedBytes under
-// which the sources compile, found by binary search so tests state contracts
-// (additivity, dedupe) without pinning the byte estimate.
-func retainedThreshold(t *testing.T, sources ...xsd.SchemaSource) int64 {
+// leastCompilingLimit returns the smallest limit from 1 to limit under which
+// compile succeeds, found by binary search so tests state contracts
+// (additivity, dedupe, order) without pinning what a schema spends.
+func leastCompilingLimit[T int | int64](t *testing.T, limit T, compile func(T) error) T {
 	t.Helper()
-	hi := int64(defaultPatternRetainedBytes)
-	if err := compileRetained(hi, sources...); err != nil {
-		t.Fatalf("compile at the default limit: %v", err)
+	if err := compile(limit); err != nil {
+		t.Fatalf("compile at limit %d: %v", limit, err)
 	}
-	lo := int64(1)
+	lo, hi := T(1), limit
 	for lo < hi {
 		mid := lo + (hi-lo)/2
-		if compileRetained(mid, sources...) == nil {
+		if compile(mid) == nil {
 			hi = mid
 		} else {
 			lo = mid + 1
 		}
 	}
 	return lo
+}
+
+func compileRetained(limit int64, sources ...xsd.SchemaSource) error {
+	_, err := xsd.CompileWithOptions(xsd.CompileOptions{MaxSchemaPatternRetainedBytes: limit}, sources...)
+	return err
+}
+
+// retainedThreshold returns the smallest MaxSchemaPatternRetainedBytes under
+// which the sources compile.
+func retainedThreshold(t *testing.T, sources ...xsd.SchemaSource) int64 {
+	t.Helper()
+	return leastCompilingLimit(t, defaultPatternRetainedBytes, func(limit int64) error {
+		return compileRetained(limit, sources...)
+	})
 }
 
 func requireRetainedLimit(t *testing.T, err error, limit int64) {
@@ -64,12 +76,9 @@ func TestPatternRetainedBytesAreAdditive(t *testing.T) {
 		{"closures", "(a?){1,15}b", "(a?){1,15}c"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			src := func(patterns ...string) xsd.SchemaSource {
-				return xsd.Bytes("p.xsd", patternsSchema(patterns...))
-			}
-			s1 := retainedThreshold(t, src(test.p1))
-			s2 := retainedThreshold(t, src(test.p2))
-			both := src(test.p1, test.p2)
+			s1 := retainedThreshold(t, patternsSource(test.p1))
+			s2 := retainedThreshold(t, patternsSource(test.p2))
+			both := patternsSource(test.p1, test.p2)
 			if err := compileRetained(s1+s2, both); err != nil {
 				t.Fatalf("at S1+S2=%d: %v", s1+s2, err)
 			}
@@ -80,12 +89,11 @@ func TestPatternRetainedBytesAreAdditive(t *testing.T) {
 
 func TestPatternRetainedBytesChargeIdenticalTextOnce(t *testing.T) {
 	const p1, p2 = "(ab|c){1,200}", "(ab|d){1,200}"
-	src := func(patterns ...string) xsd.SchemaSource { return xsd.Bytes("p.xsd", patternsSchema(patterns...)) }
-	s1 := retainedThreshold(t, src(p1))
-	s2 := retainedThreshold(t, src(p2))
+	s1 := retainedThreshold(t, patternsSource(p1))
+	s2 := retainedThreshold(t, patternsSource(p2))
 
 	t.Run("two types", func(t *testing.T) {
-		same := src(p1, p1)
+		same := patternsSource(p1, p1)
 		if err := compileRetained(s1, same); err != nil {
 			t.Fatalf("at S1=%d: %v", s1, err)
 		}
@@ -106,7 +114,7 @@ func TestPatternRetainedBytesChargeIdenticalTextOnce(t *testing.T) {
 		requireRetainedLimit(t, compileRetained(s1-1, source), s1-1)
 	})
 	t.Run("distinct text", func(t *testing.T) {
-		distinct := src(p1, p2)
+		distinct := patternsSource(p1, p2)
 		if err := compileRetained(s1+s2, distinct); err != nil {
 			t.Fatalf("at S1+S2: %v", err)
 		}
@@ -116,7 +124,7 @@ func TestPatternRetainedBytesChargeIdenticalTextOnce(t *testing.T) {
 
 func TestPatternRetainedBreachIsReportedAtTheFacetStartTag(t *testing.T) {
 	const p1, p2 = "(ab|c){1,200}", "(ab|d){1,200}"
-	s1 := retainedThreshold(t, xsd.Bytes("p.xsd", patternsSchema(p1)))
+	s1 := retainedThreshold(t, patternsSource(p1))
 	schema := []byte(`<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 <xs:element name="first" type="missing"/>
 <xs:simpleType name="A"><xs:restriction base="xs:string"><xs:pattern value="` + p1 + `"/></xs:restriction></xs:simpleType>
@@ -144,8 +152,8 @@ func TestInheritedPatternsAreNotRecharged(t *testing.T) {
 		b.WriteString(`</xs:schema>`)
 		return xsd.Bytes("p.xsd", []byte(b.String()))
 	}
-	s1 := retainedThreshold(t, xsd.Bytes("p.xsd", patternsSchema(p1)))
-	s2 := retainedThreshold(t, xsd.Bytes("p.xsd", patternsSchema(p2)))
+	s1 := retainedThreshold(t, patternsSource(p1))
+	s2 := retainedThreshold(t, patternsSource(p2))
 	if got := retainedThreshold(t, schema("")); got != s1 {
 		t.Fatalf("50 derived types need %d, want S1=%d", got, s1)
 	}
@@ -167,7 +175,7 @@ func TestPatternRetainedBytesDefaultRejects(t *testing.T) {
 		for i := from; i < to; i++ {
 			patterns = append(patterns, distinctPattern(i))
 		}
-		return xsd.Bytes("p.xsd", patternsSchema(patterns...))
+		return patternsSource(patterns...)
 	}
 	s1 := retainedThreshold(t, src(0, 1))
 	n := int(defaultPatternRetainedBytes / s1)
@@ -186,12 +194,12 @@ func TestPatternRetainedBytesDefaultAdmitsUnicodeCategorySchemas(t *testing.T) {
 	for i := range patterns {
 		patterns[i] = fmt.Sprintf(`[\p{L}\p{N} ]{1,%d}`, i+1)
 	}
-	if _, err := xsd.Compile(xsd.Bytes("p.xsd", patternsSchema(patterns...))); err != nil {
+	if _, err := xsd.Compile(patternsSource(patterns...)); err != nil {
 		t.Fatalf("3000 Unicode-category patterns under default options: %v", err)
 	}
 }
 
 func TestNegativePatternRetainedBytesIsRejected(t *testing.T) {
-	err := compileRetained(-1, xsd.Bytes("p.xsd", patternsSchema("a")))
+	err := compileRetained(-1, patternsSource("a"))
 	requireDiagnostic(t, err, xsderrors.CodeSchemaLimit, "MaxSchemaPatternRetainedBytes")
 }

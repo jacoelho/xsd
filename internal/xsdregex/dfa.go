@@ -74,23 +74,27 @@ func (d *dfa) matchString(input string, budget *matchBudget) (bool, error) {
 const maxDFAEntries = 1 << 16
 
 // compileDFA determinises the pattern's unrolled NFA and returns the steps it
-// spent. It reports false, and the caller compiles another matcher, when the
-// NFA has more than limits.dfaStates states, which spends no step, or when it
-// abandons the attempt: the table would exceed limits.dfaEntries entries,
+// spent. It returns no table, and the caller compiles another matcher, when
+// the NFA has more than limits.dfaStates states, which spends no step, or when
+// it abandons the attempt: the table would exceed limits.dfaEntries entries,
 // construction would take more than limits.dfaSteps steps, newClasses or
-// alphabet.index refuses the pattern's sets, or two rows hash alike.
-func compileDFA(root *node, unrolled uint64, limits compileLimits) (*dfa, uint64, bool) {
+// alphabet.index refuses the pattern's sets, or two rows hash alike. The error
+// is the NFA compiler's for a tree it rejects for any reason but its state
+// limit.
+func compileDFA(root *node, unrolled uint64, limits compileLimits) (*dfa, uint64, error) {
 	if unrolled > limits.dfaStates || limits.dfaEntries > maxDFAEntries {
-		return nil, 0, false
+		return nil, 0, nil
 	}
 	c := nfaCompiler{limit: limits.dfaStates, states: make([]instruction, 0, unrolled)}
 	start, err := c.compileRoot(root)
+	if IsLimit(err) {
+		return nil, 0, nil
+	}
 	if err != nil {
-		return nil, 0, false
+		return nil, 0, err
 	}
 	b := dfaBuilder{states: c.states, budget: buildBudget{remaining: limits.dfaSteps}, entries: limits.dfaEntries}
-	table, ok := b.build(start)
-	return table, limits.dfaSteps - b.budget.remaining, ok
+	return b.build(start), limits.dfaSteps - b.budget.remaining, nil
 }
 
 type dfaBuilder struct {
@@ -106,7 +110,6 @@ type dfaBuilder struct {
 	// memberFirst and members hold the NFA states of each row.
 	memberFirst []uint32
 	members     []uint32
-	accepting   []bool
 	table       []uint16
 	// seen marks the states one closure walk visited with its generation.
 	seen    []uint32
@@ -117,28 +120,25 @@ type dfaBuilder struct {
 	mark    uint32
 }
 
-func (b *dfaBuilder) build(start int) (*dfa, bool) {
+// build returns the table, or nil when it abandons the attempt.
+func (b *dfaBuilder) build(start int) *dfa {
 	if !b.buildClasses() || !b.buildTargets() {
-		return nil, false
+		return nil
 	}
 	// Row zero is the dead state: no members, every entry zero.
 	b.rows = make(map[uint64]uint16, len(b.states))
 	b.memberFirst = append(make([]uint32, 0, len(b.states)+2), 0, 0)
-	b.accepting = append(make([]bool, 0, len(b.states)+1), false)
 	b.members = make([]uint32, 0, 2*len(b.states))
 	initial, ok := b.closure(nil, start)
 	if !ok {
-		return nil, false
+		return nil
 	}
 	slices.Sort(initial)
 	first, ok := b.row(initial)
-	if !ok {
-		return nil, false
+	if !ok || !b.fill() {
+		return nil
 	}
-	if !b.fill() {
-		return nil, false
-	}
-	return b.finish(first), true
+	return b.finish(first)
 }
 
 func (b *dfaBuilder) buildClasses() bool {
@@ -200,14 +200,7 @@ func (b *dfaBuilder) closure(dst []uint32, pc int) ([]uint32, bool) {
 			continue
 		}
 		b.seen[current] = b.mark
-		switch state := b.states[current]; state.kind {
-		case instructionSplit:
-			b.stack = append(b.stack, state.out, state.out1)
-		case instructionJump:
-			b.stack = append(b.stack, state.out)
-		case instructionSet, instructionAccept:
-			dst = append(dst, uint32(current)) //nolint:gosec // current is a state index.
-		case instructionCountHead:
+		if !walkEpsilonState(b.states[current], current, &b.stack, &dst) {
 			return nil, false
 		}
 	}
@@ -228,6 +221,20 @@ func hashMembers(members []uint32) uint64 {
 	return hash
 }
 
+// rowCount returns the rows added so far, the dead row among them.
+func (b *dfaBuilder) rowCount() int {
+	return len(b.memberFirst) - 1
+}
+
+func (b *dfaBuilder) accepts(index int) bool {
+	for _, member := range b.members[b.memberFirst[index]:b.memberFirst[index+1]] {
+		if b.states[member].kind == instructionAccept {
+			return true
+		}
+	}
+	return false
+}
+
 // row returns the row whose members are the sorted, distinct NFA states in
 // members, adding it when it is new. Two rows whose members hash alike abandon
 // the attempt.
@@ -239,15 +246,14 @@ func (b *dfaBuilder) row(members []uint32) (uint16, bool) {
 	if existing, ok := b.rows[hash]; ok {
 		return existing, slices.Equal(b.members[b.memberFirst[existing]:b.memberFirst[existing+1]], members)
 	}
-	index := len(b.accepting)
+	index := b.rowCount()
 	if uint64(index+1)*uint64(b.classes.count) > b.entries { //nolint:gosec // Row and class counts are non-negative.
 		return 0, false
 	}
 	b.rows[hash] = uint16(index) //nolint:gosec // The entry limit bounds the row count below 1<<16.
 	b.members = append(b.members, members...)
 	b.memberFirst = append(b.memberFirst, uint32(len(b.members))) //nolint:gosec // Members are bounded by the construction budget.
-	b.accepting = append(b.accepting, false)
-	return uint16(index), true //nolint:gosec // The entry limit bounds the row count below 1<<16.
+	return uint16(index), true                                    //nolint:gosec // The entry limit bounds the row count below 1<<16.
 }
 
 // fill computes the entries of every row. Computing a row's entries adds the
@@ -256,7 +262,7 @@ func (b *dfaBuilder) fill() bool {
 	width := b.classes.count
 	b.table = make([]uint16, width, min(uint64(len(b.states)+1)*uint64(width), b.entries)) //nolint:gosec // State and class counts are non-negative.
 	reached := make([][]uint32, width)
-	for index := 1; index < len(b.accepting); index++ {
+	for index := 1; index < b.rowCount(); index++ {
 		if !b.reach(index, reached) {
 			return false
 		}
@@ -273,13 +279,9 @@ func (b *dfaBuilder) fill() bool {
 }
 
 // reach appends to reached, per class, the states the members of row index
-// lead to on a character of that class, and records whether the row accepts.
+// lead to on a character of that class.
 func (b *dfaBuilder) reach(index int, reached [][]uint32) bool {
 	for _, member := range b.members[b.memberFirst[index]:b.memberFirst[index+1]] {
-		if b.states[member].kind == instructionAccept {
-			b.accepting[index] = true
-			continue
-		}
 		set := b.setOf[member]
 		if set < 0 {
 			continue
@@ -313,17 +315,19 @@ func (b *dfaBuilder) entry(reached []uint32) (uint16, bool) {
 // The dead row is not accepting and is the first row, so it keeps offset zero.
 func (b *dfaBuilder) finish(first uint16) *dfa {
 	width := b.classes.count
-	offsets := make([]int, len(b.accepting))
+	offsets := make([]int, b.rowCount())
+	accepting := make([]bool, len(offsets))
 	position := 0
-	for index, accepting := range b.accepting {
-		if !accepting {
+	for index := range offsets {
+		accepting[index] = b.accepts(index)
+		if !accepting[index] {
 			offsets[index] = position * width
 			position++
 		}
 	}
 	acceptFrom := position * width
-	for index, accepting := range b.accepting {
-		if accepting {
+	for index, accepts := range accepting {
+		if accepts {
 			offsets[index] = position * width
 			position++
 		}

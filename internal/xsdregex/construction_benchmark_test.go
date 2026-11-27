@@ -34,12 +34,11 @@ func BenchmarkCompileBitsetWhitespace(b *testing.B) {
 	if matched, _, err := pattern.MatchStringWithScratch(" a ", unlimitedWork, nil); err != nil || !matched {
 		b.Fatalf("fixture match = %v, %v", matched, err)
 	}
-	withoutDFA := fixedCompileLimits
-	withoutDFA.dfaStates = 0
+	limits := withoutDFA()
 	b.ReportAllocs()
 	for b.Loop() {
 		var err error
-		pattern, err = compileWithLimits(source, withoutDFA)
+		pattern, err = compileWithLimits(source, limits)
 		if err != nil || pattern == nil {
 			b.Fatalf("compile = %v, %v", pattern, err)
 		}

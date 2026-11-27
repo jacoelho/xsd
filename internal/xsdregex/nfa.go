@@ -301,7 +301,7 @@ func validEpsilonState(pc, stateCount int) bool {
 	return pc >= 0 && pc < stateCount
 }
 
-func walkEpsilonState(state instruction, pc int, stack *[]int, targets *[]int) bool {
+func walkEpsilonState[T int | uint32](state instruction, pc int, stack *[]int, targets *[]T) bool {
 	switch state.kind {
 	case instructionSplit:
 		if state.out < 0 || state.out1 < 0 {
@@ -316,7 +316,7 @@ func walkEpsilonState(state instruction, pc int, stack *[]int, targets *[]int) b
 		*stack = append(*stack, state.out)
 		return true
 	case instructionSet, instructionAccept:
-		*targets = append(*targets, pc)
+		*targets = append(*targets, T(pc))
 		return true
 	case instructionCountHead:
 		// Closures are precomputed only for machines without counters.
@@ -656,8 +656,10 @@ func (c planCost) add(other planCost) planCost {
 	return planCost{unrolled: saturatingAdd(c.unrolled, other.unrolled), planned: saturatingAdd(c.planned, other.planned)}
 }
 
-func newRepeatPlan(root *node) repeatPlan {
-	plan := repeatPlan{counted: make(map[*node]counter), lengths: make(map[*node]matchLength)}
+// newRepeatPlan plans the repeats under root. nodes sizes lengths, which holds
+// one entry per node under root; the parser's node count is at least that.
+func newRepeatPlan(root *node, nodes uint64) repeatPlan {
+	plan := repeatPlan{lengths: make(map[*node]matchLength, nodes)}
 	plan.measure(root)
 	cost := plan.visit(root, entryFixed)
 	plan.unrolled = saturatingAdd(cost.unrolled, 1)
@@ -746,6 +748,9 @@ func (p *repeatPlan) count(current, child *node, inner int) {
 		delete(p.counted, nested)
 	}
 	p.marked = append(p.marked[:inner], current)
+	if p.counted == nil {
+		p.counted = make(map[*node]counter)
+	}
 	p.counted[current] = p.bounds(current, child)
 }
 

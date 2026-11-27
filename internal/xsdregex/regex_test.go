@@ -16,13 +16,17 @@ func mustCompile(tb testing.TB, source string) *Pattern {
 	return pattern
 }
 
-// mustCompileWithoutDFA compiles source under the fixed bounds with the DFA
-// attempt disabled, so a test reaches the matcher a DFA would stand in for.
-func mustCompileWithoutDFA(tb testing.TB, source string) *Pattern {
-	tb.Helper()
+func withoutDFA() compileLimits {
 	limits := fixedCompileLimits
 	limits.dfaStates = 0
-	pattern, err := compileWithLimits(source, limits)
+	return limits
+}
+
+// mustCompileWithoutDFA compiles source without the DFA attempt, so a test
+// reaches the matcher a DFA would stand in for.
+func mustCompileWithoutDFA(tb testing.TB, source string) *Pattern {
+	tb.Helper()
+	pattern, err := compileWithLimits(source, withoutDFA())
 	if err != nil {
 		tb.Fatalf("compileWithLimits(%q) without DFA error = %v", source, err)
 	}
@@ -43,24 +47,35 @@ func compilations(tb testing.TB, source string) map[string]*Pattern {
 	return patterns
 }
 
-// matchEvery matches input through every compilation of source and both entry
-// points, fails the test unless all agree, and returns their answer.
-func matchEvery(tb testing.TB, source, input string) bool {
+// matchAgreed matches input against each of patterns, which are compilations
+// of source, through both entry points, without scratch and with one it
+// reuses. It fails the test unless all agree, and returns their answer.
+func matchAgreed(tb testing.TB, source, input string, patterns map[string]*Pattern) bool {
 	tb.Helper()
 	answers := map[bool][]string{}
-	for label, pattern := range compilations(tb, source) {
+	scratches := map[string]*Scratch{"no scratch": nil, "reused scratch": {}}
+	for label, pattern := range patterns {
 		for name, match := range matchers() {
-			matched, _, err := match(pattern, input, unlimitedWork, nil)
-			if err != nil {
-				tb.Fatalf("%q on %q (%s, %s, runner %s): %v", source, input, label, name, modeName(pattern), err)
+			for scratchName, scratch := range scratches {
+				matched, _, err := match(pattern, input, unlimitedWork, scratch)
+				if err != nil {
+					tb.Fatalf("%q on %+q (%s, %s, %s, runner %s): %v", source, input, label, name, scratchName, modeName(pattern), err)
+				}
+				answers[matched] = append(answers[matched], label+" "+name+" "+scratchName)
 			}
-			answers[matched] = append(answers[matched], label+" "+name)
 		}
 	}
 	if len(answers) != 1 {
-		tb.Fatalf("%q on %q: matched by %v, not matched by %v", source, input, answers[true], answers[false])
+		tb.Fatalf("%q on %+q: matched by %v, not matched by %v", source, input, answers[true], answers[false])
 	}
 	return len(answers[true]) != 0
+}
+
+// matchEvery matches input through every compilation of source, fails the
+// test unless all agree, and returns their answer.
+func matchEvery(tb testing.TB, source, input string) bool {
+	tb.Helper()
+	return matchAgreed(tb, source, input, compilations(tb, source))
 }
 
 func TestWholeStringAndLiteralAnchors(t *testing.T) {
@@ -260,11 +275,11 @@ func TestExactMaxUint64RepeatIsNotTheUnboundedForm(t *testing.T) {
 	}
 	child := &node{kind: nodeSet, set: singletonSet('a')}
 	exactNode := &node{kind: nodeRepeat, children: []*node{child}, min: 1, max: maxRepeat}
-	if _, err := compileNFA(exactNode, newRepeatPlan(exactNode), compileLimits{states: 3}); !IsLimit(err) {
+	if _, err := compileNFA(exactNode, newRepeatPlan(exactNode, 0), compileLimits{states: 3}); !IsLimit(err) {
 		t.Fatalf("exact max repeat compilation error = %v, want limit", err)
 	}
 	openNode := &node{kind: nodeRepeat, children: []*node{child}, min: 1, max: maxRepeat, unbounded: true}
-	if _, err := compileNFA(openNode, newRepeatPlan(openNode), compileLimits{states: 4}); err != nil {
+	if _, err := compileNFA(openNode, newRepeatPlan(openNode, 0), compileLimits{states: 4}); err != nil {
 		t.Fatalf("unbounded repeat compilation error = %v", err)
 	}
 }

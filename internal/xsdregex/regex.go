@@ -108,10 +108,11 @@ type MatchOptions struct {
 	MaxWork uint64
 }
 
-// Pattern is an immutable compiled XSD regular expression. A pattern whose
-// deterministic automaton fits the fixed DFA bounds matches by table lookup;
-// other concatenations of character sets use the bounded run-length matcher,
-// and the rest use the Thompson machine. Pattern is immutable after Compile;
+// Pattern is an immutable compiled XSD regular expression. A literal matches
+// by byte comparison. Any other pattern whose deterministic automaton fits the
+// fixed DFA bounds matches by table lookup; other concatenations of character
+// sets use the bounded run-length matcher, and the rest use the Thompson
+// machine. Pattern is immutable after Compile;
 // all match state lives in the caller's Scratch, so one Pattern may be shared.
 //
 // The fields stay flat. Rejected: embedding compiler return records
@@ -141,7 +142,7 @@ type Pattern struct {
 
 // runnerMode selects the matcher a Pattern runs: linear for a literal; DFA for
 // any other pattern whose deterministic automaton fits the DFA bounds of
-// compileLimits; linear for a remaining pattern compileLinear accepts; bitset
+// compileLimits; linear for a remaining pattern linearAtoms accepts; bitset
 // for a remaining NFA of at most 64 states whose closures precompute; general
 // for the rest. A machine with a counter is always general, because the bitset
 // runner holds no counts. General is also the mode of an NFA of at most 64
@@ -178,18 +179,20 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 	if err != nil {
 		return nil, err
 	}
-	linear, isLinear := compileLinear(root, options)
-	if isLinear && linear.literal {
-		return &Pattern{source: source, linear: linear, mode: modeLinear, retainedRanges: p.retainedRanges}, nil
+	atoms, isLinear := linearAtoms(root, options)
+	if literal, ok := linearLiteral(atoms); isLinear && ok {
+		return &Pattern{source: source, linear: newLiteralPattern(atoms, literal), mode: modeLinear, retainedRanges: p.retainedRanges}, nil
 	}
-	plan := newRepeatPlan(root)
-	table, steps, ok := compileDFA(root, plan.unrolled, options)
-	if ok {
+	plan := newRepeatPlan(root, p.nodes)
+	table, steps, err := compileDFA(root, plan.unrolled, options)
+	if err != nil {
+		return nil, err
+	}
+	if table != nil {
 		return &Pattern{source: source, dfa: table, mode: modeDFA, analysisSteps: steps}, nil
 	}
 	if isLinear {
-		linear.indexASCII()
-		return &Pattern{source: source, linear: linear, mode: modeLinear, retainedRanges: p.retainedRanges, analysisSteps: steps}, nil
+		return &Pattern{source: source, linear: newRunLengthPattern(atoms), mode: modeLinear, retainedRanges: p.retainedRanges, analysisSteps: steps}, nil
 	}
 	nfa, err := compileNFA(root, plan, options)
 	if err != nil {

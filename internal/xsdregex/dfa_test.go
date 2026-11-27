@@ -66,39 +66,54 @@ func TestAlphabetClassesAreExactlyTheDistinctSetMemberships(t *testing.T) {
 				t.Parallel()
 				ranges := randomSets(rand.New(rand.NewPCG(seed, uint64(shape.sets))), shape.sets, shape.maxRanges) //nolint:gosec // A seeded generator makes the failing sets reproducible.
 				sets := make([]rangeSet, len(ranges))
-				membership := make([]string, utf8.MaxRune+1)
-				row := make([]byte, len(ranges))
 				for index, set := range ranges {
 					sets[index] = rangeSet{ranges: set}
 				}
+				budget := buildBudget{remaining: 1 << 40}
+				got, ok := newClasses(sets, &budget)
+				listed := make([][maxClasses]bool, len(sets))
+				for index := range got.bySet {
+					for _, class := range got.bySet[index] {
+						listed[index][class] = true
+					}
+				}
+
+				// cursors holds, per set, its first range that ends at or after
+				// the code point; randomSets returns ranges sorted and disjoint.
+				cursors := make([]int, len(ranges))
+				row := make([]byte, len(ranges))
 				distinct := map[string]bool{}
 				previous := ""
-				for r := range membership {
+				for r := rune(0); r <= utf8.MaxRune; r++ {
 					for index, set := range ranges {
+						for cursors[index] < len(set) && set[cursors[index]].hi < r {
+							cursors[index]++
+						}
 						row[index] = '0'
-						for _, current := range set {
-							if int(current.lo) <= r && r <= int(current.hi) {
-								row[index] = '1'
-							}
+						if cursor := cursors[index]; cursor < len(set) && set[cursor].lo <= r {
+							row[index] = '1'
 						}
 					}
 					if string(row) != previous {
 						previous = string(row)
 						distinct[previous] = true
 					}
-					membership[r] = previous
+					if !ok {
+						continue
+					}
+					class := matcherClass(&got.alphabet, r)
+					for index := range sets {
+						if in, want := listed[index][class], row[index] == '1'; in != want {
+							t.Fatalf("U+%04X has class %d, which set %d lists = %v; the set contains it = %v", r, class, index, in, want)
+						}
+					}
 				}
 
-				budget := buildBudget{remaining: 1 << 40}
-				got, ok := newClasses(sets, &budget)
-				if len(distinct) > maxClasses {
-					if ok {
-						t.Fatalf("%d memberships fit %d classes", len(distinct), maxClasses)
-					}
-					return
+				if fits := len(distinct) <= maxClasses; ok != fits {
+					t.Fatalf("alphabet built = %v for %d memberships, want %v", ok, len(distinct), fits)
 				}
 				if !ok {
-					t.Fatalf("no alphabet for %d memberships", len(distinct))
+					return
 				}
 				if got.count != len(distinct) {
 					t.Fatalf("classes = %d, want the %d distinct memberships", got.count, len(distinct))
@@ -106,14 +121,6 @@ func TestAlphabetClassesAreExactlyTheDistinctSetMemberships(t *testing.T) {
 				paged := len(got.alphabet.pages) != 0
 				if want := len(got.alphabet.runs) >= pagedRunsFrom; paged != want {
 					t.Fatalf("alphabet of %d runs has pages = %v, want %v", len(got.alphabet.runs), paged, want)
-				}
-				for r, members := range membership {
-					class := matcherClass(&got.alphabet, rune(r))
-					for index := range sets {
-						if in, want := slices.Contains(got.bySet[index], class), members[index] == '1'; in != want {
-							t.Fatalf("U+%04X has class %d, which set %d lists = %v; the set contains it = %v", r, class, index, in, want)
-						}
-					}
 				}
 			})
 		}
@@ -250,10 +257,8 @@ const (
 func assertBoundedCountLanguage(t *testing.T, label string, pattern *Pattern) {
 	t.Helper()
 	for input, want := range map[string]bool{"": false, "ab": false, "abc": true, "cba": true, "abd": false, "abca": false, "ébc": false} {
-		for name, match := range matchers() {
-			if matched, _, err := match(pattern, input, unlimitedWork, nil); err != nil || matched != want {
-				t.Errorf("%s: %s %q on %q (runner %s) = %v, %v; want %v", label, name, boundedCount, input, modeName(pattern), matched, err, want)
-			}
+		if matched := matchAgreed(t, boundedCount, input, map[string]*Pattern{label: pattern}); matched != want {
+			t.Errorf("%s: %q on %q (runner %s) = %v, want %v", label, boundedCount, input, modeName(pattern), matched, want)
 		}
 	}
 }
@@ -410,7 +415,6 @@ func TestDFABuilderAbandonsRowsWhoseMembersHashAlike(t *testing.T) {
 			rows:        map[uint64]uint16{hashMembers(members): 1},
 			memberFirst: []uint32{0, 0, 1},
 			members:     slices.Clone(other),
-			accepting:   []bool{false, false},
 			classes:     classes{count: 2},
 			budget:      buildBudget{remaining: 1 << 10},
 			entries:     1 << 10,
@@ -447,12 +451,12 @@ func TestExponentialDFAsCompileToAnotherRunner(t *testing.T) {
 				t.Fatalf("%q compiled to a table of %d entries", source, len(pattern.dfa.next))
 			}
 			for input, want := range map[string]bool{
-				"a" + strings.Repeat(test.other, tail):                true,
-				test.other + "a" + strings.Repeat("a", tail):          true,
-				test.other + strings.Repeat("a", tail):                false,
-				"a" + strings.Repeat(test.other, tail-1):              false,
-				"a" + test.other + strings.Repeat(test.other, tail-1): true,
-				"a" + strings.Repeat(test.other, tail) + "-":          false,
+				"a" + strings.Repeat(test.other, tail):         true,
+				test.other + "a" + strings.Repeat("a", tail):   true,
+				test.other + strings.Repeat("a", tail):         false,
+				"a" + strings.Repeat(test.other, tail-1):       false,
+				"a" + test.other + strings.Repeat("a", tail-1): true,
+				"a" + strings.Repeat(test.other, tail) + "-":   false,
 			} {
 				if matched, _, err := pattern.MatchStringWithScratch(input, unlimitedWork, nil); err != nil || matched != want {
 					t.Errorf("%q (runner %s) on %.12q... (%d bytes) = %v, %v; want %v", source, modeName(pattern), input, len(input), matched, err, want)
