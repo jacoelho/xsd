@@ -182,5 +182,14 @@ func (l compileLimits) withDefaults() compileLimits {
 	if l.depth == 0 {
 		l.depth = f.depth
 	}
+	if l.dfaStates == 0 {
+		l.dfaStates = f.dfaStates
+	}
+	if l.dfaEntries == 0 {
+		l.dfaEntries = f.dfaEntries
+	}
+	if l.dfaSteps == 0 {
+		l.dfaSteps = f.dfaSteps
+	}
 	return l
 }

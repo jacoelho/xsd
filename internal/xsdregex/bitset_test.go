@@ -23,7 +23,10 @@ func TestBitCount(t *testing.T) {
 
 func TestBitsetMatchExactLimits(t *testing.T) {
 	t.Parallel()
-	pattern := mustCompile(t, `(a|aa)*b`)
+	pattern := mustCompileWithoutDFA(t, `(a|aa)*b`)
+	if pattern.mode != modeBitset {
+		t.Fatalf("precondition: runner %s, want bitset", modeName(pattern))
+	}
 	for _, tc := range []struct {
 		name    string
 		options MatchOptions

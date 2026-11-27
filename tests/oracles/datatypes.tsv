@@ -13996,6 +13996,190 @@ project/datatypes/regex/conformance-category-zs	schema	dotnet	schema-valid
 project/datatypes/regex/conformance-category-zs	schema	libxml2	schema-valid	
 project/datatypes/regex/conformance-category-zs	schema	xerces	schema-valid	
 project/datatypes/regex/conformance-category-zs	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-29	dotnet	invalid	count-29.xml:1:35: The 'r' element is invalid - The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-29	libxml2	invalid	count-29.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not accepted by the pattern '(a|aa){30,40}'.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-29	xerces	invalid	count-29.xml:1:37: cvc-pattern-valid: Value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not facet-valid with respect to pattern '(a|aa){30,40}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-29	xmlschema	invalid	line None: value doesn't match any pattern of ['(a|aa){30,40}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-30	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-30	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-30	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-30	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-80	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-80	libxml2	error	count-80.xml:1: element r: Schemas validity error : Internal error: xmlSchemaValidateFacets, validating against a pattern facet.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-80	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-80	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-81	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-81	libxml2	error	count-81.xml:1: element r: Schemas validity error : Internal error: xmlSchemaValidateFacets, validating against a pattern facet.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-81	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	count-81	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-minimum	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-0	dotnet	invalid	count-0.xml:1:6: The 'r' element is invalid - The value '' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-0	libxml2	invalid	count-0.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value '' is not accepted by the pattern '(a|aa){1,40}'.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-0	xerces	invalid	count-0.xml:1:8: cvc-pattern-valid: Value '' is not facet-valid with respect to pattern '(a|aa){1,40}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-0	xmlschema	invalid	line None: value doesn't match any pattern of ['(a|aa){1,40}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-1	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-1	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-1	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-1	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-80	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-80	libxml2	error	count-80.xml:1: element r: Schemas validity error : Internal error: xmlSchemaValidateFacets, validating against a pattern facet.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-80	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-80	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-81	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-81	libxml2	error	count-81.xml:1: element r: Schemas validity error : Internal error: xmlSchemaValidateFacets, validating against a pattern facet.
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-81	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	count-81	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-ambiguous-optional	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-69	dotnet	invalid	count-69.xml:1:75: The 'r' element is invalid - The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-69	libxml2	invalid	count-69.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not accepted by the pattern '(ab|a){70}'.
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-69	xerces	invalid	count-69.xml:1:77: cvc-pattern-valid: Value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not facet-valid with respect to pattern '(ab|a){70}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-69	xmlschema	invalid	line None: value doesn't match any pattern of ['(ab|a){70}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-70	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-70	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-70	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	count-70	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	foreign	dotnet	invalid	foreign.xml:1:77: The 'r' element is invalid - The value 'baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-exact-group	foreign	libxml2	invalid	foreign.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not accepted by the pattern '(ab|a){70}'.
+project/datatypes/regex/conformance-counted-repeat-exact-group	foreign	xerces	invalid	foreign.xml:1:79: cvc-pattern-valid: Value 'baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not facet-valid with respect to pattern '(ab|a){70}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-exact-group	foreign	xmlschema	invalid	line None: value doesn't match any pattern of ['(ab|a){70}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-140	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-140	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-140	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-140	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-141	dotnet	invalid	length-141.xml:1:147: The 'r' element is invalid - The value 'ababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababa' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-141	libxml2	invalid	length-141.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'ababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababa' is not accepted by the pattern '(ab|a){70}'.
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-141	xerces	invalid	length-141.xml:1:149: cvc-pattern-valid: Value 'ababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababa' is not facet-valid with respect to pattern '(ab|a){70}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-exact-group	length-141	xmlschema	invalid	line None: value doesn't match any pattern of ['(ab|a){70}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-exact-group	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-exact-group	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-0	dotnet	invalid	count-0.xml:1:6: The 'r' element is invalid - The value '' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-0	libxml2	invalid	count-0.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value '' is not accepted by the pattern '((ab){2}c?){1,40}'.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-0	xerces	invalid	count-0.xml:1:8: cvc-pattern-valid: Value '' is not facet-valid with respect to pattern '((ab){2}c?){1,40}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-0	xmlschema	invalid	line None: value doesn't match any pattern of ['((ab){2}c?){1,40}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-1	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-1	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-1	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-1	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-40	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-40	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-40	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-40	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-41	dotnet	invalid	count-41.xml:1:170: The 'r' element is invalid - The value 'abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-41	libxml2	invalid	count-41.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab' is not accepted by the pattern '((ab){2}c?){1,40}'.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-41	xerces	invalid	count-41.xml:1:172: cvc-pattern-valid: Value 'abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab' is not facet-valid with respect to pattern '((ab){2}c?){1,40}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	count-41	xmlschema	invalid	line None: value doesn't match any pattern of ['((ab){2}c?){1,40}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	short-group	dotnet	invalid	short-group.xml:1:9: The 'r' element is invalid - The value 'abc' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	short-group	libxml2	invalid	short-group.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'abc' is not accepted by the pattern '((ab){2}c?){1,40}'.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	short-group	xerces	invalid	short-group.xml:1:11: cvc-pattern-valid: Value 'abc' is not facet-valid with respect to pattern '((ab){2}c?){1,40}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-inner-repeat	short-group	xmlschema	invalid	line None: value doesn't match any pattern of ['((ab){2}c?){1,40}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-0	dotnet	invalid	count-0.xml:1:7: The 'r' element is invalid - The value 'a' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-0	libxml2	invalid	count-0.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'a' is not accepted by the pattern '(a|b)*a(a|b){1,70}'.
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-0	xerces	invalid	count-0.xml:1:9: cvc-pattern-valid: Value 'a' is not facet-valid with respect to pattern '(a|b)*a(a|b){1,70}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-0	xmlschema	invalid	line None: value doesn't match any pattern of ['(a|b)*a(a|b){1,70}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-1	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-1	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-1	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-1	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-70	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-70	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-70	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-70	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-71	dotnet	invalid	count-71.xml:1:78: The 'r' element is invalid - The value 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-71	libxml2	invalid	count-71.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' is not accepted by the pattern '(a|b)*a(a|b){1,70}'.
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-71	xerces	invalid	count-71.xml:1:80: cvc-pattern-valid: Value 'abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' is not facet-valid with respect to pattern '(a|b)*a(a|b){1,70}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-many-entries	count-71	xmlschema	invalid	line None: value doesn't match any pattern of ['(a|b)*a(a|b){1,70}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-many-entries	late-entry	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	late-entry	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	late-entry	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	late-entry	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-many-entries	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-0	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-0	libxml2	invalid	count-0.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value '' is not accepted by the pattern '(a?){70,90}'.
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-0	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-0	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-70	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-70	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-70	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-70	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-90	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-90	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-90	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-90	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-91	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-91	libxml2	invalid	count-91.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not accepted by the pattern '(a?){70,90}'.
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-91	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	count-91	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	foreign	dotnet	invalid	foreign.xml:1:7: The 'r' element is invalid - The value 'b' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	foreign	libxml2	invalid	foreign.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'b' is not accepted by the pattern '(a?){70,90}'.
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	foreign	xerces	invalid	foreign.xml:1:9: cvc-pattern-valid: Value 'b' is not facet-valid with respect to pattern '(a?){70,90}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	foreign	xmlschema	invalid	line None: value doesn't match any pattern of ['(a?){70,90}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-nullable-minimum	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-200	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-200	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-200	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-200	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-69	dotnet	invalid	count-69.xml:1:75: The 'r' element is invalid - The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-69	libxml2	invalid	count-69.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not accepted by the pattern '(a|ab){70,}'.
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-69	xerces	invalid	count-69.xml:1:77: cvc-pattern-valid: Value 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not facet-valid with respect to pattern '(a|ab){70,}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-69	xmlschema	invalid	line None: value doesn't match any pattern of ['(a|ab){70,}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-70	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-70	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-70	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	count-70	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	foreign	dotnet	invalid	foreign.xml:1:77: The 'r' element is invalid - The value 'baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-open-minimum	foreign	libxml2	invalid	foreign.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not accepted by the pattern '(a|ab){70,}'.
+project/datatypes/regex/conformance-counted-repeat-open-minimum	foreign	xerces	invalid	foreign.xml:1:79: cvc-pattern-valid: Value 'baaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' is not facet-valid with respect to pattern '(a|ab){70,}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-open-minimum	foreign	xmlschema	invalid	line None: value doesn't match any pattern of ['(a|ab){70,}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-open-minimum	mixed-70	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	mixed-70	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	mixed-70	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	mixed-70	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-open-minimum	schema	xmlschema	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	group-141	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	group-141	libxml2	error	group-141.xml:1: element r: Schemas validity error : Internal error: xmlSchemaValidateFacets, validating against a pattern facet.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	group-141	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	group-141	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-1	dotnet	invalid	groups-1.xml:1:12: The 'r' element is invalid - The value 'aaaaab' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-1	libxml2	invalid	groups-1.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'aaaaab' is not accepted by the pattern '((a|aa){1,70}b){2,3}'.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-1	xerces	invalid	groups-1.xml:1:14: cvc-pattern-valid: Value 'aaaaab' is not facet-valid with respect to pattern '((a|aa){1,70}b){2,3}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-1	xmlschema	invalid	line None: value doesn't match any pattern of ['((a|aa){1,70}b){2,3}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-2	dotnet	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-2	libxml2	error	groups-2.xml:1: element r: Schemas validity error : Internal error: xmlSchemaValidateFacets, validating against a pattern facet.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-2	xerces	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-2	xmlschema	error	timed out after 120s
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-3	dotnet	valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-3	libxml2	valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-3	xerces	valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-3	xmlschema	valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-4	dotnet	invalid	groups-4.xml:1:14: The 'r' element is invalid - The value 'abababab' is invalid according to its datatype 'String' - The Pattern constraint failed.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-4	libxml2	invalid	groups-4.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value 'abababab' is not accepted by the pattern '((a|aa){1,70}b){2,3}'.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-4	xerces	invalid	groups-4.xml:1:16: cvc-pattern-valid: Value 'abababab' is not facet-valid with respect to pattern '((a|aa){1,70}b){2,3}' for type '#AnonType_r'.
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	groups-4	xmlschema	invalid	line None: value doesn't match any pattern of ['((a|aa){1,70}b){2,3}'] (path /r)
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	schema	dotnet	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	schema	libxml2	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	schema	xerces	schema-valid	
+project/datatypes/regex/conformance-counted-repeat-outer-repeat	schema	xmlschema	schema-valid	
 project/datatypes/regex/conformance-escape-01-atom	empty	dotnet	invalid	empty.xml:1:6: The 'r' element is invalid - The value '' is invalid according to its datatype 'String' - The Pattern constraint failed.
 project/datatypes/regex/conformance-escape-01-atom	empty	libxml2	invalid	empty.xml:1: element r: Schemas validity error : Element 'r': [facet 'pattern'] The value '' is not accepted by the pattern '\n'.
 project/datatypes/regex/conformance-escape-01-atom	empty	xerces	invalid	empty.xml:1:8: cvc-pattern-valid: Value '' is not facet-valid with respect to pattern '\n' for type '#AnonType_r'.

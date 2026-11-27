@@ -7,9 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// linearPattern is the old bounded run-length matcher expressed directly
-// from the shared AST. It covers concatenations of character sets and their
-// repeats; all other patterns use the Thompson machine.
+// linearPattern matches a literal, or a concatenation of character sets and
+// their repeats that Compile builds no table for, by run lengths.
 //
 // literal takes priority over fixed. A fixed pattern (every atom has equal
 // minimum and maximum counts) is matched by one cursor over the atom sets;
@@ -18,8 +17,88 @@ type linearPattern struct {
 	literalText  string
 	atoms        []linearAtom
 	literalBytes []byte
-	literal      bool
-	fixed        bool
+	// ascii holds the ASCII members of each atom's set, one entry per atom.
+	// It is nil when every set is one range, which a comparison tests.
+	ascii   []asciiSet
+	literal bool
+	fixed   bool
+}
+
+// asciiSet holds the members of a set below utf8.RuneSelf, one bit each.
+type asciiSet [2]uint64
+
+func newASCIISet(set rangeSet) asciiSet {
+	var members asciiSet
+	for _, current := range set.ranges {
+		if current.lo >= utf8.RuneSelf {
+			break
+		}
+		for r := current.lo; r <= min(current.hi, utf8.RuneSelf-1); r++ {
+			members[r>>6] |= 1 << (r & 63)
+		}
+	}
+	return members
+}
+
+// has reports whether r is a member. It requires isASCII(r); masking the word
+// index spares the bounds check that requirement makes redundant.
+func (s *asciiSet) has(r rune) bool {
+	return s[r>>6&1]>>(r&63)&1 != 0
+}
+
+func isASCII(r rune) bool {
+	return uint32(r) < utf8.RuneSelf //nolint:gosec // A negative rune converts above utf8.RuneSelf, so it is not ASCII.
+}
+
+// multiRangeSet tests membership of a set that is not one range: an ASCII
+// rune by its bit, any other by searching the ranges. Each loop over runes
+// spells the test out, because one method holding both branches exceeds the
+// compiler's inlining budget and would cost a call per rune.
+//
+// Rejected: the bits inside linearAtom, because a literal pattern retains
+// atoms it never matches with; inside rangeSet, because every NFA instruction
+// holds one and would grow by a third; built per match, because the work
+// charged per atom does not cover building them.
+type multiRangeSet struct {
+	ranges rangeSet
+	ascii  asciiSet
+}
+
+func (s *multiRangeSet) containsAll(runes []rune) bool {
+	for _, r := range runes {
+		var member bool
+		if isASCII(r) {
+			member = s.ascii.has(r)
+		} else {
+			member = s.ranges.contains(r)
+		}
+		if !member {
+			return false
+		}
+	}
+	return true
+}
+
+// newASCIISets returns the ASCII members of each atom's set, or nil when every
+// set is one range.
+func newASCIISets(atoms []linearAtom) []asciiSet {
+	multi := false
+	for _, atom := range atoms {
+		multi = multi || len(atom.set.ranges) != 1
+	}
+	if !multi {
+		return nil
+	}
+	sets := make([]asciiSet, len(atoms))
+	for index, atom := range atoms {
+		sets[index] = newASCIISet(atom.set)
+	}
+	return sets
+}
+
+// multiRange returns the set of atom index, which is not one range.
+func (p *linearPattern) multiRange(index int) multiRangeSet {
+	return multiRangeSet{ranges: p.atoms[index].set, ascii: p.ascii[index]}
 }
 
 type linearAtom struct {
@@ -42,19 +121,28 @@ const (
 	linearStackStates = 2 * (linearStackRunes + 1)
 )
 
-func compileLinear(root *node, options compileLimits) (*linearPattern, bool) {
-	collector := linearCollector{pattern: &linearPattern{}}
-	if !collector.visit(root) || !linearAtomsWithinLimit(collector.pattern.atoms, options.states) {
+// linearAtoms returns the atoms of a pattern that is a concatenation of
+// character sets and their repeats. It reports false for any other pattern
+// and for a repeat count above options.states.
+func linearAtoms(root *node, options compileLimits) ([]linearAtom, bool) {
+	var collector linearCollector
+	if !collector.visit(root) || !linearAtomsWithinLimit(collector.atoms, options.states) {
 		return nil, false
 	}
-	linear := collector.pattern
-	linear.fixed = linearFixed(linear.atoms)
-	if literal, ok := linearLiteral(linear.atoms); ok {
-		linear.literal = true
-		linear.literalText = literal
-		linear.literalBytes = []byte(literal)
-	}
-	return linear, true
+	return collector.atoms, true
+}
+
+// newLiteralPattern returns the matcher of atoms that linearLiteral reads as
+// literal. It compares bytes, so it builds no ASCII sets.
+func newLiteralPattern(atoms []linearAtom, literal string) *linearPattern {
+	return &linearPattern{atoms: atoms, fixed: true, literal: true, literalText: literal, literalBytes: []byte(literal)}
+}
+
+// newRunLengthPattern returns the matcher of atoms that are not a literal.
+// Compile calls it once it has selected the run-length matcher, so a pattern
+// that compiles to a table builds no ASCII sets.
+func newRunLengthPattern(atoms []linearAtom) *linearPattern {
+	return &linearPattern{atoms: atoms, fixed: linearFixed(atoms), ascii: newASCIISets(atoms)}
 }
 
 func linearFixed(atoms []linearAtom) bool {
@@ -67,7 +155,7 @@ func linearFixed(atoms []linearAtom) bool {
 }
 
 type linearCollector struct {
-	pattern *linearPattern
+	atoms []linearAtom
 }
 
 func (c *linearCollector) visit(current *node) bool {
@@ -78,7 +166,7 @@ func (c *linearCollector) visit(current *node) bool {
 	case nodeEmpty:
 		return true
 	case nodeSet:
-		c.pattern.atoms = append(c.pattern.atoms, linearAtom{set: current.set, min: 1, max: 1})
+		c.atoms = append(c.atoms, linearAtom{set: current.set, min: 1, max: 1})
 		return true
 	case nodeConcat:
 		return c.visitConcat(current.children)
@@ -103,7 +191,7 @@ func (c *linearCollector) visitRepeat(current *node) bool {
 	if len(current.children) != 1 || current.children[0] == nil || current.children[0].kind != nodeSet {
 		return false
 	}
-	c.pattern.atoms = append(c.pattern.atoms, linearAtom{
+	c.atoms = append(c.atoms, linearAtom{
 		set:       current.children[0].set,
 		min:       current.min,
 		max:       current.max,
@@ -165,7 +253,7 @@ func (p *linearPattern) matchBytes(input []byte, budget *matchBudget, scratch *S
 
 // linearInput is the runtime-tagged string/byte carrier for the linear
 // matcher's no-scratch path. Rejected: extending it to all regex loops,
-// because matched scalar and retained-scratch workloads exceeded the allowed
+// because matched small-machine and retained-scratch workloads exceeded the allowed
 // 3% median CPU loss; representation-specific rune loops keep compiler
 // specialization.
 type linearInput struct {
@@ -267,8 +355,8 @@ func (p *linearPattern) matchPreparedRunes(runes []rune, budget *matchBudget, st
 	clear(prev)
 	prev[0] = true
 	state := linearMatchState{prev: prev, next: next, budget: budget}
-	for _, atom := range p.atoms {
-		if err := state.advance(atom, runes, rowSize); err != nil {
+	for index := range p.atoms {
+		if err := state.advance(p, index, runes, rowSize); err != nil {
 			return false, err
 		}
 	}
@@ -277,19 +365,32 @@ func (p *linearPattern) matchPreparedRunes(runes []rune, budget *matchBudget, st
 
 func (p *linearPattern) matchFixedRunes(runes []rune) bool {
 	offset := 0
-	for _, atom := range p.atoms {
+	for index, atom := range p.atoms {
 		if atom.min > uint64(len(runes)-offset) {
 			return false
 		}
 		end := offset + int(atom.min) //nolint:gosec // The comparison bounds min by the remaining int-sized slice.
-		for _, value := range runes[offset:end] {
-			if !atom.set.contains(value) {
-				return false
-			}
+		if !p.allInSet(index, runes[offset:end]) {
+			return false
 		}
 		offset = end
 	}
 	return offset == len(runes)
+}
+
+func (p *linearPattern) allInSet(index int, runes []rune) bool {
+	set := p.atoms[index].set
+	if len(set.ranges) != 1 {
+		members := p.multiRange(index)
+		return members.containsAll(runes)
+	}
+	only := set.ranges[0]
+	for _, value := range runes {
+		if value < only.lo || value > only.hi {
+			return false
+		}
+	}
+	return true
 }
 
 type linearMatchState struct {
@@ -308,18 +409,19 @@ func prepareLinearStates(runeCount int, states []bool) []bool {
 	return states[:size]
 }
 
-func (s *linearMatchState) advance(atom linearAtom, runes []rune, rowSize int) error {
+func (s *linearMatchState) advance(p *linearPattern, index int, runes []rune, rowSize int) error {
 	// The run scan and sliding-window updates each visit at most one input
 	// offset per direction. Charge that bound before doing the work.
 	if err := s.chargeLinearAtom(rowSize); err != nil {
 		return err
 	}
 	clear(s.next)
+	atom := p.atoms[index]
 	if atom.min == 0 {
 		copy(s.next, s.prev)
 	}
 	if minCount, maxCount, ok := linearRepeatBounds(atom, uint64(len(runes)), len(runes)); ok {
-		markLinearRuns(runes, s.prev, s.next, atom.set, minCount, maxCount)
+		p.markLinearRuns(index, runes, s.prev, s.next, minCount, maxCount)
 	}
 	s.prev, s.next = s.next, s.prev
 	return nil
@@ -352,12 +454,12 @@ func linearRepeatBounds(atom linearAtom, runeCount uint64, runeCountInt int) (mi
 	return minCount, maxCount, true
 }
 
-func markLinearRuns(runes []rune, prev, next []bool, set rangeSet, minRepeat, maxRepeat int) {
-	if len(set.ranges) == 1 {
+func (p *linearPattern) markLinearRuns(index int, runes []rune, prev, next []bool, minRepeat, maxRepeat int) {
+	if set := p.atoms[index].set; len(set.ranges) == 1 {
 		markSingleRangeRuns(runes, prev, next, set.ranges[0], minRepeat, maxRepeat)
 		return
 	}
-	markMultiRangeRuns(runes, prev, next, set, minRepeat, maxRepeat)
+	markMultiRangeRuns(runes, prev, next, p.multiRange(index), minRepeat, maxRepeat)
 }
 
 func markSingleRangeRuns(runes []rune, prev, next []bool, match runeRange, minRepeat, maxRepeat int) {
@@ -374,17 +476,29 @@ func markSingleRangeRuns(runes []rune, prev, next []bool, match runeRange, minRe
 	}
 }
 
-func markMultiRangeRuns(runes []rune, prev, next []bool, set rangeSet, minRepeat, maxRepeat int) {
-	start := 0
-	for start < len(runes) {
-		for start < len(runes) && !set.contains(runes[start]) {
-			start++
+func markMultiRangeRuns(runes []rune, prev, next []bool, set multiRangeSet, minRepeat, maxRepeat int) {
+	run := linearRun{start: -1, minRepeat: minRepeat, maxRepeat: maxRepeat, bounded: maxRepeat < len(runes)}
+	for index, r := range runes {
+		var member bool
+		if isASCII(r) {
+			member = set.ascii.has(r)
+		} else {
+			member = set.ranges.contains(r)
 		}
-		runStart := start
-		for start < len(runes) && set.contains(runes[start]) {
-			start++
+		if member == (run.start >= 0) {
+			continue
 		}
-		markLinearRun(prev, next, linearRun{start: runStart, end: start, minRepeat: minRepeat, maxRepeat: maxRepeat, bounded: maxRepeat < len(runes)})
+		if member {
+			run.start = index
+			continue
+		}
+		run.end = index
+		markLinearRun(prev, next, run)
+		run.start = -1
+	}
+	if run.start >= 0 {
+		run.end = len(runes)
+		markLinearRun(prev, next, run)
 	}
 }
 

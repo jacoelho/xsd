@@ -206,13 +206,15 @@ It parses `internal/source` inputs through `internal/xmlstream` into a closed
 graph before compiling; planning performs no I/O. `internal/value` owns builtin
 IDs, effective facets, literal evaluation and NOTATION constructor-use IDs;
 schema owns facet admission, final constraints and schema-use policy.
-`workBudgetKind` lists the work of the two compilation budgets.
+`workBudgetKind` lists the work of the three compilation budgets.
 `MaxSchemaDependencySteps` bounds loading, planning, registration and
 resolution, and the records compiled components retain: content-model
 particles and models, compiled content-model tables, attribute-use sets and
 wildcard namespaces. `MaxContentModelAnalysisSteps` bounds the content-model
 work of the whole compilation, and through the work spent on one model the
-heap its automaton construction uses. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)
+heap its automaton construction uses. `MaxSchemaPatternAnalysisSteps` bounds
+the steps `internal/xsdregex` spends building tables for the distinct pattern
+texts of the whole compilation. [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md)
 gives the bound per step. The admission comment above `appendWildcard`,
 `appendModelParticles` and `contentModelCompiler` state what is charged when a
 record is retained. Spent work is never refunded, and the builtin components
@@ -313,7 +315,8 @@ At a start tag:
    range the schema for schemas gives `xs:all` and an element directly in it
    (`occurrenceAdmission`); for the `value` of a size facet, `xs:whiteSpace`
    and `xs:pattern` its integer and uint32 cap, its mode, and its regular
-   expression with the `MaxSchemaPatternRetainedBytes` charge
+   expression with the `MaxSchemaPatternAnalysisSteps` and
+   `MaxSchemaPatternRetainedBytes` charges
    (`admitFacetValue`); for the `fixed` of a facet its boolean form and for
    `use` its mode (`admitParsedAttributeValue`); for `xpath` the path grammar and the
    prefix bindings of its name tests, branch by branch from the left
@@ -368,8 +371,8 @@ Compilation reads resolved QNames, occurrences, `use` modes and a facet's
 size, whiteSpace mode, compiled pattern and fixed flag as admitted, and parses the other single-keyword and short-list values again
 with the same parsers. Each distinct pattern text is compiled once, at the
 first facet that names it in document load order, and charged against
-`MaxSchemaPatternRetainedBytes` before it is kept, so a breach is reported at
-that facet's start tag. A selector or field path is parsed once, at its start
+`MaxSchemaPatternAnalysisSteps` and `MaxSchemaPatternRetainedBytes` before it
+is kept, so a breach of either is reported at that facet's start tag. A selector or field path is parsed once, at its start
 tag: prefixes resolve against that tag's namespace scope, and an unprefixed
 name test has no namespace whatever the including target namespace. Path
 names are interned when the identity constraint compiles, so a
@@ -551,10 +554,11 @@ owner, `internal/schema`, because no value-owned parser exists for them.
   work is a function of pattern and input only. Value owns pattern grouping (alternatives
   within one restriction step, and every inherited step applies) and the
   per-value pattern budget described under **Pattern work**. The aggregate
-  `MaxSchemaPatternRetainedBytes` budget and the per-compilation pattern cache
-  keyed by pattern text belong to `internal/schema` (`schemaPatterns`), which
-  admits each pattern at its facet's start tag in document load order;
-  identical text is compiled and charged once.
+  `MaxSchemaPatternAnalysisSteps` and `MaxSchemaPatternRetainedBytes` budgets
+  and the per-compilation pattern cache keyed by pattern text belong to
+  `internal/schema` (`schemaPatterns`), which admits each pattern at its
+  facet's start tag in document load order; identical text is compiled and
+  charged once.
 
 ### `internal/xsdregex`
 
@@ -567,10 +571,22 @@ xsdregex-owned structural bounds (constants, not options; numbers in
 repeats and precomputes closures. The schema plane reports a compile-bound
 failure as `schema.limit`. The state bound limits the number of compiled
 states, and so every match-time state set; it never limits input length.
-Per-pattern bounds do not bound aggregate memory. `Pattern.RetainedBytes` is
-the admitted measure: an estimate covering instructions or linear atoms, the
-scalar successor table and closure bitsets of the mode that retains them, the
-source and the character ranges, weighted by byte constants that tests keep at
+A pattern has one matcher, chosen at compile time from the pattern text alone.
+For a pattern other than a literal, Compile first builds the deterministic
+automaton as a table under three further fixed bounds (unrolled states, table
+entries and construction steps). A pattern over one of them, or whose table
+the `compileDFA` doc comment says is abandoned for another cause, is not an
+error and compiles to the run-length matcher or an NFA, which accept the same
+language. A table match reads each character once, needs no scratch, and costs
+at most twice the input bytes in work.
+Per-pattern bounds do not bound a compilation, whose distinct pattern texts
+only the schema's size limits. `Pattern.AnalysisSteps` reports the steps the
+table attempt spent, kept or abandoned, and `internal/schema` sums them over
+distinct pattern texts against `MaxSchemaPatternAnalysisSteps`.
+Per-pattern bounds do not bound aggregate memory either. `Pattern.RetainedBytes` is
+the admitted measure: an estimate covering the table and its alphabet, or
+instructions or linear atoms with their ASCII membership bits and the closure
+bitsets of the mode that retains them, the source and the character ranges, weighted by byte constants that tests keep at
 least `unsafe.Sizeof` of what they estimate. Every retained slice is charged by
 capacity, and every retained derived structure must have a term there; a test
 parses the package and fails on a slice field the estimate does not name. The
@@ -1212,8 +1228,8 @@ graph preserves these ownership rules:
   text that the compiler cache would have compiled once, and compiled every
   distinct text before any `MaxSchemaPatternRetainedBytes` charge, so 200
   copies of one large pattern cost gigabytes instead of one compile. A
-  syntax-only `xsdregex` check was rejected as well: the NFA state limit is
-  raised while the program is built, and parsing is most of the compile cost.
+  syntax-only `xsdregex` check was rejected as well: parsing is most of the
+  compile cost, so the check would save little over compiling once.
 
 - Bounding segments inside an incremental path-text cache was rejected: escaped
   lengths need a per-element name scan on the element-start hot path, and every
@@ -1597,6 +1613,47 @@ graph preserves these ownership rules:
   because temporary storage would scale with repeated inputs; a global
   named-category cache was rejected because parser-local caching already has
   the needed bounded lifetime.
+- A DFA whose rows are built during matching was rejected: a `Pattern` is
+  immutable and shared, so the rows would live in each caller's scratch or
+  behind shared mutable state, and match work would depend on what earlier
+  matches had built instead of on pattern and input only.
+- A backtracking matcher was rejected: `(a*)*b` and its kind take time
+  exponential in the input, and the work budget would reject values a linear
+  matcher accepts.
+- Matchers specialised by shape (a literal set, fixed-width fields, a fixed
+  prefix and suffix around one repeat) ahead of the table were rejected for
+  now. The table already matches the values of `BenchmarkPatternValues` in 8
+  to 71 ns each, and each shape would be one more path for a language the
+  table covers. Their case is compile cost: measured in one run, a table costs
+  1.9 to 5.9 times the run-length compile of the same pattern (1.3 to 11.3 µs
+  for the ASCII patterns of `BenchmarkPatternValueCompile`, against 0.5 to
+  4.7 µs), which a pattern repays after 10 to 54 matches, and a
+  Unicode-category pattern after about 260. The cost grows with the table: a
+  repeat bounded at 3,000 or 4,094 costs 0.3 to 0.5 ms. Compiling a
+  message-shaped schema of about 300
+  components and 14 patterns measured within 1% of the same schema with
+  run-length matchers; a schema of 1,678 pattern-restricted simple types and
+  nothing else took 2.3 times as long, and one of 3,000 Unicode-category
+  patterns bounded from 1 to 3,000 took 6.7 times as long (517 ms against
+  77 ms).
+- Trying the run-length matcher before the table was rejected: on the values
+  of `BenchmarkPatternValues` it takes 2.6 to 11 times as long per match.
+- Building no more tables once a compilation has spent its
+  `MaxSchemaPatternAnalysisSteps`, in place of reporting `schema.limit`, was
+  rejected: the matcher of a pattern, and so its match work and retained
+  bytes, would depend on the patterns declared before it, and `schemaPatterns`
+  shares a compiled pattern by text because Compile takes no other input.
+  Passing the remaining steps into Compile was rejected for the same reason;
+  the steps are charged after each compile, which overruns the limit by at
+  most one pattern's bound. Leaving the attempts unbounded was rejected: 10,000
+  patterns of 12 characters that each defeat the table compiled in 6.5 s
+  against 47 ms without the attempts.
+- Compiling the pattern facets of a restriction chain into one program
+  (alternatives of one step united, inherited steps intersected) was rejected:
+  8 of the 4,165 pattern-bearing restriction steps of the corpora declare more
+  than one pattern, `internal/value` owns grouping and reports the pattern
+  texts a value failed, and `internal/schema` shares compiled patterns by
+  text, which a per-chain program cannot.
 
 ### XML Stream And Namespaces
 

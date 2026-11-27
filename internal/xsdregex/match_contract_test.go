@@ -73,13 +73,14 @@ func TestBitsetMatchChargesOverlappingClosures(t *testing.T) {
 	// Both optional 'a' states reach the same accept state. After 'a', charge
 	// 1 byte + 1 step + 3 previous states + 2 separate closure visits + 1 final
 	// state = 8.
-	pattern, err := Compile(`(a?|a?)`)
-	if err != nil {
-		t.Fatal(err)
+	pattern := mustCompileWithoutDFA(t, `(a?|a?)`)
+	if pattern.mode != modeBitset {
+		t.Fatalf("precondition: runner %s, want bitset", modeName(pattern))
 	}
 	for _, work := range []uint64{7, 8} {
 		for _, raw := range []bool{false, true} {
 			var matched bool
+			var err error
 			if raw {
 				matched, _, err = pattern.MatchBytesWithScratch([]byte("a"), MatchOptions{MaxWork: work}, nil)
 			} else {
@@ -105,31 +106,32 @@ func TestPatternLanguageAndScratchReuse(t *testing.T) {
 		{`(\s*[^\s]\s*)+`, " a\tβ x ", true}, {`(\s*[^\s]\s*)+`, " \t", false},
 		{`(é|éa)*z`, "ééaz", true}, {`(é|éa)*z`, "ééax", false},
 	} {
-		pattern, err := Compile(test.source)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var reused Scratch
-		for _, scratch := range []*Scratch{nil, &reused, &reused} {
-			matched, _, err := pattern.MatchStringWithScratch(test.input, unlimitedWork, scratch)
-			if err != nil || matched != test.matched {
-				t.Fatalf("%q %q string: %v, %v", test.source, test.input, matched, err)
-			}
-			matched, _, err = pattern.MatchBytesWithScratch([]byte(test.input), unlimitedWork, scratch)
-			if err != nil || matched != test.matched {
-				t.Fatalf("%q %q bytes: %v, %v", test.source, test.input, matched, err)
-			}
+		for label, pattern := range compilations(t, test.source) {
+			t.Run(test.source+"/"+label, func(t *testing.T) {
+				var reused Scratch
+				for _, scratch := range []*Scratch{nil, &reused, &reused} {
+					matched, _, err := pattern.MatchStringWithScratch(test.input, unlimitedWork, scratch)
+					if err != nil || matched != test.matched {
+						t.Fatalf("%q %q string: %v, %v", test.source, test.input, matched, err)
+					}
+					matched, _, err = pattern.MatchBytesWithScratch([]byte(test.input), unlimitedWork, scratch)
+					if err != nil || matched != test.matched {
+						t.Fatalf("%q %q bytes: %v, %v", test.source, test.input, matched, err)
+					}
+				}
+			})
 		}
 	}
 }
 
 func TestPatternConcurrentMatchesUseIndependentScratch(t *testing.T) {
 	t.Parallel()
-	pattern, err := Compile(`(a|aa)*b`)
-	if err != nil {
-		t.Fatal(err)
+	var patterns []*Pattern
+	for _, pattern := range compilations(t, `(a|aa)*b`) {
+		patterns = append(patterns, pattern)
 	}
-	for range 8 {
+	for i := range 8 {
+		pattern := patterns[i%len(patterns)]
 		t.Run("match", func(t *testing.T) {
 			t.Parallel()
 			var scratch Scratch

@@ -23,10 +23,16 @@ func TestRetainedByteWeightsCoverStructSizes(t *testing.T) {
 	}{
 		{"instruction", instructionBytes, unsafe.Sizeof(instruction{})},
 		{"linearAtom", linearAtomBytes, unsafe.Sizeof(linearAtom{})},
+		{"asciiSet", asciiSetBytes, unsafe.Sizeof(asciiSet{})},
 		{"runeRange", runeRangeBytes, unsafe.Sizeof(runeRange{})},
-		{"int", intBytes, unsafe.Sizeof(int(0))},
 		{"word", wordBytes, unsafe.Sizeof(uint64(0))},
 		{"pattern", patternBytes, unsafe.Sizeof(Pattern{}) + unsafe.Sizeof(linearPattern{})},
+		{"countedRepeats", countedRepeatsBytes, unsafe.Sizeof(countedRepeats{})},
+		{"counter", counterBytes, unsafe.Sizeof(counter{})},
+		{"stateSlots", stateSlotsBytes, unsafe.Sizeof(stateSlots{})},
+		{"dfa", dfaBytes, unsafe.Sizeof(dfa{})},
+		{"dfa entry", dfaEntryBytes, unsafe.Sizeof(uint16(0))},
+		{"dfa run", dfaRunBytes, unsafe.Sizeof(uint32(0))},
 	} {
 		if test.weight < test.size {
 			t.Errorf("%s weight %d < Sizeof %d", test.name, test.weight, test.size)
@@ -48,12 +54,20 @@ func TestResourceLimitsDocStatesRetainedWeightsAndBounds(t *testing.T) {
 		fmt.Sprintf("%s NFA states", commaInt(f.states)),
 		fmt.Sprintf("%s retained character ranges", commaInt(f.retainedRanges)),
 		fmt.Sprintf("nesting depth %s", commaInt(f.depth)),
+		fmt.Sprintf("%s unrolled states", commaInt(f.dfaStates)),
+		fmt.Sprintf("%s table entries", commaInt(f.dfaEntries)),
+		fmt.Sprintf("%s construction steps", commaInt(f.dfaSteps)),
+		fmt.Sprintf("adds %d bytes, %d bytes per table entry and per alphabet page", dfaBytes, dfaEntryBytes),
+		fmt.Sprintf("%d bytes per alphabet run", dfaRunBytes),
 		fmt.Sprintf("%d bytes of fixed overhead", patternBytes),
 		fmt.Sprintf("%d bytes per character range", runeRangeBytes),
 		fmt.Sprintf("%d bytes per atom", linearAtomBytes),
+		fmt.Sprintf("%d bytes per atom for ASCII membership", asciiSetBytes),
 		fmt.Sprintf("%d bytes per state", instructionBytes),
-		fmt.Sprintf("%d bytes per scalar successor", intBytes),
 		fmt.Sprintf("%d bytes per closure bitset word", wordBytes),
+		fmt.Sprintf("%d bytes for counter tables", countedRepeatsBytes),
+		fmt.Sprintf("%d bytes per counter", counterBytes),
+		fmt.Sprintf("%d bytes per state of a machine with counters", stateSlotsBytes),
 	} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("docs/RESOURCE_LIMITS.md does not state %q", want)
@@ -73,9 +87,14 @@ func commaInt(n uint64) string {
 // type reachable from its fields, with the RetainedBytes term that charges it.
 var retainedSliceFields = map[string]string{
 	"Pattern.states":             "instructionBytes",
-	"Pattern.scalarNext":         "intBytes",
 	"Pattern.closureBits":        "wordBytes",
+	"dfa.next":                   "dfaEntryBytes",
+	"alphabet.runs":              "dfaRunBytes",
+	"alphabet.pages":             "dfaEntryBytes",
+	"countedRepeats.counters":    "counterBytes",
+	"countedRepeats.slots":       "stateSlotsBytes",
 	"linearPattern.atoms":        "linearAtomBytes",
+	"linearPattern.ascii":        "asciiSetBytes",
 	"linearPattern.literalBytes": "bytes",
 	"rangeSet.ranges":            "runeRangeBytes through Pattern.retainedRanges",
 }

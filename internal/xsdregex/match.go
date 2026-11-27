@@ -11,13 +11,28 @@ import (
 // Pattern instances are immutable and can be matched concurrently when each
 // call has its own Scratch value (or no Scratch value).
 type Scratch struct {
-	current      []int
-	next         []int
-	stack        []int
+	current      []thread
+	next         []thread
+	stack        []thread
 	linearRunes  []rune
 	linearStates []bool
-	seen         []uint32
-	mark         uint32
+	// seen holds one generation marker per tracked slot.
+	seen []uint32
+	// least holds, per state, the smallest count at or above its counter's
+	// minimum reached in the generation it records.
+	least []leastCount
+	mark  uint32
+}
+
+type leastCount struct {
+	mark, count uint32
+}
+
+// thread is one active state with the count of finished iterations of the
+// counter enclosing it, zero outside counters.
+type thread struct {
+	pc    uint32
+	count uint32
 }
 
 func bitCount(value uint64) uint64 {
@@ -42,15 +57,19 @@ func (s *Scratch) Reset(maxRetainedRunes int) {
 	// restarts mark at one, so retained slots must be zeroed before reuse or a
 	// state visited in the previous generation can be mistaken for a current
 	// visit.
-	if cap(s.seen) > maxRetainedRunes {
-		s.seen = nil
-	} else {
-		clear(s.seen[:cap(s.seen)])
-		s.seen = s.seen[:0]
-	}
+	s.seen = resetMarkers(s.seen, maxRetainedRunes)
+	s.least = resetMarkers(s.least, maxRetainedRunes)
 	s.linearRunes = resetRetained(s.linearRunes, maxRetainedRunes)
 	s.linearStates = resetRetained(s.linearStates, retainedStateLimit(maxRetainedRunes))
 	s.mark = 0
+}
+
+func resetMarkers[T any](markers []T, maxCapacity int) []T {
+	if cap(markers) > maxCapacity {
+		return nil
+	}
+	clear(markers[:cap(markers)])
+	return markers[:0]
 }
 
 func resetRetained[T any](values []T, maxCapacity int) []T {
@@ -81,13 +100,19 @@ func (b *matchBudget) step(units uint64) error {
 }
 
 type nfaRunner struct {
-	pattern *Pattern
-	scratch *Scratch
-	budget  *matchBudget
-	single  int
-	current uint64
-	scalar  bool
-	bitset  bool
+	pattern  *Pattern
+	scratch  *Scratch
+	budget   *matchBudget
+	slots    []stateSlots
+	counters []counter
+	// popCost is the work charged per closure pop: countedPopCost in a
+	// machine with counters, whose visit and dominance checks take about a
+	// third longer than a counter-free pop. The per-value work default is
+	// calibrated in time (docs/RESOURCE_LIMITS.md).
+	popCost   uint64
+	current   uint64
+	bitset    bool
+	displaced bool
 }
 
 func newRunner(pattern *Pattern, budget *matchBudget, scratch *Scratch) (nfaRunner, error) {
@@ -97,17 +122,23 @@ func newRunner(pattern *Pattern, budget *matchBudget, scratch *Scratch) (nfaRunn
 	if err := prepareRunnerScratch(pattern, scratch); err != nil {
 		return nfaRunner{}, err
 	}
-	return nfaRunner{
+	runner := nfaRunner{
 		pattern: pattern,
 		scratch: scratch,
 		budget:  budget,
-		single:  -1,
+		popCost: 1,
 		bitset:  pattern.mode == modeBitset,
-	}, nil
+	}
+	if pattern.counted != nil {
+		runner.slots = pattern.counted.slots
+		runner.counters = pattern.counted.counters
+		runner.popCost = countedPopCost
+	}
+	return runner, nil
 }
 
 func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
-	if pattern.mode == modeScalar || pattern.mode == modeBitset {
+	if pattern.mode == modeBitset {
 		return nil
 	}
 	if scratch == nil {
@@ -117,10 +148,9 @@ func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
 	// fixed per-pattern state bound caps them, and charging them would make
 	// reported work depend on scratch history (regex.go: equal inputs report
 	// equal work).
-	if cap(scratch.seen) >= len(pattern.states) {
-		scratch.seen = scratch.seen[:len(pattern.states)]
-	} else {
-		scratch.seen = make([]uint32, len(pattern.states))
+	scratch.seen = sizeMarkers(scratch.seen, pattern.trackedSlots())
+	if pattern.counted != nil {
+		scratch.least = sizeMarkers(scratch.least, len(pattern.states))
 	}
 	scratch.current = scratch.current[:0]
 	scratch.next = scratch.next[:0]
@@ -128,107 +158,203 @@ func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
 	return nil
 }
 
+// sizeMarkers reslices markers to n slots, keeping the backing array when it
+// is large enough. Slots past the old length hold markers below the current
+// generation, because wraparound and Reset clear to capacity.
+func sizeMarkers[T any](markers []T, n int) []T {
+	if cap(markers) >= n {
+		return markers[:n]
+	}
+	return make([]T, n)
+}
+
 func (r *nfaRunner) beginClosure() {
 	r.scratch.mark++
 	if r.scratch.mark == 0 {
-		// Clear to capacity, not length: prepareRunnerScratch reslices seen up
-		// to its capacity for a larger pattern, and every marker in the backing
-		// array must stay below mark or a stale slot reads as visited.
+		// Clear to capacity, not length: prepareRunnerScratch reslices markers
+		// up to their capacity for a larger pattern, and every marker in the
+		// backing array must stay below mark or a stale slot reads as visited.
 		clear(r.scratch.seen[:cap(r.scratch.seen)])
+		clear(r.scratch.least[:cap(r.scratch.least)])
 		r.scratch.mark = 1
 	}
 	r.scratch.stack = r.scratch.stack[:0]
+	r.displaced = false
 }
 
-func (r *nfaRunner) addClosure(dst *[]int, start int) error {
-	if start < 0 || start >= len(r.pattern.states) {
-		return &Error{Kind: ErrorSyntax, Offset: -1, What: "invalid NFA transition"}
+func (r *nfaRunner) addClosure(dst *[]thread, start thread) error {
+	if int(start.pc) >= len(r.pattern.states) {
+		return &Error{Kind: ErrorSyntax, Offset: -1, What: invalidTransitionError}
 	}
 	if err := r.budget.step(1); err != nil {
 		return err
 	}
 	r.scratch.stack = append(r.scratch.stack, start)
+	return r.drainClosure(dst)
+}
+
+func (r *nfaRunner) drainClosure(dst *[]thread) error {
 	for len(r.scratch.stack) != 0 {
 		last := len(r.scratch.stack) - 1
-		pc := r.scratch.stack[last]
+		current := r.scratch.stack[last]
 		r.scratch.stack = r.scratch.stack[:last]
-		if err := r.budget.step(1); err != nil {
+		if err := r.budget.step(r.popCost); err != nil {
 			return err
 		}
-		if r.scratch.seen[pc] == r.scratch.mark {
+		var expand bool
+		if r.slots == nil {
+			expand = r.markSeen(current.pc)
+		} else {
+			expand = r.claimCounted(current)
+		}
+		if !expand {
 			continue
 		}
-		r.scratch.seen[pc] = r.scratch.mark
-		if err := r.processClosureInstruction(dst, pc); err != nil {
+		if err := r.processClosureInstruction(dst, current); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *nfaRunner) processClosureInstruction(dst *[]int, pc int) error {
-	instruction := r.pattern.states[pc]
-	switch instruction.kind {
+const invalidTransitionError = "invalid NFA transition"
+
+const countedPopCost = 2
+
+// markSeen marks a state of a counter-free machine visited in this generation
+// and reports whether it was unvisited.
+func (r *nfaRunner) markSeen(pc uint32) bool {
+	seen := &r.scratch.seen[pc]
+	if *seen == r.scratch.mark {
+		return false
+	}
+	*seen = r.scratch.mark
+	return true
+}
+
+// claimCounted marks the thread visited in this generation and reports whether the
+// closure walk should expand it: it was not visited before and no smaller
+// count dominates it.
+func (r *nfaRunner) claimCounted(current thread) bool {
+	slots := r.slots[current.pc]
+	slot := slots.first + current.count
+	if r.scratch.seen[slot] == r.scratch.mark {
+		return false
+	}
+	r.scratch.seen[slot] = r.scratch.mark
+	return current.count < slots.dominatedFrom || !r.dominated(current)
+}
+
+func (r *nfaRunner) dominated(current thread) bool {
+	least := &r.scratch.least[current.pc]
+	if least.mark == r.scratch.mark {
+		if least.count <= current.count {
+			return true
+		}
+		r.displaced = true
+	}
+	*least = leastCount{mark: r.scratch.mark, count: current.count}
+	return false
+}
+
+// dropDominated removes threads that a smaller count displaced after they
+// were added, so each state carries at most one count at or above its
+// minimum into the next rune. It charges no work: each thread it checks was
+// charged when added, so the work bound holds.
+func (r *nfaRunner) dropDominated(threads []thread) []thread {
+	if !r.displaced {
+		return threads
+	}
+	kept := threads[:0]
+	for _, current := range threads {
+		if current.count >= r.slots[current.pc].dominatedFrom && r.scratch.least[current.pc].count < current.count {
+			continue
+		}
+		kept = append(kept, current)
+	}
+	return kept
+}
+
+func (r *nfaRunner) processClosureInstruction(dst *[]thread, current thread) error {
+	state := r.pattern.states[current.pc]
+	switch state.kind {
 	case instructionSplit:
-		return r.processClosureSplit(instruction)
+		return r.processClosureSplit(state, current.count)
 	case instructionJump:
-		return r.processClosureJump(instruction)
+		return r.processClosureJump(state, current.count)
 	case instructionSet, instructionAccept:
-		return r.processClosureTarget(dst, pc)
+		return r.processClosureTarget(dst, current)
+	case instructionCountHead:
+		return r.processClosureHead(state, current)
 	default:
 		return &Error{Kind: ErrorSyntax, Offset: -1, What: "invalid NFA instruction"}
 	}
 }
 
-func (r *nfaRunner) processClosureSplit(instruction instruction) error {
-	if instruction.out < 0 || instruction.out1 < 0 {
+func (r *nfaRunner) processClosureSplit(instruction instruction, count uint32) error {
+	if instruction.out|instruction.out1 < 0 {
 		return &Error{Kind: ErrorSyntax, Offset: -1, What: "incomplete split instruction"}
 	}
-	if err := r.budget.step(2); err != nil {
-		return err
-	}
-	r.scratch.stack = append(r.scratch.stack, instruction.out, instruction.out1)
-	return nil
+	r.scratch.stack = append(r.scratch.stack,
+		thread{pc: uint32(instruction.out), count: count},  //nolint:gosec // states are bounded by the compile limit.
+		thread{pc: uint32(instruction.out1), count: count}) //nolint:gosec // states are bounded by the compile limit.
+	return r.budget.step(2)
 }
 
-func (r *nfaRunner) processClosureJump(instruction instruction) error {
+func (r *nfaRunner) processClosureJump(instruction instruction, count uint32) error {
 	if instruction.out < 0 {
 		return &Error{Kind: ErrorSyntax, Offset: -1, What: "incomplete jump instruction"}
 	}
 	if err := r.budget.step(1); err != nil {
 		return err
 	}
-	r.scratch.stack = append(r.scratch.stack, instruction.out)
+	r.scratch.stack = append(r.scratch.stack, thread{pc: uint32(instruction.out), count: count}) //nolint:gosec // states are bounded by the compile limit.
 	return nil
 }
 
-func (r *nfaRunner) processClosureTarget(dst *[]int, pc int) error {
+func (r *nfaRunner) processClosureHead(instruction instruction, current thread) error {
+	if instruction.out|instruction.out1 < 0 {
+		return &Error{Kind: ErrorSyntax, Offset: -1, What: "incomplete counter head"}
+	}
+	if err := r.budget.step(2); err != nil {
+		return err
+	}
+	bounds := r.counters[r.slots[current.pc].counter]
+	if bounds.unbounded || current.count < bounds.max {
+		next := current.count + 1
+		if bounds.unbounded && next > bounds.min {
+			next = bounds.min
+		}
+		r.scratch.stack = append(r.scratch.stack, thread{pc: uint32(instruction.out), count: next}) //nolint:gosec // states are bounded by the compile limit.
+	}
+	if current.count >= bounds.min {
+		r.scratch.stack = append(r.scratch.stack, thread{pc: uint32(instruction.out1)}) //nolint:gosec // states are bounded by the compile limit.
+	}
+	return nil
+}
+
+func (r *nfaRunner) processClosureTarget(dst *[]thread, current thread) error {
 	if err := r.budget.step(1); err != nil {
 		return err
 	}
-	*dst = append(*dst, pc)
+	*dst = append(*dst, current)
 	return nil
 }
 
 func (r *nfaRunner) start() error {
-	switch r.pattern.mode {
-	case modeScalar:
-		r.scalar = true
-		r.single = r.pattern.scalarStart
-		return nil
-	case modeBitset:
+	if r.bitset {
 		r.current = r.pattern.startBits
 		return nil
-	case modeLinear, modeGeneral:
 	}
 	r.beginClosure()
-	return r.addClosure(&r.scratch.current, r.pattern.start)
+	if err := r.addClosure(&r.scratch.current, thread{pc: uint32(r.pattern.start)}); err != nil { //nolint:gosec // newRunner checked start against the state count.
+		return err
+	}
+	r.scratch.current = r.dropDominated(r.scratch.current)
+	return nil
 }
 
 func (r *nfaRunner) rune(value rune) error {
-	if r.scalar {
-		return r.scalarRune(value)
-	}
 	if r.bitset {
 		return r.bitsetRune(value)
 	}
@@ -265,56 +391,28 @@ func (r *nfaRunner) nfaRune(value rune) error {
 	previous := r.scratch.current
 	r.scratch.next = r.scratch.next[:0]
 	r.beginClosure()
-	for _, pc := range previous {
-		if err := r.advanceNFAState(value, pc); err != nil {
+	for _, current := range previous {
+		if err := r.advanceNFAState(value, current); err != nil {
 			return err
 		}
 	}
-	r.scratch.current = r.scratch.next
+	r.scratch.current = r.dropDominated(r.scratch.next)
 	r.scratch.next = previous[:0]
 	return nil
 }
 
-func (r *nfaRunner) advanceNFAState(value rune, pc int) error {
+func (r *nfaRunner) advanceNFAState(value rune, current thread) error {
 	if err := r.budget.step(1); err != nil {
 		return err
 	}
-	state := r.pattern.states[pc]
+	state := r.pattern.states[current.pc]
 	if state.kind != instructionSet || !matchesRune(state.set, value) {
 		return nil
 	}
-	return r.addClosure(&r.scratch.next, state.out)
-}
-
-func (r *nfaRunner) scalarRune(value rune) error {
-	work := uint64(1)
-	if r.single < 0 {
-		return r.budget.step(work)
+	if state.out < 0 {
+		return &Error{Kind: ErrorSyntax, Offset: -1, What: invalidTransitionError}
 	}
-	state := r.pattern.states[r.single]
-	work++
-	matched := false
-	if state.kind == instructionSet {
-		ranges := state.set.ranges
-		if len(ranges) == 1 {
-			matched = ranges[0].lo <= value && value <= ranges[0].hi
-		} else {
-			matched = state.set.contains(value)
-		}
-	}
-	if !matched {
-		r.single = -1
-		return r.budget.step(work)
-	}
-	r.single = r.pattern.scalarNext[r.single]
-	return r.budget.step(work)
-}
-
-func (r *nfaRunner) scalarAccepts() (bool, error) {
-	if err := r.budget.step(1); err != nil {
-		return false, err
-	}
-	return r.single >= 0 && r.pattern.states[r.single].kind == instructionAccept, nil
+	return r.addClosure(&r.scratch.next, thread{pc: uint32(state.out), count: current.count}) //nolint:gosec // states are bounded by the compile limit.
 }
 
 func matchesRune(set rangeSet, value rune) bool {
@@ -326,20 +424,17 @@ func matchesRune(set rangeSet, value rune) bool {
 }
 
 func (r *nfaRunner) accepts() (bool, error) {
-	if r.scalar {
-		return r.scalarAccepts()
-	}
 	if r.bitset {
 		if err := r.budget.step(bitCount(r.current)); err != nil {
 			return false, err
 		}
 		return r.current&r.pattern.acceptBits != 0, nil
 	}
-	for _, pc := range r.scratch.current {
+	for _, current := range r.scratch.current {
 		if err := r.budget.step(1); err != nil {
 			return false, err
 		}
-		if r.pattern.states[pc].kind == instructionAccept {
+		if r.pattern.states[current.pc].kind == instructionAccept {
 			return true, nil
 		}
 	}
@@ -357,7 +452,11 @@ func matchString(pattern *Pattern, input string, options MatchOptions, scratch *
 	return matched, budget.work, err
 }
 
+//nolint:dupl // String and []byte inputs keep separate loops so each decodes its own representation without conversion.
 func matchStringCharged(pattern *Pattern, input string, budget *matchBudget, scratch *Scratch) (bool, error) {
+	if pattern.mode == modeDFA {
+		return pattern.dfa.matchString(input, budget)
+	}
 	if pattern.mode == modeLinear {
 		return pattern.linear.matchString(input, budget, scratch)
 	}
@@ -371,9 +470,6 @@ func matchStringCharged(pattern *Pattern, input string, budget *matchBudget, scr
 	}
 	if err := runner.start(); err != nil {
 		return false, err
-	}
-	if runner.scalar {
-		return matchScalarString(&runner, input)
 	}
 	offset := 0
 	for offset < len(input) {
@@ -395,7 +491,11 @@ func matchBytes(pattern *Pattern, input []byte, options MatchOptions, scratch *S
 	return matched, budget.work, err
 }
 
+//nolint:dupl // String and []byte inputs keep separate loops so each decodes its own representation without conversion.
 func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scratch *Scratch) (bool, error) {
+	if pattern.mode == modeDFA {
+		return pattern.dfa.matchBytes(input, budget)
+	}
 	if pattern.mode == modeLinear {
 		return pattern.linear.matchBytes(input, budget, scratch)
 	}
@@ -410,9 +510,6 @@ func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scra
 	if err := runner.start(); err != nil {
 		return false, err
 	}
-	if runner.scalar {
-		return matchScalarBytes(&runner, input)
-	}
 	offset := 0
 	for offset < len(input) {
 		value, size := utf8.DecodeRune(input[offset:])
@@ -422,28 +519,4 @@ func matchBytesCharged(pattern *Pattern, input []byte, budget *matchBudget, scra
 		offset += size
 	}
 	return runner.accepts()
-}
-
-func matchScalarString(runner *nfaRunner, input string) (bool, error) {
-	offset := 0
-	for offset < len(input) {
-		value, size := utf8.DecodeRuneInString(input[offset:])
-		if err := runner.scalarRune(value); err != nil {
-			return false, err
-		}
-		offset += size
-	}
-	return runner.scalarAccepts()
-}
-
-func matchScalarBytes(runner *nfaRunner, input []byte) (bool, error) {
-	offset := 0
-	for offset < len(input) {
-		value, size := utf8.DecodeRune(input[offset:])
-		if err := runner.scalarRune(value); err != nil {
-			return false, err
-		}
-		offset += size
-	}
-	return runner.scalarAccepts()
 }

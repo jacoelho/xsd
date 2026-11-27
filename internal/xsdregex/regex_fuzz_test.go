@@ -45,3 +45,44 @@ func FuzzXSDRegexSyntax(f *testing.F) {
 		}
 	})
 }
+
+// FuzzDFAMatchesFallback compares a DFA with the matcher the same pattern
+// compiles to without one, through both entry points.
+func FuzzDFAMatchesFallback(f *testing.F) {
+	for _, seed := range [][2]string{
+		{`[A-Z]{2}\d{4}`, "AB1234"},
+		{`(a|ab)*c`, "aababc"},
+		{`[\p{L}-[a-z]]+`, "\u00c9\u0080\u07ff\u0800"},
+		{`\i\c*`, "x\xff"},
+		{`([^a]|ab){1,9}`, "\U0010FFFF\ud7ff\ue000"},
+		{`(a?){2,5}b|.`, "\n"},
+	} {
+		f.Add(seed[0], seed[1])
+	}
+	f.Fuzz(func(t *testing.T, source, input string) {
+		if len(source) > 256 || len(input) > 256 || !utf8.ValidString(source) {
+			return
+		}
+		pattern, err := Compile(source)
+		if err != nil || pattern.mode != modeDFA {
+			return
+		}
+		fallback := mustCompileWithoutDFA(t, source)
+		for name, match := range matchers() {
+			got, work, err := match(pattern, input, unlimitedWork, nil)
+			if err != nil {
+				t.Fatalf("%s DFA %q on %q: %v", name, source, input, err)
+			}
+			want, _, err := match(fallback, input, unlimitedWork, nil)
+			if err != nil {
+				t.Fatalf("%s %s runner %q on %q: %v", name, modeName(fallback), source, input, err)
+			}
+			if got != want {
+				t.Fatalf("%s %q on %q: DFA matched = %v, %s runner matched = %v", name, source, input, got, modeName(fallback), want)
+			}
+			if limit := 2 * uint64(len(input)); work > limit {
+				t.Fatalf("%s %q on %q: DFA work %d exceeds twice the input bytes", name, source, input, work)
+			}
+		}
+	})
+}

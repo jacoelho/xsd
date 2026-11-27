@@ -27,17 +27,18 @@ func BenchmarkCompileRepeatedCategoryTerms(b *testing.B) {
 
 func BenchmarkCompileBitsetWhitespace(b *testing.B) {
 	const source = `(\s*[^\s]\s*)+`
-	pattern := benchmarkPattern(b, source)
+	pattern := mustCompileWithoutDFA(b, source)
 	if pattern.mode != modeBitset {
 		b.Fatal("benchmark requires the general bitset NFA")
 	}
 	if matched, _, err := pattern.MatchStringWithScratch(" a ", unlimitedWork, nil); err != nil || !matched {
 		b.Fatalf("fixture match = %v, %v", matched, err)
 	}
+	limits := withoutDFA()
 	b.ReportAllocs()
 	for b.Loop() {
 		var err error
-		pattern, err = Compile(source)
+		pattern, err = compileWithLimits(source, limits)
 		if err != nil || pattern == nil {
 			b.Fatalf("compile = %v, %v", pattern, err)
 		}
