@@ -83,18 +83,23 @@ func TestLongLinearValuePassesUnderDefaults(t *testing.T) {
 }
 
 // A many-state NFA on a maximum-size text value is stopped by the per-value
-// budget, not by input length. The limit sits above the input-byte charge so
-// only NFA work can exhaust it. Work, not wall time, is the contract: the
-// default budget's CPU cost is a measurement in docs/RESOURCE_LIMITS.md, and
-// asserting it here would fail on slow or race-instrumented runners.
+// budget, not by input length, whether its repeats compile unrolled or to
+// counters. The limit sits above the input-byte charge so only NFA work can
+// exhaust it. Work, not wall time, is the contract: the default budget's CPU
+// cost is a measurement in docs/RESOURCE_LIMITS.md, and asserting it here
+// would fail on slow or race-instrumented runners.
 func TestMaxTextBytesAgainstManyStatePatternIsBoundedByPatternWork(t *testing.T) {
-	engine := compilePatternSchema(t, "(a|aa){1,300}(a{1,100}){1,300}b")
 	value := strings.Repeat("a", 4<<20-64)
 	limit := uint64(len(value)) + 1<<20
-	err := engine.ValidateWithOptions(strings.NewReader("<root>"+value+"</root>"), xsd.ValidateOptions{
-		MaxInstancePatternWork: limit,
-	})
-	requireDiagnostic(t, err, xsderrors.CodeValidationLimit, "MaxInstancePatternWork="+strconv.FormatUint(limit, 10))
+	for _, pattern := range []string{"(a|b)*a(a|b){24000}", "(a|aa){1,300}(a{1,100}){1,300}b"} {
+		t.Run(pattern, func(t *testing.T) {
+			engine := compilePatternSchema(t, pattern)
+			err := engine.ValidateWithOptions(strings.NewReader("<root>"+value+"</root>"), xsd.ValidateOptions{
+				MaxInstancePatternWork: limit,
+			})
+			requireDiagnostic(t, err, xsderrors.CodeValidationLimit, "MaxInstancePatternWork="+strconv.FormatUint(limit, 10))
+		})
+	}
 }
 
 func TestPatternCompileBounds(t *testing.T) {

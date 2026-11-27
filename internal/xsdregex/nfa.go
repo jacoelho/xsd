@@ -636,52 +636,46 @@ func (l matchLength) fixed() bool {
 }
 
 func (p *repeatPlan) measure(current *node) matchLength {
-	lengths := make([]matchLength, len(current.children))
-	for i, child := range current.children {
-		lengths[i] = p.measure(child)
+	var length matchLength
+	switch current.kind {
+	case nodeSet:
+		length = matchLength{min: 1, max: 1}
+	case nodeConcat:
+		length = p.measureConcat(current.children)
+	case nodeAlt:
+		length = p.measureAlt(current.children)
+	case nodeRepeat:
+		if len(current.children) == 1 {
+			body := p.measure(current.children[0])
+			length = matchLength{
+				min:       saturatingMul(current.min, body.min),
+				max:       saturatingMul(current.max, body.max),
+				unbounded: current.unbounded && body.max != 0 || body.unbounded && current.max != 0,
+			}
+		}
+	case nodeEmpty:
 	}
-	length := combineLengths(current, lengths)
 	p.lengths[current] = length
 	return length
 }
 
-func combineLengths(current *node, children []matchLength) matchLength {
-	switch current.kind {
-	case nodeSet:
-		return matchLength{min: 1, max: 1}
-	case nodeConcat:
-		return sumLengths(children)
-	case nodeAlt:
-		return unionLengths(children)
-	case nodeRepeat:
-		if len(children) != 1 {
-			return matchLength{}
-		}
-		l := children[0]
-		return matchLength{
-			min:       saturatingMul(current.min, l.min),
-			max:       saturatingMul(current.max, l.max),
-			unbounded: current.unbounded && l.max != 0 || l.unbounded && current.max != 0,
-		}
-	case nodeEmpty:
-	}
-	return matchLength{}
-}
-
-func sumLengths(children []matchLength) matchLength {
+func (p *repeatPlan) measureConcat(children []*node) matchLength {
 	var total matchLength
-	for _, l := range children {
+	for _, child := range children {
+		l := p.measure(child)
 		total = matchLength{min: saturatingAdd(total.min, l.min), max: saturatingAdd(total.max, l.max), unbounded: total.unbounded || l.unbounded}
 	}
 	return total
 }
 
-func unionLengths(children []matchLength) matchLength {
-	if len(children) == 0 {
-		return matchLength{}
-	}
-	total := children[0]
-	for _, l := range children[1:] {
+func (p *repeatPlan) measureAlt(children []*node) matchLength {
+	var total matchLength
+	for i, child := range children {
+		l := p.measure(child)
+		if i == 0 {
+			total = l
+			continue
+		}
 		total = matchLength{min: min(total.min, l.min), max: max(total.max, l.max), unbounded: total.unbounded || l.unbounded}
 	}
 	return total
