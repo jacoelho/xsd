@@ -23,6 +23,7 @@ func TestRetainedByteWeightsCoverStructSizes(t *testing.T) {
 	}{
 		{"instruction", instructionBytes, unsafe.Sizeof(instruction{})},
 		{"linearAtom", linearAtomBytes, unsafe.Sizeof(linearAtom{})},
+		{"asciiSet", asciiSetBytes, unsafe.Sizeof(asciiSet{})},
 		{"runeRange", runeRangeBytes, unsafe.Sizeof(runeRange{})},
 		{"word", wordBytes, unsafe.Sizeof(uint64(0))},
 		{"pattern", patternBytes, unsafe.Sizeof(Pattern{}) + unsafe.Sizeof(linearPattern{})},
@@ -61,6 +62,7 @@ func TestResourceLimitsDocStatesRetainedWeightsAndBounds(t *testing.T) {
 		fmt.Sprintf("%d bytes of fixed overhead", patternBytes),
 		fmt.Sprintf("%d bytes per character range", runeRangeBytes),
 		fmt.Sprintf("%d bytes per atom", linearAtomBytes),
+		fmt.Sprintf("%d bytes per atom for ASCII membership", asciiSetBytes),
 		fmt.Sprintf("%d bytes per state", instructionBytes),
 		fmt.Sprintf("%d bytes per closure bitset word", wordBytes),
 		fmt.Sprintf("%d bytes for counter tables", countedRepeatsBytes),
@@ -92,6 +94,7 @@ var retainedSliceFields = map[string]string{
 	"countedRepeats.counters":    "counterBytes",
 	"countedRepeats.slots":       "stateSlotsBytes",
 	"linearPattern.atoms":        "linearAtomBytes",
+	"linearPattern.ascii":        "asciiSetBytes",
 	"linearPattern.literalBytes": "bytes",
 	"rangeSet.ranges":            "runeRangeBytes through Pattern.retainedRanges",
 }

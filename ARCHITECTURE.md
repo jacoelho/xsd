@@ -583,8 +583,8 @@ table attempt spent, kept or abandoned, and `internal/schema` sums them over
 distinct pattern texts against `MaxSchemaPatternAnalysisSteps`.
 Per-pattern bounds do not bound aggregate memory either. `Pattern.RetainedBytes` is
 the admitted measure: an estimate covering the table and its alphabet, or
-instructions or linear atoms and the closure bitsets of the mode that retains
-them, the source and the character ranges, weighted by byte constants that tests keep at
+instructions or linear atoms with their ASCII membership bits and the closure
+bitsets of the mode that retains them, the source and the character ranges, weighted by byte constants that tests keep at
 least `unsafe.Sizeof` of what they estimate. Every retained slice is charged by
 capacity, and every retained derived structure must have a term there; a test
 parses the package and fails on a slice field the estimate does not name. The
@@ -1622,19 +1622,20 @@ graph preserves these ownership rules:
   prefix and suffix around one repeat) ahead of the table were rejected for
   now. The table already matches the values of `BenchmarkPatternValues` in 8
   to 71 ns each, and each shape would be one more path for a language the
-  table covers. Their case is compile cost: a table costs 2.1 to 6.6 times the
-  run-length compile of the same pattern (1.1 to 9.6 µs for the ASCII patterns
-  of `BenchmarkPatternValueCompile`, against 0.4 to 3.7 µs), which a pattern
-  repays after 4 to 33 matches, and a Unicode-category pattern after about
-  90. The cost grows with the table: a repeat bounded at 3,000 or 4,094
-  costs 0.3 to 0.5 ms. Compiling a message-shaped schema of about 300
+  table covers. Their case is compile cost: measured in one run, a table costs
+  1.9 to 5.9 times the run-length compile of the same pattern (1.3 to 11.3 µs
+  for the ASCII patterns of `BenchmarkPatternValueCompile`, against 0.5 to
+  4.7 µs), which a pattern repays after 10 to 54 matches, and a
+  Unicode-category pattern after about 260. The cost grows with the table: a
+  repeat bounded at 3,000 or 4,094 costs 0.3 to 0.5 ms. Compiling a
+  message-shaped schema of about 300
   components and 14 patterns measured within 1% of the same schema with
   run-length matchers; a schema of 1,678 pattern-restricted simple types and
   nothing else took 2.3 times as long, and one of 3,000 Unicode-category
   patterns bounded from 1 to 3,000 took 6.7 times as long (517 ms against
   77 ms).
 - Trying the run-length matcher before the table was rejected: on the values
-  of `BenchmarkPatternValues` it takes 4 to 24 times as long per match.
+  of `BenchmarkPatternValues` it takes 2.6 to 11 times as long per match.
 - Building no more tables once a compilation has spent its
   `MaxSchemaPatternAnalysisSteps`, in place of reporting `schema.limit`, was
   rejected: the matcher of a pattern, and so its match work and retained

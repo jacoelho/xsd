@@ -9,6 +9,7 @@ func retainedCapacityOracle(p *Pattern) uint64 {
 	total := uint64(len(p.source))
 	if p.linear != nil {
 		total += uint64(cap(p.linear.atoms)) * uint64(unsafe.Sizeof(linearAtom{}))
+		total += uint64(cap(p.linear.ascii)) * uint64(unsafe.Sizeof(asciiSet{}))
 		total += uint64(len(p.linear.literalText)) + uint64(cap(p.linear.literalBytes))
 	}
 	total += uint64(cap(p.states)) * uint64(unsafe.Sizeof(instruction{}))

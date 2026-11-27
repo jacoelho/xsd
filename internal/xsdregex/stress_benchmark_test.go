@@ -50,6 +50,7 @@ var stressCases = []stressCase{
 	{"repeat/bounded-class", `[0-9a-zA-Z/\-\?:\(\)\.\n\r,'\+ ]{1,2048}`, stressASCIIText, "", true},
 	{"repeat/bounded-alternation", `([A-Za-z0-9]|[\+\?/\-:\(\)\., ]){1,2048}`, stressASCIIText, "", true},
 	{"repeat/bounded-class-large", `[0-9a-zA-Z/\-\?:\(\)\.\n\r,'\+ ]{1,8192}`, stressASCIIText, "", true},
+	{"repeat/bounded-categories-large-nonascii", `[\p{L}\p{N}\p{Zs},]{1,8192}`, stressNonASCIIText, "", true},
 	{"repeat/bounded-group", `([a-z]+[0-9]){1,512}`, "abc1", "", true},
 	{"repeat/nullable-body", `([a-z]*[0-9]?){1,512}`, "abc1", "", true},
 	{"repeat/ambiguous-optional", `([a-z]+){1,512}`, "abcdefghij", "", true},

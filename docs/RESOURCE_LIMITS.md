@@ -279,11 +279,13 @@ the source length. A table pattern adds 224 bytes, 2 bytes per table entry and
 per alphabet page, and 4 bytes per alphabet run (a maximal run of non-ASCII
 characters of one class); it retains no character ranges. Any other pattern
 adds 8 bytes per character range (each distinct range array counted once, by
-capacity), plus, for a run-length pattern, 48 bytes per atom and the literal
-text, or, for an NFA pattern, 48 bytes per state plus 8 bytes per closure
-bitset word when it has at most 64 states; larger NFAs retain no bitsets. A
-pattern whose counted repeats compile to counters adds 64 bytes for counter
-tables, 12 bytes per counter and 12 bytes per state of a machine with counters.
+capacity), plus, for a run-length pattern, 48 bytes per atom, the literal
+text, and 16 bytes per atom for ASCII membership when any of its sets is not
+a single range, or, for an NFA pattern, 48 bytes per state plus 8 bytes per
+closure bitset word when it has at most 64 states; larger NFAs retain no
+bitsets. A pattern whose counted repeats compile to counters adds 64 bytes for
+counter tables, 12 bytes per counter and 12 bytes per state of a machine with
+counters.
 Every retained array is charged by capacity, not length, which raises the
 estimate by the arrays' append slack: about 22% for a large NFA, and up to
 about 70% for a small one.

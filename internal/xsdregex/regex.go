@@ -188,6 +188,7 @@ func compileWithLimits(source string, options compileLimits) (*Pattern, error) {
 		return &Pattern{source: source, dfa: table, mode: modeDFA, analysisSteps: steps}, nil
 	}
 	if isLinear {
+		linear.indexASCII()
 		return &Pattern{source: source, linear: linear, mode: modeLinear, retainedRanges: p.retainedRanges, analysisSteps: steps}, nil
 	}
 	nfa, err := compileNFA(root, plan, options)
