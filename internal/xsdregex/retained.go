@@ -24,8 +24,7 @@ const (
 // retained slice is charged by capacity at its weight, since the allocator
 // keeps the capacity whatever the length. Instructions or linear atoms, the
 // scalar successor table, the closure bitsets and the counter tables are
-// counted, each distinct
-// character-range backing array once, and the source. Every retained derived
+// counted, each distinct character-range backing array once, and the source. Every retained derived
 // structure must be counted here; a new retained table without a term here
 // escapes admission.
 func (p *Pattern) RetainedBytes() uint64 {

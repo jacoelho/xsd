@@ -18,11 +18,14 @@ type Scratch struct {
 	linearStates []bool
 	// seen holds one generation marker per tracked slot.
 	seen []uint32
-	// leastMark and least hold, per state, the generation and the smallest
-	// count at or above its counter's minimum reached in that generation.
-	leastMark []uint32
-	least     []uint32
-	mark      uint32
+	// least holds, per state, the smallest count at or above its counter's
+	// minimum reached in the generation it records.
+	least []leastCount
+	mark  uint32
+}
+
+type leastCount struct {
+	mark, count uint32
 }
 
 // thread is one active state with the count of finished iterations of the
@@ -55,14 +58,13 @@ func (s *Scratch) Reset(maxRetainedRunes int) {
 	// state visited in the previous generation can be mistaken for a current
 	// visit.
 	s.seen = resetMarkers(s.seen, maxRetainedRunes)
-	s.leastMark = resetMarkers(s.leastMark, maxRetainedRunes)
-	s.least = resetRetained(s.least, maxRetainedRunes)
+	s.least = resetMarkers(s.least, maxRetainedRunes)
 	s.linearRunes = resetRetained(s.linearRunes, maxRetainedRunes)
 	s.linearStates = resetRetained(s.linearStates, retainedStateLimit(maxRetainedRunes))
 	s.mark = 0
 }
 
-func resetMarkers(markers []uint32, maxCapacity int) []uint32 {
+func resetMarkers[T any](markers []T, maxCapacity int) []T {
 	if cap(markers) > maxCapacity {
 		return nil
 	}
@@ -151,7 +153,6 @@ func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
 	// equal work).
 	scratch.seen = sizeMarkers(scratch.seen, pattern.trackedSlots())
 	if pattern.counted != nil {
-		scratch.leastMark = sizeMarkers(scratch.leastMark, len(pattern.states))
 		scratch.least = sizeMarkers(scratch.least, len(pattern.states))
 	}
 	scratch.current = scratch.current[:0]
@@ -163,11 +164,11 @@ func prepareRunnerScratch(pattern *Pattern, scratch *Scratch) error {
 // sizeMarkers reslices markers to n slots, keeping the backing array when it
 // is large enough. Slots past the old length hold markers below the current
 // generation, because wraparound and Reset clear to capacity.
-func sizeMarkers(markers []uint32, n int) []uint32 {
+func sizeMarkers[T any](markers []T, n int) []T {
 	if cap(markers) >= n {
 		return markers[:n]
 	}
-	return make([]uint32, n)
+	return make([]T, n)
 }
 
 func (r *nfaRunner) beginClosure() {
@@ -177,7 +178,7 @@ func (r *nfaRunner) beginClosure() {
 		// up to their capacity for a larger pattern, and every marker in the
 		// backing array must stay below mark or a stale slot reads as visited.
 		clear(r.scratch.seen[:cap(r.scratch.seen)])
-		clear(r.scratch.leastMark[:cap(r.scratch.leastMark)])
+		clear(r.scratch.least[:cap(r.scratch.least)])
 		r.scratch.mark = 1
 	}
 	r.scratch.stack = r.scratch.stack[:0]
@@ -248,14 +249,14 @@ func (r *nfaRunner) claimCounted(current thread) bool {
 }
 
 func (r *nfaRunner) dominated(current thread) bool {
-	if r.scratch.leastMark[current.pc] == r.scratch.mark {
-		if r.scratch.least[current.pc] <= current.count {
+	least := &r.scratch.least[current.pc]
+	if least.mark == r.scratch.mark {
+		if least.count <= current.count {
 			return true
 		}
 		r.displaced = true
 	}
-	r.scratch.leastMark[current.pc] = r.scratch.mark
-	r.scratch.least[current.pc] = current.count
+	*least = leastCount{mark: r.scratch.mark, count: current.count}
 	return false
 }
 
@@ -269,7 +270,7 @@ func (r *nfaRunner) dropDominated(threads []thread) []thread {
 	}
 	kept := threads[:0]
 	for _, current := range threads {
-		if current.count >= r.slots[current.pc].dominatedFrom && r.scratch.least[current.pc] < current.count {
+		if current.count >= r.slots[current.pc].dominatedFrom && r.scratch.least[current.pc].count < current.count {
 			continue
 		}
 		kept = append(kept, current)
@@ -286,8 +287,6 @@ func (r *nfaRunner) processClosureInstruction(dst *[]thread, current thread) err
 		return r.processClosureJump(instruction, current.count)
 	case instructionSet, instructionAccept:
 		return r.processClosureTarget(dst, current)
-	case instructionCountEnter:
-		return r.processClosureJump(instruction, 0)
 	case instructionCountHead:
 		return r.processClosureHead(instruction, current)
 	default:
@@ -317,7 +316,7 @@ func (r *nfaRunner) processClosureJump(instruction instruction, count uint32) er
 }
 
 func (r *nfaRunner) processClosureHead(instruction instruction, current thread) error {
-	if instruction.out < 0 || instruction.out1 < 0 {
+	if instruction.out|instruction.out1 < 0 {
 		return &Error{Kind: ErrorSyntax, Offset: -1, What: "incomplete counter head"}
 	}
 	if err := r.budget.step(2); err != nil {

@@ -12,10 +12,8 @@ const (
 	instructionSplit
 	instructionJump
 	instructionAccept
-	// instructionCountEnter starts a counted repeat at count zero; out is its
-	// head.
-	instructionCountEnter
-	// instructionCountHead holds the number of finished iterations. It starts
+	// instructionCountHead holds the number of finished iterations; a thread
+	// enters a counted repeat at its head with count zero. It starts
 	// another (out, count plus one) while the count is below the maximum and
 	// leaves the repeat (out1) once the count reaches the minimum. Body exits
 	// lead back to the head, so a body state's count is the iteration it is in.
@@ -40,14 +38,11 @@ type fragment struct {
 }
 
 type nfaCompiler struct {
-	counted  map[*node]bool
-	lengths  map[*node]matchLength
+	counted  map[*node]counter
 	states   []instruction
 	counters []counter
 	regions  []counterRegion
 	limit    uint64
-	// counting is false while a counted body compiles: counters do not nest.
-	counting bool
 }
 
 type compiledNFA struct {
@@ -122,12 +117,7 @@ func compileNFA(root *node, options compileLimits) (compiledNFA, error) {
 	if plan.unrolled > options.states {
 		return compiledNFA{}, &Error{Kind: ErrorLimit, Offset: -1, What: stateLimitError}
 	}
-	// The scalar and bitset runners hold no counts; a machine that fits them
-	// unrolled stays unrolled.
-	if plan.unrolled <= 64 {
-		plan.counted = nil
-	}
-	c := nfaCompiler{limit: options.states, counted: plan.counted, lengths: plan.lengths, counting: len(plan.counted) != 0}
+	c := nfaCompiler{limit: options.states, counted: plan.counted}
 	rootFragment, err := c.compile(root)
 	if err != nil {
 		return compiledNFA{}, err
@@ -145,12 +135,12 @@ func compileNFA(root *node, options compileLimits) (compiledNFA, error) {
 		nfa.counted = &countedRepeats{counters: c.counters, slots: slots, trackedSlots: tracked}
 		return nfa, nil
 	}
-	// Precomputed closures are only useful to the compact <=64-state scalar and
+	// Precomputed closures are only useful to the compact scalar and
 	// bitset runners, and the Pattern retains tables derived from them rather
 	// than the closures. Larger machines use the bounded on-demand walk and avoid carrying
 	// a potentially quadratic derived graph through compilation. Those runners
 	// hold no counts, so a machine with counters always takes the walk.
-	if len(c.states) <= 64 {
+	if len(c.states) <= compactStateLimit {
 		nfa.closures, nfa.startTargets = precomputeClosures(c.states, rootFragment.start)
 	}
 	return nfa, nil
@@ -240,7 +230,7 @@ func isDeterministicNFA(states []instruction, closures [][]int, startTargets []i
 }
 
 func buildBitsetNFA(states []instruction, closures [][]int, startTargets []int) bitsetNFA {
-	if len(states) == 0 || len(states) > 64 || len(closures) == 0 || len(startTargets) == 0 {
+	if len(states) == 0 || len(states) > compactStateLimit || len(closures) == 0 || len(startTargets) == 0 {
 		return bitsetNFA{}
 	}
 	closureBits, ok := buildClosureBits(states, closures)
@@ -361,7 +351,7 @@ func walkEpsilonState(state instruction, pc int, stack *[]int, targets *[]int) b
 	case instructionSet, instructionAccept:
 		*targets = append(*targets, pc)
 		return true
-	case instructionCountEnter, instructionCountHead:
+	case instructionCountHead:
 		// Closures are precomputed only for machines without counters.
 	}
 	return false
@@ -481,8 +471,8 @@ func (c *nfaCompiler) compileRepeat(current *node) (fragment, error) {
 	if len(child) != 1 || child[0] == nil {
 		return fragment{}, &Error{Kind: ErrorSyntax, Offset: -1, What: "invalid repeat node"}
 	}
-	if c.counting && c.counted[current] {
-		return c.compileCounter(current, child[0])
+	if bounds, ok := c.counted[current]; ok {
+		return c.compileCounter(bounds, child[0])
 	}
 	result, err := c.compileRequired(child[0], current.min)
 	if err != nil {
@@ -562,21 +552,14 @@ func (c *nfaCompiler) compileOptionalRepeats(result fragment, child *node, optio
 	return result, nil
 }
 
-// compileCounter emits enter, head and the body once. Every state from the
+// compileCounter emits the head and the body once. Every state from the
 // head through the body belongs to the counter.
-func (c *nfaCompiler) compileCounter(current, child *node) (fragment, error) {
-	enter, err := c.emit(instruction{kind: instructionCountEnter, out: -1, out1: -1})
-	if err != nil {
-		return fragment{}, err
-	}
+func (c *nfaCompiler) compileCounter(bounds counter, child *node) (fragment, error) {
 	head, err := c.emit(instruction{kind: instructionCountHead, out: -1, out1: -1})
 	if err != nil {
 		return fragment{}, err
 	}
-	c.states[enter].out = head
-	c.counting = false
 	body, err := c.compile(child)
-	c.counting = true
 	if err != nil {
 		return fragment{}, err
 	}
@@ -584,21 +567,10 @@ func (c *nfaCompiler) compileCounter(current, child *node) (fragment, error) {
 		return fragment{}, err
 	}
 	c.states[head].out = body.start
-	// A body that matches the empty string can pad any run to the minimum,
-	// so r{m,n} accepts what r{0,n} does, and a zero minimum lets every count
-	// be dominated.
-	minimum := current.min
-	if c.lengths[child].min == 0 {
-		minimum = 0
-	}
 	id := int32(len(c.counters)) //nolint:gosec // counters are bounded by the state limit.
-	c.counters = append(c.counters, counter{
-		min:       uint32(minimum),
-		max:       uint32(min(current.max, uint64(math.MaxUint32))),
-		unbounded: current.unbounded,
-	})
+	c.counters = append(c.counters, bounds)
 	c.regions = append(c.regions, counterRegion{first: head, end: len(c.states), counter: id})
-	return fragment{start: enter, outs: []patch{{pc: head, which: 1}}}, nil
+	return fragment{start: head, outs: []patch{{pc: head, which: 1}}}, nil
 }
 
 // repeatPlan chooses which repeats compile to a counter. unrolled is the state
@@ -620,11 +592,23 @@ func (c *nfaCompiler) compileCounter(current, child *node) (fragment, error) {
 // dominated, so (a|aa){400,512} can track up to 400 counts per state
 // (Holík et al., "Fast Matching of Regular Patterns with Synchronizing
 // Counting", FoSSaCS 2023, arXiv:2301.12851).
+//
+// counted holds exactly the repeats that compile to a counter, each with its
+// bounds. A machine whose unrolled form has at most compactStateLimit states
+// counts none, so the scalar and bitset runners, which hold no counts, still
+// apply.
 type repeatPlan struct {
-	counted  map[*node]bool
-	lengths  map[*node]matchLength
+	counted map[*node]counter
+	lengths map[*node]matchLength
+	// marked lists the repeats marked counted, in marking order, so a counted
+	// repeat can unmark those in its body: counters do not nest.
+	marked   []*node
 	unrolled uint64
 }
+
+// compactStateLimit is the largest machine the scalar and bitset runners
+// take.
+const compactStateLimit = 64
 
 type matchLength struct {
 	min, max  uint64
@@ -686,11 +670,18 @@ type planCost struct {
 	planned  uint64
 }
 
+func (c planCost) add(other planCost) planCost {
+	return planCost{unrolled: saturatingAdd(c.unrolled, other.unrolled), planned: saturatingAdd(c.planned, other.planned)}
+}
+
 func newRepeatPlan(root *node) repeatPlan {
-	plan := repeatPlan{counted: make(map[*node]bool), lengths: make(map[*node]matchLength)}
+	plan := repeatPlan{counted: make(map[*node]counter), lengths: make(map[*node]matchLength)}
 	plan.measure(root)
 	cost := plan.visit(root, entryFixed)
 	plan.unrolled = saturatingAdd(cost.unrolled, 1)
+	if plan.unrolled <= compactStateLimit {
+		clear(plan.counted)
+	}
 	return plan
 }
 
@@ -726,7 +717,7 @@ func (p *repeatPlan) visitConcat(children []*node, entry entryPosition) planCost
 		if length := p.lengths[child]; length.unbounded || length.min != length.max {
 			entry = entryVaries
 		}
-		total = planCost{unrolled: saturatingAdd(total.unrolled, cost.unrolled), planned: saturatingAdd(total.planned, cost.planned)}
+		total = total.add(cost)
 	}
 	return total
 }
@@ -738,8 +729,7 @@ func (p *repeatPlan) visitAlt(children []*node, entry entryPosition) planCost {
 	splits := uint64(len(children)) - 1
 	total := planCost{unrolled: splits, planned: splits}
 	for _, child := range children {
-		cost := p.visit(child, entry)
-		total = planCost{unrolled: saturatingAdd(total.unrolled, cost.unrolled), planned: saturatingAdd(total.planned, cost.planned)}
+		total = total.add(p.visit(child, entry))
 	}
 	return total
 }
@@ -756,16 +746,40 @@ func (p *repeatPlan) visitRepeat(current *node, entry entryPosition) planCost {
 	if current.unbounded || !fixedBody {
 		bodyEntry = entryVaries
 	}
+	inner := len(p.marked)
 	body := p.visit(child, bodyEntry)
 	cost := planCost{unrolled: repeatStates(current, body.unrolled), planned: repeatStates(current, body.planned)}
 	if !countable(current) || fixedBody && (entry == entryFixed || !current.unbounded && current.min == current.max) {
 		return cost
 	}
-	if counted := saturatingAdd(body.unrolled, 2); counted < cost.planned {
-		p.counted[current] = true
+	if counted := saturatingAdd(body.unrolled, 1); counted < cost.planned {
+		p.count(current, child, inner)
 		cost.planned = counted
 	}
 	return cost
+}
+
+func (p *repeatPlan) count(current, child *node, inner int) {
+	for _, nested := range p.marked[inner:] {
+		delete(p.counted, nested)
+	}
+	p.marked = append(p.marked[:inner], current)
+	p.counted[current] = p.bounds(current, child)
+}
+
+// bounds gives a counted repeat's counter. A body that matches the empty
+// string can pad any run to the minimum, so r{m,n} accepts what r{0,n} does,
+// and a zero minimum lets every count be dominated.
+func (p *repeatPlan) bounds(current, child *node) counter {
+	minimum := current.min
+	if p.lengths[child].min == 0 {
+		minimum = 0
+	}
+	return counter{
+		min:       uint32(minimum),
+		max:       uint32(min(current.max, uint64(math.MaxUint32))),
+		unbounded: current.unbounded,
+	}
 }
 
 // countable reports whether a repeat iterates more than once, so a counter

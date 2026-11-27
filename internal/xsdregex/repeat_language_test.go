@@ -17,6 +17,26 @@ var repeatLanguageQuantifiers = []string{
 
 var repeatLanguageWrappers = []string{`%s`, `(%s)*`, `a(%s)b?`, `(%s){1,3}`, `((%s)b){0,4}a?`, `(%s)|b{2,30}`, `((%s)b?){2,6}`}
 
+func repeatLanguageSources(body string) []string {
+	var sources []string
+	for _, quantifier := range repeatLanguageQuantifiers {
+		for _, wrapper := range repeatLanguageWrappers {
+			sources = append(sources, fmt.Sprintf(wrapper, "("+body+")"+quantifier))
+		}
+	}
+	return sources
+}
+
+func mustParse(t *testing.T, source string) *node {
+	t.Helper()
+	p := parser{source: []rune(source), limits: fixedCompileLimits}
+	root, err := p.parse()
+	if err != nil {
+		t.Fatalf("parse %q: %v", source, err)
+	}
+	return root
+}
+
 // repeatLanguageInputs holds every string over {a,b} up to length 8 and runs
 // of a, optionally framed by b, long enough to cross every bound above.
 func repeatLanguageInputs() []string {
@@ -51,26 +71,23 @@ func TestCountedRepeatsAcceptSameLanguageAsGoRegexp(t *testing.T) {
 func assertRepeatLanguage(t *testing.T, body string, inputs []string) {
 	t.Helper()
 	counters := 0
-	for _, quantifier := range repeatLanguageQuantifiers {
-		for _, wrapper := range repeatLanguageWrappers {
-			source := fmt.Sprintf(wrapper, "("+body+")"+quantifier)
-			oracle, err := regexp.Compile(`^(?:` + source + `)$`)
-			if err != nil {
-				t.Fatalf("regexp.Compile(%q): %v", source, err)
-			}
-			pattern := mustCompile(t, source)
-			if pattern.counted != nil {
-				counters++
-			}
-			for name, match := range matchers() {
-				for _, input := range inputs {
-					matched, _, err := match(pattern, input, unlimitedWork, nil)
-					if err != nil {
-						t.Fatalf("%s %q on %q: %v", name, source, input, err)
-					}
-					if want := oracle.MatchString(input); matched != want {
-						t.Fatalf("%s %q (runner %s) on %q: matched = %v, want %v", name, source, modeName(pattern), input, matched, want)
-					}
+	for _, source := range repeatLanguageSources(body) {
+		oracle, err := regexp.Compile(`^(?:` + source + `)$`)
+		if err != nil {
+			t.Fatalf("regexp.Compile(%q): %v", source, err)
+		}
+		pattern := mustCompile(t, source)
+		if pattern.counted != nil {
+			counters++
+		}
+		for name, match := range matchers() {
+			for _, input := range inputs {
+				matched, _, err := match(pattern, input, unlimitedWork, nil)
+				if err != nil {
+					t.Fatalf("%s %q on %q: %v", name, source, input, err)
+				}
+				if want := oracle.MatchString(input); matched != want {
+					t.Fatalf("%s %q (runner %s) on %q: matched = %v, want %v", name, source, modeName(pattern), input, matched, want)
 				}
 			}
 		}
@@ -82,34 +99,19 @@ func assertRepeatLanguage(t *testing.T, body string, inputs []string) {
 
 func TestCountedMachineTracksAtMostThreeTimesUnrolledStates(t *testing.T) {
 	t.Parallel()
-	for _, body := range repeatLanguageBodies {
-		for _, quantifier := range repeatLanguageQuantifiers {
-			for _, wrapper := range repeatLanguageWrappers {
-				source := fmt.Sprintf(wrapper, "("+body+")"+quantifier)
-				p := parser{source: []rune(source), limits: fixedCompileLimits}
-				root, err := p.parse()
-				if err != nil {
-					t.Fatal(err)
-				}
-				unrolled := newRepeatPlan(root).unrolled
-				pattern := mustCompile(t, source)
-				if tracked := uint64(pattern.trackedSlots()); tracked > 3*unrolled { //nolint:gosec // tracked slots are bounded by the compile limit.
-					t.Errorf("%q: %d tracked states, want at most 3 * %d unrolled", source, tracked, unrolled)
-				}
-			}
-		}
-	}
-	for _, source := range []string{`(a|aa){1,19000}`, `([a-z]+[0-9]){1,19000}`, `(a?){2,24000}`, `((ab){2}c?){1,9000}`, `(a|b)*a(a|b){1,24000}`} {
-		pattern := mustCompile(t, source)
-		if pattern.counted == nil {
+	large := []string{`(a|aa){1,19000}`, `([a-z]+[0-9]){1,19000}`, `(a?){2,24000}`, `((ab){2}c?){1,9000}`, `(a|b)*a(a|b){1,24000}`}
+	for _, source := range large {
+		if mustCompile(t, source).counted == nil {
 			t.Fatalf("%q: no counter", source)
 		}
-		p := parser{source: []rune(source), limits: fixedCompileLimits}
-		root, err := p.parse()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if tracked, unrolled := uint64(pattern.trackedSlots()), newRepeatPlan(root).unrolled; tracked > 3*unrolled { //nolint:gosec // tracked slots are bounded by the compile limit.
+	}
+	sources := large
+	for _, body := range repeatLanguageBodies {
+		sources = append(sources, repeatLanguageSources(body)...)
+	}
+	for _, source := range sources {
+		unrolled := newRepeatPlan(mustParse(t, source)).unrolled
+		if tracked := uint64(mustCompile(t, source).trackedSlots()); tracked > 3*unrolled { //nolint:gosec // tracked slots are bounded by the compile limit.
 			t.Errorf("%q: %d tracked states, want at most 3 * %d unrolled", source, tracked, unrolled)
 		}
 	}
@@ -119,18 +121,10 @@ func TestRepeatPlanUnrolledCountEqualsUnrolledMachine(t *testing.T) {
 	t.Parallel()
 	sources := []string{`a`, `(a|b){33000}`, `((ab){2}c){1,40}`, `(a{2,5}|b?){0,7}c*`, `()`, `(|a)`, `a{0}`, `(a{3}){2,}`}
 	for _, body := range repeatLanguageBodies {
-		for _, quantifier := range repeatLanguageQuantifiers {
-			for _, wrapper := range repeatLanguageWrappers {
-				sources = append(sources, fmt.Sprintf(wrapper, "("+body+")"+quantifier))
-			}
-		}
+		sources = append(sources, repeatLanguageSources(body)...)
 	}
 	for _, source := range sources {
-		p := parser{source: []rune(source), limits: fixedCompileLimits}
-		root, err := p.parse()
-		if err != nil {
-			t.Fatalf("parse %q: %v", source, err)
-		}
+		root := mustParse(t, source)
 		c := nfaCompiler{limit: fixedCompileLimits.states}
 		fragment, err := c.compile(root)
 		if err != nil {

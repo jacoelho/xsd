@@ -345,8 +345,8 @@ The aggregate default is derived, not chosen: the per-value default times the
 number of maximum-size text values a maximum-size document can hold,
 `2^29 * (64 MiB / 4 MiB) = 2^33`. A maximum-size document made entirely of
 maximum-size values of the shape the per-value default admits therefore stays
-admitted. At the measured worst case of about 1.6 s per value, the total bounds
-pattern CPU for one document at about 25 s. The schema default is the
+admitted. At the measured worst case of about 1.4 s per value, the total bounds
+pattern CPU for one document at about 23 s. The schema default is the
 per-literal default times 16, the same ratio.
 
 Measured under default options on one machine (macOS, serialized), 4 MiB of
@@ -354,14 +354,14 @@ text:
 
 | Pattern | Work | Time |
 | --- | ---: | ---: |
-| `[a-z]+` | 20,971,525 | 24 ms |
-| `(a\|b)*c` | 33,554,435 | 57 ms |
-| `(a\|aa){1,300}(a{1,100}){1,300}b` (counted repeats, non-matching) | 42,228,093 | 116 ms |
-| `(a\|b)*a(a\|b){24000}` (72,007 states, non-matching) | exceeds the default | about 1.6 s until `MaxInstancePatternWork` is reached |
+| `[a-z]+` | 20,971,525 | 18 ms |
+| `(a\|b)*c` | 33,554,435 | 52 ms |
+| `(a\|aa){1,300}(a{1,100}){1,300}b` (counted repeats, non-matching) | 42,226,290 | 99 ms |
+| `(a\|b)*a(a\|b){24000}` (72,007 states, non-matching) | exceeds the default | about 1.4 s until `MaxInstancePatternWork` is reached |
 
-At `1 << 30` the last case takes 3.2 s before reaching the per-value limit, so
+At `1 << 30` the last case takes 2.8 s before reaching the per-value limit, so
 the per-value default is `1 << 29`, the largest power of two that keeps one
-value under 2 s while admitting the common cases with a wide margin.
+value under 1.5 s while admitting the common cases with a wide margin.
 
 Reaching `MaxErrors` stops semantic assessment, but XML is still read until the
 end or a fatal error. A later fatal error takes precedence.

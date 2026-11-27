@@ -225,103 +225,76 @@ func TestMatchWorkIndependentOfScratchHistory(t *testing.T) {
 	}
 }
 
-// A generation wrap must clear every marker the backing array holds, not only
-// the current pattern's prefix: a later, larger pattern reslices seen to
-// capacity, and a stale marker equal to a post-wrap generation reads as an
-// already-visited state. Reaching the wrap through the interface takes 2^32
-// closures, so the test positions the counter directly.
+// Each offset plants markers equal to one post-wrap generation of the large
+// match, so a stale marker would read as a visit or as a smaller count
+// already present in that generation.
 func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 	t.Parallel()
-	large := mustCompile(t, `(a|ab){1,60}x`)
-	small := mustCompile(t, `(a|ab){1,20}x`)
-	if large.mode == modeBitset || large.mode == modeScalar || small.mode == modeBitset || small.mode == modeScalar ||
-		small.trackedSlots() >= large.trackedSlots() {
-		t.Fatal("precondition: two general NFA patterns, small before large")
+	tests := []struct {
+		name, small, large, largeInput string
+		plant                          func(s *Scratch, small *Pattern, marker uint32) (planted int)
+	}{
+		{
+			name: "visits", small: `(a|ab){1,20}x`, large: `(a|ab){1,60}x`, largeInput: strings.Repeat("a", 30) + "x",
+			plant: func(s *Scratch, small *Pattern, marker uint32) int {
+				stale := s.seen[:cap(s.seen)]
+				for i := small.trackedSlots(); i < len(stale); i++ {
+					stale[i] = marker
+				}
+				return len(stale) - small.trackedSlots()
+			},
+		},
+		{
+			name: "dominance", small: `(a|ab){1,20}x`, large: `(a|ab){1,20}x(b|bc){1,40}y`, largeInput: "aax" + strings.Repeat("b", 20) + "y",
+			plant: func(s *Scratch, small *Pattern, marker uint32) int {
+				stale := s.least[:cap(s.least)]
+				for i := len(small.states); i < len(stale); i++ {
+					stale[i] = leastCount{mark: marker}
+				}
+				return len(stale) - len(small.states)
+			},
+		},
 	}
-	const smallInput = "aax"
-	const largeRepeats = 30
-	largeInput := strings.Repeat("a", largeRepeats) + "x"
-	for name, match := range matchers() {
-		counted := new(Scratch)
-		if _, _, err := match(small, smallInput, unlimitedWork, counted); err != nil {
-			t.Fatal(err)
-		}
-		closures := counted.mark
-		wantMatched, wantWork, err := match(large, largeInput, unlimitedWork, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Each offset plants markers equal to one post-wrap generation of the
-		// large match, so some generation's states read as already visited.
-		for offset := uint32(1); offset <= largeRepeats+2; offset++ {
-			scratch := new(Scratch)
-			if _, _, err := match(large, largeInput, unlimitedWork, scratch); err != nil {
-				t.Fatal(err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			small, large := mustCompile(t, test.small), mustCompile(t, test.large)
+			if small.counted == nil || large.counted == nil {
+				t.Fatal("precondition: two counted patterns")
 			}
-			// Legal before the wrap: every marker is below the near-maximum mark.
-			stale := scratch.seen[:cap(scratch.seen)]
-			for i := small.trackedSlots(); i < len(stale); i++ {
-				stale[i] = closures + offset
+			const smallInput = "aax"
+			for name, match := range matchers() {
+				counted := new(Scratch)
+				if _, _, err := match(small, smallInput, unlimitedWork, counted); err != nil {
+					t.Fatal(err)
+				}
+				closures := counted.mark
+				wantMatched, wantWork, err := match(large, test.largeInput, unlimitedWork, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for offset := uint32(1); offset <= uint32(len(test.largeInput))+2; offset++ { //nolint:gosec // the input is short.
+					scratch := new(Scratch)
+					if _, _, err := match(large, test.largeInput, unlimitedWork, scratch); err != nil {
+						t.Fatal(err)
+					}
+					if test.plant(scratch, small, closures+offset) <= 0 {
+						t.Fatal("precondition: the large match leaves markers past the small pattern's")
+					}
+					scratch.mark = ^uint32(0)
+					if _, _, err := match(small, smallInput, unlimitedWork, scratch); err != nil {
+						t.Fatal(err)
+					}
+					if scratch.mark != closures {
+						t.Fatalf("%s: precondition: mark after wrap = %d, want %d", name, scratch.mark, closures)
+					}
+					matched, work, err := match(large, test.largeInput, unlimitedWork, scratch)
+					if err != nil || matched != wantMatched || work != wantWork {
+						t.Errorf("%s offset %d: after wrap = %v, %d, %v; want %v, %d", name, offset, matched, work, err, wantMatched, wantWork)
+					}
+				}
 			}
-
-			scratch.mark = ^uint32(0)
-			if _, _, err := match(small, smallInput, unlimitedWork, scratch); err != nil {
-				t.Fatal(err)
-			}
-			if scratch.mark != closures {
-				t.Fatalf("%s: precondition: mark after wrap = %d, want %d", name, scratch.mark, closures)
-			}
-			matched, work, err := match(large, largeInput, unlimitedWork, scratch)
-			if err != nil || matched != wantMatched || work != wantWork {
-				t.Errorf("%s offset %d: after wrap = %v, %d, %v; want %v, %d", name, offset, matched, work, err, wantMatched, wantWork)
-			}
-		}
-	}
-}
-
-// A stale dominance marker equal to a post-wrap generation would read as a
-// smaller count already present and prune a live thread.
-func TestMatchAfterGenerationWrapIgnoresStaleDominanceMarkers(t *testing.T) {
-	t.Parallel()
-	small := mustCompile(t, `(a|ab){1,20}x`)
-	large := mustCompile(t, `(a|ab){1,20}x(b|bc){1,40}y`)
-	if small.counted == nil || large.counted == nil || len(small.states) >= len(large.states) {
-		t.Fatal("precondition: two counted patterns, small before large")
-	}
-	const smallInput = "aax"
-	largeInput := "aax" + strings.Repeat("b", 20) + "y"
-	for name, match := range matchers() {
-		counted := new(Scratch)
-		if _, _, err := match(small, smallInput, unlimitedWork, counted); err != nil {
-			t.Fatal(err)
-		}
-		closures := counted.mark
-		wantMatched, wantWork, err := match(large, largeInput, unlimitedWork, nil)
-		if err != nil || !wantMatched {
-			t.Fatalf("precondition: large match = %v, %v", wantMatched, err)
-		}
-		for offset := uint32(1); offset <= uint32(len(largeInput))+2; offset++ { //nolint:gosec // the input is short.
-			scratch := new(Scratch)
-			if _, _, err := match(large, largeInput, unlimitedWork, scratch); err != nil {
-				t.Fatal(err)
-			}
-			for i := len(small.states); i < cap(scratch.leastMark); i++ {
-				scratch.leastMark[:cap(scratch.leastMark)][i] = closures + offset
-				scratch.least[:cap(scratch.least)][i] = 0
-			}
-			scratch.mark = ^uint32(0)
-			if _, _, err := match(small, smallInput, unlimitedWork, scratch); err != nil {
-				t.Fatal(err)
-			}
-			if scratch.mark != closures {
-				t.Fatalf("%s: precondition: mark after wrap = %d, want %d", name, scratch.mark, closures)
-			}
-			matched, work, err := match(large, largeInput, unlimitedWork, scratch)
-			if err != nil || matched != wantMatched || work != wantWork {
-				t.Errorf("%s offset %d: after wrap = %v, %d, %v; want %v, %d", name, offset, matched, work, err, wantMatched, wantWork)
-			}
-		}
+		})
 	}
 }
 
@@ -338,11 +311,9 @@ func TestScratchResetClearsDominanceMarkers(t *testing.T) {
 		if _, _, err = match(pattern, input, unlimitedWork, scratch); err != nil {
 			t.Fatal(err)
 		}
-		leastMark := scratch.leastMark[:cap(scratch.leastMark)]
 		least := scratch.least[:cap(scratch.least)]
-		for i := range leastMark {
-			leastMark[i] = 1
-			least[i] = 0
+		for i := range least {
+			least[i] = leastCount{mark: 1}
 		}
 		scratch.Reset(1 << 20)
 		matched, work, err := match(pattern, input, unlimitedWork, scratch)

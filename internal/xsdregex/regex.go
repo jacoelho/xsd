@@ -55,8 +55,9 @@ func IsLimit(err error) bool {
 // precomputes closures, so its size is capped when the schema is compiled.
 // states bounds the machine's size with every counted repeat unrolled; that
 // bounds len(states), and three times it bounds the tracked states, so it
-// bounds every reachable match-time state set; it never limits input length. Repetitions are never expanded into one AST node per
-// occurrence. The aggregate over patterns is admitted by the caller from
+// bounds every reachable match-time state set; it never limits input length.
+// Repetitions are never expanded into one AST node per occurrence. The
+// aggregate over patterns is admitted by the caller from
 // Pattern.RetainedBytes.
 type compileLimits struct {
 	patternBytes   uint64
@@ -128,9 +129,9 @@ type Pattern struct {
 // order: linear when compileLinear succeeds, scalar for a deterministic NFA of
 // at most 64 states, bitset for any other NFA of at most 64 states whose
 // closures precompute, and general otherwise. A machine with a counter is
-// always general, because the other runners hold no counts. General is also the mode of an
-// NFA of at most 64 states whose closure precomputation fails; it computes
-// closures on demand. The zero value is general, which rejects a Pattern with
+// always general, because the other runners hold no counts. General is also
+// the mode of an NFA of at most 64 states whose closure precomputation fails;
+// it computes closures on demand. The zero value is general, which rejects a Pattern with
 // no states.
 type runnerMode uint8
 
