@@ -74,13 +74,17 @@ func (d *dfa) matchString(input string, budget *matchBudget) (bool, error) {
 const maxDFAEntries = 1 << 16
 
 // compileDFA determinises the pattern's unrolled NFA and returns the steps it
-// spent. It returns no table, and the caller compiles another matcher, when
-// the NFA has more than limits.dfaStates states, which spends no step, or when
-// it abandons the attempt: the table would exceed limits.dfaEntries entries,
-// construction would take more than limits.dfaSteps steps, newClasses or
-// alphabet.index refuses the pattern's sets, or two rows hash alike. The error
-// is the NFA compiler's for a tree it rejects for any reason but its state
-// limit.
+// spent. A nil table with a nil error means the caller compiles another
+// matcher.
+//
+// An NFA of more than limits.dfaStates states gets no table and spends no
+// step. A started attempt is abandoned when the table would exceed
+// limits.dfaEntries entries or construction limits.dfaSteps steps, when
+// newClasses or alphabet.index refuses the pattern's sets, or when two rows
+// hash alike.
+//
+// The error is the NFA compiler's, for a tree it rejects for a reason other
+// than its state limit.
 func compileDFA(root *node, unrolled uint64, limits compileLimits) (*dfa, uint64, error) {
 	if unrolled > limits.dfaStates || limits.dfaEntries > maxDFAEntries {
 		return nil, 0, nil
@@ -120,7 +124,6 @@ type dfaBuilder struct {
 	mark    uint32
 }
 
-// build returns the table, or nil when it abandons the attempt.
 func (b *dfaBuilder) build(start int) *dfa {
 	if !b.buildClasses() || !b.buildTargets() {
 		return nil

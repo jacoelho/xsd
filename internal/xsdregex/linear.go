@@ -7,9 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// linearPattern is the bounded run-length matcher, built directly from the
-// AST. It matches a literal, and a concatenation of character sets and their
-// repeats that Compile builds no table for.
+// linearPattern matches a literal, or a concatenation of character sets and
+// their repeats that Compile builds no table for, by run lengths.
 //
 // literal takes priority over fixed. A fixed pattern (every atom has equal
 // minimum and maximum counts) is matched by one cursor over the atom sets;

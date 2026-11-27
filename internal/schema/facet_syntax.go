@@ -54,9 +54,8 @@ type facetValue struct {
 // xs:pattern, and is the only owner of their value syntax and limits. A value
 // it rejects is a violation of the facet's start tag, whatever the base type
 // of the restriction. Every other facet value depends on the base type and is
-// compiled with it. A pattern is admitted through patterns, which compiles
-// each distinct text once and charges MaxSchemaPatternAnalysisSteps and
-// MaxSchemaPatternRetainedBytes.
+// compiled with it. A pattern is admitted through patterns, under the limits
+// schemaPatterns documents.
 func admitFacetValue(element, value string, patterns *schemaPatterns) (facetValue, error) {
 	switch element {
 	case vocab.XSDFacetPattern:
