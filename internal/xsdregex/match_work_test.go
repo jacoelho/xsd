@@ -223,7 +223,7 @@ func TestMatchWorkIndependentOfScratchHistory(t *testing.T) {
 		if _, _, err := match(small, "aax", unlimitedWork, grown); err != nil {
 			t.Fatal(err)
 		}
-		if cap(grown.seen) >= pattern.trackedSlots() {
+		if cap(grown.nfa.seen) >= pattern.trackedSlots() {
 			t.Fatal("precondition: scratch must need growth")
 		}
 		_, want, err := match(pattern, input, unlimitedWork, nil)
@@ -253,7 +253,7 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 		{
 			name: "visits", small: `(a|ab){1,20}x`, large: `(a|ab){1,60}x`, largeInput: strings.Repeat("a", 30) + "x",
 			plant: func(s *Scratch, small *Pattern, marker uint32) int {
-				stale := s.seen[:cap(s.seen)]
+				stale := s.nfa.seen[:cap(s.nfa.seen)]
 				for i := small.trackedSlots(); i < len(stale); i++ {
 					stale[i] = marker
 				}
@@ -263,7 +263,7 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 		{
 			name: "dominance", small: `(a|ab){1,20}x`, large: `(a|ab){1,20}x(b|bc){1,40}y`, largeInput: "aax" + strings.Repeat("b", 20) + "y",
 			plant: func(s *Scratch, small *Pattern, marker uint32) int {
-				stale := s.least[:cap(s.least)]
+				stale := s.nfa.least[:cap(s.nfa.least)]
 				for i := len(small.states); i < len(stale); i++ {
 					stale[i] = leastCount{mark: marker}
 				}
@@ -284,7 +284,7 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 				if _, _, err := match(small, smallInput, unlimitedWork, counted); err != nil {
 					t.Fatal(err)
 				}
-				closures := counted.mark
+				closures := counted.nfa.mark
 				wantMatched, wantWork, err := match(large, test.largeInput, unlimitedWork, nil)
 				if err != nil {
 					t.Fatal(err)
@@ -297,12 +297,12 @@ func TestMatchAfterGenerationWrapIgnoresStaleMarkers(t *testing.T) {
 					if test.plant(scratch, small, closures+offset) <= 0 {
 						t.Fatal("precondition: the large match leaves markers past the small pattern's")
 					}
-					scratch.mark = ^uint32(0)
+					scratch.nfa.mark = ^uint32(0)
 					if _, _, err := match(small, smallInput, unlimitedWork, scratch); err != nil {
 						t.Fatal(err)
 					}
-					if scratch.mark != closures {
-						t.Fatalf("%s: precondition: mark after wrap = %d, want %d", name, scratch.mark, closures)
+					if scratch.nfa.mark != closures {
+						t.Fatalf("%s: precondition: mark after wrap = %d, want %d", name, scratch.nfa.mark, closures)
 					}
 					matched, work, err := match(large, test.largeInput, unlimitedWork, scratch)
 					if err != nil || matched != wantMatched || work != wantWork {
@@ -330,7 +330,7 @@ func TestScratchResetClearsDominanceMarkers(t *testing.T) {
 		if _, _, err = match(pattern, input, unlimitedWork, scratch); err != nil {
 			t.Fatal(err)
 		}
-		least := scratch.least[:cap(scratch.least)]
+		least := scratch.nfa.least[:cap(scratch.nfa.least)]
 		for i := range least {
 			least[i] = leastCount{mark: 1}
 		}

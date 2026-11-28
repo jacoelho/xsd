@@ -55,6 +55,21 @@ func (a *alphabet) class(r rune) uint8 {
 	return uint8(runs[lo]) //nolint:gosec // The low byte is the class.
 }
 
+// assign gives the code points in [from, to) a class. Successive calls cover
+// the code points in ascending order.
+func (a *alphabet) assign(from, to rune, class uint8) {
+	for r := from; r < min(to, utf8.RuneSelf); r++ {
+		a.ascii[r] = class
+	}
+	if to <= utf8.RuneSelf {
+		return
+	}
+	if len(a.runs) != 0 && uint8(a.runs[len(a.runs)-1]) == class { //nolint:gosec // The low byte is the class.
+		return
+	}
+	a.runs = append(a.runs, uint32(max(from, utf8.RuneSelf))<<8|uint32(class))
+}
+
 // index builds pages when runs is long enough to gain from them. It reports
 // false when a run index does not fit a page entry.
 func (a *alphabet) index() bool {
@@ -114,23 +129,7 @@ func newClasses(sets []rangeSet, budget *buildBudget) (classes, bool) {
 		return classes{}, false
 	}
 	sweep := classSweep{member: make([]uint64, len(sets)/64+1), bySet: make([][]uint8, len(sets))}
-	from := rune(0)
-	for from <= utf8.MaxRune {
-		for len(changes) != 0 && rune(changes[0]>>32) == from { //nolint:gosec // The high half is a code point.
-			set := uint32(changes[0]) //nolint:gosec // The low half is the set.
-			sweep.member[set/64] ^= 1 << (set % 64)
-			changes = changes[1:]
-		}
-		to := rune(utf8.MaxRune + 1)
-		if len(changes) != 0 {
-			to = rune(changes[0] >> 32) //nolint:gosec // The high half is a code point.
-		}
-		if !sweep.assign(from, to, budget) {
-			return classes{}, false
-		}
-		from = to
-	}
-	if !sweep.alphabet.index() {
+	if !sweep.run(changes, budget) || !sweep.alphabet.index() {
 		return classes{}, false
 	}
 	return classes{alphabet: sweep.alphabet, bySet: sweep.bySet, count: len(sweep.signatures) / len(sweep.member)}, true
@@ -168,24 +167,27 @@ type classSweep struct {
 	alphabet   alphabet
 }
 
-// assign gives the code points in [from, to) the class of the current
-// membership.
-func (s *classSweep) assign(from, to rune, budget *buildBudget) bool {
-	class, ok := s.membershipClass(budget)
-	if !ok {
-		return false
+// run classes every code point. changes is the result of membershipChanges
+// for the sets the sweep was sized for.
+func (s *classSweep) run(changes []uint64, budget *buildBudget) bool {
+	from := rune(0)
+	for from <= utf8.MaxRune {
+		for len(changes) != 0 && rune(changes[0]>>32) == from { //nolint:gosec // The high half is a code point.
+			set := uint32(changes[0]) //nolint:gosec // The low half is the set.
+			s.member[set/64] ^= 1 << (set % 64)
+			changes = changes[1:]
+		}
+		to := rune(utf8.MaxRune + 1)
+		if len(changes) != 0 {
+			to = rune(changes[0] >> 32) //nolint:gosec // The high half is a code point.
+		}
+		class, ok := s.membershipClass(budget)
+		if !ok {
+			return false
+		}
+		s.alphabet.assign(from, to, class)
+		from = to
 	}
-	for r := from; r < min(to, utf8.RuneSelf); r++ {
-		s.alphabet.ascii[r] = class
-	}
-	if to <= utf8.RuneSelf {
-		return true
-	}
-	runs := s.alphabet.runs
-	if len(runs) != 0 && uint8(runs[len(runs)-1]) == class { //nolint:gosec // The low byte is the class.
-		return true
-	}
-	s.alphabet.runs = append(s.alphabet.runs, uint32(max(from, utf8.RuneSelf))<<8|uint32(class))
 	return true
 }
 
