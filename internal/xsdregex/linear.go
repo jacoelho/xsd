@@ -232,10 +232,8 @@ func (p *linearPattern) matchString(input string, budget *matchBudget, scratch *
 	if len(input) <= linearStackRunes || scratch == nil {
 		return p.matchLinearNoScratch(linearInput{stringInput: input}, budget)
 	}
-	runes := decodeLinearString(input, &scratch.linearRunes)
-	states := prepareLinearStates(len(runes), scratch.linearStates)
-	scratch.linearStates = states
-	return p.matchPreparedRunes(runes, budget, states)
+	runes := scratch.linear.decodeString(input)
+	return p.matchPreparedRunes(runes, budget, scratch.linear.rows(len(runes)))
 }
 
 func (p *linearPattern) matchBytes(input []byte, budget *matchBudget, scratch *Scratch) (bool, error) {
@@ -245,10 +243,8 @@ func (p *linearPattern) matchBytes(input []byte, budget *matchBudget, scratch *S
 	if len(input) <= linearStackRunes || scratch == nil {
 		return p.matchLinearNoScratch(linearInput{bytesInput: input, isBytes: true}, budget)
 	}
-	runes := decodeLinearBytes(input, &scratch.linearRunes)
-	states := prepareLinearStates(len(runes), scratch.linearStates)
-	scratch.linearStates = states
-	return p.matchPreparedRunes(runes, budget, states)
+	runes := scratch.linear.decodeBytes(input)
+	return p.matchPreparedRunes(runes, budget, scratch.linear.rows(len(runes)))
 }
 
 // linearInput is the runtime-tagged string/byte carrier for the linear
@@ -312,26 +308,45 @@ func decodeLinearInput(input linearInput, dst []rune) int {
 	return count
 }
 
-func decodeLinearString(input string, dst *[]rune) []rune {
-	runes := (*dst)[:0]
+// linearScratch is the storage of the run-length matcher that a Scratch keeps
+// between matches. A match reads nothing a match before it left there.
+type linearScratch struct {
+	runes  []rune
+	states []bool
+}
+
+func (s *linearScratch) reset(maxRetainedRunes int) {
+	s.runes = resetRetained(s.runes, maxRetainedRunes)
+	s.states = resetRetained(s.states, retainedStateLimit(maxRetainedRunes))
+}
+
+func (s *linearScratch) decodeString(input string) []rune {
+	runes := s.runes[:0]
 	for offset := 0; offset < len(input); {
 		value, size := utf8.DecodeRuneInString(input[offset:])
 		runes = append(runes, value)
 		offset += size
 	}
-	*dst = runes
+	s.runes = runes
 	return runes
 }
 
-func decodeLinearBytes(input []byte, dst *[]rune) []rune {
-	runes := (*dst)[:0]
+func (s *linearScratch) decodeBytes(input []byte) []rune {
+	runes := s.runes[:0]
 	for offset := 0; offset < len(input); {
 		value, size := utf8.DecodeRune(input[offset:])
 		runes = append(runes, value)
 		offset += size
 	}
-	*dst = runes
+	s.runes = runes
 	return runes
+}
+
+// rows returns the two dynamic-programming rows for runeCount runes, holding
+// whatever the match before left in them.
+func (s *linearScratch) rows(runeCount int) []bool {
+	s.states = prepareLinearStates(runeCount, s.states)
+	return s.states
 }
 
 func (p *linearPattern) matchRunes(runes []rune, budget *matchBudget, states []bool) (bool, error) {
